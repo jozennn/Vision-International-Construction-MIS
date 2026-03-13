@@ -73,6 +73,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- ENGINEERING & LEADS ---
     Route::get('/engineering/dashboard-stats', [EngineeringController::class, 'getStats']);
+
+        // TRASH ROUTES (Must be placed before apiResource)
+    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);
+    Route::put('/leads/{id}/restore', [LeadController::class, 'restore']);
+    Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
+    
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
 
