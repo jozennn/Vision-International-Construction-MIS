@@ -1,231 +1,353 @@
-/* Container that fills the whole screen */
-.landing-screen {
-    height: 100vh;
-    width: 100vw;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); /* Deep Navy */
-    font-family: 'Inter', -apple-system, sans-serif;
-    margin: 0;
-    overflow: hidden;
+/* =========================================
+   ENTRANCE ANIMATIONS
+   ========================================= */
+
+@keyframes cardRise {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
 
-/* The Login Card */
-.login-box {
-    background: #ffffff;
-    padding: 2.5rem;
-    border-radius: 16px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    width: 100%;
-    max-width: 420px;
+@keyframes lineExpand {
+  from { left: 50%; right: 50%; }
+  to   { left: 0;   right: 0;   }
 }
 
-/* Brand Header Section */
-.brand-header {
-    text-align: center;
-    margin-bottom: 2rem;
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
-.logo-square {
-    background: #b31d33; /* Vision Blue */
-    color: white;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 1.5rem;
-    border-radius: 10px;
-    margin: 0 auto 1rem;
-}
-
-.brand-header h1 {
-    font-size: 1.5rem;
-    color: #1e293b;
-    margin: 0;
-    letter-spacing: -0.025em;
-}
-
-.brand-header p {
-    color: #64748b;
-    font-size: 0.875rem;
-    margin-top: 0.25rem;
-}
-
-/* Form Styling */
-.input-group {
-    margin-bottom: 1.25rem;
-    text-align: left;
-}
-
-.input-group label {
-    display: block;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #475569;
-    margin-bottom: 0.5rem;
-}
-
-.input-group input {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-    box-sizing: border-box; /* Ensures padding doesn't break width */
-}
-
-.input-group input:focus {
-    outline: none;
-    border-color: #b31d33;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-/* Action Button */
-.enter-btn {
-    width: 100%;
-    background: #b31d33;
-    color: white;
-    padding: 0.75rem;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background 0.2s ease;
-    margin-top: 1rem;
-}
-
-.enter-btn:hover {
-    background: #1d4ed8;
-}
-
-/* Error Message */
-.login-error {
-    background: #fef2f2;
-    color: #b91c1c;
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    margin-top: 1.5rem;
-    text-align: center;
-    border: 1px solid #fecaca;
-}
-
-
-/*For Loading Animation*/
-.loader-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.spinner {
-    border: 3px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    border-top: 3px solid #fff;
-    width: 20px;
-    height: 20px;
-    animation: spin 1s linear infinite;
-    display: inline-block;
+@keyframes shimmerSweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(200%); }
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.spinner {
-    width: 18px;
-    height: 18px;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Make button feel different when disabled */
-.enter-btn:disabled {
-    background-color: #60a5fa; /* Lighter blue */
-    cursor: not-allowed;
-    opacity: 0.8;
-}
-
-/* Optional: Pulse effect for the whole login box while checking */
-.checking-pulse {
-    animation: pulse 1.5s infinite;
+  to { transform: rotate(360deg); }
 }
 
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.8; }
-    100% { opacity: 1; }
+  0%   { opacity: 1; }
+  50%  { opacity: 0.8; }
+  100% { opacity: 1; }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   PAGE BACKGROUND
+   ========================================= */
+
+.landing-screen {
+  width: 100vw;
+  height: 100vh;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer sweep across background on load */
+.landing-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(179, 29, 51, 0.05) 50%,
+    transparent 70%
+  );
+  animation: shimmerSweep 3.5s ease-out forwards;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* =========================================
+   LOGIN CARD
+   ========================================= */
+
+.login-box {
+  background: #ffffff;
+  padding: 2.5rem;
+  border-radius: 16px;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.3),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
+  overflow: hidden; /* ← add this */
+  animation: cardRise 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+/* and simplify ::before — no border-radius needed since overflow:hidden handles clipping */
+.login-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  right: 50%;
+  height: 15px;
+  background: #b31d33;
+  border-radius: 0;
+  animation: lineExpand 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
+}
+
+/* =========================================
+   BRAND HEADER
+   ========================================= */
+
+.brand-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.5s ease 0.6s both;
+}
+
+.brand-header h1 {
+  font-size: 1.5rem;
+  color: #1e293b;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.brand-header p {
+  color: #64748b;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.logo-square-login {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  border-radius: 20px;
+  padding: 8px;
+  display: block;
+  margin: 0 auto;
+}
+
+/* =========================================
+   FORM & INPUTS
+   ========================================= */
+
+.input-group {
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+/* Staggered fade-up for each field */
+.input-group:nth-of-type(1) { animation: fadeUp 0.45s ease 1.05s both; }
+.input-group:nth-of-type(2) { animation: fadeUp 0.45s ease 1.15s both; }
+.input-group:nth-of-type(3) { animation: fadeUp 0.45s ease 1.22s both; }
+
+.input-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #b31d33;
+  box-shadow: 0 0 0 3px rgba(179, 29, 51, 0.1);
+}
+
+/* =========================================
+   PASSWORD FIELD
+   ========================================= */
+
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #9ca3af;
+  transition: color 0.2s;
+}
+
+.password-toggle-btn:hover {
+  color: #b31d33;
+}
+
+/* =========================================
+   SUBMIT BUTTON
+   ========================================= */
+
+.enter-btn {
+  width: 100%;
+  background: #b31d33;
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: background 0.2s ease, transform 0.1s ease;
+  position: relative;
+  overflow: hidden;
+
+  /* Staggered entrance */
+  animation: fadeUp 0.45s ease 1.28s both;
+}
+
+.enter-btn:hover {
+  background: #991626;
+}
+
+.enter-btn:active {
+  transform: scale(0.98);
+}
+
+.enter-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* =========================================
+   LOADING / SPINNER
+   ========================================= */
+
+.loader-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+.checking-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+/* =========================================
+   OTP / 2FA INPUT
+   ========================================= */
 
 .otp-input {
-    text-align: center;
-    font-size: 1.5rem !important;
-    letter-spacing: 8px;
-    font-weight: bold;
+  text-align: center;
+  font-size: 1.5rem !important;
+  letter-spacing: 8px;
+  font-weight: bold;
 }
 
 .helper-text {
-    font-size: 0.85rem;
-    color: #666;
-    margin-top: 8px;
-    text-align: center;
-}
-
-.back-link {
-    background: none;
-    border: none;
-    color: #007bff;
-    margin-top: 15px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    width: 100%;
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 8px;
+  text-align: center;
 }
 
 .timer-display {
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-    color: #666;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  color: #666;
 }
 
 .timer-display span.urgent {
-    color: #e74c3c;
-    font-weight: bold;
+  color: #e74c3c;
+  font-weight: bold;
 }
 
 .resend-container {
-    margin-top: 10px;
-    text-align: center;
+  margin-top: 10px;
+  text-align: center;
 }
 
 .resend-btn {
-    background: none;
-    border: none;
-    color: #3498db;
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: 0.9rem;
+  background: none;
+  border: none;
+  color: #3498db;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
 .resend-btn:hover {
-    color: #2980b9;
+  color: #2980b9;
 }
 
-.helper-text {
-    font-size: 0.8rem;
-    color: #999;
+.back-link {
+  background: none;
+  border: none;
+  color: #007bff;
+  margin-top: 15px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+/* =========================================
+   ERROR MESSAGE
+   ========================================= */
+
+.login-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-top: 1.5rem;
+  text-align: center;
+  border: 1px solid #fecaca;
+}
+
+/* =========================================
+   UTILITY
+   ========================================= */
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.bg-fixed-cover {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
 }

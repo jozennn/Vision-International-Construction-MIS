@@ -11,6 +11,7 @@ const Login = ({ onEnterSystem }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [timeLeft, setTimeLeft] = useState(60);
     const [canResend, setCanResend] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     // Timer Logic for 2FA
     useEffect(() => {
@@ -81,14 +82,17 @@ const Login = ({ onEnterSystem }) => {
     };
 
     return (
-        <div className="landing-screen flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="login-box bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
+        <div 
+            className="landing-screen flex items-center justify-center min-h-screen"
+            style={{ backgroundImage: `linear-gradient(rgba(10, 25, 47, 0.75), rgba(10, 25, 47, 0.75)), url('/login-2.jpg')` }}
+        >
+            <div className="login-box bg-white/95 backdrop-blur-sm p-8 rounded-xl shadow-lg max-w-md w-full">
                 <div className="brand-header text-center mb-8">
-                    <div className="logo-square bg-red-600 text-white w-12 h-12 flex items-center justify-center rounded mx-auto mb-4 font-bold text-xl">
-                        VE
-                    </div>
-                    <h1 className="text-xl font-bold text-gray-800">Vision International Construcion OPC</h1>
-                    <p className="text-gray-500 text-sm">
+                    <img className="logo-square-login mx-auto" src="/vite.svg.jpg" alt="Logo" />
+                    
+                    <h1 className="text-xl font-bold text-gray-800 uppercase tracking-tight">Vision International Construction OPC</h1>
+                    <p className="text-red-600 font-semibold text-xs italic mt-1">"You Envision, We build!"</p>
+                    <p className="text-gray-500 text-sm mt-2">
                         {show2FA ? 'Security Verification' : 'Management Information System'}
                     </p>
                 </div>
@@ -104,21 +108,33 @@ const Login = ({ onEnterSystem }) => {
                                     value={email}
                                     disabled={isLoading}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="admin@vision.com"
+                                    placeholder="Email"
                                     required
                                 />
                             </div>
+                            
                             <div className="input-group">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                <input
-                                    type="password"
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 outline-none"
-                                    value={password}
-                                    disabled={isLoading}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
-                                />
+                                {/* Wrapper for the input and button */}
+                                <div className="password-wrapper">
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-red-500 outline-none pr-14"
+                                        value={password}
+                                        disabled={isLoading}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Password"
+                                        required
+                                    />
+                                    {/* Toggle Button */}
+                                    <button
+                                        type="button"
+                                        className="password-toggle-btn text-[10px] font-bold uppercase text-gray-400 hover:text-red-600 transition-colors focus:outline-none"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                        {showPassword ? "Hide" : "Show"}
+                                    </button>
+                                </div>
                             </div>
                         </>
                     ) : (
@@ -150,19 +166,23 @@ const Login = ({ onEnterSystem }) => {
                         </div>
                     )}
 
-                    <button type="submit" className="enter-btn w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded transition-colors disabled:bg-gray-400" disabled={isLoading}>
+                    <button 
+                        type="submit" 
+                        className="enter-btn w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded shadow-md transition-all active:scale-[0.98] disabled:bg-gray-400" 
+                        disabled={isLoading}
+                    >
                         {isLoading ? 'Processing...' : (show2FA ? 'Verify & Enter' : 'Sign In')}
                     </button>
                 </form>
 
                 {error && (
-                    <div className="mt-4 p-3 bg-red-100 text-red-700 text-sm rounded flex items-center">
+                    <div className="mt-4 p-3 bg-red-50 border border-red-100 text-red-700 text-sm rounded flex items-center">
                         <span className="mr-2">⚠️</span> {error}
                     </div>
                 )}
             </div>
-        </div>
-    );
+        </div>    
+);
 };
 
 export default Login;
