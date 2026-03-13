@@ -1,0 +1,315 @@
+
+
+:root {
+  --primary-color: #e53958; /* Red/Pink from the active state */
+  --secondary-color: #ffc107; /* Yellow from the tabs */
+  --sidebar-width: 250px;
+  --bg-light: #f5f5f5;
+  --text-dark: #333;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--bg-light);
+}
+
+/* --- App Layout --- */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.content-area {
+  flex-grow: 1;
+  background-color: white;
+  padding-left: 30px;
+}
+
+.main-content-wrapper {
+  padding: 0 40px 40px 0; /* Adjust padding for the table content */
+}
+
+/* --- Sidebar --- */
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: white;
+  color: var(--text-dark);
+  padding: 20px 0;
+  border-right: 1px solid #eee;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  padding: 0 20px 30px;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.nav-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 30px;
+  cursor: pointer;
+  color: var(--text-dark);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-item .icon {
+  margin-right: 15px;
+  font-size: 1.1em;
+}
+
+.nav-item:hover {
+  background-color: #fcebeb;
+}
+
+.nav-item.active {
+  background-color: var(--primary-color);
+  color: white;
+  border-left: 5px solid darkred; /* Visual indicator for active state */
+  padding-left: 25px; /* Adjust padding after adding border */
+}
+
+/* Styling for disabled sidebar items */
+.nav-item.disabled {
+  opacity: 0.4;             /* Makes it look grayed out */
+  cursor: not-allowed;      /* Changes mouse to a "stop" icon */
+  pointer-events: none;     /* Completely blocks any click action */
+  filter: grayscale(1);    /* Removes color from icons */
+}
+
+/* --- Header --- */
+.header {
+  padding-top: 30px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-right: 40px;
+  margin-bottom: 20px;
+}
+
+.welcome-message {
+  font-size: 1.8em;
+  color: var(--text-dark);
+  font-weight: normal;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+}
+
+.notification-icon {
+  font-size: 1.5em;
+  margin-right: 20px;
+  cursor: pointer;
+}
+
+.profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.tabs-row {
+  display: flex;
+  gap: 10px;
+  padding-bottom: 20px;
+}
+
+.tab-button {
+  padding: 10px 20px;
+  border: none;
+  background-color: var(--secondary-color);
+  color: var(--text-dark);
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.tab-button:hover {
+    opacity: 1;
+}
+
+.tab-button.active-tab {
+  background-color: var(--secondary-color);
+  box-shadow: 0 5px 10px rgba(255, 193, 7, 0.4);
+  opacity: 1;
+}
+
+/* --- Content Section (Inventory or Empty Pages) --- */
+.inventory-section, .page-content-wrapper {
+    padding-top: 10px;
+}
+
+.section-title {
+  color: var(--primary-color);
+  font-size: 1.5em;
+  margin-bottom: 20px;
+}
+
+.table-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  padding: 8px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  width: 300px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  margin-left: 10px;
+  width: 100%;
+}
+
+.action-buttons button {
+  padding: 10px 20px;
+  margin-left: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.add-button {
+  background-color: #3f51b5; /* Blue */
+  color: white;
+}
+
+.filter-button {
+  background-color: #f0f0f0;
+  color: var(--text-dark);
+  border: 1px solid #ccc;
+}
+
+/* --- Table Styles --- */
+.data-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.data-table th {
+  background-color: var(--bg-light);
+  font-weight: bold;
+  color: #777;
+}
+
+.data-table tr:hover {
+  background-color: #fafafa;
+}
+
+.data-table td:last-child {
+  color: #888;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: white;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.in-stock {
+  background-color: #8bc34a; /* Green */
+}
+
+.low-stock {
+  background-color: #f44336; /* Red */
+}
+
+/* Edit Button */
+.edit-button {
+  background-color: #9c27b0; /* Purple */
+  color: white;
+  padding: 5px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background-color: #ffffff;
+    border-right: 1px solid #e2e8f0;
+}
+
+.sidebar-logo-img {
+    width: 30px;
+    height: 30px;
+    margin-right: 10px;
+}
+
+.lock-icon {
+    margin-left: auto;
+    font-size: 10px;
+}
+
+/* Logout Button Styling */
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.btn-logout {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px 15px;
+    background: #fff5f5; /* Very light red */
+    color: #c53030; /* Deep red */
+    border: 1px solid #fed7d7;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding-bottom: 20px;
+}
+
+.btn-logout:hover {
+    background: #c53030;
+    color: white;
+    border-color: #c53030;
+}
+
+.btn-logout .icon {
+    margin-right: 10px;
+}

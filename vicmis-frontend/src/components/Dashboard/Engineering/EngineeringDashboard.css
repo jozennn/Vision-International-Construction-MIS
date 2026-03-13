@@ -1,0 +1,185 @@
+/* EngineeringDashboard.css */
+
+.dashboard-wrapper {
+    padding: 2rem;
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header-text h2 {
+    color: #1e293b;
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+.header-text p {
+    color: #64748b;
+    margin: 5px 0 0 0;
+}
+
+/* Stats Grid Logic */
+.stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.stats-row {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    flex: 1;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-left: 5px solid #3b82f6; /* Engineering Blue */
+}
+
+.stat-card.wide {
+    flex: none;
+    width: 100%;
+}
+
+.blue-tint {
+    background-color: #eff6ff;
+    border-left-color: #2563eb;
+}
+
+.stat-label {
+    color: #64748b;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    color: #1e293b;
+    font-size: 2rem;
+    margin: 0;
+}
+
+/* Task Card specific flex */
+.task-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mini-assign-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.mini-assign-btn:hover {
+    background: #2563eb;
+}
+
+/* Approval Section Styles */
+.title-blue {
+    color: #2563eb;
+    border-bottom: 2px solid #dbeafe;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.no-requests-container {
+    background: white;
+    padding: 3rem;
+    text-align: center;
+    border-radius: 12px;
+    color: #94a3b8;
+    border: 2px dashed #e2e8f0;
+}
+
+/* Modal Styling */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 15px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.2rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: inherit;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 10px;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.confirm-btn {
+    flex: 2;
+    padding: 10px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}

@@ -1,0 +1,103 @@
+/* ProjectManagement.css */
+:root {
+  /* Brand Colors */
+  --vision-red: #FF1817; 
+  --vision-red-deep: #C20100;
+  --vision-blue: #497B97;
+  --vision-charcoal: #221F1F;
+  --vision-white: #FFFFFF;
+  --vision-off-white: #EBDBD6;
+  --vision-bg-light: #f8fafc;
+  
+  /* UI Constants */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  --transition: all 0.2s ease-in-out;
+}
+
+.pm-grid {
+    display: grid;
+    /* This makes the cards stay in one row until there are more than 3 */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    padding: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.pm-card {
+    background: #FFF9C4;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+.pm-card:hover {
+    transform: translateY(-8px);
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Styling specifically for the Add Card to make it stand out as an action */
+.pm-card.add-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+}
+
+.pm-card.add-card:hover {
+    background: rgba(16, 185, 129, 0.1); /* Slight green tint on hover */
+    border-color: #10b981;
+}
+
+.card-number {
+    position: absolute;
+    top: 20px;
+    left: 25px;
+    font-size: 14px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.card-icon {
+    font-size: 45px;
+    margin-bottom: 12px;
+}
+
+.card-title {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+}
+
+.loading-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #ffffff;
+}
+
+.vision-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid var(--vision-off-white);
+  border-top: 5px solid var(--vision-red); /* Brand Red */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

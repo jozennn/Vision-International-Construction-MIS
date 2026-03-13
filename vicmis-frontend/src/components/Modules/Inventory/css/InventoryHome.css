@@ -1,0 +1,70 @@
+
+
+.inv-grid {
+   display: grid;
+    /* This makes the cards stay in one row until there are more than 3 */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    padding: 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.inv-card {
+    background: #FFF9C4;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+.inv-card:hover {
+    transform: translateY(-8px);
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.inv-card.add-card {
+    background: transparent;
+    border: 2px dashed #94a3b8;
+    color: #64748b;
+}
+
+.inv-card.add-card:hover {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #065f46;
+}
+
+.card-number {
+    position: absolute;
+    top: 20px;
+    left: 25px;
+    font-size: 14px;
+    font-weight: 800;
+    color: rgba(30, 58, 138, 0.1); /* Subtle number */
+}
+
+.inv-card:hover .card-number {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.card-icon {
+    font-size: 45px;
+    margin-bottom: 12px;
+}
+
+.card-title {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+}

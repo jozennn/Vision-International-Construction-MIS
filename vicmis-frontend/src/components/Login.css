@@ -1,0 +1,231 @@
+/* Container that fills the whole screen */
+.landing-screen {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); /* Deep Navy */
+    font-family: 'Inter', -apple-system, sans-serif;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* The Login Card */
+.login-box {
+    background: #ffffff;
+    padding: 2.5rem;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    width: 100%;
+    max-width: 420px;
+}
+
+/* Brand Header Section */
+.brand-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.logo-square {
+    background: #b31d33; /* Vision Blue */
+    color: white;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.5rem;
+    border-radius: 10px;
+    margin: 0 auto 1rem;
+}
+
+.brand-header h1 {
+    font-size: 1.5rem;
+    color: #1e293b;
+    margin: 0;
+    letter-spacing: -0.025em;
+}
+
+.brand-header p {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Form Styling */
+.input-group {
+    margin-bottom: 1.25rem;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 0.5rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    box-sizing: border-box; /* Ensures padding doesn't break width */
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #b31d33;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Action Button */
+.enter-btn {
+    width: 100%;
+    background: #b31d33;
+    color: white;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    margin-top: 1rem;
+}
+
+.enter-btn:hover {
+    background: #1d4ed8;
+}
+
+/* Error Message */
+.login-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    margin-top: 1.5rem;
+    text-align: center;
+    border: 1px solid #fecaca;
+}
+
+
+/*For Loading Animation*/
+.loader-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.spinner {
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top: 3px solid #fff;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Make button feel different when disabled */
+.enter-btn:disabled {
+    background-color: #60a5fa; /* Lighter blue */
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+/* Optional: Pulse effect for the whole login box while checking */
+.checking-pulse {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+
+.otp-input {
+    text-align: center;
+    font-size: 1.5rem !important;
+    letter-spacing: 8px;
+    font-weight: bold;
+}
+
+.helper-text {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.back-link {
+    background: none;
+    border: none;
+    color: #007bff;
+    margin-top: 15px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.timer-display {
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    color: #666;
+}
+
+.timer-display span.urgent {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.resend-container {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.resend-btn {
+    background: none;
+    border: none;
+    color: #3498db;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.resend-btn:hover {
+    color: #2980b9;
+}
+
+.helper-text {
+    font-size: 0.8rem;
+    color: #999;
+}

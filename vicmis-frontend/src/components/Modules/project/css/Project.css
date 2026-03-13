@@ -1,0 +1,200 @@
+/* ==========================================================================
+   VICMIS PROJECT MODULE - MASTER STYLESHEET (Fiery Ocean Theme)
+   ========================================================================== */
+
+/* --- THEME VARIABLES --- */
+:root {
+    --fo-navy: #003049;
+    --fo-red: #c1121f;
+    --fo-dark-red: #780000;
+    --fo-cream: #fdf0d5;
+    --fo-blue: #669bbc;
+    
+    --bg-light: #f8fafc;
+    --border-soft: #e5e7eb;
+    --text-muted: #64748b;
+}
+
+/* --- GLOBAL CONTAINER --- */
+.project-module-container {
+    background-color: var(--bg-light);
+    min-height: 100vh;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--fo-navy);
+    padding-bottom: 40px;
+}
+
+/* ==========================================================================
+   1. DASHBOARD / PROJECT LIST VIEW
+   ========================================================================== */
+
+.module-header-dashboard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-soft);
+}
+
+.header-title {
+    color: var(--fo-navy);
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+}
+
+.project-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Smooth, chunky list items */
+.project-row-item {
+    background: #ffffff;
+    padding: 24px 30px;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 2px solid var(--border-soft);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    transition: all 0.3s ease;
+}
+
+.project-row-item:hover {
+    transform: translateY(-4px);
+    border-color: var(--fo-blue);
+    box-shadow: 0 12px 20px -8px rgba(0, 48, 73, 0.15);
+}
+
+.project-name {
+    color: var(--fo-navy);
+    margin: 0 0 8px 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+
+.project-details {
+    color: var(--text-muted);
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.project-actions {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+/* Dashboard Badges & Buttons */
+.stage-badge {
+    color: var(--fo-navy);
+    background: var(--fo-cream);
+    font-weight: 900;
+    font-size: 0.75rem;
+    padding: 8px 16px;
+    border: 2px solid var(--fo-blue);
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-view-sop {
+    background: var(--fo-navy);
+    color: #ffffff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-view-sop:hover {
+    background: var(--fo-blue);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(102, 155, 188, 0.3);
+}
+
+.empty-state-container {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 80px 20px;
+    background: #ffffff;
+    border-radius: 20px;
+    border: 3px dashed var(--border-soft);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+/* ==========================================================================
+   2. CUSTOM SCROLLBARS (For BOQ Tables)
+   ========================================================================== */
+
+/* Makes the horizontal scrolling of massive tables look premium */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 10px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 8px;
+    margin: 0 10px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: var(--fo-blue);
+    border-radius: 8px;
+    border: 2px solid #f1f5f9;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: var(--fo-navy);
+}
+
+/* ==========================================================================
+   3. ANIMATIONS & UTILITIES
+   ========================================================================== */
+
+/* Smooth fade in for modules */
+.phase-container {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* File Upload Focus State Polish */
+input[type="file"]::file-selector-button {
+    background-color: var(--fo-cream);
+    color: var(--fo-navy);
+    font-weight: 800;
+    border: 2px solid var(--fo-blue);
+    padding: 8px 16px;
+    border-radius: 8px;
+    margin-right: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: var(--fo-blue);
+    color: #ffffff;
+}

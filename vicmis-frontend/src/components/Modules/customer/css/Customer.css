@@ -1,0 +1,344 @@
+/* --- VISION BRAND GUIDELINES & PROFESSIONAL UI --- */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+:root {
+  /* Brand Colors */
+  --vision-red: #FF1817; 
+  --vision-red-deep: #C20100;
+  --vision-blue: #497B97;
+  --vision-charcoal: #221F1F;
+  --vision-white: #FFFFFF;
+  --vision-off-white: #EBDBD6;
+  --vision-bg-light: #f8fafc;
+  
+  /* UI Constants */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+  --transition: all 0.2s ease-in-out;
+}
+
+/* Container and Header */
+.customer-container {
+  padding: 24px;
+  animation: fadeIn 0.3s ease-in-out;
+  background-color: var(--vision-bg-light);
+  min-height: 100vh;
+  font-family: 'DM Sans', sans-serif; /* Body Font */
+}
+
+.customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: var(--vision-white);
+  padding: 20px 32px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border-bottom: 4px solid var(--vision-red); /* Visual representation of protection */
+}
+
+.header-info h1 {
+  font-family: 'Ministry of Morons', sans-serif; /* Header Font */
+  font-size: 1.8rem;
+  color: var(--vision-charcoal);
+  margin: 0;
+}
+
+.header-info p {
+  color: var(--vision-blue);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+/* Search and Filter Section */
+.search-bar-container {
+  position: relative;
+  margin-bottom: 24px;
+  max-width: 450px;
+}
+
+.search-input-field {
+  width: 100%;
+  padding: 10px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--vision-off-white);
+  background-color: var(--vision-bg-light);
+  transition: var(--transition);
+}
+
+.search-input-field:focus {
+  outline: none;
+  border-color: var(--vision-red);
+  background-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 24, 23, 0.1);
+}
+
+/* Lead Grid and Cards */
+.lead-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.lead-card {
+  background: var(--vision-white);
+  border-radius: 12px;
+  border: 1px solid var(--vision-off-white);
+  padding: 20px;
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  height: 100%;
+}
+
+.lead-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--vision-blue);
+}
+
+.lead-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.lead-id {
+  font-size: 0.8rem;
+  color: var(--vision-blue);
+  font-weight: 700;
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.to-be-contacted { background: #fee2e2; color: #991b1b; }
+.contacted { background: #dcfce7; color: #166534; }
+.scheduled-to-proposal { background: #dbeafe; color: #1e40af; }
+.declined-offer { background: #f1f5f9; color: #475569; }
+.ready-for-creating-project { background: #fef08a; color: #854d0e; }
+.project-created { background: #e0e7ff; color: #3730a3; }
+
+/* Lead Body */
+.client-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--vision-charcoal);
+  margin-bottom: 8px;
+}
+
+.project-title {
+  font-size: 0.9rem;
+  color: var(--vision-blue);
+  margin-bottom: 12px;
+}
+
+.info-row {
+  display: flex;
+  gap: 15px;
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 15px;
+}
+
+/* FIXED: Card Footer/Action Placement */
+.lead-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 15px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.lead-click-hint {
+  font-size: 0.7rem;
+  color: var(--vision-blue);
+  font-style: italic;
+  margin-top: 0;
+}
+
+.btn-create-project {
+  background: var(--vision-blue);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-create-project:hover {
+  background: #3a637a;
+  transform: translateY(-1px);
+}
+
+/* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(34, 31, 31, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.compact-modal {
+  background: white;
+  width: 100%;
+  max-width: 600px;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  border-top: 12px solid var(--vision-red); /* Represents the circle of protection */
+}
+
+.compact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group-compact.full-width {
+  grid-column: span 2;
+}
+
+.form-group-compact label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--vision-charcoal);
+  text-transform: uppercase;
+}
+
+.form-group-compact input, 
+.form-group-compact select, 
+.form-group-compact textarea {
+  padding: 10px;
+  border: 1px solid var(--vision-off-white);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.form-group-compact input:focus {
+  outline: none;
+  border-color: var(--vision-blue);
+}
+
+/* FIXED: Modal Footer Button Placement */
+.modal-footer-compact {
+  display: flex;
+  justify-content: space-between; /* Pushes Delete to left, Grouped buttons to right */
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.footer-right {
+  display: flex;
+  gap: 12px; /* Space between Cancel and Save */
+}
+
+/* Button Variants */
+.btn-save-lead, .btn-update-save, .btn-add-lead {
+  background-color: var(--vision-red);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-save-lead:hover, .btn-add-lead:hover {
+  background-color: var(--vision-red-deep);
+}
+
+.btn-delete {
+  background: transparent;
+  color: var(--vision-red);
+  border: 1px solid #fee2e2;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-delete:hover {
+  background: #fef2f2;
+}
+
+.btn-view {
+  background: var(--vision-bg-light);
+  color: var(--vision-blue);
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--vision-off-white);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Read-Only/Locked Styling */
+.locked-input-field {
+  background-color: var(--vision-bg-light) !important;
+  color: var(--vision-blue) !important;
+  border: 1px solid var(--vision-off-white) !important;
+  font-weight: 700;
+  cursor: not-allowed;
+}
+
+/* Loading Spinner */
+.spinner-container {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+}
+
+.loading-circle {
+  width: 50px;
+  height: 50px;
+  border: 5px solid var(--vision-off-white);
+  border-top: 5px solid var(--vision-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
