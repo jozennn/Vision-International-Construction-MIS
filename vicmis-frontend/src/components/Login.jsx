@@ -87,9 +87,9 @@ const Login = ({ onEnterSystem }) => {
                     <div className="logo-square bg-red-600 text-white w-12 h-12 flex items-center justify-center rounded mx-auto mb-4 font-bold text-xl">
                         VE
                     </div>
-                    <h1 className="text-xl font-bold text-gray-800">Vision International</h1>
+                    <h1 className="text-xl font-bold text-gray-800">Vision International Construcion OPC</h1>
                     <p className="text-gray-500 text-sm">
-                        {show2FA ? 'Security Verification' : 'Internal Management System'}
+                        {show2FA ? 'Security Verification' : 'Management Information System'}
                     </p>
                 </div>
 
