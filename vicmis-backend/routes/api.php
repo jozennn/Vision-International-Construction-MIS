@@ -13,6 +13,7 @@ use App\Http\Controllers\{
     WarehouseInventoryController,
     IncomingShipmentController,
     LogisticsController,
+    AdminUserController,
 };
 
 /*
@@ -128,6 +129,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{id}', [WarehouseInventoryController::class, 'update']);
         Route::delete('/{id}', [WarehouseInventoryController::class, 'destroy']);
     });
+
+    Route::get('/admin/users', [AdminUserController::class, 'index']);
+    Route::post('/admin/users', [AdminUserController::class, 'store']);
+    Route::put('/admin/users/{id}', [AdminUserController::class, 'update']);
+    Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
+
+    // System Error Logs Route
+    Route::get('/admin/system-logs', [AdminUserController::class, 'getSystemLogs']);
 
     Route::get('/fetch-image', [App\Http\Controllers\ProjectController::class, 'fetchImage']);
 });

@@ -28,8 +28,10 @@ const App = () => {
   // --- ACCESS CONTROL ---
   const checkAccess = useCallback((moduleName) => {
     if (!user) return false;
-    if (user.role === 'admin') return true; 
-    // Checks if module name exists in permissions array or if user is management
+    // 👇 FIXED: Added super_admin to the master access list!
+    if (moduleName === 'Setting' && user.role !== 'super_admin') return false; // settings is visible only to super admin
+
+    if (user.role === 'admin' || user.role === 'super_admin') return true; 
     return user.permissions?.includes(moduleName) || false;
   }, [user]);
 
@@ -48,37 +50,31 @@ const App = () => {
   // --- DASHBOARD ROUTER (Optimized for Seeder Roles) ---
   const renderDashboard = () => {
     const dept = user.department?.toLowerCase();
-    const isManagement = ['admin', 'manager', 'dept_head'].includes(user.role);
+    const isManagement = ['admin', 'super_admin', 'manager', 'dept_head'].includes(user.role);
 
-    // Contextual counts for specific departments
     const notifications = {
       inventoryCount: projects?.filter(p => p.activeStage === 2).length || 0,
       accountingCount: projects?.filter(p => p.activeStage === 4).length || 0
     };
 
-    // 1. Accounting & Procurement
     if (dept === 'accounting' || dept === 'procurement' || dept === 'accounting/procurement') {
       return <AccountingDashboard user={user} notifications={notifications} />;
     }
     
-    // 2. Engineering
     if (dept === 'engineering' || user.name?.toLowerCase().includes('engr')) {
       return <EngineeringDashboard user={user} />;
     }
     
-    // 3. Sales
     if (dept === 'sales') {
       return <SalesDashboard user={user} projects={projects} />;
     }
     
-    // 4. Logistics & Inventory
     if (dept === 'inventory' || dept === 'logistics') {
       return isManagement 
         ? <InventoryDashboard user={user} notifications={notifications} />
         : <InventoryEmployeeDashboard user={user} />;
     }
 
-    // Default Welcome for IT/Admin or undefined roles
     return (
       <div className="p-20 text-center bg-white rounded-lg shadow m-6">
         <h2 className="text-xl font-semibold text-gray-800">VISION System Access</h2>
@@ -93,20 +89,22 @@ const App = () => {
     if (!user) return null;
     if (activeItem === 'Dashboard') return renderDashboard();
     
-    // Security Check
     if (!checkAccess(activeItem)) {
       return <div className="p-20 text-red-500">Access Restricted: Insufficient Permissions</div>;
     }
 
     switch (activeItem) {
       case 'Project': 
-        return <Project projects={projects} setProjects={setProjects} />;
+        // 👇 ADDED user prop here just in case!
+        return <Project projects={projects} setProjects={setProjects} user={user} />;
       case 'Customer': 
         return <Customer user={user} onProjectCreated={(p) => { setProjects([...projects, p]); setActiveItem('Project'); }} />;
       case 'Inventory': 
-        return <Inventory />;
+        // 👇 ADDED user prop here just in case!
+        return <Inventory user={user} />;
       case 'Setting': 
-        return <Settings />;
+        // 👇 THE MAGIC FIX: Passed the user data into the Settings component!
+        return <Settings user={user} />;
       default: 
         return <div className="p-20">Module Under Development</div>;
     }

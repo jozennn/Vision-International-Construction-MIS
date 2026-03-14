@@ -15,21 +15,26 @@ class UserSeeder extends Seeder
         User::truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
+
+
         $users = [
             // --- IT / ADMIN (System Access) ---
             ['name' => 'Admin User', 'email' => 'admin@vision.com', 'role' => 'admin', 'dept' => 'IT', 'pos' => 'System Admin', 'rate' => 2500],
 
+            // --- SUPER ADMIN ---
+            ['name' => 'Super Admin', 'email' => 'superadmin@vision.com', 'role' => 'super_admin', 'dept' => 'IT', 'pos' => 'System Owner / Super Admin', 'rate' => 5000],
+
             // --- MANAGEMENT (Includes Ops Assistant for Bidding/Awarding Phase) ---
             ['name' => 'General Manager', 'email' => 'mgmt@vision.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 3000],
             ['name' => 'Operations Assistant', 'email' => 'ops@vision.com', 'role' => 'admin', 'dept' => 'Management', 'pos' => 'Operations Assistant', 'rate' => 1500],
-	    ['name' => 'Kurt', 'email' => 'visionintl123+gm1@gmail.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 1500],
-	    ['name' => 'Kurt', 'email' => 'kingkurtu+oa2@gmail.com', 'role' => 'admin', 'dept' => 'Management', 'pos' =>  'Operations Assistant', 'rate' => 1500],
+            ['name' => 'Kurt', 'email' => 'visionintl123+gm1@gmail.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 1500],
+            ['name' => 'Kurt', 'email' => 'kingkurtu+oa2@gmail.com', 'role' => 'admin', 'dept' => 'Management', 'pos' =>  'Operations Assistant', 'rate' => 1500],
 
-	    ['name' => 'Nico', 'email' => 'visionintl123+gm2@gmail.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 1500],
-	    ['name' => 'Nico', 'email' => 'akosinicolas1+oa2@gmail.com', 'role' => 'admin', 'dept' => 'Management', 'pos' => 'Operations Assistant', 'rate' => 1500],
+            ['name' => 'Nico', 'email' => 'visionintl123+gm2@gmail.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 1500],
+            ['name' => 'Nico', 'email' => 'akosinicolas1+oa2@gmail.com', 'role' => 'admin', 'dept' => 'Management', 'pos' => 'Operations Assistant', 'rate' => 1500],
 
-	    ['name' => 'Justine', 'email' => 'visionintl12+gm3@gmail.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 1500],
-	    ['name' => 'Justine', 'email' => 'jdlarkin20+oa3@gmail.com', 'role' => 'admin', 'dept' => 'Management', 'pos' => 'Operations Assistant', 'rate' => 1500],
+            ['name' => 'Justine', 'email' => 'visionintl12+gm3@gmail.com', 'role' => 'manager', 'dept' => 'Management', 'pos' => 'GM', 'rate' => 1500],
+            ['name' => 'Justine', 'email' => 'jdlarkin20+oa3@gmail.com', 'role' => 'admin', 'dept' => 'Management', 'pos' => 'Operations Assistant', 'rate' => 1500],
 
             // --- SALES ---
             ['name' => 'Victor Sales Head', 'email' => 'sales@vision.com', 'role' => 'dept_head', 'dept' => 'Sales', 'pos' => 'Sales Head', 'rate' => 1500],

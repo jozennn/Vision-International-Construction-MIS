@@ -1,0 +1,361 @@
+/* =========================================
+   1. MAIN LAYOUT & HEADER
+   ========================================= */
+   .customer-container {
+    padding: 20px 30px;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    background-color: #f8fafc;
+    box-sizing: border-box;
+  }
+  
+  .customer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+  }
+  
+  .customer-header h1 {
+    color: #221F1F;
+    font-size: 1.8rem;
+    margin: 0;
+  }
+  
+  /* =========================================
+     2. BUTTONS & BADGES
+     ========================================= */
+  .btn-add-lead {
+    background-color: #FF1817;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.95rem;
+    transition: background-color 0.2s;
+  }
+  
+  .btn-add-lead:hover {
+    background-color: #d11211;
+  }
+  
+  .btn-cancel {
+    background-color: transparent;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+  }
+  
+  .btn-cancel:hover {
+    background-color: #f1f5f9;
+    color: #334155;
+  }
+  
+  .btn-save-lead {
+    background-color: #221F1F;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+  }
+  
+  .btn-save-lead:hover {
+    background-color: #000000;
+  }
+  
+  .btn-delete-small {
+    background: transparent;
+    color: #FF1817;
+    border: 1px solid #fee2e2;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .btn-delete-small:hover {
+    background: #fef2f2;
+  }
+  
+  /* Status Badges for User Roles */
+  .status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: capitalize;
+  }
+  .project-created {
+    background-color: #e0f2fe;
+    color: #0369a1;
+  }
+  
+  /* =========================================
+     3. SETTINGS MENU CARDS
+     ========================================= */
+  .lead-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #EBDBD6;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow: hidden; 
+  }
+  
+  .lead-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  
+  /* =========================================
+     4. USER MANAGEMENT TABLES
+     ========================================= */
+  .departments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    animation: fadeIn 0.4s ease-in;
+  }
+  
+  .department-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #EBDBD6;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow: hidden; 
+  }
+  
+  .department-header {
+    background-color: #221F1F;
+    color: #ffffff;
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+  
+  .department-table-container {
+    padding: 10px 20px 20px 20px;
+  }
+  
+  .users-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  
+  .users-table thead tr {
+    border-bottom: 2px solid #EBDBD6;
+  }
+  
+  .users-table th {
+    color: #497B97;
+    font-size: 0.85rem;
+    padding: 12px 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  
+  .users-table tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+  }
+  
+  .users-table tbody tr:hover {
+    background-color: #f8fafc;
+  }
+  
+  .users-table td {
+    padding: 14px 10px;
+    font-size: 0.95rem;
+  }
+  
+  .user-name {
+    font-weight: 700;
+    color: #221F1F;
+  }
+  
+  .user-email {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+  
+  .action-column {
+    text-align: right;
+  }
+  
+  /* =========================================
+     5. MODAL & FORMS (HAMBURGER FIX INCLUDED)
+     ========================================= */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999 !important; /* 👈 Hides the hamburger menu! */
+    backdrop-filter: blur(2px);
+  }
+  
+  .modal-content.compact-modal {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  .modal-header-compact h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #221F1F;
+    font-size: 1.4rem;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 10px;
+  }
+  
+  .compact-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 25px;
+  }
+  
+  .form-group-compact label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #497B97;
+    font-weight: 700;
+  }
+  
+  .form-group-compact input, 
+  .form-group-compact select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    outline: none;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+  }
+  
+  .form-group-compact input:focus, 
+  .form-group-compact select:focus {
+    border-color: #FF1817;
+  }
+  
+  .modal-footer-compact {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+  
+  /* =========================================
+     6. LOADING SPINNERS & ANIMATIONS
+     ========================================= */
+  .spinner-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+  }
+  
+  .loading-circle {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #FF1817;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+  
+  /* =========================================
+     7. 📱 RESPONSIVE MEDIA QUERIES (MOBILE CARD VIEW)
+     ========================================= */
+  @media (max-width: 768px) {
+    .customer-container {
+      padding: 15px 10px;
+    }
+  
+    .customer-header {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 15px;
+    }
+  
+    .btn-add-lead {
+      width: 100%;
+      justify-content: center;
+    }
+  
+    .department-table-container {
+      padding: 10px; 
+      overflow-x: hidden; 
+    }
+  
+    .users-table, .users-table tbody {
+      display: block;
+      width: 100%;
+      min-width: 0; 
+    }
+  
+    .users-table thead {
+      display: none;
+    }
+  
+    .users-table tr {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px 10px;
+      border-bottom: 3px solid #f1f5f9;
+      gap: 8px;
+    }
+  
+    .users-table td {
+      display: block;
+      padding: 0;
+      white-space: normal; 
+      width: 100%;
+    }
+  
+    .user-name {
+      font-size: 1.1rem;
+    }
+  
+    .action-column {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 10px;
+      text-align: center;
+    }
+  
+    .compact-grid {
+      grid-template-columns: 1fr;
+      gap: 15px;
+    }
+  }
