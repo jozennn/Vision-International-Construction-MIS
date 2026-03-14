@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import InventoryHome from './InventoryHome';
 import ConstructionMat from './tab/ConstructionMat';
-import OfficeMat from './tab/OfficeMat';
 import IncomingShipment from './tab/IncomingShipment';
 import DeliveryMat from './tab/DeliveryMat';
 import MaterialRequest from './tab/MaterialRequest';
@@ -30,10 +29,6 @@ const Inventory = () => {
           newArrivalData={arrivalData} 
           clearArrivalData={() => setArrivalData(null)}
         />
-      )}
-      
-      {currentView === 'Office Materials' && (
-        <OfficeMat onBack={() => setCurrentView('home')} />
       )}
       
       {currentView === 'Incoming Shipment' && (

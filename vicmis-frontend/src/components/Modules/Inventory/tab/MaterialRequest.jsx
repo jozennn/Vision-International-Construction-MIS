@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import '../css/Construction.css';
 
 const MaterialRequest = ({ onBack }) => {
   const [requests, setRequests] = useState([
