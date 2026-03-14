@@ -62,24 +62,21 @@ class AuthController extends Controller
         $dept = strtolower($user->department);
 
         if ($user->role === 'admin') {
-            $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Accounting', 'Setting', 'Human Resource', 'Customer'];
+            $permissions = ['Dashboard', 'Project',  'Inventory', 'Accounting', 'Setting',  'Customer'];
         } 
         elseif ($dept === 'engineering') {
-            $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'];
-        } 
-        elseif ($dept === 'hr') {
-            $permissions = ['Dashboard', 'Human Resource', 'Documents', 'Setting'];
+            $permissions = ['Dashboard', 'Project', 'Inventory'];
         } 
         elseif ($dept === 'sales') {
-            $permissions = ['Dashboard', 'Customer', 'Project', 'Documents', 'Inventory'];
+            $permissions = ['Dashboard', 'Customer', 'Project'];
         }
         // FIX: Corrected logical comparison and added Seeder support
         elseif ($dept === 'inventory' || $dept === 'logistics') {
-            $permissions = ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'];
+            $permissions = ['Dashboard', 'Inventory', 'Project'];
         }
         // Seeder uses 'accounting/procurement'
         elseif (str_contains($dept, 'accounting') || str_contains($dept, 'procurement')) {
-            $permissions = ['Dashboard', 'Documents', 'Setting', 'Accounting'];
+            $permissions = ['Dashboard', 'Project' , 'Accounting'];
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

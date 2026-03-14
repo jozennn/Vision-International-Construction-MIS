@@ -42,6 +42,9 @@ class Project extends Model
         'timeline_tracking',  // 🚨 ADD THIS
          'site_inspection_report',
         'rejection_notes',
+        'qa_photo',
+        'client_walkthrough_doc',
+        'final_invoice_document',
         // Tracking roles 
         'sales_agent_id',
         'engineer_id',

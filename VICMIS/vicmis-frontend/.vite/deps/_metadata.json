@@ -1,0 +1,26 @@
+{
+  "hash": "bc4df97c",
+  "configHash": "57f22409",
+  "lockfileHash": "49d2ef17",
+  "browserHash": "1642a82a",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "0909546b",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "b96491f4",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "react-B5JTGcpc": {
+      "file": "react-B5JTGcpc.js",
+      "isDynamicEntry": false
+    }
+  }
+}
