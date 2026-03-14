@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- ENGINEERING & LEADS ---
     Route::get('/engineering/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
     Route::post('engineering/assign-task', [EngineeringController::class, 'assignTask']);
+    Route::post('/pick-project', [EngineeringController::class, 'pickProject']);
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
 
