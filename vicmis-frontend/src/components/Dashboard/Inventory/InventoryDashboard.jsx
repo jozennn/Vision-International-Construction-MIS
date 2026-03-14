@@ -183,10 +183,7 @@ const InventoryDashboard = ({ user }) => {
         <div className="id-header-left">
           <div className="id-header-icon"><Warehouse size={22} /></div>
           <div>
-            <h1 className="id-header-title">Inventory Operations</h1>
-            <p className="id-header-sub">
-              Welcome back, <strong>{user?.name || 'Staff'}</strong> · {today}
-            </p>
+            <h1 className="id-header-title">Inventory Dashboard</h1>
           </div>
         </div>
         <div className="id-header-right">
