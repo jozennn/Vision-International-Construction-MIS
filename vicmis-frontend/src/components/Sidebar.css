@@ -1,0 +1,192 @@
+/* --- Variables based on your Light Theme --- */
+:root {
+    --sidebar-bg: #FFFFFF;
+    --sidebar-text: #64748B; /* Muted slate for inactive items */
+    --sidebar-text-dark: #1E293B; /* Darker text for hover/logo */
+    --sidebar-active-bg: #DF2941; /* Brand red from your screenshot */
+    --sidebar-active-text: #FFFFFF;
+    --sidebar-border: #E2E8F0; /* Light grey border */
+    --sidebar-width: 250px;
+  }
+  
+  /* --- Hamburger Button (Mobile Only) --- */
+  .hamburger-btn {
+    display: none; /* Hidden on desktop */
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1001; 
+    background-color: var(--sidebar-active-bg);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 44px;
+    height: 44px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: background-color 0.2s;
+  }
+  
+  .hamburger-btn:hover {
+    background-color: #B91C32;
+  }
+  
+  /* --- Mobile Overlay --- */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+  }
+  
+  /* --- Main Sidebar Container --- */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    border-right: 1px solid var(--sidebar-border); /* Separates sidebar from content */
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    transition: transform 0.3s ease-in-out;
+    font-family: 'DM Sans', sans-serif;
+  }
+  
+  /* --- Logo Section --- */
+  .sidebar-logo-container {
+    display: flex;
+    align-items: center;
+    padding: 24px;
+    margin-bottom: 8px;
+  }
+  
+  .sidebar-logo-img {
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
+  }
+  
+  .sidebar-logo-text {
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: #000000;
+  }
+  
+  /* --- Navigation Menu --- */
+  .sidebar-nav-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 24px;
+    cursor: pointer;
+    color: var(--sidebar-text);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    /* Notice: No margins or border-radius, allowing the active state to touch the edges */
+  }
+  
+  .sidebar-nav-item:hover:not(.disabled):not(.active) {
+    background-color: #F1F5F9;
+    color: var(--sidebar-text-dark);
+  }
+  
+  .sidebar-nav-item.active {
+    background-color: var(--sidebar-active-bg);
+    color: var(--sidebar-active-text);
+  }
+  
+  .sidebar-nav-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .sidebar-icon {
+    margin-right: 14px;
+    font-size: 1.2rem;
+  }
+  
+  .sidebar-item-name {
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+  
+  .sidebar-lock-icon {
+    font-size: 0.8rem;
+  }
+  
+  /* --- Footer (Logout) --- */
+  .sidebar-footer {
+    padding: 24px;
+    border-top: 1px solid var(--sidebar-border);
+  }
+  
+  .sidebar-btn-logout {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 12px 16px;
+    background-color: #FEF2F2; /* Light red background to match screenshot */
+    border: none;
+    color: #DC2626; /* Dark red text */
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  .sidebar-btn-logout:hover {
+    background-color: #FEE2E2;
+  }
+  
+  /* =========================================================
+     RESPONSIVE DESIGN (Tablet & Mobile)
+     ========================================================= */
+     @media screen and (max-width: 768px) {
+        .hamburger-btn {
+          display: block;
+          position: fixed; /* THIS makes it float above everything */
+          top: 20px;
+          left: 20px;
+          z-index: 2000; 
+          /* ... your other button styles ... */
+        }
+  
+    /* Hide sidebar off-screen by default */
+    .sidebar {
+      transform: translateX(-100%);
+    }
+  
+    /* Slide in when open state is active */
+    .sidebar.open {
+      transform: translateX(0);
+    }
+  
+    /* Only show overlay if sidebar has the .open class */
+    .sidebar.open ~ .sidebar-overlay,
+    .sidebar-overlay {
+      display: block;
+    }
+  }
+  /* Hides the hamburger menu when ANY modal is open */
+body.hide-hamburger .hamburger-btn {
+    display: none !important;
+  }

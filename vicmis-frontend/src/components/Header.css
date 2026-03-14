@@ -1,0 +1,139 @@
+/* Layout Wrapper */
+.header-wrapper {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 900; /* Lowered slightly so it stays under the mobile sidebar if open */
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Main Header Container */
+.main-header {
+  display: flex;
+  justify-content: space-between; /* Automatically pushes left and right zones apart */
+  align-items: center;
+  background: #ffffff;
+  padding: 0 40px;
+  height: 90px;
+  border-bottom: 2px solid #EBDBD6; /* VISION Beige */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+/* LEFT ZONE */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-msg { 
+  font-size: 1.25rem; 
+  color: #221F1F; 
+  margin: 0 0 4px 0; 
+  font-weight: 800; 
+}
+
+.live-date { 
+  font-size: 0.85rem; 
+  color: #497B97; 
+  margin: 0; 
+  font-weight: 500;
+}
+
+.live-time { 
+  font-weight: 800; 
+  color: #FF1817; 
+  margin-left: 6px; 
+}
+
+/* RIGHT ZONE */
+.header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.user-avatar {
+  width: 44px; 
+  height: 44px;
+  background: #EBDBD6;
+  color: #221F1F;
+  border-radius: 50%;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+  border: 2px solid #497B97;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN (Tablet & Mobile)
+   ========================================================= */
+
+/* Large Tablets */
+@media (max-width: 1024px) {
+  .main-header {
+    padding: 0 30px;
+  }
+}
+
+/* Mobile Phones & Small Tablets */
+@media (max-width: 768px) {
+  .main-header {
+    display: flex !important; 
+    flex-direction: row !important; 
+    justify-content: space-between !important; 
+    align-items: center !important;
+    height: 80px;
+    width: 100%;
+    box-sizing: border-box; /* Crucial: stops padding from breaking the width */
+    
+    /* 75px on the left perfectly clears the floating hamburger */
+    /* 20px on the right matches the spacing of your cards below */
+    padding: 0 20px 0 75px !important; 
+  }
+
+  .header-left {
+    display: flex;
+    justify-content: flex-start;
+    width: auto;
+  }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Aligns text cleanly to the left */
+  }
+
+  .header-right {
+    display: flex;
+    justify-content: flex-end; 
+    align-items: center;
+    width: auto; 
+    margin: 0;
+    padding: 0;
+  }
+
+  .welcome-msg { 
+    font-size: 1.1rem; 
+    margin-bottom: 3px;
+  }
+
+  .live-date { 
+    font-size: 0.75rem; 
+  }
+
+  .user-avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 1.1rem;
+    margin: 0; /* Ensures nothing pushes it away from the right edge */
+  }
+}
