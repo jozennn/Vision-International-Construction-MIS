@@ -825,6 +825,42 @@ const Project = () => {
         }
     };
 
+    const renderSalesPOAndWorkOrderView = () => {
+        if (selectedProject.status === 'Purchase Order') {
+            return (
+                <div className="proj-card">
+                    <h3 className="proj-title-lg">Step 6: P.O. Preparation</h3>
+                    <div className="proj-card-gray">
+                        <label className="proj-label">Upload the official, signed First P.O. document.</label>
+                        <input type="file" accept="image/*,.pdf" onChange={(e) => setUploadFile(e.target.files[0])} className="proj-file-input" />
+                        <PrimaryButton onClick={() => uploadAndAdvance('P.O & Work Order', 'po_document')} variant="red">Upload P.O. & Continue</PrimaryButton>
+                    </div>
+                </div>
+            );
+        }
+        if (selectedProject.status === 'P.O & Work Order') {
+            return (
+                <div className="proj-card">
+                    {selectedProject.rejection_notes && (
+                        <div className="proj-card-red">
+                            <h4 className="proj-title-md proj-label-red">🚨 REVISION REQUIRED FROM DEPT. HEAD</h4>
+                            <p className="proj-text-muted" style={{ margin: 0 }}>"{selectedProject.rejection_notes}"</p>
+                        </div>
+                    )}
+                    <h3 className="proj-title-lg">Step 6: Work Order Preparation</h3>
+                    <div className="proj-card-gray">
+                        {renderDocumentLink('Verified First P.O.', selectedProject.po_document)}
+                        <hr style={{ margin: '20px 0', border: '1px dashed var(--fo-border-md)' }} />
+                        <label className="proj-label">Upload the corresponding Work Order document.</label>
+                        <input type="file" accept="image/*,.pdf" onChange={(e) => setUploadFile(e.target.files[0])} className="proj-file-input" />
+                        <PrimaryButton onClick={() => uploadAndAdvance('Pending Work Order Verification', 'work_order_document')} variant="red">Upload Work Order & Submit</PrimaryButton>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
     // ─── COMPONENT RENDERING ───
     if (currentView === 'workflow-detail' && selectedProject) {
         const isInspectionReady = siteInspection.power && siteInspection.water && siteInspection.cleared && siteInspection.permits;
