@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://api.visionintlconstopc.com/api',
+  baseURL: 'https://visionintlconstopc.com/api',
   withCredentials: true, // MUST be true for Laravel Sanctum/Cookies
   headers: {
     'Content-Type': 'application/json',
