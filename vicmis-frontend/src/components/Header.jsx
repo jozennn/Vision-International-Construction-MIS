@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import api from '@/api/axios';
 import './Header.css';
 import NotificationBell from './NotificationBell'; // 🚨 Kept the owner's new bell import!
 

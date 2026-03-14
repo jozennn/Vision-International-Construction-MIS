@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+// 1. Import your custom api instance
+import api from '@/api/axios.js'; 
 import './NotificationBell.css';
 
 const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
+    // Note: 'token' is now handled automatically by the api interceptor, 
+    // but we keep it here to check if the user is logged in before fetching.
     const token = sessionStorage.getItem('token');
 
     const fetchNotifications = async () => {
         if (!token) return;
         try {
-            const res = await axios.get('http://localhost:8000/api/notifications', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // 2. Used 'api' and a relative path. Headers are handled automatically.
+            const res = await api.get('/notifications');
             setNotifications(res.data);
         } catch (err) {
             console.error("Failed to fetch notifications", err);
@@ -25,30 +27,22 @@ const NotificationBell = () => {
         return () => clearInterval(interval);
     }, [token]);
 
-   // 🚨 AGGRESSIVE TELEPORTER 🚨
     const handleNotificationClick = async (notif) => {
-        // 1. Immediately close menu & remove from list
         setIsOpen(false);
         setNotifications(prev => prev.filter(n => n.id !== notif.id));
 
-        // 2. Mark as read in backend
         try {
-            await axios.post(`http://localhost:8000/api/notifications/${notif.id}/read`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-        } catch (err) {}
+            // 3. Updated to 'api' instance and relative URL.
+            await api.post(`/notifications/${notif.id}/read`);
+        } catch (err) {
+            console.error("Failed to mark as read", err);
+        }
 
-        // 3. Trigger Teleport!
         if (notif.project_id) {
             sessionStorage.setItem('autoOpenProjectId', notif.project_id);
-            
-            // 🚨 FIX 1: POP UP THE ACTUAL NOTIFICATION MESSAGE 🚨
             alert(`🔔 NOTIFICATION:\n\n${notif.message}`);
-
-            // 🚨 FIX 2: SEND A GLOBAL SIGNAL TO YOUR SIDEBAR TO SWITCH PAGES 🚨
-            window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'Project' }));
             
-            // Send the signal to open the specific project
+            window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'Project' }));
             window.dispatchEvent(new CustomEvent('open-project', { detail: notif.project_id }));
         }
     };
