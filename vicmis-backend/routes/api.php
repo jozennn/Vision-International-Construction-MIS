@@ -77,7 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     // --- ENGINEERING & LEADS ---
-    Route::get('/engineering/dashboard-stats', [EngineeringController::class, 'getStats']);
+    Route::get('/engineering/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
 
