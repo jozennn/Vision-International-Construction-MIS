@@ -32,55 +32,61 @@ Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
 */
 Route::middleware('auth:sanctum')->group(function () {
 
-    // --- USER & AUTH ---
+  // --- USER & AUTH ---
     Route::get('/user', fn(Request $request) => $request->user());
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    //NOTIFICATION
-    Route::get('/notifications', [App\Http\Controllers\ProjectController::class, 'getNotifications']);
-    Route::post('/notifications/{id}/read', [App\Http\Controllers\ProjectController::class, 'markNotificationRead']);
+    // --- NOTIFICATION ---
+    Route::get('/notifications', [ProjectController::class, 'getNotifications']);
+    Route::post('/notifications/{id}/read', [ProjectController::class, 'markNotificationRead']);
 
     // --- PROJECTS & WORKFLOW ---
     Route::get('/projects', [ProjectController::class, 'index']);
     Route::post('/projects', [ProjectController::class, 'store']);
+    Route::get('/projects/{project}', [ProjectController::class, 'show']);
     Route::patch('/projects/{id}/tasks', [ProjectController::class, 'updateTasks']);
     Route::patch('/projects/{id}/assign-engineer', [ProjectController::class, 'startEngineering']);
 
-    // The Super-Updater (Handles images & text statuses)
+    // 🚨 Status Updates (PATCH for text/status, POST for file uploads via FormData)
     Route::patch('/projects/{id}/status', [ProjectController::class, 'updateStatus']);
+    Route::post('/projects/{id}/status', [ProjectController::class, 'updateStatus']); // Catches FormData file uploads
 
     // Phase 1 BOQ Steps
     Route::post('/projects/{id}/submit-plan', [ProjectController::class, 'submitPlanData']);
     Route::post('/projects/{id}/submit-actual', [ProjectController::class, 'submitActualData']);
     Route::post('/projects/{id}/approve-boq', [ProjectController::class, 'approveBOQ']);
 
+    // 🚨 MEGASUITE COMMAND CENTER LOGIC 🚨
+    Route::post('/projects/{id}/daily-logs', [ProjectController::class, 'storeDailyLog']);
+    Route::get('/projects/{id}/daily-logs', [ProjectController::class, 'getDailyLogs']);
+    
+    Route::get('/projects/{id}/issues', [ProjectController::class, 'getIssues']);
+    Route::post('/projects/{id}/issues', [ProjectController::class, 'storeIssue']);
+    
+    // Fixed: Changed to PATCH to match the React frontend (saveTrackingData function)
+    Route::patch('/projects/{id}/tracking', [ProjectController::class, 'saveTracking']); 
+
+    // Material Requests (Project side)
+    Route::get('/projects/{id}/material-requests', [MaterialRequestController::class, 'getProjectRequests']);
+    Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
+
     // --- SALES DASHBOARD ---
     Route::get('/sales/dashboard-stats', [ProjectController::class, 'getSalesStats']);
     Route::get('/sales/leads/recent', [ProjectController::class, 'getRecentLeads']);
-    // For the Project.jsx modal (Engineering)
-    Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
 
-    // For the MaterialRequest.jsx tab (Logistics/Inventory)
+    // --- LOGISTICS & INVENTORY (Material Requests Tab) ---
     Route::get('/material-requests/pending', [MaterialRequestController::class, 'getPending']);
     Route::patch('/material-requests/{id}', [MaterialRequestController::class, 'updateStatus']);
-    Route::post('/projects/{id}/material-requests', [App\Http\Controllers\MaterialRequestController::class, 'store']);
-    Route::get('/projects/{id}/material-requests', [App\Http\Controllers\MaterialRequestController::class, 'getProjectRequests']);
 
-    Route::post('/projects/{id}/daily-logs', [App\Http\Controllers\ProjectController::class, 'storeDailyLog']);
-    Route::get('/projects/{id}/daily-logs', [App\Http\Controllers\ProjectController::class, 'getDailyLogs']);
-
-    Route::get('/projects/{id}/issues', [App\Http\Controllers\ProjectController::class, 'getIssues']);
-    Route::post('/projects/{id}/issues', [App\Http\Controllers\ProjectController::class, 'storeIssue']);
-    Route::post('/projects/{id}/tracking', [App\Http\Controllers\ProjectController::class, 'saveTracking']);
-    Route::get('/projects/{project}', [App\Http\Controllers\ProjectController::class, 'show']);
     // --- EMPLOYEE DIRECTORY ---
     Route::apiResource('employees', EmployeeController::class)->except(['show']);
 
-
-    // --- ENGINEERING & LEADS ---
-    Route::get('/engineering/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
-    Route::post('engineering/assign-task', [EngineeringController::class, 'assignTask']);
-    Route::post('/pick-project', [EngineeringController::class, 'pickProject']);
+    // --- ENGINEERING DASHBOARD 🚨 (Missing Routes Added Here) ---
+    Route::prefix('engineering')->group(function () {
+        Route::get('/dashboard-stats', [EngineeringController::class, 'getStats']);
+        Route::post('/assign-task', [EngineeringController::class, 'assignTask']); // Added!
+        Route::post('/pick-project', [EngineeringController::class, 'pickProject']); // Added!
+    });
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
 
