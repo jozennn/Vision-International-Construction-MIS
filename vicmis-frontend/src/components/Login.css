@@ -43,19 +43,28 @@
 
 .landing-screen {
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh;
+  height: 100%;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
   background-attachment: fixed;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  /* Center the card both axes */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  box-sizing: border-box;
 }
 
 /* Shimmer sweep across background on load */
 .landing-screen::after {
   content: '';
-  position: absolute;
+  position: fixed;       /* fixed so it covers the whole viewport even when scrolling */
   inset: 0;
   background: linear-gradient(
     120deg,
@@ -83,18 +92,18 @@
   max-width: 420px;
   position: relative;
   z-index: 1;
-  overflow: hidden; /* ← add this */
+  overflow: hidden;
   animation: cardRise 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+  box-sizing: border-box;
 }
 
-/* and simplify ::before — no border-radius needed since overflow:hidden handles clipping */
 .login-box::before {
   content: '';
   position: absolute;
   top: 0;
   left: 50%;
   right: 50%;
-  height: 15px;
+  height: 4px;
   background: #b31d33;
   border-radius: 0;
   animation: lineExpand 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
@@ -142,7 +151,6 @@
   text-align: left;
 }
 
-/* Staggered fade-up for each field */
 .input-group:nth-of-type(1) { animation: fadeUp 0.45s ease 1.05s both; }
 .input-group:nth-of-type(2) { animation: fadeUp 0.45s ease 1.15s both; }
 .input-group:nth-of-type(3) { animation: fadeUp 0.45s ease 1.22s both; }
@@ -198,6 +206,10 @@
   text-transform: uppercase;
   color: #9ca3af;
   transition: color 0.2s;
+  /* Ensure tap target is large enough on touch devices */
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
 }
 
 .password-toggle-btn:hover {
@@ -222,9 +234,10 @@
   transition: background 0.2s ease, transform 0.1s ease;
   position: relative;
   overflow: hidden;
-
-  /* Staggered entrance */
   animation: fadeUp 0.45s ease 1.28s both;
+  /* Large enough for touch */
+  min-height: 48px;
+  touch-action: manipulation;
 }
 
 .enter-btn:hover {
@@ -307,6 +320,9 @@
   text-decoration: underline;
   cursor: pointer;
   font-size: 0.9rem;
+  /* Accessible touch target */
+  min-height: 44px;
+  padding: 0.5rem;
 }
 
 .resend-btn:hover {
@@ -321,6 +337,7 @@
   cursor: pointer;
   font-size: 0.9rem;
   width: 100%;
+  min-height: 44px;
 }
 
 /* =========================================
@@ -350,4 +367,225 @@
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
+}
+
+/* =========================================
+   RESPONSIVE — TABLET  (≤ 768px)
+   ========================================= */
+
+@media (max-width: 768px) {
+  .landing-screen {
+    /* On tablets the card is slightly narrower — give it breathing room */
+    padding: 2rem 1.25rem;
+    align-items: center;
+    /* background-attachment: fixed can glitch on iOS Safari */
+    background-attachment: scroll;
+  }
+
+  .login-box {
+    max-width: 480px;
+    padding: 2rem 1.75rem;
+    border-radius: 14px;
+  }
+
+  .brand-header h1 {
+    font-size: 1.35rem;
+  }
+
+  .logo-square-login {
+    width: 62px;
+    height: 62px;
+  }
+
+  .input-group input {
+    font-size: 0.95rem;
+    padding: 0.7rem 0.9rem;
+  }
+
+  .enter-btn {
+    font-size: 0.95rem;
+  }
+}
+
+/* =========================================
+   RESPONSIVE — MOBILE  (≤ 480px)
+   ========================================= */
+
+@media (max-width: 480px) {
+  .landing-screen {
+    /* Full-screen card on small phones — no outer padding needed */
+    padding: 0;
+    align-items: flex-end; /* Card slides up from bottom on small phones */
+    background-attachment: scroll;
+  }
+
+  .login-box {
+    /* Full-width card that sits at the bottom of the screen */
+    max-width: 100%;
+    width: 100%;
+    border-radius: 24px 24px 0 0;
+    padding: 2rem 1.5rem 2.5rem;
+    /* Slightly lighter shadow since it sits on the photo */
+    box-shadow:
+      0 -8px 30px rgba(0, 0, 0, 0.25),
+      0 -2px 8px rgba(0, 0, 0, 0.08);
+    /* Animate up from below instead of fading from above */
+    animation: slideUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  }
+
+  /* Override the default cardRise with a bottom-sheet slide */
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(60px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Red accent stays flush to the top of the card */
+  .login-box::before {
+    height: 3px;
+  }
+
+  .brand-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .brand-header h1 {
+    font-size: 1.2rem;
+  }
+
+  .brand-header p {
+    font-size: 0.82rem;
+  }
+
+  .logo-square-login {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+  }
+
+  .input-group {
+    margin-bottom: 1rem;
+  }
+
+  .input-group label {
+    font-size: 0.7rem;
+  }
+
+  .input-group input {
+    padding: 0.7rem 0.9rem;
+    font-size: 16px; /* Prevents iOS zoom-on-focus */
+    border-radius: 10px;
+  }
+
+  .enter-btn {
+    margin-top: 0.75rem;
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    border-radius: 10px;
+  }
+
+  .otp-input {
+    font-size: 1.25rem !important;
+    letter-spacing: 6px;
+  }
+
+  .login-error {
+    font-size: 0.82rem;
+    margin-top: 1rem;
+  }
+}
+
+/* =========================================
+   RESPONSIVE — VERY SMALL  (≤ 360px)
+   ========================================= */
+
+@media (max-width: 360px) {
+  .login-box {
+    padding: 1.75rem 1.25rem 2rem;
+  }
+
+  .brand-header h1 {
+    font-size: 1.1rem;
+  }
+
+  .input-group input {
+    padding: 0.65rem 0.8rem;
+  }
+
+  .enter-btn {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* =========================================
+   RESPONSIVE — LANDSCAPE MOBILE
+   ========================================= */
+
+@media (max-width: 768px) and (orientation: landscape) and (max-height: 500px) {
+  .landing-screen {
+    /* Landscape phone: smaller padding, scrollable */
+    padding: 1rem;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .login-box {
+    /* Compact card that fits in landscape */
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    max-width: 420px;
+    margin: auto;
+  }
+
+  .brand-header {
+    margin-bottom: 1rem;
+  }
+
+  .logo-square-login {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brand-header h1 {
+    font-size: 1.1rem;
+  }
+
+  .brand-header p {
+    display: none; /* Hide subtitle in tight landscape */
+  }
+
+  .input-group {
+    margin-bottom: 0.75rem;
+  }
+
+  .input-group input {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
+  }
+
+  .enter-btn {
+    margin-top: 0.5rem;
+    padding: 0.65rem;
+  }
+}
+
+/* =========================================
+   RESPONSIVE — LARGE SCREENS  (≥ 1440px)
+   ========================================= */
+
+@media (min-width: 1440px) {
+  .login-box {
+    /* Slightly more generous padding on big monitors */
+    padding: 3rem;
+    max-width: 440px;
+  }
+
+  .brand-header h1 {
+    font-size: 1.65rem;
+  }
+
+  .logo-square-login {
+    width: 76px;
+    height: 76px;
+  }
 }

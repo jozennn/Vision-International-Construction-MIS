@@ -13,6 +13,9 @@ use App\Http\Controllers\{
     InventoryController,
     MaterialRequestController,
     ProjectController,
+    WarehouseInventoryController,
+    IncomingShipmentController,
+    LogisticsController,
 };
 
 /*
@@ -83,23 +86,51 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
 
     // --- INVENTORY MANAGEMENT ---
-    Route::prefix('inventory')->group(function () {
-        Route::get('/alerts', [InventoryController::class, 'getLowStockAlerts']);
+     Route::prefix('inventory')->group(function () {
+
+        // ── Your existing routes (keep all of these) ──
+        Route::get('/alerts',    [InventoryController::class, 'getLowStockAlerts']);
         Route::post('/stock-in', [InventoryController::class, 'stockIn']);
         Route::post('/stock-out', [InventoryController::class, 'stockOut']);
-        Route::get('/shipments', [InventoryController::class, 'getShipmentHistory']);
-        Route::get('/logistics', [InventoryController::class, 'getLogisticsHistory']);
+        Route::get('/logistics/meta',              [LogisticsController::class, 'meta']);
+        Route::get('/logistics',                   [LogisticsController::class, 'index']);
+        Route::post('/logistics',                  [LogisticsController::class, 'store']);
+        Route::patch('/logistics/{id}/delivered',  [LogisticsController::class, 'markDelivered']);
+        Route::delete('/logistics/{id}',           [LogisticsController::class, 'destroy']);
         Route::patch('/shipments/{id}/receive', [InventoryController::class, 'markAsReceived']);
-        Route::patch('/logistics/{id}/delivered', [InventoryController::class, 'markAsDelivered']);
         Route::get('/construction', [InventoryController::class, 'getConstruction']);
-        Route::get('/office', [InventoryController::class, 'getOffice']);
-        Route::get('/incoming', [InventoryController::class, 'getIncoming']);
-        Route::get('/delivery', [InventoryController::class, 'getDelivery']);
-        Route::get('/requests', [InventoryController::class, 'getRequests']);
-        Route::get('/pending', [InventoryController::class, 'getPendingActions']);
+        Route::get('/office',       [InventoryController::class, 'getOffice']);
+        Route::get('/incoming',     [InventoryController::class, 'getIncoming']);
+        Route::get('/delivery',     [InventoryController::class, 'getDelivery']);
+        Route::get('/requests',     [InventoryController::class, 'getRequests']);
+        Route::get('/pending',      [InventoryController::class, 'getPendingActions']);
         Route::post('/approve/{type}/{id}', [InventoryController::class, 'approveAction']);
-        Route::post('/reject/{type}/{id}', [InventoryController::class, 'rejectAction']);
-        Route::delete('/{type}/{id}', [InventoryController::class, 'destroy']);
+        Route::post('/reject/{type}/{id}',  [InventoryController::class, 'rejectAction']);
+        Route::delete('/{type}/{id}',       [InventoryController::class, 'destroy']);
+
+        // ── Shipment routes — ORDER MATTERS: specific paths before {id} wildcard ──
+        Route::get('/shipments/meta',     [IncomingShipmentController::class, 'meta']);
+        Route::get('/shipments',          [IncomingShipmentController::class, 'getShipments']);
+        Route::post('/shipments',         [IncomingShipmentController::class, 'storeShipment']);
+
+        // ── NEW: Add to inventory ──────────────────────────────────────────────────
+        Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
+
+        // ── NEW: Report / Return ──────────────────────────────────────────────────
+        Route::get('/shipments/reports',   [IncomingShipmentController::class, 'getReports']);
+        Route::post('/shipments/report',   [IncomingShipmentController::class, 'storeReport']);
+
+        // ── Existing update route ─────────────────────────────────────────────────
+        Route::put('/shipments/{id}',     [IncomingShipmentController::class, 'updateShipment']);
+    });
+
+    Route::prefix('warehouse-inventory')->group(function () {
+        Route::get('/meta', [WarehouseInventoryController::class, 'meta']);
+        Route::get('/', [WarehouseInventoryController::class, 'index']);
+        Route::post('/', [WarehouseInventoryController::class, 'store']);
+        Route::get('/{id}', [WarehouseInventoryController::class, 'show']);
+        Route::put('/{id}', [WarehouseInventoryController::class, 'update']);
+        Route::delete('/{id}', [WarehouseInventoryController::class, 'destroy']);
     });
 
     Route::get('/fetch-image', [App\Http\Controllers\ProjectController::class, 'fetchImage']);

@@ -1,265 +1,424 @@
-import React, { useState, useEffect } from 'react';
-import inventoryService from '@/api/inventoryService'; 
-import { X, Loader2, PackageCheck } from 'lucide-react';
-import '../css/Construction.css';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Loader2, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, PackageCheck, Pencil, Trash2 } from 'lucide-react';
+import warehouseInventoryService from '@/api/warehouseInventoryService';
+import '../css/Construction-1.css';
 
-const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
-  const [materials, setMaterials] = useState([]); 
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isNewArrival, setIsNewArrival] = useState(false); 
-  
-  const [currentId, setCurrentId] = useState(null);
-  const [saveLoading, setSaveLoading] = useState(false);
-  
-  // Track which project from the shipment is currently selected
-  const [selectedProjectIndex, setSelectedProjectIndex] = useState(0);
+const AVAILABILITY_COLORS = {
+  'ON STOCK':  'avail-on',
+  'LOW STOCK': 'avail-low',
+  'NO STOCK':  'avail-no',
+};
 
-  const [categories] = useState([
-    "Antibac roll vinyl",
-    "Homogenous vinyl",
-    "Heterogenous vinyl",
-    "LVT (Luxury Vinyl Tile)",
-    "Wall Cladding",
-    "Adhesives/Fixatives"
-  ]);
+const CONDITION_COLORS = {
+  Good:     'cond-good',
+  Damaged:  'cond-damaged',
+  Returned: 'cond-returned',
+};
 
-  const [formData, setFormData] = useState({
-    product_category: "Antibac roll vinyl", 
-    product_code: '', 
-    item_name: '', 
-    production_date: '', 
-    quantity: '', 
-    condition: 'Good',
-    is_consumable: false 
-  });
+const EMPTY_FORM = {
+  product_category: '',
+  product_code:     '',
+  unit:             '',
+  current_stock:    '',
+  delivery_in:      '',
+  delivery_out:     '',
+  return_out:       '',
+  return_in:        '',
+  reserve:          '',
+  condition:        'Good',
+  is_consumable:    false,
+  notes:            '',
+};
 
-  // Handle data transfer from Incoming Shipment
-  useEffect(() => {
-    if (newArrivalData && newArrivalData.projects?.length > 0) {
-      setIsNewArrival(true);
-      setIsModalOpen(true);
-      
-      // Load specific project data based on the dropdown selection
-      const activeProj = newArrivalData.projects[selectedProjectIndex];
-      
-      setFormData({
-        product_category: activeProj.product_category || "Antibac roll vinyl",
-        product_code: newArrivalData.shipment_number || '', 
-        item_name: activeProj.project_name || '',
-        production_date: new Date().toISOString().split('T')[0], 
-        quantity: activeProj.quantity || '',
-        condition: 'Good',
-        is_consumable: false
-      });
+// ─── Pagination ───────────────────────────────────────────────────────────────
+const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageChange, onPerPageChange }) => {
+  const buildPages = () => {
+    const pages = [];
+    const delta = 2;
+    const left  = currentPage - delta;
+    const right = currentPage + delta + 1;
+    for (let i = 1; i <= lastPage; i++) {
+      if (i === 1 || i === lastPage || (i >= left && i < right)) pages.push(i);
     }
-  }, [newArrivalData, selectedProjectIndex]);
-
-  const fetchMaterials = async () => {
-    try {
-        setLoading(true);
-        const res = await inventoryService.getConstruction();
-        setMaterials(res.data);
-    } catch (err) {
-        console.error("Error loading inventory:", err);
-    } finally {
-        setLoading(false);
+    const withGaps = [];
+    let prev = null;
+    for (const p of pages) {
+      if (prev !== null && p - prev > 1) withGaps.push('…');
+      withGaps.push(p);
+      prev = p;
     }
+    return withGaps;
   };
 
-  useEffect(() => { fetchMaterials(); }, []);
+  return (
+    <div className="wh-pagination">
+      <div className="wh-pagination-info">
+        {total > 0 ? `Showing ${from}–${to} of ${total} products` : 'No products'}
+      </div>
+      <div className="wh-pagination-controls">
+        <div className="wh-perpage-wrap">
+          <span className="wh-perpage-label">Rows:</span>
+          <div className="wh-select-wrap">
+            <select
+              value={perPage}
+              onChange={e => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
+              className="wh-perpage-select"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <ChevronDown size={12} className="wh-select-icon" />
+          </div>
+        </div>
+        <div className="wh-page-btns">
+          <button className="wh-page-btn wh-page-nav" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
+            <ChevronLeft size={14} />
+          </button>
+          {buildPages().map((p, i) =>
+            p === '…'
+              ? <span key={`gap-${i}`} className="wh-page-ellipsis">…</span>
+              : <button key={p} className={`wh-page-btn ${currentPage === p ? 'active' : ''}`} onClick={() => onPageChange(p)}>{p}</button>
+          )}
+          <button className="wh-page-btn wh-page-nav" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === lastPage}>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
+  const [items, setItems]                     = useState([]);
+  const [loading, setLoading]                 = useState(true);
+  const [saveLoading, setSaveLoading]         = useState(false);
+  const [deleteLoading, setDeleteLoading]     = useState(null);
+
+  const [categories, setCategories]           = useState([]);
+  const [presetCodes, setPresetCodes]         = useState({});
+  const [unitsByCategory, setUnitsByCategory] = useState({});
+
+  const [typeFilter, setTypeFilter]           = useState('all');
+  const [categoryFilter, setCategoryFilter]   = useState('all');
+  const [search, setSearch]                   = useState('');
+
+  const [currentPage, setCurrentPage]         = useState(1);
+  const [lastPage, setLastPage]               = useState(1);
+  const [total, setTotal]                     = useState(0);
+  const [from, setFrom]                       = useState(0);
+  const [to, setTo]                           = useState(0);
+  const [perPage, setPerPage]                 = useState(10);
+
+  const [isModalOpen, setIsModalOpen]         = useState(false);
+  const [isEditing, setIsEditing]             = useState(false);
+  const [isNewArrival, setIsNewArrival]       = useState(false);
+  const [currentId, setCurrentId]             = useState(null);
+  const [formData, setFormData]               = useState({ ...EMPTY_FORM });
+  const [customCode, setCustomCode]           = useState(false);
+
+  // Load meta
+  useEffect(() => {
+    warehouseInventoryService.getMeta().then(res => {
+      setCategories(res.data.categories || []);
+      setPresetCodes(res.data.preset_codes || {});
+      setUnitsByCategory(res.data.units_by_category || {});
+    }).catch(console.error);
+  }, []);
+
+  // Fetch items
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = { page: currentPage, per_page: perPage };
+      if (typeFilter !== 'all')     params.type     = typeFilter;
+      if (categoryFilter !== 'all') params.category = categoryFilter;
+      if (search)                   params.search   = search;
+      const res = await warehouseInventoryService.getAll(params);
+      const d = res.data;
+      setItems(d.data || []);
+      setTotal(d.total || 0);
+      setLastPage(d.last_page || 1);
+      setFrom(d.from || 0);
+      setTo(d.to || 0);
+    } catch (err) {
+      console.error('Failed to load inventory:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, perPage, typeFilter, categoryFilter, search]);
+
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+  useEffect(() => { setCurrentPage(1); }, [typeFilter, categoryFilter, search, perPage]);
+
+  // New arrival
+  useEffect(() => {
+    if (newArrivalData?.projects?.length > 0) {
+      const proj = newArrivalData.projects[0];
+      setIsNewArrival(true);
+      setFormData({
+        ...EMPTY_FORM,
+        product_category: proj.product_category || '',
+        product_code:     newArrivalData.shipment_number || '',
+        current_stock:    proj.quantity || '',
+        is_consumable:    proj.product_category === 'CONSUMABLES',
+      });
+      setIsModalOpen(true);
+    }
+  }, [newArrivalData]);
+
+  const handleCategoryChange = (cat) => {
+    setFormData(f => ({ ...f, product_category: cat, unit: unitsByCategory[cat] || 'Pcs', product_code: '', is_consumable: cat === 'CONSUMABLES' }));
+    setCustomCode(false);
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveLoading(true);
     try {
-        if (isEditing) {
-            await inventoryService.updateMaterial(currentId, formData);
-        } else {
-            await inventoryService.stockIn(formData);
-        }
-        alert(isNewArrival ? "Arrival Stock successfully registered to Warehouse!" : "Product Saved!");
-        closeModal();
-        fetchMaterials();
+      const payload = {
+        ...formData,
+        current_stock: parseInt(formData.current_stock) || 0,
+        delivery_in:   parseInt(formData.delivery_in)   || 0,
+        delivery_out:  parseInt(formData.delivery_out)  || 0,
+        return_out:    parseInt(formData.return_out)    || 0,
+        return_in:     parseInt(formData.return_in)     || 0,
+        reserve:       parseInt(formData.reserve)       || 0,
+      };
+      if (isEditing) await warehouseInventoryService.update(currentId, payload);
+      else           await warehouseInventoryService.create(payload);
+      closeModal();
+      fetchItems();
     } catch (err) {
-        alert("Failed to save data.");
+      alert('Failed to save. Please check all fields.');
     } finally {
-        setSaveLoading(false);
+      setSaveLoading(false);
     }
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setIsEditing(false);
-    setIsNewArrival(false);
-    setSelectedProjectIndex(0); // Reset project selection
-    
-    if (clearArrivalData) clearArrivalData();
-
-    setFormData({ 
-        product_category: "Antibac roll vinyl", 
-        product_code: '', item_name: '', production_date: '', 
-        quantity: '', condition: 'Good', is_consumable: false 
-    });
+  const handleDelete = async (id) => {
+    if (!window.confirm('Remove this product from inventory?')) return;
+    setDeleteLoading(id);
+    try {
+      await warehouseInventoryService.remove(id);
+      if (items.length === 1 && currentPage > 1) setCurrentPage(p => p - 1);
+      else fetchItems();
+    } catch {
+      alert('Failed to delete.');
+    } finally {
+      setDeleteLoading(null);
+    }
   };
 
+  const openAddModal  = () => { setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); setIsModalOpen(true); };
+  const openEditModal = (item) => { setIsEditing(true); setIsNewArrival(false); setCurrentId(item.id); setFormData({ ...item }); setCustomCode(true); setIsModalOpen(true); };
+  const closeModal    = () => { setIsModalOpen(false); setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); if (clearArrivalData) clearArrivalData(); };
+
+  const codesForCategory = formData.product_category ? (presetCodes[formData.product_category] || []) : [];
+
   return (
-    <div className="construction-container">
-      <div className="table-header-box">
-        <div className="left-side">
-          <button className="back-nav-btn" onClick={onBack}>← Back</button>
-          <h2>Warehouse Inventory</h2>
+    <div className="wh-container">
+
+      {/* Top Bar */}
+      <div className="wh-topbar">
+        <div className="wh-topbar-left">
+          <button className="wh-back-btn" onClick={onBack}>← Back</button>
+          <div className="wh-title-block">
+            <h1 className="wh-title">Warehouse Inventory</h1>
+            <p className="wh-subtitle">Construction Materials</p>
+          </div>
         </div>
-        <button className="add-material-btn" onClick={() => setIsModalOpen(true)}>+ Add Product</button>
+        <button className="wh-add-btn" onClick={openAddModal}>
+          <Plus size={16} /> Add Product
+        </button>
       </div>
 
-      <div className="table-wrapper">
-        <table className="construction-table">
+      {/* Filter Bar */}
+      <div className="wh-filters">
+        <div className="wh-type-toggle">
+          {[{ val: 'all', label: 'All Products' }, { val: 'main', label: 'Main Products' }, { val: 'consumable', label: 'Consumables' }].map(({ val, label }) => (
+            <button key={val} className={`wh-toggle-btn ${typeFilter === val ? 'active' : ''}`} onClick={() => setTypeFilter(val)}>{label}</button>
+          ))}
+        </div>
+        <div className="wh-filter-select-wrap">
+          <select className="wh-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+            <option value="all">All Categories</option>
+            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+          <ChevronDown size={14} className="wh-select-icon" />
+        </div>
+        <div className="wh-search-wrap">
+          <Search size={14} className="wh-search-icon" />
+          <input type="text" className="wh-search-input" placeholder="Search code or category…" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {/* Table — Delivery In/Out and Return In/Out columns REMOVED */}
+      <div className="wh-table-wrap">
+        <table className="wh-table">
           <thead>
             <tr>
-              <th>Product Category</th>
-              <th>Product Code</th>
-              <th>Item Name</th>
-              <th>Production Date</th>
-              <th>Quantity</th>
+              <th>Product</th>
+              <th>Code</th>
+              <th>Availability</th>
+              <th className="text-right">Current Stock</th>
+              <th>Unit</th>
+              <th className="text-right">Reserve</th>
+              <th className="text-right">Total After Reserve</th>
               <th>Condition</th>
-              <th>Consumables</th>
+              <th>Type</th>
               <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" className="text-center">Loading Inventory...</td></tr>
-            ) : materials.map((item) => (
-              <tr key={item.id}>
-                <td><span className="category-badge">{item.product_category}</span></td>
-                <td className="font-mono">{item.product_code}</td>
-                <td className="font-bold">{item.item_name}</td>
-                <td>{item.production_date}</td>
-                <td>{item.quantity}</td>
-                <td>
-                  <span className={`condition-tag ${item.condition?.toLowerCase()}`}>
-                    {item.condition}
-                  </span>
-                </td>
-                <td>
-                  <span className={item.is_consumable ? "consumable-pill" : "main-product-pill"}>
-                    {item.is_consumable ? "YES" : "NO"}
-                  </span>
-                </td>
-                <td className="action-btns">
-                  <button className="edit-action" onClick={() => {
-                    setIsEditing(true);
-                    setCurrentId(item.id);
-                    setFormData(item);
-                    setIsModalOpen(true);
-                  }}>Edit</button>
-                </td>
-              </tr>
-            ))}
+              <tr><td colSpan="10" className="wh-loading-cell"><Loader2 className="wh-spinner" size={20} /> Loading inventory…</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan="10" className="wh-empty-cell">No products found.</td></tr>
+            ) : items.map((item) => {
+              // FIXED: Total After Reserve = current_stock - reserve (not anything else)
+              const reserve    = parseInt(item.reserve || 0);
+              const totalAfter = item.current_stock - reserve;
+
+              return (
+                <tr key={item.id} className="wh-row">
+                  <td><span className="wh-category-badge">{item.product_category}</span></td>
+                  <td className="wh-code">{item.product_code}</td>
+                  <td><span className={`wh-avail ${AVAILABILITY_COLORS[item.availability] || 'avail-no'}`}>{item.availability}</span></td>
+                  <td className="text-right wh-num">{item.current_stock}</td>
+                  <td className="wh-unit">{item.unit}</td>
+                  <td className="text-right wh-num">{reserve > 0 ? reserve : '—'}</td>
+                  <td className={`text-right wh-num wh-total ${totalAfter < 0 ? 'negative' : ''}`}>{totalAfter}</td>
+                  <td><span className={`wh-condition ${CONDITION_COLORS[item.condition] || ''}`}>{item.condition}</span></td>
+                  <td><span className={item.is_consumable ? 'wh-pill consumable' : 'wh-pill main'}>{item.is_consumable ? 'Consumable' : 'Main'}</span></td>
+                  <td className="wh-actions">
+                    <button className="wh-edit-btn" onClick={() => openEditModal(item)} title="Edit"><Pencil size={14} /></button>
+                    <button className="wh-del-btn" onClick={() => handleDelete(item.id)} disabled={deleteLoading === item.id} title="Delete">
+                      {deleteLoading === item.id ? <Loader2 size={14} className="wh-spinner" /> : <Trash2 size={14} />}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+
+        {!loading && total > 0 && (
+          <Pagination
+            currentPage={currentPage} lastPage={lastPage}
+            from={from} to={to} total={total} perPage={perPage}
+            onPageChange={setCurrentPage} onPerPageChange={setPerPage}
+          />
+        )}
       </div>
 
+      {/* Modal */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {isNewArrival && <PackageCheck size={24} color="#2563eb" />}
-                {isNewArrival ? 'New Arrival Stock' : (isEditing ? 'Update Product' : 'Register New Product')}
-              </h2>
-              <button className="close-x" onClick={closeModal}><X size={20}/></button>
+        <div className="wh-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="wh-modal">
+            <div className="wh-modal-header">
+              <div className="wh-modal-title-row">
+                {isNewArrival && <PackageCheck size={20} className="wh-modal-icon" />}
+                <h2 className="wh-modal-title">{isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}</h2>
+              </div>
+              <button className="wh-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            
-            <form onSubmit={handleSave} className="material-form">
-              
-              {/* PROJECT SELECTOR (Only shows if shipment has multiple projects) */}
-              {isNewArrival && newArrivalData.projects?.length > 1 && (
-                <div className="form-group" style={{ background: '#eff6ff', padding: '15px', borderRadius: '8px', border: '1px dashed #2563eb', marginBottom: '20px' }}>
-                   <label style={{ fontWeight: 'bold', color: '#1e40af' }}>Shipment Content Picker</label>
-                   <select 
-                    className="form-select" 
-                    value={selectedProjectIndex}
-                    onChange={(e) => setSelectedProjectIndex(parseInt(e.target.value))}
-                   >
-                     {newArrivalData.projects.map((p, idx) => (
-                       <option key={idx} value={idx}>{p.project_name} — {p.quantity} units</option>
-                     ))}
-                   </select>
-                   <p style={{ fontSize: '12px', marginTop: '5px', color: '#60a5fa' }}>
-                     Pick the specific project items you want to save to inventory now.
-                   </p>
+
+            <form onSubmit={handleSave} className="wh-form">
+              <div className="wh-form-row">
+                <div className="wh-form-group">
+                  <label>Product Category <span className="req">*</span></label>
+                  <div className="wh-select-wrap">
+                    <select required value={formData.product_category} onChange={e => handleCategoryChange(e.target.value)}>
+                      <option value="">— Select Category —</option>
+                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="wh-select-icon" />
+                  </div>
                 </div>
-              )}
-
-              <div className="form-group">
-                <label>Product Category</label>
-                <select 
-                  className="form-select"
-                  value={formData.product_category} 
-                  onChange={(e) => setFormData({...formData, product_category: e.target.value})}
-                >
-                  {categories.map((cat, i) => <option key={i} value={cat}>{cat}</option>)}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Product Code</label>
-                <input type="text" required value={formData.product_code} 
-                  onChange={(e) => setFormData({...formData, product_code: e.target.value})} 
-                  placeholder="e.g. 182062" />
-              </div>
-
-              <div className="form-group">
-                <label>Item Name</label>
-                <input type="text" required value={formData.item_name} 
-                  onChange={(e) => setFormData({...formData, item_name: e.target.value})} 
-                  placeholder="e.g. Homogenous vinyl" />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Production Date</label>
-                  <input type="date" required value={formData.production_date} 
-                    onChange={(e) => setFormData({...formData, production_date: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label>Quantity</label>
-                  <input type="number" required value={formData.quantity} 
-                    onChange={(e) => setFormData({...formData, quantity: e.target.value})} />
+                <div className="wh-form-group">
+                  <label>Unit <span className="req">*</span></label>
+                  <input type="text" required value={formData.unit} onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. Rolls, Pcs, Bags" />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Condition</label>
-                <select 
-                  className="form-select"
-                  value={formData.condition} 
-                  onChange={(e) => setFormData({...formData, condition: e.target.value})}
-                >
-                  <option value="Good">Good</option>
-                  <option value="Damaged">Damaged</option>
-                  <option value="Returned">Returned</option>
-                </select>
+              <div className="wh-form-group">
+                <div className="wh-label-row">
+                  <label>Product Code <span className="req">*</span></label>
+                  {codesForCategory.length > 0 && (
+                    <button type="button" className="wh-toggle-code-btn" onClick={() => setCustomCode(v => !v)}>
+                      {customCode ? 'Pick from list' : 'Enter custom code'}
+                    </button>
+                  )}
+                </div>
+                {(!customCode && codesForCategory.length > 0) ? (
+                  <div className="wh-select-wrap">
+                    <select required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}>
+                      <option value="">— Select Code —</option>
+                      {codesForCategory.map(({ code }) => <option key={code} value={code}>{code}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="wh-select-icon" />
+                  </div>
+                ) : (
+                  <input type="text" required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))} placeholder="e.g. 182062 or 182062 - New" />
+                )}
+                <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
               </div>
 
-              <div className="form-group checkbox-group">
-                <label className="checkbox-container">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.is_consumable} 
-                    onChange={(e) => setFormData({...formData, is_consumable: e.target.checked})} 
-                  />
-                  This is a Consumable Material
-                </label>
+              <div className="wh-form-row wh-form-row-3">
+                {[
+                  { key: 'current_stock', label: 'Current Stock', required: true },
+                  { key: 'delivery_in',   label: 'Delivery In' },
+                  { key: 'delivery_out',  label: 'Delivery Out' },
+                ].map(({ key, label, required }) => (
+                  <div className="wh-form-group" key={key}>
+                    <label>{label} {required && <span className="req">*</span>}</label>
+                    <input type="number" min="0" required={!!required} value={formData[key]} onChange={e => setFormData(f => ({ ...f, [key]: e.target.value }))} placeholder="0" />
+                  </div>
+                ))}
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="btn-save-material" disabled={saveLoading}>
-                  {saveLoading ? <Loader2 className="animate-spin" size={16}/> : (isNewArrival ? 'Save New Stock' : 'Save Product')}
+              <div className="wh-form-row wh-form-row-3">
+                {[
+                  { key: 'return_out', label: 'Return Out' },
+                  { key: 'return_in',  label: 'Return In' },
+                  { key: 'reserve',    label: 'Reserve' },
+                ].map(({ key, label }) => (
+                  <div className="wh-form-group" key={key}>
+                    <label>{label}</label>
+                    <input type="number" min="0" value={formData[key]} onChange={e => setFormData(f => ({ ...f, [key]: e.target.value }))} placeholder="0" />
+                  </div>
+                ))}
+              </div>
+
+              <div className="wh-form-row">
+                <div className="wh-form-group">
+                  <label>Condition</label>
+                  <div className="wh-select-wrap">
+                    <select value={formData.condition} onChange={e => setFormData(f => ({ ...f, condition: e.target.value }))}>
+                      <option>Good</option><option>Damaged</option><option>Returned</option>
+                    </select>
+                    <ChevronDown size={13} className="wh-select-icon" />
+                  </div>
+                </div>
+                <div className="wh-form-group wh-checkbox-group">
+                  <label className="wh-checkbox-label">
+                    <input type="checkbox" checked={formData.is_consumable} onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))} />
+                    <span>Mark as Consumable</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="wh-form-group">
+                <label>Notes <span className="wh-optional">(optional)</span></label>
+                <textarea rows={2} value={formData.notes} onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))} placeholder="Any remarks…" />
+              </div>
+
+              <div className="wh-modal-footer">
+                <button type="button" className="wh-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="wh-btn-save" disabled={saveLoading}>
+                  {saveLoading ? <><Loader2 size={15} className="wh-spinner" /> Saving…</> : isEditing ? 'Update Product' : 'Save Product'}
                 </button>
               </div>
             </form>

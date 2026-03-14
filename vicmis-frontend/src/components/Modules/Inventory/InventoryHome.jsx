@@ -6,7 +6,6 @@ const InventoryHome = ({ onSelectCategory }) => {
   
   const inventoryModules = [
     { id: 'stock_list', title: 'Construction Materials', icon: '📦' },
-    { id: 'office_materials', title: 'Office Materials', icon: '📝' },
     { id: 'suppliers', title: 'Incoming Shipment', icon: '🚚' },
     { id: 'delivery', title: 'Delivery Materials', icon: '🚚' },
     { id: 'material_request', title: 'Material Request', icon: '💳' },
@@ -24,14 +23,6 @@ const InventoryHome = ({ onSelectCategory }) => {
           <div className="card-title">{item.title}</div>
         </div>
       ))}
-      
-      <div 
-        className="inv-card add-card"
-        onClick={() => onSelectCategory('Add New Stock')}
-      >
-        <div className="card-icon">➕</div>
-        <div className="card-title">Add New Stock</div>
-      </div>
     </div>
   );
 };

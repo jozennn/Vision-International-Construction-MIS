@@ -1,187 +1,546 @@
-import React, { useState, useEffect } from 'react';
-import api from '@/api/axios'; 
-import '../css/Construction.css';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '@/api/axios';
+import {
+  Plus, X, Loader2, RefreshCw, Truck,
+  ChevronDown, ChevronLeft, ChevronRight,
+  CheckCircle, AlertTriangle, Search, Pencil
+} from 'lucide-react';
+import '../css/Delivery.css';
 
-const DeliveryMat = ({ onBack }) => {
-  const [deliveries, setDeliveries] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  // Added 'quantity' to sync with backend inventory decrementing logic
-  const [formData, setFormData] = useState({
-    trucking_service: '',
-    product_category: '',
-    consumables: '',
-    project_name: '',
-    driver_name: '',
-    destination: '',
-    date_of_delivery: '',
-    quantity: 1 
-  });
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-  const fetchDeliveries = async () => {
-    try {
-      setLoading(true); 
-      // Pointing to the new LogisticsController@getLogisticsHistory route
-      const res = await api.get('/inventory/logistics');
-      const data = Array.isArray(res.data) ? res.data : res.data.data || [];
-      setDeliveries(data);
-    } catch (err) {
-      console.error("Error fetching logistics:", err);
-    } finally {
-      setLoading(false);
+const EMPTY_FORM = {
+  trucking_service: '',
+  product_category: '',
+  product_code:     '',
+  is_consumable:    false,
+  project_name:     '',
+  driver_name:      '',
+  destination:      '',
+  date_of_delivery: '',
+  quantity:         1,
+};
+
+const STATUS_CLASS = {
+  Delivered:  'pill-delivered',
+  'In Transit': 'pill-transit',
+};
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+
+const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageChange, onPerPageChange }) => {
+  const buildPages = () => {
+    const pages = [];
+    const delta = 2;
+    for (let i = 1; i <= lastPage; i++) {
+      if (i === 1 || i === lastPage || (i >= currentPage - delta && i <= currentPage + delta)) {
+        pages.push(i);
+      }
     }
-  };
-
-  useEffect(() => { fetchDeliveries(); }, []);
-
-  const handleDelivered = async (id) => {
-    if (!window.confirm("Mark this item as delivered?")) return;
-    try {
-      // Pointing to LogisticsController@markAsDelivered
-      await api.patch(`/inventory/logistics/${id}/delivered`);
-      await fetchDeliveries(); 
-    } catch (err) {
-      alert("Failed to update status.");
+    const withGaps = [];
+    let prev = null;
+    for (const p of pages) {
+      if (prev !== null && p - prev > 1) withGaps.push('…');
+      withGaps.push(p);
+      prev = p;
     }
-  };
-
-  const handleSchedule = async (e) => {
-    e.preventDefault();
-    try {
-      // Pointing to LogisticsController@stockOut
-      await api.post('/inventory/stock-out', formData);
-      
-      // Reset form
-      setFormData({ 
-        trucking_service: '', product_category: '', consumables: '', 
-        project_name: '', driver_name: '', destination: '', date_of_delivery: '',
-        quantity: 1
-      });
-      
-      setShowModal(false);
-      await fetchDeliveries(); 
-      alert("Delivery scheduled successfully!");
-    } catch (err) {
-      alert(`Dispatch Failed: ${err.response?.data?.message || "Error"}`);
-    }
+    return withGaps;
   };
 
   return (
-    <div className="construction-container">
-      <div className="table-header-box">
-        <div className="left-side">
-          <button className="back-nav-btn" onClick={onBack}>← Back</button>
-          <h2>Delivery Logistics</h2>
+    <div className="dl-pagination">
+      <div className="dl-pagination-info">
+        {total > 0 ? `Showing ${from}–${to} of ${total} deliveries` : 'No deliveries'}
+      </div>
+      <div className="dl-pagination-controls">
+        <div className="dl-perpage-wrap">
+          <span className="dl-perpage-label">Rows:</span>
+          <div className="dl-select-wrap">
+            <select
+              value={perPage}
+              onChange={e => { onPerPageChange(Number(e.target.value)); onPageChange(1); }}
+              className="dl-perpage-select"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <ChevronDown size={12} className="dl-select-icon" />
+          </div>
         </div>
-        <button className="add-material-btn" onClick={() => setShowModal(true)}>
-          + Schedule Delivery
-        </button>
+        <div className="dl-page-btns">
+          <button className="dl-page-btn dl-page-nav" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
+            <ChevronLeft size={14} />
+          </button>
+          {buildPages().map((p, i) =>
+            p === '…'
+              ? <span key={`g${i}`} className="dl-page-ellipsis">…</span>
+              : <button key={p} className={`dl-page-btn ${currentPage === p ? 'active' : ''}`} onClick={() => onPageChange(p)}>{p}</button>
+          )}
+          <button className="dl-page-btn dl-page-nav" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === lastPage}>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const DeliveryMat = ({ onBack }) => {
+  const [deliveries, setDeliveries]     = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [markLoading, setMarkLoading]   = useState(null);
+  const [saveLoading, setSaveLoading]   = useState(false);
+
+  // Meta for dropdowns
+  const [categories, setCategories]     = useState([]);
+  const [products, setProducts]         = useState({});   // { category: [{ product_code, availability, current_stock, is_consumable }] }
+
+  // Derived from selected category
+  const [codesForCat, setCodesForCat]   = useState([]);
+  const [lowStockWarn, setLowStockWarn] = useState(false);
+
+  // Filters
+  const [search, setSearch]             = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter]     = useState('all');
+
+  // Pagination
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [lastPage, setLastPage]         = useState(1);
+  const [total, setTotal]               = useState(0);
+  const [from, setFrom]                 = useState(0);
+  const [to, setTo]                     = useState(0);
+  const [perPage, setPerPage]           = useState(10);
+
+  // Modal
+  const [showModal, setShowModal]       = useState(false);
+  const [formData, setFormData]         = useState({ ...EMPTY_FORM });
+
+  // ─── Load meta (categories + products) ──────────────────────────────────────
+  useEffect(() => {
+    api.get('/inventory/logistics/meta').then(res => {
+      setCategories(res.data.categories || []);
+      setProducts(res.data.products || {});
+    }).catch(console.error);
+  }, []);
+
+  // ─── Fetch deliveries ────────────────────────────────────────────────────────
+  const fetchDeliveries = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      else setIsRefreshing(true);
+      const params = { page: currentPage, per_page: perPage };
+      if (search)                   params.search = search;
+      if (statusFilter !== 'all')   params.status = statusFilter;
+      if (typeFilter !== 'all')     params.type   = typeFilter;
+      const res = await api.get('/inventory/logistics', { params });
+      const d = res.data;
+      setDeliveries(d.data || []);
+      setTotal(d.total || 0);
+      setLastPage(d.last_page || 1);
+      setFrom(d.from || 0);
+      setTo(d.to || 0);
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [currentPage, perPage, search, statusFilter, typeFilter]);
+
+  useEffect(() => { fetchDeliveries(); }, [fetchDeliveries]);
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, typeFilter, perPage]);
+
+  // ─── Category change → populate codes dropdown ───────────────────────────────
+  const handleCategoryChange = (cat) => {
+    const codes = products[cat] || [];
+    setCodesForCat(codes);
+    setLowStockWarn(false);
+    setFormData(f => ({
+      ...f,
+      product_category: cat,
+      product_code:     '',
+      is_consumable:    false,
+    }));
+  };
+
+  // ─── Code change → check low stock ───────────────────────────────────────────
+  const handleCodeChange = (code) => {
+    const item = codesForCat.find(c => c.product_code === code);
+    setLowStockWarn(item?.availability === 'LOW STOCK' || item?.availability === 'NO STOCK');
+    setFormData(f => ({
+      ...f,
+      product_code:  code,
+      is_consumable: item?.is_consumable ?? false,
+    }));
+  };
+
+  // ─── Submit ───────────────────────────────────────────────────────────────────
+  const handleSchedule = async (e) => {
+    e.preventDefault();
+    setSaveLoading(true);
+    try {
+      await api.post('/inventory/logistics', {
+        ...formData,
+        quantity: parseInt(formData.quantity) || 1,
+      });
+      setShowModal(false);
+      setFormData({ ...EMPTY_FORM });
+      setCodesForCat([]);
+      setLowStockWarn(false);
+      fetchDeliveries(true);
+    } catch (err) {
+      alert(`Dispatch failed: ${err.response?.data?.message || 'Unknown error'}`);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  // ─── Mark delivered ───────────────────────────────────────────────────────────
+  const handleDelivered = async (id) => {
+    if (!window.confirm('Mark this delivery as Delivered?')) return;
+    setMarkLoading(id);
+    try {
+      await api.patch(`/inventory/logistics/${id}/delivered`);
+      fetchDeliveries(true);
+    } catch {
+      alert('Failed to update status.');
+    } finally {
+      setMarkLoading(null);
+    }
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setFormData({ ...EMPTY_FORM });
+    setCodesForCat([]);
+    setLowStockWarn(false);
+  };
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
+  return (
+    <div className="dl-wrapper">
+
+      {/* ── Top Bar ── */}
+      <div className="dl-topbar">
+        <div className="dl-topbar-left">
+          <button className="dl-back-btn" onClick={onBack}>← Back</button>
+          <div className="dl-title-block">
+            <h1 className="dl-title">Delivery Logistics</h1>
+            <p className="dl-subtitle">Dispatch &amp; Trucking Management</p>
+          </div>
+        </div>
+        <div className="dl-topbar-right">
+          <button
+            className={`dl-refresh-btn ${isRefreshing ? 'spinning' : ''}`}
+            onClick={() => fetchDeliveries(true)}
+            title="Refresh"
+          >
+            <RefreshCw size={15} />
+          </button>
+          <button className="dl-add-btn" onClick={() => setShowModal(true)}>
+            <Plus size={15} /> Schedule Delivery
+          </button>
+        </div>
       </div>
 
+      {/* ── Filter Bar ── */}
+      <div className="dl-filters">
+        {/* Status toggle */}
+        <div className="dl-type-toggle">
+          {[
+            { val: 'all',        label: 'All' },
+            { val: 'In Transit', label: 'In Transit' },
+            { val: 'Delivered',  label: 'Delivered' },
+          ].map(({ val, label }) => (
+            <button
+              key={val}
+              className={`dl-toggle-btn ${statusFilter === val ? 'active' : ''}`}
+              onClick={() => setStatusFilter(val)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Type toggle */}
+        <div className="dl-type-toggle">
+          {[
+            { val: 'all',        label: 'All Types' },
+            { val: 'main',       label: 'Main Product' },
+            { val: 'consumable', label: 'Consumable' },
+          ].map(({ val, label }) => (
+            <button
+              key={val}
+              className={`dl-toggle-btn ${typeFilter === val ? 'active' : ''}`}
+              onClick={() => setTypeFilter(val)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="dl-search-wrap">
+          <Search size={14} className="dl-search-icon" />
+          <input
+            type="text"
+            className="dl-search-input"
+            placeholder="Search project, driver, destination…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* ── Table ── */}
+      <div className="dl-table-wrap">
+        <table className="dl-table">
+          <thead>
+            <tr>
+              <th>Trucking Service</th>
+              <th>Product Category</th>
+              <th>Code / Product Name</th>
+              <th>Type</th>
+              <th>Project Name</th>
+              <th>Driver</th>
+              <th>Destination</th>
+              <th className="text-right">Qty</th>
+              <th>Date of Delivery</th>
+              <th>Date Delivered</th>
+              <th>Status</th>
+              <th className="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="12" className="dl-loading-cell">
+                  <Loader2 size={18} className="dl-spinner" /> Loading deliveries…
+                </td>
+              </tr>
+            ) : deliveries.length === 0 ? (
+              <tr>
+                <td colSpan="12" className="dl-empty-cell">No deliveries found.</td>
+              </tr>
+            ) : deliveries.map(d => (
+              <tr key={d.id} className="dl-row">
+                <td className="dl-trucking">{d.trucking_service}</td>
+                <td>
+                  <span className="dl-category-badge">{d.product_category}</span>
+                </td>
+                <td className="dl-code">{d.product_code}</td>
+                <td>
+                  <span className={d.is_consumable ? 'dl-pill consumable' : 'dl-pill main'}>
+                    {d.is_consumable ? 'Consumable' : 'Main'}
+                  </span>
+                </td>
+                <td className="dl-project">{d.project_name}</td>
+                <td className="dl-driver">{d.driver_name}</td>
+                <td className="dl-dest">{d.destination}</td>
+                <td className="text-right dl-qty">{d.quantity ?? '—'}</td>
+                <td className="dl-date">{d.date_of_delivery}</td>
+                <td className="dl-date">
+                  {d.date_delivered
+                    ? new Date(d.date_delivered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                    : <span className="dl-tba">—</span>}
+                </td>
+                <td>
+                  <span className={`dl-status-pill ${STATUS_CLASS[d.status] || 'pill-transit'}`}>
+                    {d.status}
+                  </span>
+                </td>
+                <td className="dl-actions">
+                  {d.status !== 'Delivered' ? (
+                    <button
+                      className="dl-deliver-btn"
+                      onClick={() => handleDelivered(d.id)}
+                      disabled={markLoading === d.id}
+                      title="Mark as delivered"
+                    >
+                      {markLoading === d.id
+                        ? <Loader2 size={13} className="dl-spinner" />
+                        : <CheckCircle size={13} />}
+                      {markLoading === d.id ? 'Saving…' : 'Delivered'}
+                    </button>
+                  ) : (
+                    <span className="dl-done-label">✓ Done</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {!loading && total > 0 && (
+          <Pagination
+            currentPage={currentPage} lastPage={lastPage}
+            from={from} to={to} total={total} perPage={perPage}
+            onPageChange={setCurrentPage} onPerPageChange={setPerPage}
+          />
+        )}
+      </div>
+
+      {/* ── Schedule Modal ── */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
-            <div className="modal-header">
-              <h3>Schedule New Delivery</h3>
-              <button className="close-modal" onClick={() => setShowModal(false)}>&times;</button>
+        <div className="dl-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="dl-modal">
+            <div className="dl-modal-header">
+              <div>
+                <h2 className="dl-modal-title">Schedule Delivery</h2>
+                <p className="dl-modal-sub">Dispatch a product to a project site</p>
+              </div>
+              <button className="dl-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-            <form onSubmit={handleSchedule}>
-              <div className="modal-form-grid">
-                <div className="form-group-dispatch">
-                  <label>Trucking Service</label>
-                  <input type="text" required value={formData.trucking_service} onChange={(e) => setFormData({...formData, trucking_service: e.target.value})} />
+
+            <form onSubmit={handleSchedule} className="dl-form">
+
+              {/* Trucking service */}
+              <div className="dl-form-group">
+                <label>Trucking Service <span className="dl-req">*</span></label>
+                <input
+                  type="text" required
+                  className="dl-input"
+                  placeholder="e.g. VISION, JRS Trucking"
+                  value={formData.trucking_service}
+                  onChange={e => setFormData(f => ({ ...f, trucking_service: e.target.value }))}
+                />
+              </div>
+
+              {/* Product category dropdown */}
+              <div className="dl-form-row">
+                <div className="dl-form-group">
+                  <label>Product Category <span className="dl-req">*</span></label>
+                  <div className="dl-select-wrap">
+                    <select
+                      required className="dl-input"
+                      value={formData.product_category}
+                      onChange={e => handleCategoryChange(e.target.value)}
+                    >
+                      <option value="">— Select Category —</option>
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="dl-select-icon" />
+                  </div>
                 </div>
-                <div className="form-group-dispatch">
-                  <label>Product Category</label>
-                  <input type="text" required value={formData.product_category} onChange={(e) => setFormData({...formData, product_category: e.target.value})} />
-                </div>
-                <div className="form-group-dispatch">
-                  <label>Consumables (Item Name)</label>
-                  <input type="text" required value={formData.consumables} onChange={(e) => setFormData({...formData, consumables: e.target.value})} />
-                </div>
-                <div className="form-group-dispatch">
-                  <label>Quantity to Deduct</label>
-                  <input type="number" required value={formData.quantity} onChange={(e) => setFormData({...formData, quantity: e.target.value})} />
-                </div>
-                <div className="form-group-dispatch">
-                  <label>Project Name</label>
-                  <input type="text" required value={formData.project_name} onChange={(e) => setFormData({...formData, project_name: e.target.value})} />
-                </div>
-                <div className="form-group-dispatch">
-                  <label>Driver Name</label>
-                  <input type="text" required value={formData.driver_name} onChange={(e) => setFormData({...formData, driver_name: e.target.value})} />
-                </div>
-                <div className="form-group-dispatch">
-                  <label>Destination</label>
-                  <input type="text" required value={formData.destination} onChange={(e) => setFormData({...formData, destination: e.target.value})} />
-                </div>
-                <div className="form-group-dispatch">
-                  <label>Date of Delivery</label>
-                  <input type="date" required value={formData.date_of_delivery} onChange={(e) => setFormData({...formData, date_of_delivery: e.target.value})} />
+
+                {/* Code dropdown — populated after category chosen */}
+                <div className="dl-form-group">
+                  <label>Code / Product Name <span className="dl-req">*</span></label>
+                  <div className="dl-select-wrap">
+                    <select
+                      required className="dl-input"
+                      value={formData.product_code}
+                      onChange={e => handleCodeChange(e.target.value)}
+                      disabled={!formData.product_category}
+                    >
+                      <option value="">— Select Code —</option>
+                      {codesForCat.map(item => (
+                        <option
+                          key={item.product_code}
+                          value={item.product_code}
+                          disabled={item.availability === 'NO STOCK'}
+                        >
+                          {item.product_code}
+                          {item.availability === 'NO STOCK'  ? ' (No Stock)'  : ''}
+                          {item.availability === 'LOW STOCK' ? ' (Low Stock)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="dl-select-icon" />
+                  </div>
+                  {/* Low stock warning */}
+                  {lowStockWarn && (
+                    <div className="dl-warn">
+                      <AlertTriangle size={13} />
+                      This item is low or out of stock. Proceed with caution.
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="confirm-dispatch-btn">Confirm Dispatch</button>
+
+              {/* Type indicator (auto-set, read-only display) */}
+              {formData.product_code && (
+                <div className="dl-type-indicator">
+                  <span className="dl-type-label">Type:</span>
+                  <span className={formData.is_consumable ? 'dl-pill consumable' : 'dl-pill main'}>
+                    {formData.is_consumable ? 'Consumable' : 'Main Product'}
+                  </span>
+                </div>
+              )}
+
+              {/* Quantity + Project */}
+              <div className="dl-form-row">
+                <div className="dl-form-group">
+                  <label>Quantity <span className="dl-req">*</span></label>
+                  <input
+                    type="number" required min="1" className="dl-input"
+                    value={formData.quantity}
+                    onChange={e => setFormData(f => ({ ...f, quantity: e.target.value }))}
+                  />
+                </div>
+                <div className="dl-form-group">
+                  <label>Project Name <span className="dl-req">*</span></label>
+                  <input
+                    type="text" required className="dl-input"
+                    placeholder="e.g. Barangay Kapasigan Court"
+                    value={formData.project_name}
+                    onChange={e => setFormData(f => ({ ...f, project_name: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Driver + Destination */}
+              <div className="dl-form-row">
+                <div className="dl-form-group">
+                  <label>Driver Name <span className="dl-req">*</span></label>
+                  <input
+                    type="text" required className="dl-input"
+                    placeholder="Driver's full name"
+                    value={formData.driver_name}
+                    onChange={e => setFormData(f => ({ ...f, driver_name: e.target.value }))}
+                  />
+                </div>
+                <div className="dl-form-group">
+                  <label>Destination <span className="dl-req">*</span></label>
+                  <input
+                    type="text" required className="dl-input"
+                    placeholder="Delivery address"
+                    value={formData.destination}
+                    onChange={e => setFormData(f => ({ ...f, destination: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Date of Delivery */}
+              <div className="dl-form-group">
+                <label>Date of Delivery <span className="dl-req">*</span></label>
+                <input
+                  type="date" required className="dl-input"
+                  value={formData.date_of_delivery}
+                  onChange={e => setFormData(f => ({ ...f, date_of_delivery: e.target.value }))}
+                />
+              </div>
+
+              <div className="dl-modal-footer">
+                <button type="button" className="dl-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="dl-btn-save" disabled={saveLoading}>
+                  {saveLoading
+                    ? <><Loader2 size={14} className="dl-spinner" /> Scheduling…</>
+                    : <><Truck size={14} /> Confirm Dispatch</>}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      <div className="table-wrapper">
-        <table className="construction-table">
-          <thead>
-            <tr>
-              <th>Trucking Service</th>
-              <th>Product Category</th>
-              <th>Consumables</th>
-              <th>Project Name</th>
-              <th>Driver Name</th>
-              <th>Destination</th>
-              <th>Expected Date</th>
-              <th>Date Delivered</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="9" className="loading-text">Updating feed...</td></tr>
-            ) : deliveries.length > 0 ? (
-              deliveries.map(d => (
-                <tr key={d.id}>
-                  <td className="font-bold">{d.trucking_service}</td> 
-                  <td>{d.product_category}</td>
-                  <td>{d.consumables}</td>
-                  <td>{d.project_name}</td>
-                  <td>{d.driver_name}</td>
-                  <td>{d.destination}</td>
-                  <td className="time-text">{d.date_of_delivery}</td>
-                  <td className="time-text">
-                    {/* Formats the timestamp nicely if it exists */}
-                    {d.date_delivered ? new Date(d.date_delivered).toLocaleDateString() : '---'}
-                  </td>
-                  <td>
-                    {d.status !== 'Delivered' ? (
-                      <button 
-                        className="delivered-action-btn" 
-                        onClick={() => handleDelivered(d.id)}
-                      >
-                        Mark Delivered
-                      </button>
-                    ) : (
-                      <span className="status-pill delivered">Delivered</span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan="9" className="empty-state">No active deliveries found.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 };

@@ -1,261 +1,663 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/api/axios';
-import { 
-  Truck, Ship, MapPin, Package, Plus, X, Loader2, RefreshCw, Layers, Trash2, Globe, Building2
+import {
+  Truck, Ship, Plus, Loader2, RefreshCw, Layers,
+  Trash2, Globe, Building2, Package, ChevronDown,
+  Box, FolderOpen, AlertTriangle, RotateCcw
 } from 'lucide-react';
 import './AccountingDashboard.css';
 
-const AccountingDashboard = ({ user }) => {
-  const [deliveries, setDeliveries] = useState([]);
-  const [shipments, setShipments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+// ─── Empty row templates ──────────────────────────────────────────────────────
 
-  const [shipmentForm, setShipmentForm] = useState({
-    origin_type: 'INTERNATIONAL',
-    shipment_number: '',
-    container_type: '20 FOOTER',
-    // Added quantity here
-    projects: [{ project_name: '', product_category: '', coverage_sqm: '', quantity: '' }],
-    status: 'ONGOING PRODUCTION',
-    location: '',
-    shipment_status: 'WAITING'
-  });
+const EMPTY_ROW_RESERVE = {
+  project_name: '', product_category: '', product_code: '',
+  unit: '', quantity: '', coverage_sqm: '',
+  _catMode: 'pick', _codeMode: 'pick',
+};
+const EMPTY_ROW_STOCK = {
+  product_category: '', product_code: '',
+  unit: '', quantity: '',
+  _catMode: 'pick', _codeMode: 'pick',
+};
 
-  const fetchSupplyChainData = useCallback(async (isSilent = false) => {
-    try {
-      if (!isSilent) setLoading(true);
-      if (isSilent) setIsRefreshing(true);
-      
-      const [delRes, shipRes] = await Promise.all([
-        api.get('/inventory/logistics'), 
-        api.get('/inventory/shipments')
-      ]);
-      
-      setDeliveries(delRes.data.slice(0, 10)); 
-      setShipments(shipRes.data.slice(0, 10));
-    } catch (err) {
-      console.error("Fetch Error:", err);
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+const buildEmptyForm = () => ({
+  origin_type:      'INTERNATIONAL',
+  shipment_purpose: 'RESERVE_FOR_PROJECT',
+  shipment_number:  '',
+  container_type:   '20 FOOTER',
+  projects:         [{ ...EMPTY_ROW_RESERVE }],
+  status:           'ONGOING PRODUCTION',
+  location:         '',
+  shipment_status:  'WAITING',
+});
+
+const STATUS_CLASS = {
+  ARRIVED:   'tag-arrived',
+  DEPARTURE: 'tag-departure',
+  WAITING:   'tag-waiting',
+};
+
+// ─── Shared smart category/code pickers ──────────────────────────────────────
+
+const CategoryPicker = ({ value, catMode, categories, onPick, onType, onBackToPick }) => {
+  if (catMode === 'new') {
+    return (
+      <div className="ac-new-field-wrap">
+        <input className="ac-input" required autoFocus
+          placeholder="Type new category name"
+          value={value} onChange={e => onType(e.target.value)} />
+        <button type="button" className="ac-back-pick-btn" onClick={onBackToPick}>← Pick</button>
+      </div>
+    );
+  }
+  return (
+    <div className="ac-select-wrap">
+      <select className="ac-input" required value={value} onChange={e => onPick(e.target.value)}>
+        <option value="">— Select —</option>
+        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        <option value="__new__">+ Add New Category</option>
+      </select>
+      <ChevronDown size={13} className="ac-select-icon" />
+    </div>
+  );
+};
+
+const CodePicker = ({ value, codeMode, isNewCat, codesForCat, onPick, onType, onBackToPick }) => {
+  if (isNewCat || codeMode === 'new') {
+    return (
+      <div className="ac-new-field-wrap">
+        <input className="ac-input" required
+          placeholder="Type new product code"
+          value={value} onChange={e => onType(e.target.value)} />
+        {!isNewCat && (
+          <button type="button" className="ac-back-pick-btn" onClick={onBackToPick}>← Pick</button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="ac-select-wrap">
+      <select className="ac-input" required value={value}
+        onChange={e => onPick(e.target.value)} disabled={!codesForCat.length && value === ''}>
+        <option value="">— Select —</option>
+        {codesForCat.map(c => <option key={c.product_code} value={c.product_code}>{c.product_code}</option>)}
+        <option value="__new__">+ Add New Code</option>
+      </select>
+      <ChevronDown size={13} className="ac-select-icon" />
+    </div>
+  );
+};
+
+// ─── Reserve for Project row ──────────────────────────────────────────────────
+
+const ProjectRowReserve = ({ proj, idx, onUpdate, onRemove, categories, codesByCategory }) => {
+  const codesForCat = proj._catMode === 'pick' && proj.product_category
+    ? (codesByCategory[proj.product_category] || []) : [];
+
+  const handleCatPick = (val) => {
+    if (val === '__new__') {
+      onUpdate(idx, '_catMode',        'new');
+      onUpdate(idx, 'product_category','');
+      onUpdate(idx, 'product_code',    '');
+      onUpdate(idx, '_codeMode',       'pick');
+      onUpdate(idx, 'unit',            '');
+    } else {
+      onUpdate(idx, '_catMode',        'pick');
+      onUpdate(idx, 'product_category', val);
+      onUpdate(idx, 'product_code',    '');
+      onUpdate(idx, '_codeMode',       'pick');
+      onUpdate(idx, 'unit',            '');
     }
-  }, []);
-
-  useEffect(() => {
-    fetchSupplyChainData();
-  }, [fetchSupplyChainData]);
-
-  const addProjectRow = () => {
-    setShipmentForm({
-      ...shipmentForm,
-      // Added quantity to new rows
-      projects: [...shipmentForm.projects, { project_name: '', product_category: '', coverage_sqm: '', quantity: '' }]
-    });
   };
-
-  const removeProjectRow = (index) => {
-    if (index > 0) {
-        const updatedProjects = shipmentForm.projects.filter((_, i) => i !== index);
-        setShipmentForm({ ...shipmentForm, projects: updatedProjects });
-    }
-  };
-
-  const updateProjectData = (index, field, value) => {
-    const updatedProjects = [...shipmentForm.projects];
-    updatedProjects[index][field] = value;
-    setShipmentForm({ ...shipmentForm, projects: updatedProjects });
-  };
-
-  const handleShipmentSubmit = async (e) => {
-    e.preventDefault();
-    setActionLoading(true);
-    try {
-      await api.post('/inventory/shipments', shipmentForm);
-      alert("Shipment Registered Successfully!");
-      setShipmentForm({
-        origin_type: 'INTERNATIONAL',
-        shipment_number: '',
-        container_type: '20 FOOTER',
-        // Reset with quantity
-        projects: [{ project_name: '', product_category: '', coverage_sqm: '', quantity: '' }],
-        status: 'ONGOING PRODUCTION',
-        location: '',
-        shipment_status: 'WAITING'
-      });
-      fetchSupplyChainData();
-    } catch (err) {
-      alert("Error saving shipment.");
-    } finally {
-      setActionLoading(false);
+  const handleCodePick = (val) => {
+    if (val === '__new__') {
+      onUpdate(idx, '_codeMode',    'new');
+      onUpdate(idx, 'product_code', '');
+      onUpdate(idx, 'unit',         '');
+    } else {
+      onUpdate(idx, '_codeMode',    'pick');
+      onUpdate(idx, 'product_code', val);
+      const match = codesForCat.find(c => c.product_code === val);
+      if (match) onUpdate(idx, 'unit', match.unit || '');
     }
   };
 
   return (
-    <div className="vision-accounting-wrapper">
-      <header className="v-dashboard-header">
-        <div>
-          <h1>Logistics Control Center</h1>
-          <p>Vision Procurement & International Shipping</p>
-        </div>
-        <button className={`v-refresh-btn ${isRefreshing ? 'spinning' : ''}`} onClick={() => fetchSupplyChainData()}>
-          <RefreshCw size={18} />
-        </button>
-      </header>
+    <div className="ac-project-card">
+      <div className="ac-project-head">
+        <span className="ac-project-num">Project {idx + 1}</span>
+        {idx > 0 && (
+          <button type="button" className="ac-remove-btn" onClick={() => onRemove(idx)}>
+            <Trash2 size={13} /> Remove
+          </button>
+        )}
+      </div>
 
-      <div className="vision-stats-grid">
-        <div className="vision-stat-card border-navy">
-          <div className="v-stat-icon navy-bg"><Ship size={24} /></div>
-          <div className="v-stat-info">
-            <span className="v-label">Total Shipments</span>
-            <span className="v-value">{shipments.length} Active</span>
-          </div>
+      <input className="ac-input" required
+        placeholder="Project Name (e.g. Barangay Kapasigan Court)"
+        value={proj.project_name}
+        onChange={e => onUpdate(idx, 'project_name', e.target.value)} />
+
+      <div className="ac-form-row mt-6">
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Product Category</label>
+          <CategoryPicker
+            value={proj.product_category} catMode={proj._catMode}
+            categories={categories}
+            onPick={handleCatPick}
+            onType={v => onUpdate(idx, 'product_category', v)}
+            onBackToPick={() => { onUpdate(idx, '_catMode', 'pick'); onUpdate(idx, 'product_category', ''); }} />
         </div>
-        <div className="vision-stat-card border-blue">
-          <div className="v-stat-icon blue-bg"><Truck size={24} /></div>
-          <div className="v-stat-info">
-            <span className="v-label">Local Deliveries</span>
-            <span className="v-value">{deliveries.length} Records</span>
-          </div>
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Product Code</label>
+          <CodePicker
+            value={proj.product_code} codeMode={proj._codeMode}
+            isNewCat={proj._catMode === 'new'} codesForCat={codesForCat}
+            onPick={handleCodePick}
+            onType={v => onUpdate(idx, 'product_code', v)}
+            onBackToPick={() => { onUpdate(idx, '_codeMode', 'pick'); onUpdate(idx, 'product_code', ''); }} />
         </div>
       </div>
 
-      <div className="vision-main-layout">
-        <div className="vision-left-col">
-          <div className="vision-card">
-            <div className="v-card-header">
-              <h3><Layers size={18} /> Register Incoming Shipment</h3>
-            </div>
-            <form className="v-quick-form" onSubmit={handleShipmentSubmit}>
-              
-              <div className="v-origin-section">
-                <div className="v-form-row">
-                  <div className="v-input-group">
-                    <label className="v-tiny-label">Logistics Type</label>
-                    <select 
-                      className="v-input v-select-dropdown" 
-                      value={shipmentForm.origin_type} 
-                      onChange={(e) => setShipmentForm({...shipmentForm, origin_type: e.target.value})}
-                    >
-                      <option value="INTERNATIONAL">INTERNATIONAL</option>
-                      <option value="LOCAL">LOCAL</option>
+      <div className="ac-form-row ac-form-row-3 mt-6">
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Quantity</label>
+          <input className="ac-input" type="number" min="0" placeholder="0"
+            value={proj.quantity} onChange={e => onUpdate(idx, 'quantity', e.target.value)} />
+        </div>
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Unit</label>
+          <input className="ac-input" placeholder="e.g. Rolls"
+            value={proj.unit} onChange={e => onUpdate(idx, 'unit', e.target.value)} />
+        </div>
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Area (SQM)</label>
+          <div className="ac-sqm-wrap">
+            <input className="ac-input" type="number" min="0" placeholder="0"
+              value={proj.coverage_sqm} onChange={e => onUpdate(idx, 'coverage_sqm', e.target.value)} />
+            <span className="ac-unit-tag">SQM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── For New Stock row ────────────────────────────────────────────────────────
+
+const StockRow = ({ proj, idx, onUpdate, onRemove, categories, codesByCategory }) => {
+  const codesForCat = proj._catMode === 'pick' && proj.product_category
+    ? (codesByCategory[proj.product_category] || []) : [];
+
+  const handleCatPick = (val) => {
+    if (val === '__new__') {
+      onUpdate(idx, '_catMode',        'new');
+      onUpdate(idx, 'product_category','');
+      onUpdate(idx, 'product_code',    '');
+      onUpdate(idx, '_codeMode',       'pick');
+      onUpdate(idx, 'unit',            '');
+    } else {
+      onUpdate(idx, '_catMode',        'pick');
+      onUpdate(idx, 'product_category', val);
+      onUpdate(idx, 'product_code',    '');
+      onUpdate(idx, '_codeMode',       'pick');
+      onUpdate(idx, 'unit',            '');
+    }
+  };
+  const handleCodePick = (val) => {
+    if (val === '__new__') {
+      onUpdate(idx, '_codeMode',    'new');
+      onUpdate(idx, 'product_code', '');
+      onUpdate(idx, 'unit',         '');
+    } else {
+      onUpdate(idx, '_codeMode',    'pick');
+      onUpdate(idx, 'product_code', val);
+      const match = codesForCat.find(c => c.product_code === val);
+      if (match) onUpdate(idx, 'unit', match.unit || '');
+    }
+  };
+
+  return (
+    <div className="ac-project-card ac-stock-card">
+      <div className="ac-project-head">
+        <span className="ac-project-num">Item {idx + 1}</span>
+        {idx > 0 && (
+          <button type="button" className="ac-remove-btn" onClick={() => onRemove(idx)}>
+            <Trash2 size={13} /> Remove
+          </button>
+        )}
+      </div>
+
+      <div className="ac-form-row">
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Product Category</label>
+          <CategoryPicker
+            value={proj.product_category} catMode={proj._catMode}
+            categories={categories}
+            onPick={handleCatPick}
+            onType={v => onUpdate(idx, 'product_category', v)}
+            onBackToPick={() => { onUpdate(idx, '_catMode', 'pick'); onUpdate(idx, 'product_category', ''); }} />
+        </div>
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Product Code</label>
+          <CodePicker
+            value={proj.product_code} codeMode={proj._codeMode}
+            isNewCat={proj._catMode === 'new'} codesForCat={codesForCat}
+            onPick={handleCodePick}
+            onType={v => onUpdate(idx, 'product_code', v)}
+            onBackToPick={() => { onUpdate(idx, '_codeMode', 'pick'); onUpdate(idx, 'product_code', ''); }} />
+        </div>
+      </div>
+
+      <div className="ac-form-row mt-6">
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Quantity</label>
+          <input className="ac-input" type="number" min="0" placeholder="0"
+            value={proj.quantity} onChange={e => onUpdate(idx, 'quantity', e.target.value)} />
+        </div>
+        <div className="ac-form-group">
+          <label className="ac-label-sm">Unit</label>
+          <input className="ac-input" placeholder="e.g. Rolls, Pcs"
+            value={proj.unit} onChange={e => onUpdate(idx, 'unit', e.target.value)} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Report Detail Modal ───────────────────────────────────────────────────────
+const ReportDetailModal = ({ report, onClose }) => (
+  <div className="ac-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="ac-modal ac-modal-report">
+      <div className="ac-modal-header ac-modal-header-warn">
+        <div>
+          <h2 className="ac-modal-title"><AlertTriangle size={14} style={{ display: 'inline', marginRight: 6 }} />Return / Report Details</h2>
+          <p className="ac-modal-sub">Shipment: {report.shipment_number}</p>
+        </div>
+        <button className="ac-modal-close" onClick={onClose}>✕</button>
+      </div>
+      <div className="ac-modal-body">
+        <table className="ac-report-table">
+          <thead>
+            <tr>
+              <th>Product Category</th>
+              <th>Product Code</th>
+              <th>Issue</th>
+              <th>Condition</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.items?.map((item, i) => (
+              <tr key={i}>
+                <td>{item.product_category}</td>
+                <td className="ac-code">{item.product_code}</td>
+                <td className="ac-issue">{item.issue}</td>
+                <td>
+                  <span className={`ac-cond-tag cond-${item.condition?.toLowerCase().replace(/\s/g, '-')}`}>
+                    {item.condition}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="ac-report-meta">
+          <span>Filed: {report.created_at ? new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Just now'}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
+
+const AccountingDashboard = ({ user }) => {
+  const [shipments, setShipments]         = useState([]);
+  const [deliveries, setDeliveries]       = useState([]);
+  const [reports, setReports]             = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [isRefreshing, setIsRefreshing]   = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [form, setForm]                   = useState(buildEmptyForm());
+  const [categories, setCategories]       = useState([]);
+  const [codesByCategory, setCodesByCategory] = useState({});
+  const [selectedReport, setSelectedReport]   = useState(null);
+  const [activeTab, setActiveTab]             = useState('activity'); // 'activity' | 'reports'
+
+  useEffect(() => {
+    api.get('/inventory/shipments/meta').then(res => {
+      setCategories(res.data.categories || []);
+      setCodesByCategory(res.data.codes_by_category || {});
+    }).catch(console.error);
+  }, []);
+
+  const fetchData = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true); else setIsRefreshing(true);
+      const [delRes, shipRes, reportRes] = await Promise.all([
+        api.get('/inventory/logistics'),
+        api.get('/inventory/shipments'),
+        api.get('/inventory/shipments/reports').catch(() => ({ data: [] })),
+      ]);
+      setDeliveries((delRes.data?.data || delRes.data || []).slice(0, 10));
+      setShipments((shipRes.data || []).slice(0, 10));
+      setReports(reportRes.data || []);
+    } catch (err) { console.error('Fetch error:', err); }
+    finally { setLoading(false); setIsRefreshing(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Called from IncomingShipment when a report is filed
+  const handleReportFiled = (payload) => {
+    setReports(prev => [{ ...payload, created_at: new Date().toISOString() }, ...prev]);
+    setActiveTab('reports');
+  };
+
+  const handlePurposeChange = (purpose) => {
+    setForm(f => ({
+      ...f,
+      shipment_purpose: purpose,
+      projects: [purpose === 'RESERVE_FOR_PROJECT' ? { ...EMPTY_ROW_RESERVE } : { ...EMPTY_ROW_STOCK }],
+    }));
+  };
+
+  const addRow = () => {
+    const empty = form.shipment_purpose === 'RESERVE_FOR_PROJECT'
+      ? { ...EMPTY_ROW_RESERVE } : { ...EMPTY_ROW_STOCK };
+    setForm(f => ({ ...f, projects: [...f.projects, empty] }));
+  };
+
+  const removeRow = (i) =>
+    setForm(f => ({ ...f, projects: f.projects.filter((_, idx) => idx !== i) }));
+
+  const updateRow = (i, field, value) =>
+    setForm(f => {
+      const updated = [...f.projects];
+      updated[i] = { ...updated[i], [field]: value };
+      return { ...f, projects: updated };
+    });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const payload = {
+        ...form,
+        projects: form.projects.map(({ _catMode, _codeMode, ...rest }) => rest),
+      };
+      await api.post('/inventory/shipments', payload);
+      setForm(buildEmptyForm());
+      fetchData(true);
+    } catch (err) {
+      const msg = err.response?.data?.message
+        || Object.values(err.response?.data?.errors || {}).flat().join(' ')
+        || 'Error saving shipment.';
+      alert(msg);
+    } finally { setActionLoading(false); }
+  };
+
+  const isReserve = form.shipment_purpose === 'RESERVE_FOR_PROJECT';
+
+  return (
+    <div className="ac-wrapper">
+
+      <header className="ac-header">
+        <div className="ac-header-left">
+          <div className="ac-header-icon"><Ship size={20} /></div>
+          <div>
+            <h1 className="ac-title">Logistics Control Center</h1>
+            <p className="ac-subtitle">Procurement &amp; International Shipping</p>
+          </div>
+        </div>
+        <button className={`ac-refresh-btn ${isRefreshing ? 'spinning' : ''}`}
+          onClick={() => fetchData(true)}><RefreshCw size={16} /></button>
+      </header>
+
+      <div className="ac-stats">
+        <div className="ac-stat">
+          <div className="ac-stat-icon icon-red"><Ship size={18} /></div>
+          <div><p className="ac-stat-label">Active Shipments</p><p className="ac-stat-value">{shipments.length}</p></div>
+        </div>
+        <div className="ac-stat">
+          <div className="ac-stat-icon icon-blue"><Truck size={18} /></div>
+          <div><p className="ac-stat-label">Local Deliveries</p><p className="ac-stat-value">{deliveries.length}</p></div>
+        </div>
+        {reports.length > 0 && (
+          <div className="ac-stat ac-stat-warn" onClick={() => setActiveTab('reports')} style={{ cursor: 'pointer' }}>
+            <div className="ac-stat-icon icon-warn"><AlertTriangle size={18} /></div>
+            <div><p className="ac-stat-label">Reports Filed</p><p className="ac-stat-value">{reports.length}</p></div>
+          </div>
+        )}
+      </div>
+
+      <div className="ac-body">
+        <div className="ac-col-left">
+          <div className="ac-card">
+            <div className="ac-card-head"><Layers size={16} /><span>Register Incoming Shipment</span></div>
+
+            <form className="ac-form" onSubmit={handleSubmit}>
+
+              {/* Purpose */}
+              <div className="ac-form-group">
+                <label className="ac-label">Shipment Purpose <span className="ac-req">*</span></label>
+                <div className="ac-purpose-toggle">
+                  <button type="button"
+                    className={`ac-purpose-btn ${isReserve ? 'active' : ''}`}
+                    onClick={() => handlePurposeChange('RESERVE_FOR_PROJECT')}>
+                    <FolderOpen size={14} /><span>Reserve for Project</span>
+                  </button>
+                  <button type="button"
+                    className={`ac-purpose-btn ${!isReserve ? 'active' : ''}`}
+                    onClick={() => handlePurposeChange('NEW_STOCK')}>
+                    <Box size={14} /><span>For New Stock</span>
+                  </button>
+                </div>
+                <p className="ac-purpose-hint">
+                  {isReserve
+                    ? 'Materials reserved for a specific project — includes project name and area (SQM).'
+                    : 'Materials going to warehouse stock — no project assignment needed.'}
+                </p>
+              </div>
+
+              {/* Origin */}
+              <div className="ac-form-group">
+                <label className="ac-label">Logistics Type</label>
+                <div className="ac-origin-toggle">
+                  {['INTERNATIONAL', 'LOCAL'].map(t => (
+                    <button key={t} type="button"
+                      className={`ac-origin-btn ${form.origin_type === t ? 'active' : ''}`}
+                      onClick={() => setForm(f => ({ ...f, origin_type: t }))}>
+                      {t === 'INTERNATIONAL' ? <Globe size={13} /> : <Building2 size={13} />}{t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Shipment # + Container */}
+              <div className="ac-form-row">
+                <div className="ac-form-group">
+                  <label className="ac-label">Shipment Number <span className="ac-req">*</span></label>
+                  <input className="ac-input" required placeholder="e.g. SHIP-2026-001"
+                    value={form.shipment_number}
+                    onChange={e => setForm(f => ({ ...f, shipment_number: e.target.value }))} />
+                </div>
+                <div className="ac-form-group">
+                  <label className="ac-label">Container Type</label>
+                  <div className="ac-select-wrap">
+                    <select className="ac-input" value={form.container_type}
+                      onChange={e => setForm(f => ({ ...f, container_type: e.target.value }))}>
+                      <option value="20 FOOTER">20 FOOTER</option>
+                      <option value="40 FOOTER">40 FOOTER</option>
                     </select>
+                    <ChevronDown size={13} className="ac-select-icon" />
                   </div>
                 </div>
               </div>
 
-              <div className="v-form-row">
-                <div className="v-input-group">
-                  <label className="v-tiny-label">Shipment Number</label>
-                  <input className="v-input" placeholder="e.g. #SHIP-101" value={shipmentForm.shipment_number} onChange={(e) => setShipmentForm({...shipmentForm, shipment_number: e.target.value})} required />
-                </div>
-                <div className="v-input-group">
-                  <label className="v-tiny-label">Container Type</label>
-                  <select className="v-input v-select-dropdown" value={shipmentForm.container_type} onChange={(e) => setShipmentForm({...shipmentForm, container_type: e.target.value})}>
-                    <option value="20 FOOTER">20 FOOTER</option>
-                    <option value="40 FOOTER">40 FOOTER</option>
-                  </select>
+              {/* Rows */}
+              <div className="ac-form-group">
+                <label className="ac-label">
+                  {isReserve ? 'Project Allocation' : 'Stock Items'} <span className="ac-req">*</span>
+                </label>
+                <div className="ac-projects">
+                  {form.projects.map((proj, idx) =>
+                    isReserve
+                      ? <ProjectRowReserve key={idx} proj={proj} idx={idx}
+                          onUpdate={updateRow} onRemove={removeRow}
+                          categories={categories} codesByCategory={codesByCategory} />
+                      : <StockRow key={idx} proj={proj} idx={idx}
+                          onUpdate={updateRow} onRemove={removeRow}
+                          categories={categories} codesByCategory={codesByCategory} />
+                  )}
+                  <button type="button" className="ac-add-project-btn" onClick={addRow}>
+                    <Plus size={13} />{isReserve ? 'Add Another Project' : 'Add Another Item'}
+                  </button>
                 </div>
               </div>
 
-              <div className="v-project-repeater">
-                <label className="v-tiny-label">Project Allocation</label>
-                {shipmentForm.projects.map((proj, idx) => (
-                  <div key={idx} className="v-project-row">
-                    <div className="v-row-header">
-                        <span className="v-project-count">Project {idx + 1}</span>
-                        {idx > 0 && (
-                          <button type="button" className="v-btn-remove" onClick={() => removeProjectRow(idx)}>
-                              <Trash2 size={14} /> Remove
-                          </button>
-                        )}
-                    </div>
-                    <input className="v-input mb-5" placeholder="Project Name" value={proj.project_name} onChange={(e) => updateProjectData(idx, 'project_name', e.target.value)} required />
-                    <div className="v-form-row">
-                      <input className="v-input" placeholder="Product Category" value={proj.product_category} onChange={(e) => updateProjectData(idx, 'product_category', e.target.value)} />
-                      
-                      {/* Quantity Input */}
-                      <input 
-                        className="v-input" 
-                        placeholder="Qty" 
-                        type="number" 
-                        value={proj.quantity} 
-                        onChange={(e) => updateProjectData(idx, 'quantity', e.target.value)} 
-                      />
-
-                      <div className="v-sqm-input-wrapper">
-                        <input className="v-input" placeholder="Area" type="number" value={proj.coverage_sqm} onChange={(e) => updateProjectData(idx, 'coverage_sqm', e.target.value)} />
-                        <span className="v-unit-tag">SQM</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button type="button" className="v-btn-add-project" onClick={addProjectRow}>
-                  <Plus size={14} /> Add Other Project
-                </button>
-              </div>
-
-              <div className="v-logistics-meta">
-                <div className="v-form-row">
-                  <div className="v-input-group">
-                    <label className="v-tiny-label">Production Status</label>
-                    <select className="v-input" value={shipmentForm.status} onChange={(e) => setShipmentForm({...shipmentForm, status: e.target.value})}>
+              {/* Status + Location */}
+              <div className="ac-form-row">
+                <div className="ac-form-group">
+                  <label className="ac-label">Production Status</label>
+                  <div className="ac-select-wrap">
+                    <select className="ac-input" value={form.status}
+                      onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
                       <option>ONGOING PRODUCTION</option>
                       <option>ON STOCK</option>
                       <option>READY FOR SHIPMENT</option>
                     </select>
-                  </div>
-                  <div className="v-input-group">
-                    <label className="v-tiny-label">Material Location</label>
-                    <input className="v-input" placeholder="Current Warehouse" value={shipmentForm.location} onChange={(e) => setShipmentForm({...shipmentForm, location: e.target.value})} />
+                    <ChevronDown size={13} className="ac-select-icon" />
                   </div>
                 </div>
-                <div className="v-form-row mt-10">
-                  <div className="v-input-group">
-                    <label className="v-tiny-label">Shipment Progress</label>
-                    <select className="v-input" value={shipmentForm.shipment_status} onChange={(e) => setShipmentForm({...shipmentForm, shipment_status: e.target.value})}>
-                      <option value="WAITING">WAITING</option>
-                      <option value="DEPARTURE">DEPARTURE</option>
-                    </select>
-                  </div>
+                <div className="ac-form-group">
+                  <label className="ac-label">Material Location</label>
+                  <input className="ac-input" placeholder="Current warehouse / port"
+                    value={form.location}
+                    onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
                 </div>
               </div>
 
-              <button type="submit" className="v-btn-navy-action w-full mt-10" disabled={actionLoading}>
-                {actionLoading ? <Loader2 className="animate-spin" /> : 'Register Logistics Shipment'}
+              <div className="ac-form-group">
+                <label className="ac-label">Shipment Progress</label>
+                <div className="ac-select-wrap">
+                  <select className="ac-input" value={form.shipment_status}
+                    onChange={e => setForm(f => ({ ...f, shipment_status: e.target.value }))}>
+                    <option value="WAITING">WAITING</option>
+                    <option value="DEPARTURE">DEPARTURE</option>
+                  </select>
+                  <ChevronDown size={13} className="ac-select-icon" />
+                </div>
+              </div>
+
+              <button type="submit" className="ac-submit-btn" disabled={actionLoading}>
+                {actionLoading ? <><Loader2 size={15} className="ac-spinner" /> Registering…</> : 'Register Shipment'}
               </button>
             </form>
           </div>
         </div>
 
-        <div className="vision-right-col">
-          <div className="vision-card">
-            <div className="v-card-header">
-              <h3><Package size={18} /> Procurement Activity</h3>
+        {/* Feed */}
+        <div className="ac-col-right">
+          <div className="ac-card">
+            {/* Tab switcher */}
+            <div className="ac-card-head ac-card-head-tabs">
+              <button
+                className={`ac-tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
+                onClick={() => setActiveTab('activity')}
+              >
+                <Package size={14} /> Activity
+              </button>
+              <button
+                className={`ac-tab-btn ${activeTab === 'reports' ? 'active' : ''} ${reports.length > 0 ? 'has-alert' : ''}`}
+                onClick={() => setActiveTab('reports')}
+              >
+                <AlertTriangle size={14} /> Reports
+                {reports.length > 0 && <span className="ac-tab-badge">{reports.length}</span>}
+              </button>
             </div>
-            <div className="v-timeline-feed">
-              {shipments.map(ship => (
-                <div key={ship.id} className="v-timeline-item">
-                  <div className="v-t-icon">
-                    {ship.origin_type === 'INTERNATIONAL' ? <Globe size={14} /> : <Building2 size={14} />}
-                  </div>
-                  <div className="v-t-content">
-                    <strong>{ship.shipment_number}</strong>
-                    <span className="v-origin-label">{ship.origin_name || ship.container_type}</span>
-                    <div className="v-mini-project-list">
-                      {ship.projects?.map((p, i) => (
-                        <span key={i} className="v-tiny-project-tag">{p.project_name}</span>
-                      ))}
+
+            {/* Activity tab */}
+            {activeTab === 'activity' && (
+              loading ? (
+                <div className="ac-loading"><Loader2 size={20} className="ac-spinner" /> Loading…</div>
+              ) : shipments.length === 0 ? (
+                <p className="ac-empty">No shipments yet.</p>
+              ) : (
+                <div className="ac-feed">
+                  {shipments.map(ship => (
+                    <div key={ship.id} className="ac-feed-item">
+                      <div className={`ac-feed-icon ${ship.origin_type === 'INTERNATIONAL' ? 'icon-red' : 'icon-blue'}`}>
+                        {ship.origin_type === 'INTERNATIONAL' ? <Globe size={13} /> : <Building2 size={13} />}
+                      </div>
+                      <div className="ac-feed-body">
+                        <p className="ac-feed-title">{ship.shipment_number}</p>
+                        <div className="ac-feed-meta-row">
+                          <p className="ac-feed-sub">{ship.container_type} · {ship.origin_type}</p>
+                          {ship.shipment_purpose && (
+                            <span className={`ac-purpose-tag ${ship.shipment_purpose === 'NEW_STOCK' ? 'purpose-stock' : 'purpose-reserve'}`}>
+                              {ship.shipment_purpose === 'NEW_STOCK' ? 'New Stock' : 'Reserve'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="ac-feed-tags">
+                          {ship.projects?.map((p, i) => (
+                            <span key={i} className="ac-project-tag">
+                              {ship.shipment_purpose === 'NEW_STOCK' ? p.product_category : p.project_name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <span className={`ac-status-tag ${STATUS_CLASS[ship.shipment_status] || 'tag-waiting'}`}>
+                        {ship.shipment_status}
+                      </span>
                     </div>
-                  </div>
-                  <span className={`v-status-tag ${ship.shipment_status === 'ARRIVED' ? 'success' : 'pending'}`}>{ship.shipment_status}</span>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )
+            )}
+
+            {/* Reports tab */}
+            {activeTab === 'reports' && (
+              reports.length === 0 ? (
+                <div className="ac-empty">
+                  <RotateCcw size={28} style={{ color: '#C8BDB8', display: 'block', margin: '0 auto 8px' }} />
+                  No reports filed yet.
+                </div>
+              ) : (
+                <div className="ac-feed">
+                  {reports.map((report, i) => (
+                    <button key={i} className="ac-feed-item ac-feed-item-btn ac-report-feed-item"
+                      onClick={() => setSelectedReport(report)}>
+                      <div className="ac-feed-icon icon-warn">
+                        <AlertTriangle size={13} />
+                      </div>
+                      <div className="ac-feed-body">
+                        <p className="ac-feed-title">{report.shipment_number}</p>
+                        <p className="ac-feed-sub">{report.items?.length || 0} item(s) reported</p>
+                        <div className="ac-feed-tags">
+                          {report.items?.slice(0, 3).map((item, j) => (
+                            <span key={j} className="ac-report-tag">{item.product_code}</span>
+                          ))}
+                          {(report.items?.length || 0) > 3 && (
+                            <span className="ac-report-tag">+{report.items.length - 3} more</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="ac-view-report">View →</span>
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
           </div>
         </div>
       </div>
+
+      {/* Report Detail Modal */}
+      {selectedReport && (
+        <ReportDetailModal report={selectedReport} onClose={() => setSelectedReport(null)} />
+      )}
     </div>
   );
 };

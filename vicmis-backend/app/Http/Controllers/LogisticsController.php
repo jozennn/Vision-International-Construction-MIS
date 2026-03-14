@@ -2,88 +2,138 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Logistics;
+use App\Models\WarehouseInventory;
 use Illuminate\Http\Request;
-use App\Models\Logistics; // Using this as the main model
-use App\Models\ConstructionMaterial;
-use App\Models\OfficeMaterial;
-use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class LogisticsController extends Controller
 {
-    /**
-     * Get all delivery logs (History)
-     */
-    public function getLogisticsHistory() {
-        try {
-            // Updated to use Logistics model
-            $data = Logistics::latest()->get();
-            return response()->json($data);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+    // ─── GET /api/inventory/logistics ─────────────────────────────────────────
+    // Paginated list with optional filters
+    public function index(Request $request): JsonResponse
+    {
+        $query = Logistics::query();
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('product_category', 'like', "%{$s}%")
+                  ->orWhere('product_code',     'like', "%{$s}%")
+                  ->orWhere('project_name',     'like', "%{$s}%")
+                  ->orWhere('driver_name',      'like', "%{$s}%")
+                  ->orWhere('destination',      'like', "%{$s}%");
+            });
         }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('type') && $request->type !== 'all') {
+            $query->where('is_consumable', $request->type === 'consumable');
+        }
+
+        $perPage = in_array((int) $request->get('per_page', 10), [10, 25, 50])
+            ? (int) $request->get('per_page', 10)
+            : 10;
+
+        $paginated = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        return response()->json([
+            'data'         => $paginated->items(),
+            'total'        => $paginated->total(),
+            'per_page'     => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page'    => $paginated->lastPage(),
+            'from'         => $paginated->firstItem(),
+            'to'           => $paginated->lastItem(),
+        ]);
     }
 
-    /**
-     * Handle "Stock Out" - Schedule a new delivery
-     */
-    public function stockOut(Request $request) {
-        try {
-            $validated = $request->validate([
-                'trucking_service' => 'required|string',
-                'product_category' => 'required|string',
-                'consumables'      => 'required|string',
-                'project_name'     => 'required|string',
-                'driver_name'      => 'required|string',
-                'destination'      => 'required|string',
-                'date_of_delivery' => 'required|date'
-                // If you add a 'quantity' field to the form, add it here too
-            ]);
+    // ─── GET /api/inventory/logistics/meta ────────────────────────────────────
+    // Returns categories + codes for dropdowns, with availability info
+    public function meta(): JsonResponse
+    {
+        // Get all unique categories from warehouse_inventory
+        $categories = WarehouseInventory::select('product_category')
+            ->distinct()
+            ->orderBy('product_category')
+            ->pluck('product_category');
 
-            // --- INVENTORY LOGIC ---
-            // Find the material being sent out
-            $material = ConstructionMaterial::where('name', $validated['consumables'])->first();
+        // Get all products grouped by category with availability
+        $products = WarehouseInventory::select(
+                'product_category',
+                'product_code',
+                'availability',
+                'current_stock',
+                'is_consumable'
+            )
+            ->orderBy('product_category')
+            ->orderBy('product_code')
+            ->get()
+            ->groupBy('product_category');
 
-            // Optional: check if stock exists. 
-            // If your form includes a quantity, change '1' to $request->quantity
-            if (!$material || $material->quantity < 1) {
-                return response()->json(['message' => 'Insufficient stock in warehouse.'], 400);
+        return response()->json([
+            'categories' => $categories,
+            'products'   => $products,
+        ]);
+    }
+
+    // ─── POST /api/inventory/logistics ────────────────────────────────────────
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'trucking_service' => 'required|string|max:255',
+            'product_category' => 'required|string|max:255',
+            'product_code'     => 'required|string|max:255',
+            'is_consumable'    => 'boolean',
+            'project_name'     => 'required|string|max:255',
+            'driver_name'      => 'required|string|max:255',
+            'destination'      => 'required|string|max:255',
+            'date_of_delivery' => 'required|date',
+            'quantity'         => 'required|integer|min:1',
+        ]);
+
+        $validated['status'] = 'In Transit';
+
+        // Decrement stock in warehouse_inventory
+        DB::transaction(function () use ($validated) {
+            $item = WarehouseInventory::where('product_category', $validated['product_category'])
+                ->where('product_code', $validated['product_code'])
+                ->first();
+
+            if ($item) {
+                $newStock = max(0, $item->current_stock - $validated['quantity']);
+                $item->update([
+                    'current_stock'  => $newStock,
+                    'delivery_out'   => $item->delivery_out + $validated['quantity'],
+                    'availability'   => WarehouseInventory::deriveAvailability($newStock),
+                ]);
             }
 
-            // Decrement the stock
-            $material->decrement('quantity', 1); 
+            Logistics::create($validated);
+        });
 
-            // --- CREATE RECORD ---
-            // Changed from DeliveryMaterial to Logistics to match your import
-            $delivery = Logistics::create([
-                'trucking_service' => $validated['trucking_service'],
-                'product_category' => $validated['product_category'],
-                'consumables'      => $validated['consumables'],
-                'project_name'     => $validated['project_name'],
-                'driver_name'      => $validated['driver_name'],
-                'destination'      => $validated['destination'],
-                'date_of_delivery' => $validated['date_of_delivery'],
-                'status'           => 'In Transit'
-            ]);
-
-            return response()->json(['message' => 'Dispatch successful!', 'data' => $delivery], 200);
-        } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
-        }
+        return response()->json(['message' => 'Delivery scheduled successfully.'], 201);
     }
 
-    /**
-     * Mark as Delivered
-     */
-    public function markAsDelivered($id) {
-        try {
-            $delivery = Logistics::findOrFail($id);
-            $delivery->update([
-                'status' => 'Delivered',
-                'date_delivered' => Carbon::now() 
-            ]);
-            return response()->json(['message' => 'Status updated to Delivered!']);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Error updating status.'], 500);
-        }
+    // ─── PATCH /api/inventory/logistics/{id}/delivered ────────────────────────
+    public function markDelivered(int $id): JsonResponse
+    {
+        $delivery = Logistics::findOrFail($id);
+        $delivery->update([
+            'status'         => 'Delivered',
+            'date_delivered' => now(),
+        ]);
+        return response()->json(['message' => 'Marked as delivered.', 'data' => $delivery]);
+    }
+
+    // ─── DELETE /api/inventory/logistics/{id} ─────────────────────────────────
+    public function destroy(int $id): JsonResponse
+    {
+        Logistics::findOrFail($id)->delete();
+        return response()->json(['message' => 'Deleted.']);
     }
 }
