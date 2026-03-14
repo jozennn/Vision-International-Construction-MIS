@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import api from '@/api/axios'; 
+import api from '@/api/axios';
 import './css/Customer.css';
 
 const Customer = ({ user }) => {
@@ -106,7 +106,7 @@ const Customer = ({ user }) => {
   // --- NEW FUNCTION: Handle Project Creation ---
   const handleCreateProject = async (e, lead) => {
     e.stopPropagation(); // Prevents the edit modal from opening when clicking the button
-    
+
     if (window.confirm(`Are you sure you want to create a construction project for ${lead.project_name}?`)) {
       try {
         // 1. Send data to your Projects table/endpoint
@@ -117,9 +117,9 @@ const Customer = ({ user }) => {
           client_name: lead.client_name,
           location: lead.location,
           project_type: 'Construction Project', // Tagging it as requested
-          status: 'Ongoing' 
+          status: 'Ongoing'
         };
-        await api.post('/projects', projectPayload); 
+        await api.post('/projects', projectPayload);
 
         // 2. Update the lead's status so the button disappears
         const updatedLeadPayload = { ...lead, status: 'Project Created' };
@@ -127,7 +127,7 @@ const Customer = ({ user }) => {
 
         // 3. Refresh the UI
         alert(`Project "${lead.project_name}" successfully created! You can now view it in the Project module.`);
-        fetchLeads(); 
+        fetchLeads();
 
       } catch (err) {
         console.error("Project creation failed:", err);
@@ -137,7 +137,7 @@ const Customer = ({ user }) => {
   };
 
   const filteredLeads = useMemo(() => {
-    return leads.filter(l => 
+    return leads.filter(l =>
       l.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       l.project_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -148,9 +148,9 @@ const Customer = ({ user }) => {
       <div className="customer-header">
         <h1>Client Management</h1>
         <div className="search-bar-wrapper">
-          <input 
-            type="text" 
-            placeholder="Search leads..." 
+          <input
+            type="text"
+            placeholder="Search leads..."
             className="search-input-field"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -174,17 +174,17 @@ const Customer = ({ user }) => {
                 <p>{lead.project_name}</p>
                 <small>📍 {lead.location}</small>
               </div>
-              
+
               {/* Updated Footer Area to accommodate the new button */}
               <div className="lead-card-footer">
                 <div className="lead-click-hint">Click to View/Edit</div>
-                
+
                 {/* --- NEW BUTTON: Only shows if status is Ready --- */}
-                {lead.status === 'Ready for Creating Project' && 
-                (<button className="btn-create-project" onClick={(e) => 
-                  handleCreateProject(e, lead)}> Create Project 
+                {lead.status === 'Ready for Creating Project' &&
+                  (<button className="btn-create-project" onClick={(e) =>
+                    handleCreateProject(e, lead)}> Create Project
                   </button>
-                )}
+                  )}
               </div>
             </div>
           ))
@@ -213,8 +213,25 @@ const Customer = ({ user }) => {
                 </div>
                 <div className="form-group-compact">
                   <label>Contact Number</label>
-                  <input type="text" name="contactNo" value={formData.contactNo} onChange={handleInputChange} required />
-                </div>
+                  <input
+                    type="tel"
+                    name="contactNo"
+                    value={formData.contactNo}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => {
+                      // Allow: digits, backspace, delete, tab, arrows, home/end
+                      const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+                      if (!/\d/.test(e.key) && !allowed.includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    maxLength="11"
+                    minLength="11"
+                    pattern="\d{11}"
+                    title="Please enter exactly 11 digits"
+                    placeholder="09XXXXXXXXX"
+                    required
+                  />        </div>
                 <div className="form-group-compact">
                   <label>Sales Representative</label>
                   <input type="text" value={formData.salesRep} readOnly className="locked-input-field" />
@@ -227,7 +244,7 @@ const Customer = ({ user }) => {
                     <option value="For Presentation">For Presentation</option>
                     <option value="Ready for Creating Project">Ready for Creating Project</option>
                     {/* Added a new status so you can mark it completed later */}
-                    <option value="Project Created">Project Created</option> 
+                    <option value="Project Created">Project Created</option>
                   </select>
                 </div>
                 <div className="form-group-compact full-width">

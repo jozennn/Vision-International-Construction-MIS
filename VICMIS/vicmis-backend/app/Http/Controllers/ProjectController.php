@@ -5,57 +5,209 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Project;
 use App\Models\Lead;
+use App\Models\AppNotification;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    // ==========================================
+    // 🚨 1. NOTIFICATION ENGINE HELPERS 🚨
+    // ==========================================
+    
+    private function createNotification($dept, $role, $projectId, $message) {
+        AppNotification::create([
+            'target_department' => $dept,
+            'target_role' => $role,
+            'project_id' => $projectId,
+            'message' => $message
+        ]);
+    }
+
+    private function notifyNextPhase($status, $project) {
+        $msg = "Action Required: '{$project->project_name}' has moved to {$status}.";
+        
+        switch($status) {
+            case 'Measurement based on Plan':
+            case 'Actual Measurement':
+            case 'Initial Site Inspection':
+            case 'Site Inspection & Project Monitoring':
+            case 'Site Inspection & Quality Checking':
+            case 'Final Site Inspection with the Client':
+            case 'Signing of COC':
+                $this->createNotification('Engineering', null, $project->id, $msg);
+                break;
+            case 'Pending Head Review':
+            case 'Pending DR Verification':
+            case 'Pending QA Verification': // 🚨 NEW QA VERIFICATION ALERT
+                $this->createNotification('Engineering', 'dept_head', $project->id, "Approval Needed: '{$project->project_name}' is awaiting Head Verification.");
+                break;
+            case 'Pending Work Order Verification':
+                $this->createNotification('Sales', 'dept_head', $project->id, "Approval Needed: '{$project->project_name}' requires Work Order Verification.");
+                break;
+            case 'Checking of Delivery of Materials':
+            case 'Request Materials Needed':
+                $this->createNotification('Logistics', null, $project->id, $msg);
+                break;
+            case 'Bidding of Project':
+            case 'Awarding of Project':
+                $this->createNotification('Management', null, $project->id, $msg);
+                break;
+            case 'Request Billing':
+            case 'Request Final Billing':
+                // Double alert to ensure Accounting gets it regardless of database spelling!
+                $this->createNotification('Accounting', 'dept_head', $project->id, "Billing Action Required: '{$project->project_name}' requires payment processing.");
+                $this->createNotification('Accounting/Procurement', 'dept_head', $project->id, "Billing Action Required: '{$project->project_name}' requires payment processing.");
+                break;
+        }
+    }
+
+    // ==========================================
+    // 🚨 2. NOTIFICATION ENDPOINTS FOR REACT 🚨
+    // ==========================================
+    
+    public function getNotifications(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) return response()->json([]);
+
+        $dept = strtolower($user->dept ?? $user->department ?? '');
+        $role = strtolower($user->role ?? '');
+
+        $notifications = AppNotification::where('is_read', false)
+            ->where(function ($query) use ($dept, $role, $user) {
+                if (in_array($role, ['admin', 'manager'])) return;
+
+                $query->whereRaw('LOWER(target_department) = ?', [$dept])
+                      ->orWhereRaw('? LIKE CONCAT("%", LOWER(target_department), "%")', [$dept])
+                      ->where(function ($q) use ($role) {
+                          $q->whereNull('target_role')
+                            ->orWhereRaw('LOWER(target_role) = ?', [$role]);
+                      });
+            })
+            ->latest()
+            ->get();
+
+        return response()->json($notifications);
+    }
+
+    public function markNotificationRead($id): JsonResponse
+    {
+        $notif = AppNotification::find($id);
+        if($notif) {
+            $notif->update(['is_read' => true]);
+        }
+        return response()->json(['message' => 'Marked as read']);
+    }
+
+    // ==========================================
+    // 🚨 3. GOD-MODE PROJECT LIST ROUTE 🚨
+    // ==========================================
+
+public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         if (!$user) return response()->json(['message' => 'Not Authenticated'], 401);
 
         $query = Project::query();
 
-        // 🚨 1. ADMIN & MANAGEMENT: True God Mode (See Everything)
-        if (in_array($user->role, ['admin', 'manager']) || $user->department === 'Management') {
-            // We apply ZERO filters here. They see every project in the database.
+        // Convert everything to lowercase so capitalization/spaces never break the system!
+        $dept = strtolower($user->dept ?? $user->department ?? '');
+        $role = strtolower($user->role ?? '');
+        $email = strtolower($user->email ?? '');
+
+        // 1. ADMIN & MANAGEMENT: See everything
+        if (in_array($role, ['admin', 'manager']) || str_contains($dept, 'management') || str_contains($email, 'ops') || str_contains($email, 'admin')) {
+            // Zero filters applied.
         } else {
-            // 🚨 2. NORMAL DEPARTMENTS: Grouped safely so it doesn't break
-            $query->where(function ($q) use ($user) {
-                if ($user->department === 'Engineering') {
+            // 2. NORMAL DEPARTMENTS: Grouped with flexible Catch-All strings
+            $query->where(function ($q) use ($dept, $role, $email, $user) {
+                
+                // ENGINEERING
+                if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
+                    
+                    // Group the engineering phases and the security lock together
+                    $q->where(function ($engQ) use ($role, $user) {
+                        $engQ->whereIn('status', [
+                            'Measurement based on Plan',
+                            'Actual Measurement',
+                            'Pending Head Review',
+                            'Initial Site Inspection',
+                            'Checking of Delivery of Materials',
+                            'Pending DR Verification', 
+                            'Bidding of Project',
+                            'Awarding of Project',
+                            'Contract Signing for Installer',
+                            'Deployment and Orientation of Installers',
+                            'Site Inspection & Project Monitoring',
+                            'Request Materials Needed',
+                            'Request Billing',
+                            'Site Inspection & Quality Checking',
+                            'Pending QA Verification',
+                            'Final Site Inspection with the Client',
+                            'Signing of COC',
+                            'Request Final Billing'
+                        ]);
+
+                        // 🚨 STRICT BACKEND LOCK FOR STANDARD ENGINEERS 🚨
+                        // If you are NOT the Dept Head, you ONLY get projects assigned specifically to YOU.
+                        if ($role !== 'dept_head') {
+                            $engQ->whereIn('id', function($subquery) use ($user) {
+                                $subquery->select('project_id')
+                                         ->from('engineering_tasks')
+                                         ->where('assigned_to', $user->id);
+                            });
+                        }
+                    });
+                } 
+                // SALES
+                elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
                     $q->whereIn('status', [
-                        'Measurement based on Plan',
-                        'Actual Measurement',
-                        'Pending Head Review',
-                        'Initial Site Inspection',
-                        'Checking of Delivery of Materials',
-                        'Bidding of Project',
-                        'Awarding of Project',
-                        'Contract Signing for Installer',
-                        'Deployment and Orientation of Installers',
-                        'Site Inspection & Project Monitoring',
-                        'Request Materials Needed',
-                        'Request Billing',
-                        'Site Inspection & Quality Checking',
-                        'Final Site Inspection with the Client',
-                        'Signing of COC',
-                        'Request Final Billing'
+                        'Floor Plan', 
+                        'Purchase Order', 
+                        'P.O & Work Order', 
+                        'Pending Work Order Verification' 
                     ]);
-                } elseif ($user->department === 'Sales') {
-                    $q->whereIn('status', ['Floor Plan', 'Purchase Order', 'P.O & Work Order']);
-                } elseif ($user->department === 'Logistics') {
+                } 
+                // LOGISTICS
+                elseif (str_contains($dept, 'logistics') || str_contains($dept, 'inventory') || str_contains($email, 'logistic')) {
                     $q->whereIn('status', ['Checking of Delivery of Materials', 'Request Materials Needed']);
-                } elseif ($user->department === 'Accounting' || $user->department === 'Accounting/Procurement') {
+                } 
+                // ACCOUNTING
+                elseif (str_contains($dept, 'accounting') || str_contains($dept, 'finance') || str_contains($role, 'accounting') || str_contains($email, 'accounting')) {
                     $q->whereIn('status', ['Request Billing', 'Request Final Billing']);
                 }
 
-                // Everyone else can ALSO see Completed projects without breaking Admin view
+                // Everyone sees Completed projects
                 $q->orWhere('status', 'Completed');
             });
         }
 
-        return response()->json($query->latest()->get());
+        // 🚨 MAP SECURITY FLAGS 🚨
+        $projects = $query->latest()->get()->map(function ($project) use ($user) {
+            
+            // Check if ANYONE has claimed it
+            $isClaimed = DB::table('engineering_tasks')
+                ->where('project_id', $project->id)
+                ->exists();
+
+            // Check if the CURRENT USER is assigned to it
+            $isMine = DB::table('engineering_tasks')
+                ->where('project_id', $project->id)
+                ->where('assigned_to', $user->id)
+                ->exists();
+
+            // Attach to the project data
+            $project->is_claimed = $isClaimed;
+            $project->is_mine = $isMine; 
+            
+            return $project;
+        });
+
+        return response()->json($projects);
     }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -87,14 +239,16 @@ class ProjectController extends Controller
             $dataToUpdate['contract_amount'] = $request->contract_amount;
         }
 
-        // 🚨 NEW: Handle Rejection Notes 🚨
         if ($request->has('rejection_notes')) {
             $dataToUpdate['rejection_notes'] = $request->rejection_notes;
+            $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
+            $this->createNotification($deptToNotify, null, $project->id, "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}");
         } else {
-            // If they are moving forward normally, wipe the old rejection notes clean!
             $dataToUpdate['rejection_notes'] = null;
+            $this->notifyNextPhase($request->status, $project);
         }
-        // 🚨 DYNAMIC FILE CATCHER (Updated with all 8 files!) 🚨
+
+        // 🚨 UPDATED DYNAMIC FILE CATCHER 🚨
         $fileKeys = [
             'floor_plan_image',
             'po_document',
@@ -103,8 +257,12 @@ class ProjectController extends Controller
             'delivery_receipt_document',
             'bidding_document',
             'subcontractor_agreement_document',
-            'mobilization_photo', // 🚨 ADD THIS HERE!
-            'coc_document'
+            'mobilization_photo', 
+            'coc_document',
+            'billing_invoice_document',
+            'qa_photo',
+            'client_walkthrough_doc',
+            'final_invoice_document'
         ];
 
         foreach ($fileKeys as $key) {
@@ -125,6 +283,8 @@ class ProjectController extends Controller
             'plan_boq'         => $request->plan_boq,
             'status'           => 'Actual Measurement'
         ]);
+        
+        $this->notifyNextPhase('Actual Measurement', $project);
         return response()->json(['message' => 'Plan data saved. Awaiting actual site visit.']);
     }
 
@@ -136,6 +296,8 @@ class ProjectController extends Controller
             'final_boq'          => $request->final_boq,
             'status'             => 'Pending Head Review'
         ]);
+        
+        $this->notifyNextPhase('Pending Head Review', $project);
         return response()->json(['message' => 'Actual data saved. Sent to Head for review.']);
     }
 
@@ -146,6 +308,8 @@ class ProjectController extends Controller
             'is_phase1_approved' => true,
             'status' => 'Purchase Order'
         ]);
+        
+        $this->createNotification('Sales', null, $project->id, "✅ BOQ Approved for '{$project->project_name}'. Please prepare the P.O.");
         return response()->json(['message' => 'Verified! Sent back to Sales for P.O.']);
     }
 
@@ -163,19 +327,16 @@ class ProjectController extends Controller
     {
         return response()->json(Lead::latest()->take(5)->get());
     }
-    // Fetch all daily logs for a specific project
+
     public function getDailyLogs($id)
     {
         $logs = \App\Models\DailySiteLog::where('project_id', $id)->orderBy('log_date', 'desc')->get();
         return response()->json($logs);
     }
 
-    // Save a new daily log
     public function storeDailyLog(Request $request, $id)
     {
-        $request->validate([
-            'log_date' => 'required|date',
-        ]);
+        $request->validate(['log_date' => 'required|date']);
 
         $photoPath = $request->hasFile('photo') ? $request->file('photo')->store('daily_logs', 'public') : null;
 
@@ -189,8 +350,8 @@ class ProjectController extends Controller
         $log = \App\Models\DailySiteLog::create([
             'project_id' => $id,
             'log_date' => $request->log_date,
-            'client_start_date' => $request->client_start_date, // 🚨 NEW
-            'client_end_date' => $request->client_end_date,     // 🚨 NEW
+            'client_start_date' => $request->client_start_date, 
+            'client_end_date' => $request->client_end_date,     
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'lead_man' => $request->lead_man,
@@ -204,13 +365,12 @@ class ProjectController extends Controller
 
         return response()->json(['message' => 'Daily log saved successfully!', 'log' => $log]);
     }
-    // Fetch all issues
+
     public function getIssues($id)
     {
         return response()->json(\App\Models\ProjectIssue::where('project_id', $id)->latest()->get());
     }
 
-    // Save a new issue
     public function storeIssue(Request $request, $id)
     {
         $request->validate([
@@ -226,43 +386,47 @@ class ProjectController extends Controller
 
         return response()->json(['message' => 'Issue logged!', 'issue' => $issue]);
     }
-    // 🚨 NEW: Saves Materials and Timeline Data
+
     public function saveTracking(Request $request, $id)
     {
         $project = \App\Models\Project::findOrFail($id);
 
         if ($request->has('materials_tracking')) $project->materials_tracking = $request->materials_tracking;
         if ($request->has('timeline_tracking')) $project->timeline_tracking = $request->timeline_tracking;
-        if ($request->has('site_inspection_report')) $project->site_inspection_report = $request->site_inspection_report; // 🚨 NEW
+        if ($request->has('site_inspection_report')) $project->site_inspection_report = $request->site_inspection_report; 
 
         $project->save();
         return response()->json(['message' => 'Tracking updated successfully!']);
     }
-    // 🚨 VIP Image Fetcher (Bypasses Storage CORS issues!)
-    // 🚨 THE BULLETPROOF BASE64 IMAGE FETCHER 🚨
+
     public function fetchImage(Request $request)
     {
         $path = $request->query('path');
-
-        // Find the absolute path to the file
         $fullPath = storage_path('app/public/' . str_replace('public/', '', $path));
 
         if (!file_exists($fullPath)) {
             return response()->json(['error' => 'Image not found at ' . $fullPath], 404);
         }
 
-        // Turn the image into a text string
         $fileContents = file_get_contents($fullPath);
         $base64 = base64_encode($fileContents);
-
-        // Figure out if it's a png or jpeg
         $mime = mime_content_type($fullPath);
         $extension = str_contains($mime, 'png') ? 'png' : 'jpeg';
 
-        // Send it back as safe JSON text!
         return response()->json([
             'base64' => 'data:' . $mime . ';base64,' . $base64,
             'extension' => $extension
         ]);
+    }
+    public function show($id)
+    {
+        $project = \App\Models\Project::find($id);
+        
+
+        if (!$project) {
+            return response()->json(['message' => 'Project not found in database'], 404);
+        }
+
+        return response()->json($project);
     }
 }

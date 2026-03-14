@@ -1,0 +1,126 @@
+.notif-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.notif-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    padding: 8px;
+    color: #497B97; /* Vision Blue */
+    transition: color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notif-button:hover {
+    color: #003049;
+}
+
+.notif-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: #FF1817; /* Vision Red */
+    color: white;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 3px 6px;
+    border-radius: 50%;
+    transform: translate(25%, -25%);
+    animation: pulse 2s infinite;
+}
+
+.notif-dropdown {
+    position: absolute;
+    top: 130%;
+    right: 0;
+    width: 320px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+.notif-header {
+    background-color: #003049;
+    color: white;
+    font-weight: 900;
+    font-size: 13px;
+    padding: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notif-header-badge {
+    background-color: #FF1817;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.notif-body {
+    max-height: 350px;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.notif-empty {
+    padding: 30px;
+    text-align: center;
+    color: #94a3b8;
+    font-weight: 700;
+    font-style: italic;
+}
+
+.notif-item {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    background-color: white;
+}
+
+.notif-item:hover {
+    background-color: #f8fafc;
+}
+
+.notif-item.rejected {
+    background-color: #fef2f2;
+}
+
+.notif-item.rejected:hover {
+    background-color: #fee2e2;
+}
+
+.notif-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 6px 0;
+    line-height: 1.4;
+}
+
+.notif-text.rejected-text {
+    color: #b91c1c;
+}
+
+.notif-hint {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 0;
+    font-weight: 600;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: translate(25%, -25%) scale(1); }
+    50% { transform: translate(25%, -25%) scale(1.1); }
+}

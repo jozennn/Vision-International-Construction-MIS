@@ -13,24 +13,26 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
   --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
-  --transition: all 0.2s ease-in-out;
+  --transition: all 0.3s ease-in-out;
 }
 
+/* Container */
 .pm-grid {
     display: grid;
     /* This makes the cards stay in one row until there are more than 3 */
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 25px;
-    padding: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 30px;
+    padding: 40px;
     max-width: 1200px;
     margin: 0 auto;
 }
 
+/* Standard Card */
 .pm-card {
-    background: #FFF9C4;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
+    background: var(--vision-white);
+    border: 2px solid #e5e7eb;
+    border-top: 8px solid var(--vision-blue); /* Brand accent top bar */
+    border-radius: 16px;
     height: 200px;
     display: flex;
     flex-direction: column;
@@ -38,26 +40,32 @@
     justify-content: center;
     cursor: pointer;
     position: relative;
-    transition: all 0.3s ease;
-    color: white;
+    transition: var(--transition);
+    color: var(--vision-charcoal);
+    box-shadow: var(--shadow-md);
 }
 
 .pm-card:hover {
     transform: translateY(-8px);
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    border-color: var(--vision-blue);
+    box-shadow: var(--shadow-lg);
 }
 
-/* Styling specifically for the Add Card to make it stand out as an action */
+/* Styling specifically for the Add Card */
 .pm-card.add-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 2px dashed rgba(255, 255, 255, 0.15);
+    background: var(--vision-bg-light);
+    border: 2px dashed #cbd5e1;
+    border-top: 2px dashed #cbd5e1; /* Removes the thick top bar for the add button */
+    color: #64748b;
+    box-shadow: none;
 }
 
 .pm-card.add-card:hover {
-    background: rgba(16, 185, 129, 0.1); /* Slight green tint on hover */
-    border-color: #10b981;
+    background: var(--vision-white);
+    border-color: var(--vision-red); /* Highlights in brand red */
+    color: var(--vision-red-deep);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
 }
 
 .card-number {
@@ -66,33 +74,41 @@
     left: 25px;
     font-size: 14px;
     font-weight: 800;
-    color: rgba(255, 255, 255, 0.2);
+    color: #94a3b8;
 }
 
 .card-icon {
     font-size: 45px;
-    margin-bottom: 12px;
+    margin-bottom: 15px;
+    transition: var(--transition);
+}
+
+/* Makes the icon pop slightly on hover */
+.pm-card:hover .card-icon {
+    transform: scale(1.1);
 }
 
 .card-title {
-    font-weight: 700;
-    font-size: 16px;
+    font-weight: 800;
+    font-size: 18px;
     letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
+/* Loading Screen Settings */
 .loading-screen {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: #ffffff;
+  background-color: var(--vision-bg-light);
 }
 
 .vision-spinner {
   width: 50px;
   height: 50px;
   border: 5px solid var(--vision-off-white);
-  border-top: 5px solid var(--vision-red); /* Brand Red */
+  border-top: 5px solid var(--vision-red); /* Brand Red Spinner */
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

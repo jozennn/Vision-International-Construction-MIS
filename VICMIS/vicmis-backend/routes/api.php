@@ -5,9 +5,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{
     AuthController,
     EmployeeController,
-    AttendanceController,
-    HRDashboardController,
-    EmployeeRequestController,
     EngineeringController,
     LeadController,
     InventoryController,
@@ -34,6 +31,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- USER & AUTH ---
     Route::get('/user', fn(Request $request) => $request->user());
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    //NOTIFICATION
+    Route::get('/notifications', [App\Http\Controllers\ProjectController::class, 'getNotifications']);
+    Route::post('/notifications/{id}/read', [App\Http\Controllers\ProjectController::class, 'markNotificationRead']);
 
     // --- PROJECTS & WORKFLOW ---
     Route::get('/projects', [ProjectController::class, 'index']);
@@ -67,12 +68,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{id}/issues', [App\Http\Controllers\ProjectController::class, 'getIssues']);
     Route::post('/projects/{id}/issues', [App\Http\Controllers\ProjectController::class, 'storeIssue']);
     Route::post('/projects/{id}/tracking', [App\Http\Controllers\ProjectController::class, 'saveTracking']);
+    Route::get('/projects/{project}', [App\Http\Controllers\ProjectController::class, 'show']);
     // --- EMPLOYEE DIRECTORY ---
     Route::apiResource('employees', EmployeeController::class)->except(['show']);
 
 
     // --- ENGINEERING & LEADS ---
-    Route::get('/engineering/dashboard-stats', [EngineeringController::class, 'getStats']);
+    // Add this inside your auth:sanctum group
+    Route::get('/engineering/dashboard-stats', [App\Http\Controllers\EngineeringController::class, 'getDashboardStats']);
+    // Head Engineer assigning a team to a project
+    Route::post('/engineering/assign-task', [EngineeringController::class, 'assignTask']);
+    // Regular Engineer claiming a project from the queue
+    Route::post('/engineering/pick-project', [EngineeringController::class, 'pickProject']);
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
 

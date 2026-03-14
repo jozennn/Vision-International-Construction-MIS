@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import VicmisLogo from '../assets/logo.png'; 
 import api from '../api/axios';
 
@@ -11,6 +11,18 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser }) => {
     { name: 'Customer', icon: '👤' },
     { name: 'Setting', icon: '⚙️' },
   ];
+
+  // 🚨 WAKE UP THE PROJECT TAB WHEN NOTIFICATION IS CLICKED 🚨
+  // (Moved this to the top level of the component!)
+  useEffect(() => {
+      const handleTabSwitch = (e) => {
+          // Uses your exact prop name: setActiveItem
+          setActiveItem(e.detail); 
+      };
+      
+      window.addEventListener('switch-tab', handleTabSwitch);
+      return () => window.removeEventListener('switch-tab', handleTabSwitch);
+  }, [setActiveItem]);
 
   const handleLogout = async () => {
     try {
