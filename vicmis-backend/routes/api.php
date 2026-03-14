@@ -7,7 +7,6 @@ use App\Http\Controllers\{
     EmployeeController,
     EngineeringController,
     LeadController,
-    InventoryController,
     MaterialRequestController,
     ProjectController,
     WarehouseInventoryController,
