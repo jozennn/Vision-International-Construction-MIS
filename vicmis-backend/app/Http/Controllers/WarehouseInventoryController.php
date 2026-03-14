@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\WarehouseInventory;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\Rule;
 
 class WarehouseInventoryController extends Controller
 {
@@ -14,40 +13,37 @@ class WarehouseInventoryController extends Controller
     {
         $query = WarehouseInventory::query();
 
-        // Filter: Main Products vs Consumables
         if ($request->has('type')) {
-            if ($request->type === 'consumable') {
-                $query->consumables();
-            } elseif ($request->type === 'main') {
-                $query->mainProducts();
-            }
+            if ($request->type === 'consumable') $query->consumables();
+            elseif ($request->type === 'main')   $query->mainProducts();
         }
 
-        // Filter: by product category
-        if ($request->has('category') && $request->category !== 'all') {
+        if ($request->filled('category') && $request->category !== 'all') {
             $query->byCategory($request->category);
         }
 
-        // Filter: by availability
-        if ($request->has('availability') && $request->availability !== 'all') {
+        if ($request->filled('availability') && $request->availability !== 'all') {
             $query->where('availability', $request->availability);
         }
 
-        // Search by code or category
-        if ($request->has('search') && $request->search !== '') {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('product_code', 'like', "%{$search}%")
-                  ->orWhere('product_category', 'like', "%{$search}%");
-            });
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(fn($q) =>
+                $q->where('product_code',     'like', "%{$s}%")
+                  ->orWhere('product_category','like', "%{$s}%")
+            );
         }
 
+        // Support large per_page for dashboard full-table scans (e.g. per_page=9999)
         $perPage = (int) $request->get('per_page', 10);
-        $perPage = in_array($perPage, [10, 25, 50]) ? $perPage : 10;
+        if ($perPage > 9999) $perPage = 9999;
+        if ($perPage < 1)    $perPage = 10;
 
-        $paginated = $query->orderBy('product_category')->orderBy('product_code')->paginate($perPage);
+        $paginated = $query
+            ->orderBy('product_category')
+            ->orderBy('product_code')
+            ->paginate($perPage);
 
-        // Append computed total_after_reserve to each item
         $paginated->getCollection()->transform(function ($item) {
             $item->total_after_reserve = $item->total_after_reserve;
             return $item;
@@ -70,7 +66,9 @@ class WarehouseInventoryController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'product_category' => ['required', 'string', Rule::in(array_keys(WarehouseInventory::categories()))],
+            // product_category is now a free string — no Rule::in() restriction
+            // This allows new categories added via shipment check-in
+            'product_category' => 'required|string|max:150',
             'product_code'     => 'required|string|max:100',
             'unit'             => 'required|string|max:50',
             'current_stock'    => 'required|integer|min:0',
@@ -79,18 +77,17 @@ class WarehouseInventoryController extends Controller
             'return_out'       => 'nullable|integer|min:0',
             'return_in'        => 'nullable|integer|min:0',
             'reserve'          => 'nullable|integer|min:0',
-            'condition'        => ['nullable', Rule::in(['Good', 'Damaged', 'Returned'])],
+            'condition'        => 'nullable|in:Good,Damaged,Returned',
             'is_consumable'    => 'boolean',
             'notes'            => 'nullable|string',
         ]);
 
-        // Auto-derive availability
+        // Always derive availability from current_stock — ignore any client-sent value
         $validated['availability'] = WarehouseInventory::deriveAvailability(
             $validated['current_stock']
         );
 
-        // Auto-set is_consumable if category is CONSUMABLES
-        if ($validated['product_category'] === 'CONSUMABLES') {
+        if (strtoupper($validated['product_category']) === 'CONSUMABLES') {
             $validated['is_consumable'] = true;
         }
 
@@ -114,7 +111,7 @@ class WarehouseInventoryController extends Controller
         $item = WarehouseInventory::findOrFail($id);
 
         $validated = $request->validate([
-            'product_category' => ['sometimes', 'string', Rule::in(array_keys(WarehouseInventory::categories()))],
+            'product_category' => 'sometimes|string|max:150',
             'product_code'     => 'sometimes|string|max:100',
             'unit'             => 'sometimes|string|max:50',
             'current_stock'    => 'sometimes|integer|min:0',
@@ -123,12 +120,12 @@ class WarehouseInventoryController extends Controller
             'return_out'       => 'nullable|integer|min:0',
             'return_in'        => 'nullable|integer|min:0',
             'reserve'          => 'nullable|integer|min:0',
-            'condition'        => ['nullable', Rule::in(['Good', 'Damaged', 'Returned'])],
+            'condition'        => 'nullable|in:Good,Damaged,Returned',
             'is_consumable'    => 'boolean',
             'notes'            => 'nullable|string',
         ]);
 
-        // Re-derive availability if stock changed
+        // Re-derive availability whenever current_stock is sent
         if (isset($validated['current_stock'])) {
             $validated['availability'] = WarehouseInventory::deriveAvailability(
                 $validated['current_stock']
@@ -149,12 +146,11 @@ class WarehouseInventoryController extends Controller
     }
 
     // ─── GET /api/warehouse-inventory/meta ────────────────────────────────────
-    // Returns categories + preset codes for the frontend dropdowns
     public function meta(): JsonResponse
     {
         return response()->json([
-            'categories'   => array_keys(WarehouseInventory::categories()),
-            'preset_codes' => WarehouseInventory::presetCodes(),
+            'categories'        => array_keys(WarehouseInventory::categories()),
+            'preset_codes'      => WarehouseInventory::presetCodes(),
             'units_by_category' => WarehouseInventory::categories(),
         ]);
     }

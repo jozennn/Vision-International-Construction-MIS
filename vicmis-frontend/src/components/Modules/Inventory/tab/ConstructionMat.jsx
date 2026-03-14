@@ -30,6 +30,29 @@ const EMPTY_FORM = {
   notes:            '',
 };
 
+// ─── Auto-derive availability from current_stock ──────────────────────────────
+// Rules:  0        → NO STOCK
+//         1 – 3   → LOW STOCK
+//         4+       → ON STOCK
+// Mirrors WarehouseInventory::deriveAvailability() on the backend
+const deriveAvailability = (stock) => {
+  const n = parseInt(stock, 10);
+  if (isNaN(n) || n <= 0) return 'NO STOCK';
+  if (n <= 10)             return 'LOW STOCK';
+  return 'ON STOCK';
+};
+
+// ─── Availability preview badge ───────────────────────────────────────────────
+const AvailPreview = ({ stock }) => {
+  const label = deriveAvailability(stock);
+  const cls   = AVAILABILITY_COLORS[label] || 'avail-no';
+  return (
+    <span className={`wh-avail ${cls}`} style={{ fontSize: '.7rem' }}>
+      {label}
+    </span>
+  );
+};
+
 // ─── Pagination ───────────────────────────────────────────────────────────────
 const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageChange, onPerPageChange }) => {
   const buildPages = () => {
@@ -118,7 +141,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [formData, setFormData]               = useState({ ...EMPTY_FORM });
   const [customCode, setCustomCode]           = useState(false);
 
-  // Load meta
+  // ── Load meta ──────────────────────────────────────────────────────────────
   useEffect(() => {
     warehouseInventoryService.getMeta().then(res => {
       setCategories(res.data.categories || []);
@@ -127,7 +150,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }).catch(console.error);
   }, []);
 
-  // Fetch items
+  // ── Fetch items ────────────────────────────────────────────────────────────
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -152,7 +175,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   useEffect(() => { fetchItems(); }, [fetchItems]);
   useEffect(() => { setCurrentPage(1); }, [typeFilter, categoryFilter, search, perPage]);
 
-  // New arrival
+  // ── New arrival ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (newArrivalData?.projects?.length > 0) {
       const proj = newArrivalData.projects[0];
@@ -168,23 +191,44 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   }, [newArrivalData]);
 
+  // ── Category change ────────────────────────────────────────────────────────
   const handleCategoryChange = (cat) => {
-    setFormData(f => ({ ...f, product_category: cat, unit: unitsByCategory[cat] || 'Pcs', product_code: '', is_consumable: cat === 'CONSUMABLES' }));
+    setFormData(f => ({
+      ...f,
+      product_category: cat,
+      unit:             unitsByCategory[cat] || 'Pcs',
+      product_code:     '',
+      is_consumable:    cat === 'CONSUMABLES',
+    }));
     setCustomCode(false);
   };
 
+  // ── Stock change — auto-derive availability and update form ────────────────
+  const handleStockChange = (value) => {
+    setFormData(f => ({
+      ...f,
+      current_stock: value,
+      // Auto-derive so the backend receives the correct availability value
+      availability:  deriveAvailability(value),
+    }));
+  };
+
+  // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async (e) => {
     e.preventDefault();
     setSaveLoading(true);
     try {
+      const stockInt = parseInt(formData.current_stock, 10) || 0;
       const payload = {
         ...formData,
-        current_stock: parseInt(formData.current_stock) || 0,
-        delivery_in:   parseInt(formData.delivery_in)   || 0,
-        delivery_out:  parseInt(formData.delivery_out)  || 0,
-        return_out:    parseInt(formData.return_out)    || 0,
-        return_in:     parseInt(formData.return_in)     || 0,
-        reserve:       parseInt(formData.reserve)       || 0,
+        current_stock: stockInt,
+        delivery_in:   parseInt(formData.delivery_in,  10) || 0,
+        delivery_out:  parseInt(formData.delivery_out, 10) || 0,
+        return_out:    parseInt(formData.return_out,   10) || 0,
+        return_in:     parseInt(formData.return_in,    10) || 0,
+        reserve:       parseInt(formData.reserve,      10) || 0,
+        // Always send the derived availability so backend stays in sync
+        availability:  deriveAvailability(stockInt),
       };
       if (isEditing) await warehouseInventoryService.update(currentId, payload);
       else           await warehouseInventoryService.create(payload);
@@ -197,6 +241,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
+  // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
     if (!window.confirm('Remove this product from inventory?')) return;
     setDeleteLoading(id);
@@ -216,6 +261,9 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const closeModal    = () => { setIsModalOpen(false); setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); if (clearArrivalData) clearArrivalData(); };
 
   const codesForCategory = formData.product_category ? (presetCodes[formData.product_category] || []) : [];
+
+  // Live preview of availability based on current form stock value
+  const previewAvailability = deriveAvailability(formData.current_stock);
 
   return (
     <div className="wh-container">
@@ -250,11 +298,17 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         </div>
         <div className="wh-search-wrap">
           <Search size={14} className="wh-search-icon" />
-          <input type="text" className="wh-search-input" placeholder="Search code or category…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            type="text"
+            className="wh-search-input"
+            placeholder="Search code or category…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* Table — Delivery In/Out and Return In/Out columns REMOVED */}
+      {/* Table */}
       <div className="wh-table-wrap">
         <table className="wh-table">
           <thead>
@@ -277,15 +331,17 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
             ) : items.length === 0 ? (
               <tr><td colSpan="10" className="wh-empty-cell">No products found.</td></tr>
             ) : items.map((item) => {
-              // FIXED: Total After Reserve = current_stock - reserve (not anything else)
               const reserve    = parseInt(item.reserve || 0);
               const totalAfter = item.current_stock - reserve;
-
               return (
                 <tr key={item.id} className="wh-row">
                   <td><span className="wh-category-badge">{item.product_category}</span></td>
                   <td className="wh-code">{item.product_code}</td>
-                  <td><span className={`wh-avail ${AVAILABILITY_COLORS[item.availability] || 'avail-no'}`}>{item.availability}</span></td>
+                  <td>
+                    <span className={`wh-avail ${AVAILABILITY_COLORS[item.availability] || 'avail-no'}`}>
+                      {item.availability}
+                    </span>
+                  </td>
                   <td className="text-right wh-num">{item.current_stock}</td>
                   <td className="wh-unit">{item.unit}</td>
                   <td className="text-right wh-num">{reserve > 0 ? reserve : '—'}</td>
@@ -320,7 +376,9 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
             <div className="wh-modal-header">
               <div className="wh-modal-title-row">
                 {isNewArrival && <PackageCheck size={20} className="wh-modal-icon" />}
-                <h2 className="wh-modal-title">{isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}</h2>
+                <h2 className="wh-modal-title">
+                  {isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}
+                </h2>
               </div>
               <button className="wh-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
@@ -339,7 +397,12 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                 </div>
                 <div className="wh-form-group">
                   <label>Unit <span className="req">*</span></label>
-                  <input type="text" required value={formData.unit} onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))} placeholder="e.g. Rolls, Pcs, Bags" />
+                  <input
+                    type="text" required
+                    value={formData.unit}
+                    onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))}
+                    placeholder="e.g. Rolls, Pcs, Bags"
+                  />
                 </div>
               </div>
 
@@ -361,35 +424,59 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                     <ChevronDown size={13} className="wh-select-icon" />
                   </div>
                 ) : (
-                  <input type="text" required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))} placeholder="e.g. 182062 or 182062 - New" />
+                  <input
+                    type="text" required
+                    value={formData.product_code}
+                    onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}
+                    placeholder="e.g. 182062 or 182062 - New"
+                  />
                 )}
                 <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
               </div>
 
+              {/* ── Current Stock with live availability preview ─────────── */}
               <div className="wh-form-row wh-form-row-3">
-                {[
-                  { key: 'current_stock', label: 'Current Stock', required: true },
-                  { key: 'delivery_in',   label: 'Delivery In' },
-                  { key: 'delivery_out',  label: 'Delivery Out' },
-                ].map(({ key, label, required }) => (
-                  <div className="wh-form-group" key={key}>
-                    <label>{label} {required && <span className="req">*</span>}</label>
-                    <input type="number" min="0" required={!!required} value={formData[key]} onChange={e => setFormData(f => ({ ...f, [key]: e.target.value }))} placeholder="0" />
+                <div className="wh-form-group">
+                  <div className="wh-label-row">
+                    <label>Current Stock <span className="req">*</span></label>
+                    {/* Live preview badge — updates as user types */}
+                    {formData.current_stock !== '' && (
+                      <AvailPreview stock={formData.current_stock} />
+                    )}
                   </div>
-                ))}
+                  <input
+                    type="number" min="0" required
+                    value={formData.current_stock}
+                    onChange={e => handleStockChange(e.target.value)}
+                    placeholder="0"
+                  />
+                  <p className="wh-hint" style={{ marginTop: 3 }}>
+                    0 = No Stock · 1–3 = Low Stock · 4+ = On Stock
+                  </p>
+                </div>
+                <div className="wh-form-group">
+                  <label>Delivery In</label>
+                  <input type="number" min="0" value={formData.delivery_in}  onChange={e => setFormData(f => ({ ...f, delivery_in:  e.target.value }))} placeholder="0" />
+                </div>
+                <div className="wh-form-group">
+                  <label>Delivery Out</label>
+                  <input type="number" min="0" value={formData.delivery_out} onChange={e => setFormData(f => ({ ...f, delivery_out: e.target.value }))} placeholder="0" />
+                </div>
               </div>
 
               <div className="wh-form-row wh-form-row-3">
-                {[
-                  { key: 'return_out', label: 'Return Out' },
-                  { key: 'return_in',  label: 'Return In' },
-                  { key: 'reserve',    label: 'Reserve' },
-                ].map(({ key, label }) => (
-                  <div className="wh-form-group" key={key}>
-                    <label>{label}</label>
-                    <input type="number" min="0" value={formData[key]} onChange={e => setFormData(f => ({ ...f, [key]: e.target.value }))} placeholder="0" />
-                  </div>
-                ))}
+                <div className="wh-form-group">
+                  <label>Return Out</label>
+                  <input type="number" min="0" value={formData.return_out} onChange={e => setFormData(f => ({ ...f, return_out: e.target.value }))} placeholder="0" />
+                </div>
+                <div className="wh-form-group">
+                  <label>Return In</label>
+                  <input type="number" min="0" value={formData.return_in}  onChange={e => setFormData(f => ({ ...f, return_in:  e.target.value }))} placeholder="0" />
+                </div>
+                <div className="wh-form-group">
+                  <label>Reserve</label>
+                  <input type="number" min="0" value={formData.reserve}    onChange={e => setFormData(f => ({ ...f, reserve:    e.target.value }))} placeholder="0" />
+                </div>
               </div>
 
               <div className="wh-form-row">
@@ -404,7 +491,11 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                 </div>
                 <div className="wh-form-group wh-checkbox-group">
                   <label className="wh-checkbox-label">
-                    <input type="checkbox" checked={formData.is_consumable} onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))} />
+                    <input
+                      type="checkbox"
+                      checked={formData.is_consumable}
+                      onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
+                    />
                     <span>Mark as Consumable</span>
                   </label>
                 </div>
@@ -418,7 +509,9 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
               <div className="wh-modal-footer">
                 <button type="button" className="wh-btn-cancel" onClick={closeModal}>Cancel</button>
                 <button type="submit" className="wh-btn-save" disabled={saveLoading}>
-                  {saveLoading ? <><Loader2 size={15} className="wh-spinner" /> Saving…</> : isEditing ? 'Update Product' : 'Save Product'}
+                  {saveLoading
+                    ? <><Loader2 size={15} className="wh-spinner" /> Saving…</>
+                    : isEditing ? 'Update Product' : 'Save Product'}
                 </button>
               </div>
             </form>

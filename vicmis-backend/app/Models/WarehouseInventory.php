@@ -46,7 +46,7 @@ class WarehouseInventory extends Model
     public static function deriveAvailability(int $stock): string
     {
         if ($stock <= 0)  return 'NO STOCK';
-        if ($stock <= 3)  return 'LOW STOCK';
+        if ($stock <= 10)  return 'LOW STOCK';
         return 'ON STOCK';
     }
 
