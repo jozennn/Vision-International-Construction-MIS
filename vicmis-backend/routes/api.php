@@ -83,7 +83,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- ENGINEERING DASHBOARD 🚨 (Missing Routes Added Here) ---
     Route::prefix('engineering')->group(function () {
-        Route::get('/dashboard-stats', [EngineeringController::class, 'getStats']);
+        Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
         Route::post('/assign-task', [EngineeringController::class, 'assignTask']); // Added!
         Route::post('/pick-project', [EngineeringController::class, 'pickProject']); // Added!
     });
