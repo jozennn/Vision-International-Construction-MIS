@@ -1,0 +1,21 @@
+# Node & Frontend
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# Laravel Backend
+/vendor/
+.env
+.env.backup
+/storage/*.key
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*.log
+/public/storage
+
+# IDE & OS Files
+.vscode/
+.DS_Store
+Thumbs.db
