@@ -143,8 +143,6 @@ const InventoryDashboard = ({ user }) => {
 
   useEffect(() => {
     fetchAll();
-    const id = setInterval(() => fetchAll(true), 30000);
-    return () => clearInterval(id);
   }, [fetchAll]);
 
   // ── Derived — computed directly from warehouse_inventory table ─────────────
