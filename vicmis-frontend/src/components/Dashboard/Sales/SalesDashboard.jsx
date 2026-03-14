@@ -185,10 +185,7 @@ const SalesDashboard = ({ user }) => {
         <div className="sd-header-left">
           <div className="sd-header-icon">📊</div>
           <div>
-            <h1 className="sd-header-title">Vision Brand Management</h1>
-            <p className="sd-header-sub">
-              Welcome, <strong>{user?.name || 'Sales Team'}</strong> · {today}
-            </p>
+            <h1 className="sd-header-title">Sales Dashboard</h1>
           </div>
         </div>
         <div className="sd-header-right">
