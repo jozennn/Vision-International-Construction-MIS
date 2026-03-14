@@ -343,6 +343,52 @@ const Project = () => {
             </div>
         );
     };
+    // ─── BOQ TABLE RENDERER ───
+    const renderBoqTable = (type, readOnly = false) => {
+        const grandTotal = boqData[type]?.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0) || 0;
+        return (
+            <div className="proj-table-wrapper">
+                <table className="proj-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Unit</th>
+                            <th>Qty</th>
+                            <th>Unit Cost (₱)</th>
+                            <th>Total (₱)</th>
+                            {!readOnly && <th>Act</th>}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {boqData[type]?.map((row, idx) => (
+                            <tr key={idx}>
+                                <td><input disabled={readOnly} value={row.description || ''} onChange={(e) => handleBoqChange(type, idx, 'description', e.target.value)} className="proj-input" style={{margin:0}} placeholder="Item description" /></td>
+                                <td><input disabled={readOnly} value={row.unit || ''} onChange={(e) => handleBoqChange(type, idx, 'unit', e.target.value)} className="proj-input text-center" style={{margin:0}} placeholder="e.g. pcs" /></td>
+                                <td><input disabled={readOnly} type="number" value={row.qty || ''} onChange={(e) => handleBoqChange(type, idx, 'qty', e.target.value)} className="proj-input text-center" style={{margin:0}} placeholder="0" /></td>
+                                <td><input disabled={readOnly} type="number" value={row.unitCost || ''} onChange={(e) => handleBoqChange(type, idx, 'unitCost', e.target.value)} className="proj-input text-center" style={{margin:0}} placeholder="0.00" /></td>
+                                <td className="text-center font-black">₱{(parseFloat(row.total) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                {!readOnly && <td className="text-center"><button type="button" onClick={() => removeBoqRow(type, idx)} className="proj-text-red font-black" style={{background:'none', border:'none', cursor:'pointer'}}>✕</button></td>}
+                            </tr>
+                        ))}
+                    </tbody>
+                    {boqData[type]?.length > 0 && (
+                        <tfoot>
+                            <tr>
+                                <td colSpan="4" style={{ textAlign: 'right', fontWeight: '900', textTransform: 'uppercase', padding: '15px' }}>Grand Total Budget:</td>
+                                <td style={{ textAlign: 'center', fontWeight: '900', color: 'var(--fo-red)', fontSize: '18px', padding: '15px' }}>₱{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                {!readOnly && <td></td>}
+                            </tr>
+                        </tfoot>
+                    )}
+                </table>
+                {!readOnly && (
+                    <div className="text-center" style={{ padding: '15px', background: '#fff' }}>
+                        <button type="button" onClick={() => addBoqRow(type)} className="proj-btn-outline">+ Add BOQ Item</button>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const PrimaryButton = ({ onClick, children, disabled, variant = "navy" }) => {
         let btnClass = "proj-btn ";

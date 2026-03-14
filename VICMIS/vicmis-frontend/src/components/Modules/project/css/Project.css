@@ -20,7 +20,7 @@
   --fo-text:      #0D1E28;
   --fo-text-mid:  #3A5060;
   --fo-muted:     #64748b;
-  --fo-orange:    #F97316;
+  --fo-orange:    #ea580c;
 
   --fo-r-sm: 8px;
   --fo-r-md: 12px;
@@ -158,7 +158,7 @@
 .proj-btn-navy:hover:not(:disabled)  { background: var(--fo-sky); transform: translateY(-2px); box-shadow: var(--fo-shadow-md); }
 .proj-btn-red:hover:not(:disabled)   { background: var(--fo-crimson-deep); transform: translateY(-2px); box-shadow: var(--fo-shadow-md); }
 .proj-btn-green:hover:not(:disabled) { background: #15803d; transform: translateY(-2px); box-shadow: var(--fo-shadow-md); }
-.proj-btn-orange:hover:not(:disabled){ background: #ea580c; transform: translateY(-2px); box-shadow: var(--fo-shadow-md); }
+.proj-btn-orange:hover:not(:disabled){ background: #c2410c; transform: translateY(-2px); box-shadow: var(--fo-shadow-md); }
 .proj-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; transform: none; }
 
 .proj-btn-outline {
