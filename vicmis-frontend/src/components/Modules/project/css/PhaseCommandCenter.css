@@ -1,0 +1,439 @@
+/* ============================================================
+   PhaseCommandCenter.css — Scoped to .pm-cc-wrapper
+   All styles moved from inline JSX to this file.
+   ============================================================ */
+
+/* ── Wrapper ── */
+.pm-cc-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ── Main card ── */
+.pm-cc-wrapper .pm-card {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  margin-bottom: 0;
+  transition: none;
+  cursor: default;
+}
+
+.pm-cc-wrapper .pm-card:hover {
+  transform: none;
+  box-shadow: var(--pm-shadow);
+  border-color: var(--pm-border-soft);
+}
+
+/* ── Navy header ── */
+.pm-cc-wrapper .pm-card > .pm-card-navy {
+  flex-shrink: 0;
+  border-radius: 0;
+}
+
+/* ── Command center nav header (flex row with badge) ── */
+.pm-cc-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ── Logistics orange header ── */
+.pm-navy-orange {
+  background: #f97316 !important;
+}
+
+/* ── In-progress badge ── */
+.pm-in-progress-badge {
+  background: #16a34a;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-weight: 900;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ── Tabs ── */
+.pm-cc-wrapper .pm-tabs-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  width: 100%;
+}
+
+.pm-cc-wrapper .pm-tab-btn {
+  flex: 1;
+  text-align: center;
+}
+
+/* ── Body (replaces inline padding: 30px) ── */
+.pm-cc-body {
+  padding: 30px;
+  height: auto;
+  overflow: visible;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Section cards ── */
+.pm-cc-wrapper .pm-card-gray,
+.pm-cc-wrapper .pm-card-cream,
+.pm-cc-wrapper .pm-card-red {
+  margin-bottom: 0;
+  height: auto;
+  overflow: visible;
+}
+
+/* ── Logistics cream card ── */
+.pm-cream-orange {
+  background: #fff7ed !important;
+  border-color: #fdba74 !important;
+}
+
+/* ── Checklist orange variant ── */
+.pm-checklist-orange {
+  border-color: #fed7aa !important;
+}
+
+/* ── Text colour helpers ── */
+.pm-text-white      { color: white; margin: 0; }
+.pm-text-orange     { color: var(--pm-orange); margin: 0; }
+.pm-text-orange-dark{ color: #c2410c; }
+.pm-text-blue       { color: var(--pm-blue); }
+.pm-text-red        { color: var(--pm-red); }
+.pm-text-green      { color: #16a34a; }
+.pm-text-navy       { color: var(--pm-navy); }
+.pm-no-margin       { margin: 0; }
+
+/* ── Tab toolbar (header row with buttons) ── */
+.pm-tab-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+/* ── Button rows ── */
+.pm-btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+/* ── Date input row (materials tab) ── */
+.pm-date-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.pm-date-input {
+  width: auto !important;
+  margin: 0 !important;
+  padding: 10px !important;
+}
+
+/* ── Ghost button (show/hide) ── */
+.pm-btn-ghost {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-blue);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+/* ── Muted button variant ── */
+.pm-btn-muted {
+  color: var(--pm-text-muted) !important;
+  border-color: var(--pm-text-muted) !important;
+}
+
+/* ── Input helpers ── */
+.pm-input-flush  { margin: 0 !important; }
+.pm-input-sm     { margin: 0 !important; padding: 5px !important; font-size: 12px !important; }
+.pm-input-readonly { background: #f1f5f9 !important; }
+
+/* ── Completion % input (large red number) ── */
+.pm-completion-input {
+  font-size: 24px !important;
+  color: var(--pm-red) !important;
+}
+
+/* ── Consumed cell input ── */
+.pm-consumed-input {
+  color: var(--pm-red) !important;
+  font-weight: 900 !important;
+}
+
+/* ── Table helpers ── */
+.pm-table-wide   { min-width: max-content; }
+.pm-mb-24        { margin-bottom: 24px !important; }
+
+/* ── Table header variants ── */
+.pm-th-cream { background: var(--pm-cream) !important; }
+.pm-th-md    { font-size: 14px !important; }
+.pm-th-lg    { font-size: 16px !important; }
+
+/* Date column header (red tint) */
+.pm-th-date-col {
+  background: #fef2f2 !important;
+  color: var(--pm-red) !important;
+}
+
+/* ── Table cell helpers ── */
+.pm-td-bold         { font-weight: 900; }
+.pm-td-project-name { font-weight: 900; color: var(--pm-navy); }
+.pm-td-duration     { font-weight: 900; color: var(--pm-red); }
+.pm-td-percent      { background: #f0fdf4; }
+
+/* Group rows (timeline + inspection) */
+.pm-tr-group { background: #f1f5f9; }
+
+/* Selected row in modal */
+.pm-tr-selected { background: rgba(249,115,22,0.05); }
+
+/* ── Photo row (Photo 1 / Photo 2 strip) ── */
+.pm-photo-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+}
+
+.pm-file-input-compact {
+  margin: 0 !important;
+  padding: 10px !important;
+}
+
+/* ── Add row footer ── */
+.pm-add-row-footer {
+  padding: 15px;
+}
+
+/* ── History section ── */
+.pm-history-section {
+  border-top: 2px solid var(--pm-border-soft);
+  padding-top: 30px;
+  margin-top: 20px;
+}
+
+/* ── History controls ── */
+.pm-history-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pm-filter-input {
+  width: 200px !important;
+  margin: 0 !important;
+  padding: 10px !important;
+  display: inline-block !important;
+}
+
+/* ── Log card wrap variant ── */
+.pm-log-card-wrap {
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+/* ── Log stats line ── */
+.pm-log-stats {
+  font-weight: bold;
+  margin: 5px 0;
+}
+
+/* ── Requisition items list ── */
+.pm-req-items-list {
+  font-weight: bold;
+  color: var(--pm-navy);
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+/* ── Requisition status badge variants ── */
+.pm-req-status-dispatched {
+  background: #dcfce7 !important;
+  color: #16a34a !important;
+}
+.pm-req-status-denied {
+  background: #fef2f2 !important;
+  color: #c1121f !important;
+}
+.pm-req-status-pending {
+  background: var(--pm-cream) !important;
+  color: var(--pm-navy) !important;
+}
+
+/* ── % Done cell ── */
+.pm-percent-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: #16a34a;
+}
+
+.pm-percent-input {
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  width: 60px !important;
+  padding: 5px !important;
+}
+
+/* ── Timeline add-row bar ── */
+.pm-timeline-add-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+/* ── Issues: solution card ── */
+.pm-card-solution {
+  background: #f0fdf4 !important;
+  border: 2px solid #bbf7d0 !important;
+}
+
+.pm-label-green { color: #16a34a !important; }
+
+/* ── Issue card problem block ── */
+.pm-issue-problem-block {
+  border-bottom: 1px solid var(--pm-border-soft);
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+/* ── Section divider ── */
+.pm-section-divider {
+  border: none;
+  border-top: 2px dashed var(--pm-border-soft);
+  margin: 40px 0;
+}
+
+/* ── Inspection card ── */
+.pm-insp-card {
+  overflow: visible !important;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pm-insp-card > .pm-card-navy {
+  border-radius: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pm-insp-card-footer {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  background: #fff;
+}
+
+/* ── Inspection inputs ── */
+.pm-insp-title-input {
+  background: transparent !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  text-align: center !important;
+  width: 100% !important;
+  padding: 10px !important;
+  margin: 0 !important;
+}
+
+.pm-th-check-item {
+  text-align: left !important;
+  width: 35% !important;
+}
+
+.pm-insp-group-input {
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  text-transform: uppercase !important;
+  font-weight: 900 !important;
+}
+
+.pm-insp-cell-input {
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.pm-insp-score-input {
+  margin: 0 !important;
+  padding: 5px !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ── Attachments section ── */
+.pm-insp-attach-header span {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: white;
+}
+
+.pm-insp-attach-body {
+  padding: 30px;
+}
+
+/* ── Modal ── */
+.pm-modal-orange {
+  border-top-color: var(--pm-orange) !important;
+}
+
+.pm-modal-table-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.pm-thead-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--pm-surface-2);
+}
+
+.pm-req-qty-input {
+  width: 80px !important;
+  margin: 0 auto !important;
+  padding: 8px !important;
+}
+
+.pm-req-qty-active {
+  border-color: var(--pm-orange) !important;
+}
+
+.pm-req-checkbox {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--pm-orange);
+  cursor: pointer;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .pm-cc-body        { padding: 18px 16px 24px; }
+  .pm-photo-row      { grid-template-columns: 1fr; }
+  .pm-tab-toolbar    { flex-direction: column; align-items: flex-start; }
+  .pm-cc-nav-header  { flex-direction: column; align-items: flex-start; }
+}

@@ -1,0 +1,495 @@
+/* ═══════════════════════════════════════════════════════════════
+   VISION INTERNATIONAL CONSTRUCTION OPC
+   Site Inspection Form — Brand-Compliant CSS
+   
+   Palette  : #221F1F · #497B97 · #C20100 · #A00101 · #EBDBD6 · #FF1817
+   Header   : "Ministry of Morons" (display/titles)
+   Body     : DM Sans
+   Tone     : Industrial · Bold · Structured · Construction-grade
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&display=swap');
+
+/* ── Brand tokens ────────────────────────────────────────────── */
+.si-wrapper {
+  --si-black:       #221F1F;
+  --si-red:         #C20100;
+  --si-red-bright:  #FF1817;
+  --si-red-dark:    #A00101;
+  --si-blue:        #497B97;
+  --si-cream:       #EBDBD6;
+  --si-white:       #FFFFFF;
+  --si-surface:     #F7F3F1;
+  --si-border:      #D9CECA;
+  --si-border-dark: #B5A9A4;
+  --si-text:        #221F1F;
+  --si-text-muted:  #6B5F5C;
+  --si-text-light:  #A8948F;
+  --si-radius:      10px;
+  --si-radius-sm:   6px;
+}
+
+.si-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── FORM CARD ──────────────────────────────────────────────── */
+.si-form-card {
+  background: var(--si-white);
+  border: 1px solid var(--si-border);
+  border-radius: var(--si-radius);
+  box-shadow: 0 1px 3px rgba(34,31,31,.06), 0 8px 32px rgba(34,31,31,.10), 0 0 0 3px rgba(194,1,0,.06);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Red accent bar at top */
+.si-form-card::before {
+  content: '';
+  display: block;
+  height: 4px;
+  background: linear-gradient(90deg, var(--si-red-dark) 0%, var(--si-red-bright) 60%, var(--si-red) 100%);
+}
+
+/* ─── LETTERHEAD ─────────────────────────────────────────────── */
+.si-letterhead {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.25rem 2rem 1.1rem;
+  background: var(--si-white);
+  border-bottom: 3px solid var(--si-black);
+  position: relative;
+}
+
+.si-letterhead::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 160px;
+  background: linear-gradient(135deg, transparent 30%, rgba(235,219,214,.35) 100%);
+  pointer-events: none;
+}
+
+.si-letterhead-logo { flex-shrink: 0; }
+
+.si-logo-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 70% 30%, #ff4b4b 0%, var(--si-red) 45%, var(--si-red-dark) 100%);
+  border: 3px solid var(--si-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(194,1,0,.35);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Upper-right highlight — matches brand light source */
+.si-logo-circle::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.22);
+  filter: blur(6px);
+}
+
+.si-logo-circle span {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--si-white);
+  letter-spacing: -.04em;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+
+.si-letterhead-text { flex: 1; text-align: center; }
+
+.si-company-name {
+  font-family: 'Ministry of Morons', 'DM Sans', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--si-black);
+  margin: 0 0 3px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.si-company-tagline {
+  font-size: .82rem;
+  color: var(--si-red);
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: .02em;
+}
+
+.si-company-address,
+.si-company-contact {
+  font-size: .68rem;
+  color: var(--si-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── FORM TITLE BANNER ──────────────────────────────────────── */
+.si-form-title {
+  text-align: center;
+  font-family: 'Ministry of Morons', 'DM Sans', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+  color: var(--si-white);
+  padding: .9rem 2rem;
+  background: var(--si-black);
+  text-transform: uppercase;
+  border-bottom: 3px solid var(--si-red);
+  position: relative;
+  overflow: hidden;
+}
+
+.si-form-title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 140%, rgba(194,1,0,.45) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* ─── HEADER FIELDS ──────────────────────────────────────────── */
+.si-header-fields {
+  padding: 1.5rem 2rem .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  background: var(--si-white);
+  border-bottom: 2px solid var(--si-black);
+}
+
+.si-field-row {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  min-height: 38px;
+  border-bottom: 1px solid var(--si-border);
+  padding-bottom: .45rem;
+}
+.si-field-row:last-child { border-bottom: none; }
+.si-field-row-top { align-items: flex-start; padding-top: 4px; }
+
+.si-field-label {
+  font-size: .68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--si-black);
+  white-space: nowrap;
+  min-width: 230px;
+  flex-shrink: 0;
+}
+
+.si-field-input {
+  flex: 1;
+  border: none;
+  border-bottom: 1.5px solid var(--si-border-dark);
+  border-radius: 0;
+  padding: .3rem .4rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--si-text);
+  background: transparent;
+  outline: none;
+  transition: border-color .15s;
+}
+.si-field-input:focus { border-bottom-color: var(--si-red); background: rgba(194,1,0,.02); }
+
+.si-field-select {
+  border: 1.5px solid var(--si-border);
+  border-radius: var(--si-radius-sm);
+  padding: .38rem .65rem;
+  background: var(--si-surface);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--si-text);
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  flex: 1;
+}
+.si-field-select:focus { border-color: var(--si-red); box-shadow: 0 0 0 3px rgba(194,1,0,.10); }
+
+.si-field-datetime { display: flex; gap: .5rem; flex: 1; }
+
+.si-field-textarea {
+  flex: 1;
+  border: 1.5px solid var(--si-border);
+  border-radius: var(--si-radius-sm);
+  padding: .55rem .75rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--si-text);
+  resize: vertical;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  background: var(--si-surface);
+}
+.si-field-textarea:focus { border-color: var(--si-red); box-shadow: 0 0 0 3px rgba(194,1,0,.10); }
+
+/* ─── CHECKLIST TABLE ────────────────────────────────────────── */
+.si-table-wrap { overflow-x: auto; }
+
+.si-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .8rem;
+}
+
+.si-table thead tr {
+  background: var(--si-black);
+  border-bottom: 3px solid var(--si-red);
+}
+
+.si-th-label {
+  text-align: left;
+  padding: .75rem 1.1rem;
+  color: var(--si-cream);
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  min-width: 320px;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+
+.si-th-check {
+  text-align: center;
+  padding: .75rem .85rem;
+  color: var(--si-cream);
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  width: 62px;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+
+.si-th-reco {
+  text-align: left;
+  padding: .75rem 1.1rem;
+  color: var(--si-cream);
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  min-width: 200px;
+}
+
+.si-th-action { width: 36px; text-align: center; padding: .75rem .5rem; color: rgba(255,255,255,.3); font-size: .6rem; }
+
+.si-check-row td { border-bottom: 1px solid var(--si-border); vertical-align: middle; transition: background .1s; }
+.si-check-row:nth-child(even) td { background: rgba(235,219,214,.18); }
+.si-check-row:hover td { background: rgba(73,123,151,.07) !important; }
+
+.si-td-label  { padding: .55rem 1.1rem; min-width: 320px; border-right: 1px solid var(--si-border); }
+.si-td-check  { text-align: center; padding: .55rem .85rem; border-right: 1px solid var(--si-border); width: 62px; }
+.si-td-reco   { padding: .55rem 1.1rem; min-width: 200px; }
+.si-td-action { text-align: center; padding: .3rem; width: 36px; border-left: 1px solid var(--si-border); }
+
+.si-inline-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px dashed transparent;
+  background: transparent;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--si-text);
+  padding: .2rem .3rem;
+  outline: none;
+  transition: border-color .15s, background .12s;
+  border-radius: 3px 3px 0 0;
+}
+.si-inline-input:focus { border-bottom-color: var(--si-red); background: rgba(194,1,0,.03); }
+.si-inline-input::placeholder { color: var(--si-text-light); }
+
+.si-checkbox { width: 17px; height: 17px; accent-color: var(--si-red); cursor: pointer; }
+
+.si-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--si-red);
+  font-weight: 900;
+  font-size: .82rem;
+  padding: .22rem .4rem;
+  border-radius: 4px;
+  transition: background .12s;
+  line-height: 1;
+  opacity: .55;
+}
+.si-remove-btn:hover { background: rgba(194,1,0,.08); opacity: 1; }
+
+/* ─── ADD ROW ────────────────────────────────────────────────── */
+.si-add-row-wrap {
+  padding: .7rem 1.1rem;
+  background: linear-gradient(90deg, rgba(235,219,214,.3) 0%, transparent 100%);
+  border-top: 1.5px dashed var(--si-border-dark);
+}
+
+.si-add-row-btn {
+  background: none;
+  border: 1.5px dashed var(--si-blue);
+  color: var(--si-blue);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .73rem;
+  font-weight: 700;
+  padding: .42rem 1.1rem;
+  border-radius: var(--si-radius-sm);
+  cursor: pointer;
+  letter-spacing: .04em;
+  transition: all .15s;
+}
+.si-add-row-btn:hover { background: var(--si-blue); color: #fff; border-style: solid; }
+
+/* ─── NOTES / REMARKS ────────────────────────────────────────── */
+.si-notes-section {
+  padding: 1.1rem 2rem 1.5rem;
+  border-top: 2px solid var(--si-black);
+  background: var(--si-surface);
+}
+
+.si-notes-label {
+  font-size: .68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--si-black);
+  margin-bottom: .65rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.si-notes-label::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  background: var(--si-red);
+  border-radius: 2px;
+}
+
+.si-notes-textarea {
+  width: 100%;
+  border: 1.5px solid var(--si-border);
+  border-radius: var(--si-radius-sm);
+  padding: .75rem .9rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--si-text);
+  resize: vertical;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  min-height: 90px;
+  background: var(--si-white);
+}
+.si-notes-textarea:focus { border-color: var(--si-red); box-shadow: 0 0 0 3px rgba(194,1,0,.10); }
+
+/* ─── SIGNATURE BLOCKS (print only) ─────────────────────────── */
+.si-signature-row {
+  display: none;
+  justify-content: space-around;
+  padding: 2.5rem 2rem 2rem;
+  border-top: 1.5px solid var(--si-border);
+  gap: 3rem;
+  background: var(--si-white);
+}
+
+.si-sig-block { flex: 1; max-width: 280px; text-align: center; }
+.si-sig-line { border-bottom: 2px solid var(--si-black); height: 52px; margin-bottom: .6rem; }
+.si-sig-label { font-size: .68rem; font-weight: 700; color: var(--si-text-muted); margin: 0; text-transform: uppercase; letter-spacing: .05em; }
+
+/* ─── ACTIONS ROW ────────────────────────────────────────────── */
+.si-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.si-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: var(--si-white);
+  border: 1.5px solid var(--si-border-dark);
+  color: var(--si-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 700;
+  padding: .65rem 1.35rem;
+  border-radius: var(--si-radius-sm);
+  cursor: pointer;
+  letter-spacing: .03em;
+  transition: all .15s;
+  box-shadow: 0 1px 3px rgba(34,31,31,.08);
+}
+.si-print-btn:hover { background: var(--si-black); color: var(--si-white); border-color: var(--si-black); box-shadow: 0 4px 12px rgba(34,31,31,.18); }
+
+.si-ref-docs { margin-bottom: .25rem; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PRINT
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: flex !important; }
+  body { background: white !important; }
+
+  .si-form-card { border: none; box-shadow: none; border-radius: 0; }
+
+  .si-form-card::before,
+  .si-table thead tr,
+  .si-form-title,
+  .si-logo-circle {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .si-check-row:nth-child(even) td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: rgba(235,219,214,.25) !important;
+  }
+
+  .si-field-input    { border-bottom: 1px solid #999; }
+  .si-inline-input   { border-bottom: 1px solid #ccc; }
+  .si-field-textarea,
+  .si-notes-textarea,
+  .si-field-select   { border: 1px solid #ccc; }
+
+  .si-add-row-wrap { display: none !important; }
+  .si-td-action    { display: none !important; }
+  .si-th-action    { display: none !important; }
+  .si-signature-row { display: flex !important; }
+}

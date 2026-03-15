@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectAssignment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,40 +15,59 @@ use Carbon\Carbon;
 class EngineeringController extends Controller
 {
     // ─── Dashboard Stats ───────────────────────────────────────────────────
-    // ✅ Method name matches the route: 'getDashboardStats'
-    // The old route referenced 'getStats' which caused the 500.
-    // Fix your api.php to: Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
     public function getDashboardStats()
     {
         try {
             $user = Auth::user();
 
-            // ── Guard: check engineering_tasks table exists before querying ──
-            // Prevents 500 if migration hasn't been run yet
             $tasksTableExists = Schema::hasTable('engineering_tasks');
 
             $totalProjects = Project::whereNotIn('status', ['Lead'])->count();
 
             [$totalEngineers, $engineersList] = $this->resolveEngineers();
 
-            // ── Pre-load ALL assignment data in 2 queries (fixes N+1) ─────────
+            // Pre-load ALL assignment data in 2 queries (fixes N+1)
+            // Checks BOTH tables: project_assignments (new) + engineering_tasks (legacy)
             $assignmentCounts = [];
             $myAssignments    = [];
 
+            // New normalized table
+            $newCounts = ProjectAssignment::whereNull('removed_at')
+                ->selectRaw('project_id, COUNT(*) as total')
+                ->groupBy('project_id')
+                ->pluck('total', 'project_id')
+                ->toArray();
+
+            // Legacy table fallback
+            $legacyCounts = [];
             if ($tasksTableExists) {
-                $assignmentCounts = DB::table('engineering_tasks')
+                $legacyCounts = DB::table('engineering_tasks')
                     ->selectRaw('project_id, COUNT(*) as total')
                     ->groupBy('project_id')
                     ->pluck('total', 'project_id')
                     ->toArray();
+            }
 
-                if ($user) {
-                    $myAssignments = DB::table('engineering_tasks')
+            // Merge — prefer new table, fall back to legacy
+            foreach (array_keys($newCounts + $legacyCounts) as $pid) {
+                $assignmentCounts[$pid] = max($newCounts[$pid] ?? 0, $legacyCounts[$pid] ?? 0);
+            }
+
+            if ($user) {
+                // Check new table first, then legacy
+                $newMine = ProjectAssignment::where('user_id', $user->id)
+                    ->whereNull('removed_at')
+                    ->pluck('project_id')
+                    ->toArray();
+
+                $legacyMine = $tasksTableExists
+                    ? DB::table('engineering_tasks')
                         ->where('assigned_to', $user->id)
                         ->pluck('project_id')
-                        ->flip()
-                        ->toArray();
-                }
+                        ->toArray()
+                    : [];
+
+                $myAssignments = array_flip(array_unique(array_merge($newMine, $legacyMine)));
             }
 
             $allProjects           = Project::all();
@@ -99,7 +119,6 @@ class EngineeringController extends Controller
                     $yearlyCompletions[$year] = ($yearlyCompletions[$year] ?? 0) + 1;
 
                 } elseif (!$isExcluded) {
-
                     if ($assignedStaffCount === 0) {
                         $pickupQueue[] = $projectData;
                     } else {
@@ -172,9 +191,13 @@ class EngineeringController extends Controller
 
         $user = Auth::user();
 
+        // Check both tables to prevent double-claiming
         $alreadyAssigned = DB::table('engineering_tasks')
             ->where('project_id', $request->project_id)
-            ->exists();
+            ->exists()
+            || ProjectAssignment::where('project_id', $request->project_id)
+                ->whereNull('removed_at')
+                ->exists();
 
         if ($alreadyAssigned) {
             return response()->json([
@@ -182,14 +205,30 @@ class EngineeringController extends Controller
             ], 403);
         }
 
-        DB::table('engineering_tasks')->insert([
-            'project_id'   => $request->project_id,
-            'assigned_to'  => $user->id,
-            'instructions' => 'SELF-PICKED: Engineer claimed this project independently.',
-            'status'       => 'Pending',
-            'created_at'   => now(),
-            'updated_at'   => now(),
-        ]);
+        DB::transaction(function () use ($request, $user) {
+            // Write to legacy table (keeps engineering dashboard working)
+            DB::table('engineering_tasks')->insert([
+                'project_id'   => $request->project_id,
+                'assigned_to'  => $user->id,
+                'instructions' => 'SELF-PICKED: Engineer claimed this project independently.',
+                'status'       => 'Pending',
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ]);
+
+            // Write to normalized table (keeps ProjectController filter working)
+            ProjectAssignment::firstOrCreate(
+                [
+                    'project_id' => $request->project_id,
+                    'user_id'    => $user->id,
+                    'role'       => 'lead_engineer',
+                ],
+                [
+                    'assigned_by' => $user->id,
+                    'assigned_at' => now(),
+                ]
+            );
+        });
 
         return response()->json(['message' => 'Project claimed! It is now in your active workspace.']);
     }
@@ -206,10 +245,14 @@ class EngineeringController extends Controller
 
         $teamSize         = count($validated['engineer_ids']);
         $baseInstructions = "TEAM SIZE: {$teamSize} Engineer(s) Dispatched\n\n" . $validated['instructions'];
+        $assignedBy       = Auth::id();
 
-        DB::transaction(function () use ($validated, $baseInstructions) {
+        DB::transaction(function () use ($validated, $baseInstructions, $assignedBy) {
             foreach ($validated['engineer_ids'] as $index => $engId) {
-                $roleTitle = $index === 0 ? '👑 LEAD ENGINEER' : '🛠️ SUPPORT STAFF';
+                $roleTitle    = $index === 0 ? '👑 LEAD ENGINEER' : '🛠️ SUPPORT STAFF';
+                $assignedRole = $index === 0 ? 'lead_engineer' : 'support_engineer';
+
+                // ── Legacy table (keeps engineering dashboard working) ─────
                 DB::table('engineering_tasks')->insert([
                     'project_id'   => $validated['project_id'],
                     'assigned_to'  => $engId,
@@ -218,6 +261,19 @@ class EngineeringController extends Controller
                     'created_at'   => now(),
                     'updated_at'   => now(),
                 ]);
+
+                // ── Normalized table (keeps ProjectController filter working)
+                ProjectAssignment::firstOrCreate(
+                    [
+                        'project_id' => $validated['project_id'],
+                        'user_id'    => $engId,
+                        'role'       => $assignedRole,
+                    ],
+                    [
+                        'assigned_by' => $assignedBy,
+                        'assigned_at' => now(),
+                    ]
+                );
             }
         });
 
@@ -275,20 +331,26 @@ class EngineeringController extends Controller
 
         $baseProgress = $statusMap[$status] ?? 0;
 
-        if ($status === 'site inspection & project monitoring' && !empty($project->timeline_tracking)) {
-            $timeline = is_string($project->timeline_tracking)
-                ? json_decode($project->timeline_tracking, true)
-                : $project->timeline_tracking;
+        if ($status === 'site inspection & project monitoring') {
+            // Try normalized table first, fall back to project column
+            $mat = $project->materials;
+            $timelineRaw = $mat?->timeline_tracking ?? $project->timeline_tracking ?? null;
 
-            if (is_array($timeline) && count($timeline) > 0) {
-                $sum = 0; $count = 0;
-                foreach ($timeline as $t) {
-                    if (($t['type'] ?? 'task') === 'group') continue;
-                    $sum += (float) ($t['percent'] ?? 0);
-                    $count++;
-                }
-                if ($count > 0) {
-                    $baseProgress = 70 + (($sum / $count) * 0.15);
+            if (!empty($timelineRaw)) {
+                $timeline = is_string($timelineRaw)
+                    ? json_decode($timelineRaw, true)
+                    : $timelineRaw;
+
+                if (is_array($timeline) && count($timeline) > 0) {
+                    $sum = 0; $count = 0;
+                    foreach ($timeline as $t) {
+                        if (($t['type'] ?? 'task') === 'group') continue;
+                        $sum += (float) ($t['percent'] ?? 0);
+                        $count++;
+                    }
+                    if ($count > 0) {
+                        $baseProgress = 70 + (($sum / $count) * 0.15);
+                    }
                 }
             }
         }

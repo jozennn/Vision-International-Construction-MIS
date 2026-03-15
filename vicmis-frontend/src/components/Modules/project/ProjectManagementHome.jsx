@@ -1,30 +1,22 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import "../css/ProjectManagement.css"; 
+import api from "@/api/axios";
+import "./css/ProjectManagement.css";
 
-const ProjectManagement = ({ onSelectProject }) => {
+const ProjectManagementHome = ({ onSelectProject }) => {
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
 
   useEffect(() => {
     const fetchProjects = async () => {
-      const token = sessionStorage.getItem('token');
-      if (!token) {
-        setError("You are not authenticated.");
-        setLoading(false);
-        return;
-      }
-
       try {
-        // Fetch the projects from the backend we just fixed!
-        const response = await axios.get("http://localhost:8000/api/projects", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProjects(response.data);
+        const response = await api.get("/projects");
+        const data = response.data;
+        setProjects(Array.isArray(data) ? data : (data.projects ?? []));
       } catch (err) {
         console.error("Error fetching projects:", err);
-        setError("Failed to load projects. Please check your connection.");
+        const msg = err?.response?.data?.message ?? null;
+        setError(msg ? `Server error: ${msg}` : "Failed to load projects. Please check your connection.");
       } finally {
         setLoading(false);
       }
@@ -35,58 +27,79 @@ const ProjectManagement = ({ onSelectProject }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-xl font-black text-[#003049] animate-pulse">Loading Projects...</p>
+      <div className="pm-loading">
+        <div className="pm-spinner"></div>
+        <span className="pm-loading-text">Loading Projects...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-xl font-bold text-red-600 mb-4">⚠️ {error}</p>
-      </div>
+      <div className="pm-error">⚠️ {error}</div>
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8 border-b-2 pb-4" style={{ borderColor: '#e5e7eb' }}>
-        <h2 className="text-3xl font-black" style={{ color: '#003049' }}>Active Projects</h2>
-        <p className="text-gray-500 font-bold mt-2">Select a project to view its workflow and status.</p>
+    <div className="pm-page">
+      <div className="pm-page-header">
+        <div className="pm-page-header-left">
+          <span className="pm-page-eyebrow">Vision International Construction OPC</span>
+          <h1 className="pm-page-title">Project <span>Management</span></h1>
+        </div>
+        <div className="pm-page-count">
+          <strong>{projects.length}</strong>
+          {projects.length === 1 ? 'project' : 'projects'} active
+        </div>
       </div>
 
-      {projects.length === 0 ? (
-        <div className="p-10 border-2 border-dashed rounded-xl text-center bg-gray-50" style={{ borderColor: '#cbd5e1' }}>
-          <p className="text-xl font-bold text-gray-500">No active projects assigned to your department right now.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <div 
-              key={project.id} 
-              className="bg-white p-6 rounded-xl shadow-md border-2 hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between"
-              style={{ borderColor: '#e5e7eb', borderTop: '8px solid #c1121f' }}
-              onClick={() => onSelectProject(project)} 
+      <div className="pm-project-grid">
+        {projects.length === 0 ? (
+          <div className="pm-empty">
+            <div className="pm-empty-icon">🏗️</div>
+            <h3 className="pm-empty-title">No active projects</h3>
+            <p className="pm-empty-sub">No active projects assigned to your department right now.</p>
+          </div>
+        ) : (
+          projects.map((project) => (
+            <div
+              key={project.id}
+              className="pm-proj-card"
+              onClick={() => onSelectProject(project)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e => e.key === 'Enter' && onSelectProject(project)}
             >
-              <div>
-                <h3 className="text-xl font-black mb-2" style={{ color: '#003049' }}>{project.project_name}</h3>
-                <p className="text-sm font-bold text-gray-500 mb-1">👤 Client: <span className="text-gray-800">{project.client_name}</span></p>
-                <p className="text-sm font-bold text-gray-500 mb-4">📍 Location: <span className="text-gray-800">{project.location}</span></p>
-              </div>
-              
-              <div className="mt-4 pt-4 border-t-2" style={{ borderColor: '#f1f5f9' }}>
-                <p className="text-xs font-black uppercase tracking-wider text-gray-400 mb-1">Current Status</p>
-                <span className="inline-block px-3 py-1 rounded-md text-sm font-black" style={{ backgroundColor: '#fdf0d5', color: '#c1121f' }}>
+              <div className="pm-card-strip" />
+              <div className="pm-card-head">
+                <span className="pm-card-id">PROJ-{String(project.id).padStart(4, '0')}</span>
+                <span className="pm-status-chip chip-engineering">
+                  <span className="pm-status-dot" />
                   {project.status}
                 </span>
               </div>
+              <div className="pm-card-body">
+                <h3 className="pm-card-project-name">{project.project_name}</h3>
+                <div className="pm-card-meta">
+                  <div className="pm-card-meta-row">
+                    <span className="pm-card-meta-key">Client</span>
+                    <span className="pm-card-meta-val">{project.client_name}</span>
+                  </div>
+                  <div className="pm-card-meta-row">
+                    <span className="pm-card-meta-key">Location</span>
+                    <span className="pm-card-meta-val">{project.location}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="pm-card-foot">
+                <span className="pm-open-label">Open Workflow →</span>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 };
 
-export default ProjectManagement;
+export default ProjectManagementHome;

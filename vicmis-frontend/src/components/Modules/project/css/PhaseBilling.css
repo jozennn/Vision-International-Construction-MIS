@@ -1,0 +1,252 @@
+/* ============================================================
+   PhaseBilling.css
+   Vision International Construction OPC
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bill-navy:    #1A1A2E;
+  --bill-blue:    #497B97;
+  --bill-red:     #FF1817;
+  --bill-green:   #16a34a;
+  --bill-cream:   #EBDBD6;
+  --bill-black:   #221F1F;
+  --bill-border:  #E2D9D2;
+  --bill-surface: #F8F6F3;
+  --bill-white:   #FFFFFF;
+  --bill-radius:  10px;
+  --bill-shadow:  0 2px 8px rgba(34,31,31,0.08);
+  --bill-font:    'DM Sans', sans-serif;
+}
+
+/* ── Wrapper ── */
+.bill-wrapper {
+  font-family: var(--bill-font);
+  color: var(--bill-black);
+  border: 1px solid var(--bill-border);
+  border-radius: var(--bill-radius);
+  overflow: hidden;
+  box-shadow: var(--bill-shadow);
+  background: var(--bill-white);
+}
+
+/* ── Header band ── */
+.bill-header {
+  padding: 18px 24px;
+  border-bottom: 3px solid var(--bill-red);
+}
+
+.bill-header.is-progress { background: var(--bill-navy); }
+.bill-header.is-final    { background: var(--bill-green); }
+
+.bill-header-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bill-white);
+  margin: 0;
+}
+
+/* ── Body ── */
+.bill-body {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Two-column content grid ── */
+.bill-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* ── Statement card (left) ── */
+.bill-statement {
+  background: var(--bill-surface);
+  border: 1px solid var(--bill-border);
+  border-radius: var(--bill-radius);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.bill-statement-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bill-black);
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--bill-border);
+  margin-bottom: 16px;
+}
+
+.bill-statement-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--bill-border);
+}
+
+.bill-statement-row:last-child { border-bottom: none; }
+
+.bill-statement-label {
+  font-size: 13px;
+  color: #888;
+}
+
+.bill-statement-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bill-black);
+}
+
+.bill-percent-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.bill-percent-badge.progress {
+  background: #eff6ff;
+  color: var(--bill-blue);
+}
+
+.bill-percent-badge.final {
+  background: #dcfce7;
+  color: var(--bill-green);
+}
+
+.bill-payable-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0 0;
+  margin-top: 4px;
+  border-top: 2px dashed var(--bill-border);
+}
+
+.bill-payable-label {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--bill-black);
+}
+
+.bill-payable-amount {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--bill-green);
+}
+
+/* ── Photo / doc card (right) ── */
+.bill-proof-card {
+  background: var(--bill-white);
+  border: 1px solid var(--bill-border);
+  border-radius: var(--bill-radius);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bill-proof-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bill-black);
+}
+
+.bill-site-photo {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--bill-border);
+  display: block;
+}
+
+.bill-photo-empty {
+  width: 100%;
+  height: 200px;
+  background: var(--bill-surface);
+  border-radius: 8px;
+  border: 2px dashed var(--bill-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bill-photo-empty-text {
+  font-size: 13px;
+  color: #bbb;
+  margin: 0;
+}
+
+.bill-photo-date {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+/* ── Upload section ── */
+.bill-upload-section {
+  background: #FEF7F0;
+  border: 1px solid var(--bill-cream);
+  border-radius: var(--bill-radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.bill-upload-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bill-red);
+  margin: 0;
+}
+
+.bill-upload-desc {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+  max-width: 480px;
+}
+
+.bill-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 20px;
+  border: 1.5px dashed var(--bill-border);
+  border-radius: 8px;
+  background: var(--bill-white);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bill-blue);
+  transition: all 0.18s ease;
+  width: 100%;
+  max-width: 420px;
+}
+
+.bill-upload-zone:hover      { border-color: var(--bill-blue); background: #EEF4F8; }
+.bill-upload-zone.has-file   { border-color: var(--bill-green); border-style: solid; background: #f0fdf4; color: var(--bill-green); }
+
+.bill-file-hidden { display: none; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .bill-grid  { grid-template-columns: 1fr; }
+  .bill-body  { padding: 18px; }
+}

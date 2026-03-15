@@ -1,0 +1,335 @@
+/* ============================================================
+   PhaseMaterials.css — Scoped to .pm-phase-wrapper
+   ============================================================ */
+
+.pm-phase-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+}
+
+/* ── Main card ── */
+.pm-phase-wrapper .pm-card {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  margin-bottom: 0;
+  transition: none;
+  cursor: default;
+}
+
+/* Neutralise any global .pm-card:hover rule */
+.pm-phase-wrapper .pm-card:hover {
+  transform: none;
+  box-shadow: var(--pm-shadow);
+  border-color: var(--pm-border-soft);
+}
+
+/* ── Navy header: no radius needed — parent clips it ── */
+.pm-phase-wrapper .pm-card > .pm-card-navy {
+  flex-shrink: 0;
+  border-radius: 0;
+}
+
+/* ── Card body: overflow visible so content isn't clipped ── */
+.pm-phase-wrapper .pm-card > .pm-card-body {
+  overflow: visible;
+  flex: 1 1 auto;
+}
+
+/* ── Card body ── */
+.pm-phase-wrapper .pm-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 30px 32px;
+  height: auto;
+  overflow: visible;
+}
+
+/* ── Gray section ── */
+.pm-phase-wrapper .pm-card-gray {
+  margin-bottom: 0;
+  height: auto;
+  overflow: visible;
+}
+
+/* ── Cream section — NO hover effect ── */
+.pm-phase-wrapper .pm-card-cream {
+  margin-bottom: 0;
+  height: auto;
+  overflow: visible;
+  text-align: center;
+  border-style: dashed;
+  /* No transition, no hover */
+}
+
+/* ── Red rejection banner (standalone above card) ── */
+.pm-phase-wrapper > .pm-card-red {
+  margin-bottom: 0;
+}
+
+/* ── Button row ── */
+.pm-phase-wrapper .pm-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .pm-phase-wrapper .pm-grid-2    { grid-template-columns: 1fr; }
+  .pm-phase-wrapper .pm-card-body { padding: 18px 16px 24px; }
+}
+
+/* ── File input ── */
+.pm-phase-wrapper .pm-file-input {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 20px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--pm-black);
+  border: 1.5px dashed var(--pm-blue);
+  border-radius: var(--pm-radius);
+  background: rgba(73, 123, 151, 0.05);
+  cursor: pointer;
+}
+
+/* ── Outline reject button ── */
+.pm-phase-wrapper .pm-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: var(--pm-radius);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  background: transparent;
+  border: 2px solid var(--pm-red);
+  color: var(--pm-red);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.pm-phase-wrapper .pm-btn-outline:hover {
+  background: var(--pm-red);
+  color: #fff;
+}
+
+/* ============================================================
+   AWARDING OF PROJECT — redesigned layout
+   ============================================================ */
+
+/* Navy header inner layout */
+.pm-award-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pm-award-subtitle {
+  color: rgba(255,255,255,0.55);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.pm-award-step-badge {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.8);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Two-column layout: left info + right form */
+.pm-award-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .pm-award-grid { grid-template-columns: 1fr; }
+}
+
+/* Section label row with colored dot */
+.pm-award-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--pm-black);
+  margin-bottom: 14px;
+}
+
+.pm-award-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pm-dot-blue { background: var(--pm-blue); }
+.pm-dot-red  { background: var(--pm-red); }
+
+/* Left column */
+.pm-award-left {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pm-award-doc-block {
+  background: var(--pm-surface-2, #f7f4f2);
+  border: 1px solid var(--pm-border-soft);
+  border-radius: var(--pm-radius);
+  padding: 16px 18px;
+}
+
+/* Checklist */
+.pm-award-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fafafa;
+  border: 1px solid var(--pm-border-soft);
+  border-radius: var(--pm-radius);
+  padding: 16px 18px;
+}
+
+.pm-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #999;
+  transition: color 0.2s ease;
+}
+
+.pm-check-item.pm-check-done {
+  color: #1a7a4a;
+  font-weight: 500;
+}
+
+.pm-check-icon {
+  font-size: 14px;
+  font-weight: 700;
+  width: 18px;
+  text-align: center;
+  color: #ccc;
+}
+
+.pm-check-item.pm-check-done .pm-check-icon {
+  color: #1a7a4a;
+}
+
+/* Right column */
+.pm-award-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.pm-award-form-block {
+  background: #fff;
+  border: 1.5px solid var(--pm-border-soft);
+  border-radius: var(--pm-radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pm-award-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .pm-award-form-row { grid-template-columns: 1fr; }
+}
+
+.pm-award-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Custom file upload zone */
+.pm-award-upload-zone {
+  display: flex;
+  flex-direction: column;
+}
+
+.pm-upload-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1.5px dashed var(--pm-blue);
+  border-radius: var(--pm-radius);
+  background: rgba(73, 123, 151, 0.04);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.pm-upload-label:hover {
+  background: rgba(73, 123, 151, 0.10);
+  border-color: var(--pm-red);
+}
+
+.pm-upload-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.pm-upload-text {
+  font-size: 13px;
+  color: var(--pm-blue);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+/* ── Utilities ── */
+.pm-phase-wrapper .mt-4        { margin-top: 16px; }
+.pm-phase-wrapper .mb-4        { margin-bottom: 16px; }
+.pm-phase-wrapper .text-left   { text-align: left; }
+.pm-phase-wrapper .text-center { text-align: center; }
+
+/* ── Navy header: full width stretch ── */
+.pm-phase-wrapper .pm-card > .pm-card-navy,
+.pm-phase-wrapper .pm-card > .pm-card-navy.pm-navy-orange {
+  border-radius: 0 !important;
+  width: 100%;
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid #FF1817;
+  box-sizing: border-box;
+}
+
+.pm-phase-wrapper .pm-card > .pm-card-navy.pm-navy-orange {
+  border-bottom-color: #f97316;
+}

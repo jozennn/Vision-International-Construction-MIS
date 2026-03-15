@@ -9,7 +9,6 @@ class Project extends Model
 {
     use HasFactory;
 
-    // 🚨 THE VIP BOUNCER LIST 🚨
     protected $fillable = [
         'lead_id',
         'project_name',
@@ -17,64 +16,180 @@ class Project extends Model
         'location',
         'project_type',
         'status',
-        'plan_measurement',
-        'plan_boq',
-        'actual_measurement',
-        'final_boq',
-        'completed_tasks',
-        'is_phase1_approved',
-
-        // All Document Pockets Allowed!
+        'is_completed',
         'floor_plan_image',
-        'po_document',
-        'work_order_document',
-        'site_inspection_photo',
-        'delivery_receipt_document',
-        'bidding_document',
-        'subcontractor_agreement_document',
-        'coc_document',
-
-        // Subcontractor Details
-        'subcontractor_name',
         'contract_amount',
-        // 🚨 ADD THIS LINE:
-        'materials_tracking', // 🚨 ADD THIS
-        'timeline_tracking',  // 🚨 ADD THIS
-         'site_inspection_report',
-        'rejection_notes',
-        'qa_photo',
-        'client_walkthrough_doc',
-        'final_invoice_document',
-        // Tracking roles 
-        'sales_agent_id',
-        'engineer_id',
-        'ops_ass_id',
-        // Add 'site_inspection_report' to the existing array
-       
-        'is_completed'
-
     ];
 
     protected $casts = [
-        'completed_tasks' => 'array',
-        'is_phase1_approved' => 'boolean',
-        'is_completed' => 'boolean',
+        'is_completed'    => 'boolean',
+        'contract_amount' => 'decimal:2',
     ];
 
+    // ── Source lead ───────────────────────────────────────────────────────────
     public function lead()
     {
         return $this->belongsTo(Lead::class);
     }
+
+    // ── Assignments (replaces sales_agent_id / engineer_id / ops_ass_id) ──────
+    public function assignments()
+    {
+        return $this->hasMany(ProjectAssignment::class);
+    }
+
+    public function activeAssignments()
+    {
+        return $this->hasMany(ProjectAssignment::class)->whereNull('removed_at');
+    }
+
     public function salesAgent()
     {
-        return $this->belongsTo(User::class, 'sales_agent_id');
+        return $this->hasOne(ProjectAssignment::class)
+                    ->whereNull('removed_at')
+                    ->where('role', 'sales')
+                    ->with('user');
     }
-    public function engineer()
+
+    public function leadEngineer()
     {
-        return $this->belongsTo(User::class, 'engineer_id');
+        return $this->hasOne(ProjectAssignment::class)
+                    ->whereNull('removed_at')
+                    ->where('role', 'lead_engineer')
+                    ->with('user');
     }
-    public function opsAss()
+
+    public function engineers()
     {
-        return $this->belongsTo(User::class, 'ops_ass_id');
+        return $this->hasMany(ProjectAssignment::class)
+                    ->whereNull('removed_at')
+                    ->whereIn('role', ['lead_engineer', 'support_engineer'])
+                    ->with('user');
+    }
+
+    // ── Phase data ────────────────────────────────────────────────────────────
+    public function boqPlan()
+    {
+        return $this->hasOne(ProjectBoqPlan::class);
+    }
+
+    public function boqActual()
+    {
+        return $this->hasOne(ProjectBoqActual::class);
+    }
+
+    public function poOrder()
+    {
+        return $this->hasOne(ProjectPoOrder::class);
+    }
+
+    public function siteInspection()
+    {
+        return $this->hasOne(ProjectSiteInspection::class);
+    }
+
+    public function materials()
+    {
+        return $this->hasOne(ProjectMaterial::class);
+    }
+
+    public function mobilization()
+    {
+        return $this->hasOne(ProjectMobilization::class);
+    }
+
+    public function qaHandover()
+    {
+        return $this->hasOne(ProjectQaHandover::class);
+    }
+
+    public function billings()
+    {
+        return $this->hasMany(ProjectBilling::class);
+    }
+
+    public function progressBilling()
+    {
+        return $this->hasOne(ProjectBilling::class)->where('billing_type', 'progress');
+    }
+
+    public function finalBilling()
+    {
+        return $this->hasOne(ProjectBilling::class)->where('billing_type', 'final');
+    }
+
+    // ── Rejection history ─────────────────────────────────────────────────────
+    public function rejectionLogs()
+    {
+        return $this->hasMany(ProjectRejectionLog::class)->latest('rejected_at');
+    }
+
+    public function latestRejection()
+    {
+        return $this->hasOne(ProjectRejectionLog::class)->latest('rejected_at');
+    }
+
+    // ── Accessors ─────────────────────────────────────────────────────────────
+
+    /**
+     * Comma-separated engineer names for display (PersonnelBar, WaitingView).
+     */
+    public function getAssignedEngineersAttribute(): string
+    {
+        return $this->engineers
+            ->map(fn($a) => $a->user?->name)
+            ->filter()
+            ->implode(', ');
+    }
+
+    /**
+     * IDs of all active assigned engineers (used by canAccessProject).
+     */
+    public function getAssignedEngineerIdsAttribute(): array
+    {
+        return $this->engineers
+            ->pluck('user_id')
+            ->map(fn($id) => (string) $id)
+            ->toArray();
+    }
+
+    /**
+     * Most recent rejection reason.
+     * Keeps backward compat with code that reads $project->rejection_notes.
+     */
+    public function getRejectionNotesAttribute(): ?string
+    {
+        return $this->latestRejection?->reason;
+    }
+
+    /**
+     * Sales rep name for display (WaitingView / PersonnelBar).
+     *
+     * Priority:
+     *   1. Direct project assignment (role = 'sales') — most accurate
+     *   2. Fallback to lead.salesRep (who created the lead) — backward compat
+     */
+    public function getCreatedByNameAttribute(): ?string
+    {
+        // 1. Direct assignment on the project
+        $fromAssignment = $this->salesAgent?->user?->name;
+        if ($fromAssignment) return $fromAssignment;
+
+        // 2. Fallback: whoever owns the originating lead
+        return $this->lead?->salesRep?->name;
+    }
+
+    /**
+     * The user ID of the sales rep (used by canAccessProject).
+     * Mirrors the same priority logic as getCreatedByNameAttribute.
+     */
+    public function getCreatedByAttribute(): ?int
+    {
+        $fromAssignment = $this->salesAgent?->user_id;
+        if ($fromAssignment) return (int) $fromAssignment;
+
+        return $this->lead?->sales_rep_id
+            ? (int) $this->lead->sales_rep_id
+            : null;
     }
 }
