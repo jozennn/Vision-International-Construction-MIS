@@ -359,3 +359,172 @@
       gap: 15px;
     }
   }
+
+  /* Password Toggle Design */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+}
+
+.password-toggle-eye {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.65rem; /* Small and clean */
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 5px;
+  transition: color 0.2s;
+  z-index: 5;
+}
+
+.password-toggle-eye:hover {
+  color: #497B97; /* Matches your theme color */
+}
+/* =========================================
+   ACTIVITY TRACKER (RESPONSIVE TABLE)
+   ========================================= */
+
+   .activity-container-card {
+    background-color: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    height: 70vh;
+  }
+  
+  .activity-filter-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .activity-search-input {
+    flex: 1;
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.95rem;
+  }
+  
+  .activity-module-select {
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    font-size: 0.95rem;
+    cursor: pointer;
+    min-width: 150px;
+  }
+  
+  .activity-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden; /* Prevents awkward horizontal sliding */
+  }
+  
+  .activity-table {
+    width: 100%;
+    text-align: left;
+    border-collapse: collapse;
+  }
+  
+  .activity-table th {
+    padding: 12px;
+    position: sticky;
+    top: 0;
+    background-color: white;
+    border-bottom: 2px solid #e2e8f0;
+    color: #64748b;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    z-index: 10;
+  }
+  
+  .activity-table td {
+    padding: 15px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+  }
+  
+  .activity-module-badge {
+    background-color: #f1f5f9;
+    color: #497B97;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+  }
+  
+  /* =========================================
+     MOBILE RESPONSIVE (THE CARD STACK)
+     ========================================= */
+  @media (max-width: 768px) {
+    /* Make the filter bar stack vertically on phones */
+    .activity-filter-bar {
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .activity-module-select {
+      width: 100%;
+    }
+  
+    /* Hide normal table headers completely */
+    .activity-table thead {
+      display: none;
+    }
+  
+    /* Turn each table row into a card */
+    .activity-table, .activity-table tbody, .activity-table tr, .activity-table td {
+      display: block;
+      width: 100%;
+    }
+  
+    .activity-table tr {
+      margin-bottom: 15px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background-color: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      padding: 10px;
+    }
+  
+    /* Use the data-label to fake the header on the left side of each row */
+    .activity-table td {
+      text-align: right;
+      padding: 8px 5px;
+      border-bottom: 1px solid #f8fafc;
+      position: relative;
+      display: flex;
+      justify-content: space-between; /* Space out label and value */
+      align-items: center;
+    }
+  
+    .activity-table td:last-child {
+      border-bottom: 0;
+    }
+  
+    .activity-table td::before {
+      content: attr(data-label);
+      float: left;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      font-size: 0.75rem;
+      margin-right: 15px;
+      text-align: left;
+    }
+  }

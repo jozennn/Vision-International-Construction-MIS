@@ -19,7 +19,8 @@ class LeadController extends Controller
 
         $query = Lead::with('salesRep');
 
-        if ($user->role !== 'admin') {
+        // 👇 UPDATED: Added manager to the VIP visibility list
+        if (!in_array($user->role, ['admin', 'super_admin', 'manager'])) {
             $query->where('sales_rep_id', $user->id);
         }
 
@@ -36,7 +37,8 @@ class LeadController extends Controller
         // Fetch only soft-deleted records
         $query = Lead::onlyTrashed()->with('salesRep');
 
-        if ($user->role !== 'admin') {
+        // 👇 UPDATED: Added manager to the VIP visibility list
+        if (!in_array($user->role, ['admin', 'super_admin', 'manager'])) {
             $query->where('sales_rep_id', $user->id);
         }
 
@@ -71,8 +73,10 @@ class LeadController extends Controller
     public function update(Request $request, $id)
     {
         $lead = Lead::findOrFail($id);
+        $userRole = Auth::user()->role;
 
-        if (Auth::user()->role !== 'admin' && $lead->sales_rep_id !== Auth::id()) {
+        // 👇 UPDATED: Added manager to the VIP visibility list
+        if (!in_array($userRole, ['admin', 'super_admin', 'manager']) && $lead->sales_rep_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -97,8 +101,10 @@ class LeadController extends Controller
     {
         try {
             $lead = Lead::findOrFail($id);
+            $userRole = Auth::user()->role;
 
-            if (Auth::user()->role !== 'admin' && $lead->sales_rep_id !== Auth::id()) {
+            // 👇 UPDATED: Added manager to the VIP visibility list
+            if (!in_array($userRole, ['admin', 'super_admin', 'manager']) && $lead->sales_rep_id !== Auth::id()) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
@@ -121,8 +127,10 @@ class LeadController extends Controller
         try {
             // Find specifically in the trash
             $lead = Lead::onlyTrashed()->findOrFail($id);
+            $userRole = Auth::user()->role;
 
-            if (Auth::user()->role !== 'admin' && $lead->sales_rep_id !== Auth::id()) {
+            // 👇 UPDATED: Added manager to the VIP visibility list
+            if (!in_array($userRole, ['admin', 'super_admin', 'manager']) && $lead->sales_rep_id !== Auth::id()) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
@@ -142,8 +150,10 @@ class LeadController extends Controller
     {
         try {
             $lead = Lead::onlyTrashed()->findOrFail($id);
+            $userRole = Auth::user()->role;
 
-            if (Auth::user()->role !== 'admin' && $lead->sales_rep_id !== Auth::id()) {
+            // 👇 UPDATED: Added manager to the VIP visibility list
+            if (!in_array($userRole, ['admin', 'super_admin', 'manager']) && $lead->sales_rep_id !== Auth::id()) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 

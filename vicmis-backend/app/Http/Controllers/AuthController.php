@@ -8,7 +8,9 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail; 
 use App\Mail\TwoFactorCodeMail;
-
+use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     public function login(Request $request)
@@ -61,10 +63,13 @@ class AuthController extends Controller
         $permissions = ['Dashboard']; 
         $dept = strtolower($user->department);
 
-        // UPDATE: Grant full access to both 'super_admin' and 'admin'
-        if ($user->role === 'super_admin' || $user->role === 'admin') {
+        if (in_array($user->role, ['super_admin', 'admin', 'manager'])) {
             $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Accounting', 'Setting', 'Human Resource', 'Customer'];
-        } 
+        }
+        // UPDATE: Grant full access to both 'super_admin' and 'admin'
+        // if ($user->role === 'super_admin' || $user->role === 'admin') {
+        //     $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Accounting', 'Setting', 'Human Resource', 'Customer'];
+        // } 
         elseif ($dept === 'engineering') {
             $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'];
         } 
@@ -108,5 +113,41 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Successfully logged out'
         ]);
+    }
+
+    // ==========================================
+    // 🔐 PASSWORD RESET FUNCTION
+    // ==========================================
+    public function resetPassword(Request $request)
+    {
+        // 1. Validate the incoming request from React
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:6|confirmed', 
+            // Note: 'confirmed' automatically checks against 'password_confirmation'
+        ]);
+
+        // 2. Ask Laravel's built-in broker to verify the token and reset the password
+        $status = Password::broker()->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                // If token is valid, hash the new password and save it
+                $user->password = Hash::make($password);
+                $user->setRememberToken(Str::random(60));
+                $user->save();
+
+                // Optional: Fire a Laravel event
+                event(new PasswordReset($user));
+            }
+        );
+
+        // 3. Respond back to React based on success or failure
+        if ($status == Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password has been successfully reset.'], 200);
+        } else {
+            // Returns a 400 error if the token is expired or invalid
+            return response()->json(['message' => 'Invalid or expired password reset token.'], 400);
+        }
     }
 }

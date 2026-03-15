@@ -130,9 +130,14 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // --- ADMIN ---
-    Route::get('/admin/users',         [AdminUserController::class, 'index']);
-    Route::post('/admin/users',        [AdminUserController::class, 'store']);
-    Route::put('/admin/users/{id}',    [AdminUserController::class, 'update']);
+    Route::get('/admin/users', [AdminUserController::class, 'index']);
+    Route::post('/admin/users', [AdminUserController::class, 'store']);
+    Route::put('/admin/users/{id}', [AdminUserController::class, 'update']);
     Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
-    Route::get('/admin/system-logs',   [AdminUserController::class, 'getSystemLogs']);
+
+    // System Error Logs Route
+    Route::get('/admin/system-logs', [AdminUserController::class, 'getSystemLogs']);
+
+    Route::get('/admin/activities', [AdminUserController::class, 'getActivities']);// get activity logs
+    Route::get('/admin/dashboard-stats', [AdminUserController::class, 'getDashboardStats']); //super admin dashboard
 });

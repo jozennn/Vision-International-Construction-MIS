@@ -189,7 +189,6 @@ const Customer = ({ user }) => {
     }
   };
 
-  // Lists filtered for display
   const activeLeads = leads.filter(l => l.status !== 'Project Created');
   const completedProjects = leads.filter(l => l.status === 'Project Created');
 
@@ -198,12 +197,17 @@ const Customer = ({ user }) => {
       <div className="customer-header">
         <h1>Client Management</h1>
         <div className="header-actions">
-          <button className="btn-cancel" onClick={() => { fetchTrashedLeads(); setIsTrashOpen(true); }}>
-            🗑️ Trash Bin
-          </button>
-          <button className="btn-add-lead" onClick={() => { setIsViewOnly(false); setIsModalOpen(true); }}>
-            + Add New Lead
-          </button>
+          {/* 👇 HIDDEN FOR MANAGERS */}
+          {user?.role !== 'manager' && (
+            <>
+              <button className="btn-cancel" onClick={() => { fetchTrashedLeads(); setIsTrashOpen(true); }}>
+                🗑️ Trash Bin
+              </button>
+              <button className="btn-add-lead" onClick={() => { setIsViewOnly(false); setIsModalOpen(true); }}>
+                + Add New Lead
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -218,7 +222,9 @@ const Customer = ({ user }) => {
           </div>
         ) : (
           activeLeads.map((lead) => (
-            <div key={lead.id} className="lead-card" onClick={() => { setSelectedLead(lead); setIsViewOnly(false); setIsModalOpen(true); }}>
+            <div key={lead.id} className="lead-card" 
+                 /* 👇 FORCES VIEW ONLY IF MANAGER */
+                 onClick={() => { setSelectedLead(lead); setIsViewOnly(user?.role === 'manager'); setIsModalOpen(true); }}>
               <div className="lead-card-header">
                 <span className={`status-badge ${lead.status.replace(/\s+/g, '-').toLowerCase()}`}>{lead.status}</span>
                 <span className="lead-id">#{lead.id}</span>
@@ -229,8 +235,9 @@ const Customer = ({ user }) => {
                 <small>📍 {lead.location}</small>
               </div>
               <div className="lead-card-footer">
-                <div className="lead-click-hint">Click to View/Edit</div>
-                {lead.status === 'Ready for Creating Project' && (
+                <div className="lead-click-hint">Click to View{user?.role !== 'manager' ? '/Edit' : ''}</div>
+                {/* 👇 HIDDEN FOR MANAGERS */}
+                {lead.status === 'Ready for Creating Project' && user?.role !== 'manager' && (
                   <button className="btn-create-project" onClick={(e) => handleCreateProject(e, lead)}> 
                     Create Project 
                   </button>
