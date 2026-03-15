@@ -8,9 +8,12 @@ import SalesDashboard from './components/Dashboard/Sales/SalesDashboard.jsx';
 import InventoryDashboard from './components/Dashboard/Inventory/InventoryDashboard.jsx';
 import InventoryEmployeeDashboard from './components/Dashboard/Inventory/InventoryEmployeeDashboard.jsx';
 import AccountingDashboard from './components/Dashboard/Accounting/AccountingDashboard.jsx';
+import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDashboard.jsx'; 
+import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx'; // 👈 Imported Manager
 import Customer from './components/Modules/customer/Customer.jsx';
 import Inventory from './components/Modules/Inventory/Inventory.jsx';
-import Login from './components/Login.jsx'
+import Login from './components/Login.jsx';
+import ResetPassword from './components/ResetPassword.jsx'; 
 import './App.css'; 
 import { Toaster } from 'react-hot-toast';
 
@@ -28,10 +31,14 @@ const App = () => {
   // --- ACCESS CONTROL ---
   const checkAccess = useCallback((moduleName) => {
     if (!user) return false;
-    // 👇 FIXED: Added super_admin to the master access list!
-    if (moduleName === 'Setting' && user.role !== 'super_admin') return false; // settings is visible only to super admin
+    
+    // 1. Settings is strictly for Super Admin ONLY
+    if (moduleName === 'Setting' && user.role !== 'super_admin') return false; 
 
-    if (user.role === 'admin' || user.role === 'super_admin') return true; 
+    // 👇 2. UPDATED (Line 38): Give Managers the master key
+    if (['super_admin', 'admin', 'manager'].includes(user.role)) return true; 
+
+    // 3. Normal employees rely on the backend permissions array
     return user.permissions?.includes(moduleName) || false;
   }, [user]);
 
@@ -47,7 +54,7 @@ const App = () => {
     setActiveItem('Dashboard');
   };
 
-  // --- DASHBOARD ROUTER (Optimized for Seeder Roles) ---
+  // --- DASHBOARD ROUTER ---
   const renderDashboard = () => {
     const dept = user.department?.toLowerCase();
     const isManagement = ['admin', 'super_admin', 'manager', 'dept_head'].includes(user.role);
@@ -56,6 +63,15 @@ const App = () => {
       inventoryCount: projects?.filter(p => p.activeStage === 2).length || 0,
       accountingCount: projects?.filter(p => p.activeStage === 4).length || 0
     };
+
+    if (user.role === 'super_admin') {
+      return <SuperAdminDashboard user={user} />;
+    }
+
+    // 👇 NEW (Line 71): Route the manager to their new dashboard
+    if (user.role === 'manager') {
+      return <ManagerDashboard user={user} />;
+    }
 
     if (dept === 'accounting' || dept === 'procurement' || dept === 'accounting/procurement') {
       return <AccountingDashboard user={user} notifications={notifications} />;
@@ -95,20 +111,28 @@ const App = () => {
 
     switch (activeItem) {
       case 'Project': 
-        // 👇 ADDED user prop here just in case!
         return <Project projects={projects} setProjects={setProjects} user={user} />;
       case 'Customer': 
         return <Customer user={user} onProjectCreated={(p) => { setProjects([...projects, p]); setActiveItem('Project'); }} />;
       case 'Inventory': 
-        // 👇 ADDED user prop here just in case!
         return <Inventory user={user} />;
       case 'Setting': 
-        // 👇 THE MAGIC FIX: Passed the user data into the Settings component!
         return <Settings user={user} />;
       default: 
         return <div className="p-20">Module Under Development</div>;
     }
   };
+
+  // URL ROUTING CHECK FOR RESET PASSWORD
+  const isResetPage = window.location.pathname === '/reset-password';
+  if (isResetPage) {
+    return (
+      <div className="app-container bg-gray-50">
+        <Toaster position="top-right" />
+        <ResetPassword />
+      </div>
+    );
+  }
 
   if (!user) return <Login onEnterSystem={handleLoginSuccess} />;
 
