@@ -83,7 +83,7 @@ class AuthController extends Controller
             $permissions = ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'];
         }
         elseif (str_contains($dept, 'accounting') || str_contains($dept, 'procurement')) {
-            $permissions = ['Dashboard', 'Documents', 'Setting', 'Accounting'];
+            $permissions = ['Dashboard', 'Project', 'Accounting'];
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

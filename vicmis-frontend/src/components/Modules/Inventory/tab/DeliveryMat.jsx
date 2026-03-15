@@ -3,7 +3,7 @@ import api from '@/api/axios';
 import {
   Plus, X, Loader2, RefreshCw, Truck,
   ChevronDown, ChevronLeft, ChevronRight,
-  CheckCircle, AlertTriangle, Search, Pencil
+  CheckCircle, AlertTriangle, Search,
 } from 'lucide-react';
 import '../css/Delivery.css';
 
@@ -22,7 +22,7 @@ const EMPTY_FORM = {
 };
 
 const STATUS_CLASS = {
-  Delivered:  'pill-delivered',
+  Delivered:    'pill-delivered',
   'In Transit': 'pill-transit',
 };
 
@@ -95,9 +95,13 @@ const DeliveryMat = ({ onBack }) => {
   const [markLoading, setMarkLoading]   = useState(null);
   const [saveLoading, setSaveLoading]   = useState(false);
 
-  // Meta for dropdowns
+  // Meta for product dropdowns
   const [categories, setCategories]     = useState([]);
-  const [products, setProducts]         = useState({});   // { category: [{ product_code, availability, current_stock, is_consumable }] }
+  const [products, setProducts]         = useState({});
+
+  // Projects list for the project name dropdown
+  const [projects, setProjects]         = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
 
   // Derived from selected category
   const [codesForCat, setCodesForCat]   = useState([]);
@@ -122,10 +126,27 @@ const DeliveryMat = ({ onBack }) => {
 
   // ─── Load meta (categories + products) ──────────────────────────────────────
   useEffect(() => {
-    api.get('/inventory/logistics/meta').then(res => {
-      setCategories(res.data.categories || []);
-      setProducts(res.data.products || {});
-    }).catch(console.error);
+    api.get('/inventory/logistics/meta')
+      .then(res => {
+        setCategories(res.data.categories || []);
+        setProducts(res.data.products || {});
+      })
+      .catch(console.error);
+  }, []);
+
+  // ─── Load projects for dropdown ──────────────────────────────────────────────
+  // Fetches from GET /api/projects — same endpoint used by Project.jsx.
+  // We only need id + project_name for the dropdown.
+  useEffect(() => {
+    setProjectsLoading(true);
+    api.get('/projects')
+      .then(res => {
+        const data = res.data;
+        const list = Array.isArray(data) ? data : (data.projects ?? []);
+        setProjects(list);
+      })
+      .catch(console.error)
+      .finally(() => setProjectsLoading(false));
   }, []);
 
   // ─── Fetch deliveries ────────────────────────────────────────────────────────
@@ -134,11 +155,11 @@ const DeliveryMat = ({ onBack }) => {
       if (!silent) setLoading(true);
       else setIsRefreshing(true);
       const params = { page: currentPage, per_page: perPage };
-      if (search)                   params.search = search;
-      if (statusFilter !== 'all')   params.status = statusFilter;
-      if (typeFilter !== 'all')     params.type   = typeFilter;
+      if (search)                 params.search = search;
+      if (statusFilter !== 'all') params.status = statusFilter;
+      if (typeFilter !== 'all')   params.type   = typeFilter;
       const res = await api.get('/inventory/logistics', { params });
-      const d = res.data;
+      const d   = res.data;
       setDeliveries(d.data || []);
       setTotal(d.total || 0);
       setLastPage(d.last_page || 1);
@@ -176,6 +197,18 @@ const DeliveryMat = ({ onBack }) => {
       ...f,
       product_code:  code,
       is_consumable: item?.is_consumable ?? false,
+    }));
+  };
+
+  // ─── Project selection → auto-fill destination from project location ──────────
+  const handleProjectChange = (projectName) => {
+    // Find the selected project to optionally auto-fill destination
+    const proj = projects.find(p => p.project_name === projectName);
+    setFormData(f => ({
+      ...f,
+      project_name: projectName,
+      // Auto-fill destination with project location if destination is still empty
+      destination: f.destination || proj?.location || '',
     }));
   };
 
@@ -250,7 +283,6 @@ const DeliveryMat = ({ onBack }) => {
 
       {/* ── Filter Bar ── */}
       <div className="dl-filters">
-        {/* Status toggle */}
         <div className="dl-type-toggle">
           {[
             { val: 'all',        label: 'All' },
@@ -267,7 +299,6 @@ const DeliveryMat = ({ onBack }) => {
           ))}
         </div>
 
-        {/* Type toggle */}
         <div className="dl-type-toggle">
           {[
             { val: 'all',        label: 'All Types' },
@@ -284,7 +315,6 @@ const DeliveryMat = ({ onBack }) => {
           ))}
         </div>
 
-        {/* Search */}
         <div className="dl-search-wrap">
           <Search size={14} className="dl-search-icon" />
           <input
@@ -411,7 +441,7 @@ const DeliveryMat = ({ onBack }) => {
                 />
               </div>
 
-              {/* Product category dropdown */}
+              {/* Product category + code */}
               <div className="dl-form-row">
                 <div className="dl-form-group">
                   <label>Product Category <span className="dl-req">*</span></label>
@@ -430,7 +460,6 @@ const DeliveryMat = ({ onBack }) => {
                   </div>
                 </div>
 
-                {/* Code dropdown — populated after category chosen */}
                 <div className="dl-form-group">
                   <label>Code / Product Name <span className="dl-req">*</span></label>
                   <div className="dl-select-wrap">
@@ -455,7 +484,6 @@ const DeliveryMat = ({ onBack }) => {
                     </select>
                     <ChevronDown size={13} className="dl-select-icon" />
                   </div>
-                  {/* Low stock warning */}
                   {lowStockWarn && (
                     <div className="dl-warn">
                       <AlertTriangle size={13} />
@@ -465,7 +493,7 @@ const DeliveryMat = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Type indicator (auto-set, read-only display) */}
+              {/* Type indicator */}
               {formData.product_code && (
                 <div className="dl-type-indicator">
                   <span className="dl-type-label">Type:</span>
@@ -475,7 +503,7 @@ const DeliveryMat = ({ onBack }) => {
                 </div>
               )}
 
-              {/* Quantity + Project */}
+              {/* Quantity + Project Name (dropdown from DB) */}
               <div className="dl-form-row">
                 <div className="dl-form-group">
                   <label>Quantity <span className="dl-req">*</span></label>
@@ -485,14 +513,29 @@ const DeliveryMat = ({ onBack }) => {
                     onChange={e => setFormData(f => ({ ...f, quantity: e.target.value }))}
                   />
                 </div>
+
                 <div className="dl-form-group">
                   <label>Project Name <span className="dl-req">*</span></label>
-                  <input
-                    type="text" required className="dl-input"
-                    placeholder="e.g. Barangay Kapasigan Court"
-                    value={formData.project_name}
-                    onChange={e => setFormData(f => ({ ...f, project_name: e.target.value }))}
-                  />
+                  <div className="dl-select-wrap">
+                    <select
+                      required
+                      className="dl-input"
+                      value={formData.project_name}
+                      onChange={e => handleProjectChange(e.target.value)}
+                      disabled={projectsLoading}
+                    >
+                      <option value="">
+                        {projectsLoading ? 'Loading projects…' : '— Select Project —'}
+                      </option>
+                      {projects.map(proj => (
+                        <option key={proj.id} value={proj.project_name}>
+                          {proj.project_name}
+                          {proj.client_name ? ` — ${proj.client_name}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={13} className="dl-select-icon" />
+                  </div>
                 </div>
               </div>
 
