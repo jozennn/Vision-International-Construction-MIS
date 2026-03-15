@@ -51,7 +51,7 @@ class AdminUserController extends Controller
         $token = Password::broker()->createToken($user);
         
         // Point this to your React frontend's reset password route
-        $frontendUrl = env('https://visionintlconstopc.com');
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
         $resetLink = $frontendUrl . "/reset-password?token=" . $token . "&email=" . urlencode($user->email);
 
         // 3. Draft the Branded HTML Email
