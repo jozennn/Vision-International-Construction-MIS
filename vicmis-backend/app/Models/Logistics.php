@@ -11,15 +11,15 @@ class Logistics extends Model
     protected $fillable = [
         'trucking_service',
         'product_category',
-        'product_code',
-        'is_consumable',
+        'product_code',       // ← added
+        'is_consumable',      // ← fixed from 'consumable'/'consumables'
         'project_name',
         'driver_name',
         'destination',
+        'quantity',           // ← added
         'date_of_delivery',
         'date_delivered',
         'status',
-        'quantity',
     ];
 
     protected $casts = [

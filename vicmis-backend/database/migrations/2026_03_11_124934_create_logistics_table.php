@@ -10,19 +10,20 @@ return new class extends Migration
     {
         Schema::create('logistics', function (Blueprint $table) {
             $table->id();
-            
-            // Your Specific Columns
+
             $table->string('trucking_service')->nullable();
             $table->string('product_category')->nullable();
-            $table->string('consumables'); // The material name
+            $table->string('product_code')->nullable();     // ← was missing
+            $table->boolean('is_consumable')->default(false); // ← was 'consumables' string, no default
             $table->string('project_name');
             $table->string('driver_name');
             $table->string('destination');
-            
-            $table->date('date_of_delivery'); // Expected delivery
-            $table->timestamp('date_delivered')->nullable(); // Actual arrival time
+            $table->integer('quantity')->default(1);        // ← was missing
+
+            $table->date('date_of_delivery');
+            $table->timestamp('date_delivered')->nullable();
             $table->string('status')->default('In Transit');
-            
+
             $table->timestamps();
         });
     }

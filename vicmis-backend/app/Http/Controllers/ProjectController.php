@@ -726,13 +726,19 @@ class ProjectController extends Controller
         $fullPath = storage_path('app/public/' . str_replace('public/', '', $path));
 
         if (!file_exists($fullPath)) {
-            return response()->json(['error' => 'Image not found at ' . $fullPath], 404);
+            return response()->json(['error' => 'File not found.'], 404);
         }
 
         $fileContents = file_get_contents($fullPath);
         $base64       = base64_encode($fileContents);
         $mime         = mime_content_type($fullPath);
-        $extension    = str_contains($mime, 'png') ? 'png' : 'jpeg';
+
+        // Correctly detect PDF, PNG, JPEG
+        $extension = match(true) {
+            str_contains($mime, 'pdf')  => 'pdf',
+            str_contains($mime, 'png')  => 'png',
+            default                     => 'jpeg',
+        };
 
         return response()->json([
             'base64'    => 'data:' . $mime . ';base64,' . $base64,
