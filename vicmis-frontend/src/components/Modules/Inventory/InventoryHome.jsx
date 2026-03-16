@@ -8,7 +8,6 @@ const InventoryHome = ({ onSelectCategory }) => {
     { id: 'stock_list', title: 'Construction Materials', icon: '📦' },
     { id: 'suppliers', title: 'Incoming Shipment', icon: '🚚' },
     { id: 'delivery', title: 'Delivery Materials', icon: '🚚' },
-    { id: 'material_request', title: 'Material Request', icon: '💳' },
   ];
 
   return (

@@ -42,9 +42,6 @@ const Inventory = () => {
         <DeliveryMat onBack={() => setCurrentView('home')} />
       )}
       
-      {currentView === 'Material Request' && (
-        <MaterialRequest onBack={() => setCurrentView('home')} />
-      )}
     </div>
   );
 };
