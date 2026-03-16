@@ -1,8 +1,5 @@
-
-
 .inv-grid {
-   display: grid;
-    /* This makes the cards stay in one row until there are more than 3 */
+    display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 25px;
     padding: 30px;
@@ -51,7 +48,7 @@
     left: 25px;
     font-size: 14px;
     font-weight: 800;
-    color: rgba(30, 58, 138, 0.1); /* Subtle number */
+    color: rgba(30, 58, 138, 0.1);
 }
 
 .inv-card:hover .card-number {
@@ -68,4 +65,90 @@
     font-size: 16px;
     letter-spacing: 0.5px;
     color: black;
+}
+
+/* ── Tablet: 2 columns, tighter gap ── */
+@media (max-width: 768px) {
+    .inv-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        padding: 20px;
+    }
+
+    .inv-card {
+        height: 170px;
+        border-radius: 18px;
+    }
+
+    .card-icon {
+        font-size: 36px;
+        margin-bottom: 10px;
+    }
+
+    .card-title {
+        font-size: 14px;
+    }
+
+    .card-number {
+        font-size: 12px;
+        top: 14px;
+        left: 18px;
+    }
+}
+
+/* ── Mobile: single column, full width ── */
+@media (max-width: 480px) {
+    .inv-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 16px;
+    }
+
+    .inv-card {
+        height: 140px;
+        border-radius: 16px;
+        /* Disable hover lift on touch devices */
+        transition: background 0.2s ease, border-color 0.2s ease,
+                    box-shadow 0.2s ease;
+    }
+
+    .inv-card:hover {
+        transform: none;
+    }
+
+    .card-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+
+    .card-title {
+        font-size: 13px;
+        letter-spacing: 0.3px;
+    }
+
+    .card-number {
+        font-size: 11px;
+        top: 12px;
+        left: 14px;
+    }
+}
+
+/* ── Touch: disable hover lift, use active press instead ── */
+@media (hover: none) {
+    .inv-card:hover {
+        transform: none;
+    }
+
+    .inv-card:active {
+        transform: scale(0.97);
+        background: rgba(59, 130, 246, 0.2);
+        border-color: rgba(59, 130, 246, 0.5);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .inv-card.add-card:active {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: #10b981;
+        color: #065f46;
+    }
 }
