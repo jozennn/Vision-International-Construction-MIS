@@ -67,10 +67,10 @@
     color: black;
 }
 
-/* ── Tablet: 2 columns, tighter gap ── */
+/* ── Tablet: 2 columns ── */
 @media (max-width: 768px) {
     .inv-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr); /* force 2 cols */
         gap: 16px;
         padding: 20px;
     }
@@ -96,18 +96,17 @@
     }
 }
 
-/* ── Mobile: single column, full width ── */
+/* ── Mobile: KEEP 2 columns, just tighter ── */
 @media (max-width: 480px) {
     .inv-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr); /* ← was 1fr, now 2 cols */
         gap: 12px;
         padding: 16px;
     }
 
     .inv-card {
-        height: 140px;
+        height: 150px;
         border-radius: 16px;
-        /* Disable hover lift on touch devices */
         transition: background 0.2s ease, border-color 0.2s ease,
                     box-shadow 0.2s ease;
     }
@@ -133,7 +132,7 @@
     }
 }
 
-/* ── Touch: disable hover lift, use active press instead ── */
+/* ── Touch: active press instead of hover lift ── */
 @media (hover: none) {
     .inv-card:hover {
         transform: none;
