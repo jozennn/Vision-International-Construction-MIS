@@ -54,10 +54,10 @@
   padding: .38rem .8rem;
   border-radius: var(--r-sm);
   font-family: 'DM Sans', sans-serif;
-  font-size: .78rem;
-  font-weight: 500;
+  font-size: .78rem; font-weight: 500;
   cursor: pointer;
   transition: background .15s;
+  white-space: nowrap;
 }
 .dl-back-btn:hover { background: rgba(255,255,255,.18); }
 
@@ -74,6 +74,7 @@
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: background .15s;
+  flex-shrink: 0;
 }
 .dl-refresh-btn:hover { background: rgba(255,255,255,.18); }
 .dl-refresh-btn.spinning svg { animation: dl-spin .8s linear infinite; }
@@ -82,15 +83,14 @@
 .dl-add-btn {
   display: flex; align-items: center; gap: 6px;
   background: var(--brand-red);
-  color: #fff;
-  border: none;
+  color: #fff; border: none;
   padding: .45rem 1rem;
   border-radius: var(--r-sm);
   font-family: 'DM Sans', sans-serif;
-  font-size: .82rem;
-  font-weight: 700;
+  font-size: .82rem; font-weight: 700;
   cursor: pointer;
   transition: background .15s, transform .1s;
+  white-space: nowrap;
 }
 .dl-add-btn:hover  { background: var(--brand-red-dk); }
 .dl-add-btn:active { transform: scale(.98); }
@@ -113,6 +113,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   overflow: hidden;
+  flex-shrink: 0;
 }
 .dl-toggle-btn {
   background: none; border: none;
@@ -166,7 +167,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: .78rem;
-  min-width: 1100px;
+  min-width: 900px; /* reduced from 1100px */
 }
 .dl-table thead tr { background: var(--brand-black); }
 .dl-table thead th {
@@ -411,32 +412,22 @@
 .dl-btn-save:active  { transform: scale(.98); }
 .dl-btn-save:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
-/* ── Responsive ───────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .dl-topbar, .dl-filters { padding-left: 1rem; padding-right: 1rem; }
-  .dl-table-wrap { margin: 1rem .75rem 0; }
-  .dl-form-row { grid-template-columns: 1fr; }
-  .dl-search-input { width: 180px; }
-}
-
 
 /* ═══════════════════════════════════════════════════════════
-   VICMIS — Delivery Logistics Responsive
+   RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 
-/* ─── Large Tablet (≤ 1024px) ─────────────────────────────── */
+/* ── Large Tablet (≤ 1024px) ─────────────────────────────── */
 @media (max-width: 1024px) {
   .dl-topbar,
-  .dl-filters {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
-  }
+  .dl-filters    { padding-left: 1.25rem; padding-right: 1.25rem; }
   .dl-table-wrap { margin-left: 1.25rem; margin-right: 1.25rem; }
   .dl-search-input { width: 180px; }
 }
 
-/* ─── Tablet Portrait (≤ 768px) ───────────────────────────── */
+/* ── Tablet Portrait (≤ 768px) — card layout begins ─────── */
 @media (max-width: 768px) {
+  /* Top bar */
   .dl-topbar {
     padding: .75rem 1rem;
     flex-wrap: wrap;
@@ -445,12 +436,11 @@
   .dl-title    { font-size: .95rem; }
   .dl-subtitle { display: none; }
 
+  /* Filters */
   .dl-filters {
     padding: .65rem 1rem;
     gap: .5rem;
   }
-  .dl-type-toggle { flex-wrap: wrap; }
-
   .dl-search-wrap {
     margin-left: 0;
     width: 100%;
@@ -458,28 +448,108 @@
   }
   .dl-search-input { width: 100%; }
 
+  /* Table wrap */
   .dl-table-wrap {
     margin: .85rem .75rem 0;
     border-radius: 10px;
+    overflow-x: visible;
   }
 
+  /* ── TABLE → CARD LAYOUT ── */
+  .dl-table {
+    min-width: unset;
+    display: block;
+  }
+  .dl-table thead { display: none; }
+  .dl-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Each row becomes a card
+     Column order assumed:
+     1=Type  2=Trucking#  3=Project  4=Category  5=Driver
+     6=Destination  7=Qty  8=Date  9=Status  10=Actions  */
+  .dl-table tbody tr.dl-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "type     trucking"
+      "project  project"
+      "category category"
+      "driver   dest"
+      "qty      date"
+      "status   status"
+      "actions  actions";
+    gap: 4px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+  }
+  .dl-table tbody tr.dl-row:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .dl-table tbody tr.dl-row:last-child  { border-bottom: none; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+  .dl-table tbody tr.dl-row:hover       { background: #FAF7F5; }
+
+  .dl-table tbody tr.dl-row td { padding: 2px 0; }
+  .dl-table tbody tr.dl-row td:nth-child(1)  { grid-area: type;     align-self: center; }
+  .dl-table tbody tr.dl-row td:nth-child(2)  { grid-area: trucking; align-self: center; text-align: right; }
+  .dl-table tbody tr.dl-row td:nth-child(3)  { grid-area: project;  padding-top: 4px; }
+  .dl-table tbody tr.dl-row td:nth-child(4)  { grid-area: category; }
+  .dl-table tbody tr.dl-row td:nth-child(5)  { grid-area: driver;   }
+  .dl-table tbody tr.dl-row td:nth-child(6)  { grid-area: dest;     text-align: right; align-self: center; }
+  .dl-table tbody tr.dl-row td:nth-child(7)  { grid-area: qty;      }
+  .dl-table tbody tr.dl-row td:nth-child(8)  { grid-area: date;     text-align: right; align-self: center; }
+  .dl-table tbody tr.dl-row td:nth-child(9)  { grid-area: status;   padding-top: 2px; }
+  .dl-table tbody tr.dl-row td:nth-child(10) {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    margin-top: 4px;
+    border-top: 1px dashed var(--border);
+  }
+
+  /* Micro-labels */
+  .dl-table tbody tr.dl-row td:nth-child(7)::before { content: "Qty"; display: block; font-size: .62rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; }
+  .dl-table tbody tr.dl-row td:nth-child(8)::before { content: "Date"; display: block; font-size: .62rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; text-align: right; }
+
+  /* Override inherited alignment */
+  .dl-table tbody td.text-right  { text-align: inherit; }
+  .dl-table tbody td.text-center { text-align: inherit; }
+
+  /* Loading / empty */
+  .dl-loading-cell,
+  .dl-empty-cell {
+    display: flex !important;
+    grid-column: 1 / -1;
+  }
+
+  /* Pagination */
   .dl-pagination {
     flex-direction: column;
     align-items: flex-start;
     padding: .75rem 1rem;
   }
 
+  /* Modal: bottom sheet */
   .dl-overlay { align-items: flex-end; padding: 0; }
   .dl-modal {
     max-width: 100%;
     border-radius: 16px 16px 0 0;
     max-height: 95vh;
+    animation: dl-sheet-in .25s cubic-bezier(.22,1,.36,1);
   }
-
-  .dl-form-row { grid-template-columns: 1fr; }
+  @keyframes dl-sheet-in {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  .dl-modal-header { border-radius: 16px 16px 0 0; }
+  .dl-form-row     { grid-template-columns: 1fr; }
 }
 
-/* ─── Phone (≤ 640px) ─────────────────────────────────────── */
+/* ── Phone (≤ 640px) ──────────────────────────────────────── */
 @media (max-width: 640px) {
   .dl-topbar { padding: .65rem .85rem; }
 
@@ -501,7 +571,7 @@
   .dl-page-btn { min-width: 26px; height: 26px; font-size: .7rem; }
 
   .dl-modal { border-radius: 14px 14px 0 0; }
-  .dl-modal-header { padding: .85rem 1rem .75rem; }
+  .dl-modal-header { padding: .85rem 1rem .75rem; border-radius: 14px 14px 0 0; }
   .dl-form { padding: .9rem 1rem .85rem; }
 
   .dl-modal-footer {
@@ -515,8 +585,9 @@
   }
 }
 
-/* ─── Small Phone (≤ 480px) ───────────────────────────────── */
+/* ── Small Phone (≤ 480px) ────────────────────────────────── */
 @media (max-width: 480px) {
+  /* Topbar stacks */
   .dl-topbar {
     flex-direction: column;
     align-items: flex-start;
@@ -528,9 +599,14 @@
     width: 100%;
     justify-content: flex-end;
   }
-  .dl-add-btn span { display: inline; }
-  .dl-topbar-right .dl-refresh-btn { display: flex; }
+  .dl-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .dl-add-btn span                         { display: inline; }
+  .dl-topbar-right .dl-refresh-btn         { display: flex; }
 
+  /* Filters stack */
   .dl-filters {
     flex-direction: column;
     align-items: stretch;
@@ -538,10 +614,11 @@
     padding: .55rem .75rem;
   }
   .dl-type-toggle  { width: 100%; }
-  .dl-toggle-btn   { flex: 1; text-align: center; }
+  .dl-toggle-btn   { flex: 1; text-align: center; font-size: .73rem; padding: .38rem .4rem; }
   .dl-search-wrap  { width: 100%; }
   .dl-search-input { width: 100%; }
 
+  /* Table edge-to-edge */
   .dl-table-wrap {
     margin: .5rem 0 0;
     border-radius: 0;
@@ -549,13 +626,38 @@
     border-right: none;
   }
 
+  /* Single-column cards */
+  .dl-table tbody tr.dl-row {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "type"
+      "trucking"
+      "project"
+      "category"
+      "driver"
+      "dest"
+      "qty"
+      "date"
+      "status"
+      "actions";
+    padding: 10px 12px;
+  }
+  .dl-table tbody tr.dl-row:first-child { border-radius: 0; }
+  .dl-table tbody tr.dl-row:last-child  { border-radius: 0; }
+
+  /* All right-aligned cells back to left */
+  .dl-table tbody tr.dl-row td:nth-child(2),
+  .dl-table tbody tr.dl-row td:nth-child(6),
+  .dl-table tbody tr.dl-row td:nth-child(8) { text-align: left; }
+  .dl-table tbody tr.dl-row td:nth-child(8)::before { text-align: left; }
+
   .dl-pagination-info { font-size: .7rem; }
 }
 
-/* ─── Touch Devices ────────────────────────────────────────── */
+/* ── Touch Devices ─────────────────────────────────────────── */
 @media (hover: none) {
-  .dl-add-btn:hover  { transform: none; }
-  .dl-add-btn:active { transform: scale(.97); }
+  .dl-add-btn:hover  { background: var(--brand-red); transform: none; }
+  .dl-add-btn:active { background: var(--brand-red-dk); transform: scale(.98); }
 
   .dl-btn-save:active { transform: scale(.98); }
 
@@ -567,4 +669,7 @@
     color: #065F46;
     border-color: rgba(16,185,129,.25);
   }
+
+  /* Bigger tap targets */
+  .dl-deliver-btn { padding: .45rem .85rem; }
 }
