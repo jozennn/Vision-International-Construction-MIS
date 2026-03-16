@@ -711,3 +711,160 @@
 @media (max-width: 640px) {
   .wh-pagination { flex-direction: column; align-items: flex-start; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   VICMIS — Warehouse Inventory Responsive
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Large Tablet (≤ 1024px) ─────────────────────────────── */
+@media (max-width: 1024px) {
+  .wh-topbar,
+  .wh-filters {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .wh-table-wrap { margin-left: 1.25rem; margin-right: 1.25rem; }
+  .wh-search-input { width: 180px; }
+  .wh-filter-select { min-width: 140px; }
+}
+
+/* ─── Tablet Portrait (≤ 768px) ───────────────────────────── */
+@media (max-width: 768px) {
+  .wh-topbar {
+    padding: .75rem 1rem;
+    flex-wrap: wrap;
+    gap: .6rem;
+  }
+  .wh-title    { font-size: .95rem; }
+  .wh-subtitle { display: none; }
+
+  .wh-filters {
+    padding: .65rem 1rem;
+    gap: .5rem;
+  }
+  .wh-type-toggle { flex-wrap: wrap; }
+
+  .wh-search-wrap {
+    margin-left: 0;
+    width: 100%;
+    order: 10;
+  }
+  .wh-search-input { width: 100%; }
+
+  .wh-table-wrap {
+    margin: .85rem .75rem 0;
+    border-radius: 10px;
+  }
+
+  .wh-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: .75rem 1rem;
+  }
+
+  .wh-overlay { align-items: flex-end; padding: 0; }
+  .wh-modal {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 95vh;
+  }
+
+  .wh-form-row,
+  .wh-form-row-3 { grid-template-columns: 1fr; }
+}
+
+/* ─── Phone (≤ 640px) ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .wh-topbar { padding: .65rem .85rem; }
+
+  .wh-add-btn span { display: none; }
+
+  .wh-filters { padding: .55rem .85rem; }
+
+  .wh-table-wrap {
+    margin: .75rem .5rem 0;
+    border-radius: 8px;
+  }
+
+  .wh-pagination {
+    padding: .65rem .85rem;
+    gap: .5rem;
+  }
+  .wh-perpage-wrap { display: none; }
+  .wh-page-btn { min-width: 26px; height: 26px; font-size: .7rem; }
+
+  .wh-modal { border-radius: 14px 14px 0 0; }
+  .wh-modal-header { padding: .85rem 1rem .75rem; }
+  .wh-form { padding: .9rem 1rem .85rem; }
+
+  .wh-modal-footer {
+    flex-direction: column-reverse;
+    gap: .5rem;
+  }
+  .wh-btn-cancel,
+  .wh-btn-save {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ─── Small Phone (≤ 480px) ───────────────────────────────── */
+@media (max-width: 480px) {
+  .wh-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+    padding: .65rem .75rem;
+  }
+  .wh-topbar-left { width: 100%; }
+  .wh-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .wh-add-btn span { display: inline; }
+
+  .wh-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .45rem;
+    padding: .55rem .75rem;
+  }
+  .wh-type-toggle { width: 100%; }
+  .wh-toggle-btn  { flex: 1; text-align: center; }
+
+  .wh-filter-select,
+  .wh-filter-select-wrap,
+  .wh-search-wrap  { width: 100%; }
+  .wh-search-input { width: 100%; }
+
+  .wh-table-wrap {
+    margin: .5rem 0 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .wh-pagination-info { font-size: .7rem; }
+}
+
+/* ─── Touch Devices ────────────────────────────────────────── */
+@media (hover: none) {
+  .wh-add-btn:hover  { transform: none; }
+  .wh-add-btn:active { transform: scale(.97); }
+
+  .wh-btn-save:active { transform: scale(.97); }
+
+  .wh-row:hover  { background: transparent; }
+  .wh-row:active { background: #FAF7F5; }
+
+  .wh-edit-btn:hover {
+    background: var(--bg-page);
+    color: var(--brand-blue);
+    border-color: var(--border);
+  }
+  .wh-del-btn:hover {
+    background: var(--bg-page);
+    color: var(--brand-red);
+    border-color: var(--border);
+  }
+}

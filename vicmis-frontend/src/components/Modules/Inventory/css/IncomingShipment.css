@@ -931,3 +931,138 @@
   .is-report-fields { grid-template-columns: 1fr; }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   VICMIS — Incoming Shipments Responsive
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Large Tablet (≤ 1024px) ─────────────────────────────── */
+@media (max-width: 1024px) {
+  .is-topbar   { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .is-table-wrap { margin-left: 1.25rem; margin-right: 1.25rem; }
+  .is-received-layout { grid-template-columns: 190px 1fr; }
+}
+
+/* ─── Tablet Portrait (≤ 768px) ───────────────────────────── */
+@media (max-width: 768px) {
+  .is-topbar {
+    padding: .75rem 1rem;
+    flex-wrap: wrap;
+    gap: .6rem;
+  }
+  .is-title    { font-size: .95rem; }
+  .is-subtitle { display: none; }
+
+  .is-table-wrap {
+    margin: .85rem .75rem 0;
+    border-radius: 10px;
+  }
+
+  .is-overlay { align-items: flex-end; padding: 0; }
+  .is-modal {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 95vh;
+  }
+  .is-modal-wide,
+  .is-modal-received {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .is-modal-grid   { grid-template-columns: 1fr; }
+  .is-report-fields { grid-template-columns: 1fr; }
+  .is-detail-meta  { grid-template-columns: 1fr 1fr; }
+
+  .is-received-layout {
+    grid-template-columns: 1fr;
+  }
+  .is-received-list {
+    border-right: none;
+    border-bottom: 1px solid #E0D9D4;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+}
+
+/* ─── Phone (≤ 640px) ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .is-topbar { padding: .65rem .85rem; }
+
+  .is-topbar-right .is-refresh-btn { display: none; }
+  .is-received-stock-btn span { display: none; }
+
+  .is-table-wrap {
+    margin: .75rem .5rem 0;
+    border-radius: 8px;
+  }
+
+  .is-modal { border-radius: 14px 14px 0 0; }
+  .is-modal-header { padding: .85rem 1rem .75rem; }
+  .is-modal-form   { padding: .9rem 1rem .85rem; }
+
+  .is-modal-footer {
+    flex-direction: column-reverse;
+    gap: .5rem;
+  }
+  .is-btn-cancel,
+  .is-btn-save,
+  .is-btn-report {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .is-detail-actions { flex-direction: column; }
+  .is-action-add,
+  .is-action-report  { width: 100%; justify-content: center; }
+
+  .is-received-list { max-height: 140px; }
+}
+
+/* ─── Small Phone (≤ 480px) ───────────────────────────────── */
+@media (max-width: 480px) {
+  .is-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+    padding: .65rem .75rem;
+  }
+  .is-topbar-left  { width: 100%; }
+  .is-topbar-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .is-received-stock-btn span { display: inline; }
+  .is-topbar-right .is-refresh-btn { display: flex; }
+
+  .is-table-wrap {
+    margin: .5rem 0 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .is-detail-meta  { grid-template-columns: 1fr; }
+  .is-received-list { max-height: 120px; }
+  .is-received-code { font-size: .75rem; }
+}
+
+/* ─── Touch Devices ────────────────────────────────────────── */
+@media (hover: none) {
+  .is-received-stock-btn:hover { transform: none; }
+  .is-received-stock-btn:active { transform: scale(.97); }
+
+  .is-btn-save:active   { transform: scale(.98); }
+  .is-btn-report:active { transform: scale(.98); }
+
+  .is-row:hover  { background: transparent; }
+  .is-row:active { background: #FAF7F5; }
+
+  .is-edit-btn:hover {
+    background: rgba(73,123,151,.08);
+    color: #2d5f78;
+    border-color: rgba(73,123,151,.25);
+  }
+  .is-project-btn:hover {
+    background: rgba(73,123,151,.08);
+  }
+}
