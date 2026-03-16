@@ -14,6 +14,7 @@ import Customer from './components/Modules/customer/Customer.jsx';
 import Inventory from './components/Modules/Inventory/Inventory.jsx';
 import Login from './components/Login.jsx';
 import ResetPassword from './components/ResetPassword.jsx'; 
+import AdminDashboard from './components/Dashboard/Admin/AdminDashboard.jsx';
 import './App.css'; 
 import { Toaster } from 'react-hot-toast';
 
@@ -64,13 +65,16 @@ const App = () => {
       accountingCount: projects?.filter(p => p.activeStage === 4).length || 0
     };
 
-    if (user.role === 'super_admin') {
-      return <SuperAdminDashboard user={user} />;
-    }
-
-    // 👇 NEW (Line 71): Route the manager to their new dashboard
-    if (user.role === 'manager') {
-      return <ManagerDashboard user={user} />;
+   if (user.role === 'super_admin') {
+         return <SuperAdminDashboard user={user} />;
+       }
+       
+   if (user.role === 'admin') {
+         return <AdminDashboard user={user} />;
+  } 
+       // 👇 NEW (Line 71): Route the manager to their new dashboard
+   if (user.role === 'manager') {
+         return <ManagerDashboard user={user} />;
     }
 
     if (dept === 'accounting' || dept === 'procurement' || dept === 'accounting/procurement') {

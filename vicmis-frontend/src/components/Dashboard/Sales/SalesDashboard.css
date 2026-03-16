@@ -414,3 +414,312 @@
 @media (max-width: 420px) {
   .sd-stats-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* =========================================
+   GRID LAYOUT UPDATES
+   ========================================= */
+   .sd-main-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.2rem;
+  }
+  
+  @media (min-width: 1024px) {
+    .sd-main-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .sd-card-span-2 {
+      grid-column: span 2;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .sd-main-grid {
+      grid-template-columns: 1fr;
+    }
+    .sd-card-span-2 {
+      grid-column: span 1;
+    }
+  }
+  
+  /* =========================================
+     EXPORT EXCEL BUTTON
+     ========================================= */
+  .sd-flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  
+  .sd-export-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #10B981;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .sd-export-btn:hover:not(:disabled) {
+    background-color: #059669;
+    transform: translateY(-1px);
+  }
+  
+  .sd-export-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  /* =========================================
+     VERTICAL GRAPH (PURE CSS)
+     ========================================= */
+  .sd-vertical-graph-container {
+    height: 250px;
+    padding: 20px 10px 10px 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  
+  .sd-graph-axes {
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    bottom: 30px; /* Space for labels */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    z-index: 1;
+  }
+  
+  .sd-axis-line {
+    border-top: 1px dashed var(--border);
+    width: 100%;
+    height: 0;
+  }
+  
+  .sd-graph-bars {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    height: calc(100% - 30px);
+    padding: 0 10px;
+  }
+  
+  .sd-graph-bar-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    width: 40px;
+  }
+  
+  .sd-graph-bar-wrapper {
+    flex-grow: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    position: relative;
+  }
+  
+  .sd-graph-bar {
+    width: 30px;
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  }
+  
+  .sd-graph-bar:hover {
+    filter: brightness(1.1);
+    cursor: pointer;
+  }
+  
+  .sd-graph-value {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    background: var(--bg-main);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .sd-graph-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+/* =========================================
+   MONTHLY TREND GRAPH (PURE CSS) WITH Y-AXIS
+   ========================================= */
+   .sd-vertical-graph-container {
+    height: 280px;
+    padding: 40px 10px 10px 30px; /* Added left padding for Y-axis numbers */
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  
+  .sd-graph-legend {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    z-index: 5;
+  }
+  
+  .sd-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+  
+  .sd-legend-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+  }
+  
+  /* New Y-Axis Container */
+  .sd-graph-y-axis {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    width: 25px;
+    text-align: right;
+  }
+  
+  .sd-graph-axes {
+    position: absolute;
+    top: 40px;
+    left: 30px; /* Align with Y-axis */
+    right: 0;
+    bottom: 30px; 
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    z-index: 1;
+  }
+  
+  .sd-axis-line {
+    border-top: 1px dashed var(--border);
+    width: 100%;
+    height: 0;
+  }
+  
+  .sd-graph-bars {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    height: calc(100% - 30px);
+    padding: 0 0 0 10px; /* Aligned next to axes */
+  }
+  
+  .sd-month-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    flex: 1;
+  }
+  
+  .sd-month-bars {
+    flex-grow: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px; 
+    position: relative;
+  }
+  
+  .sd-month-bar {
+    width: 12px;
+    border-radius: 3px 3px 0 0;
+    position: relative;
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  @media (max-width: 1200px) {
+    .sd-month-bar {
+      width: 8px;
+    }
+  }
+  
+  .sd-month-bar:hover {
+    filter: brightness(1.15);
+    cursor: pointer;
+  }
+  
+  .sd-month-bar .sd-graph-value {
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  
+  .sd-month-bar:hover .sd-graph-value {
+    opacity: 1;
+  }
+  
+  .sd-graph-value {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    background: var(--bg-main);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    z-index: 10;
+  }
+  
+  .sd-graph-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    text-transform: uppercase;
+  }

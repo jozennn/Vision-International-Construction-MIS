@@ -1,16 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '@/api/axios';
-import { RefreshCw, TrendingUp, Briefcase, Clock, Award, ChevronRight, ShieldCheck } from 'lucide-react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { RefreshCw, TrendingUp, Briefcase, Clock, Award, ChevronRight, ShieldCheck, Download } from 'lucide-react';
 import './SalesDashboard.css';
 
 // ─── Status → CSS class ───────────────────────────────────────────────────────
 const statusClass = (status = '') => {
   const s = (status || '').toLowerCase();
+  // 👇 UPDATED: Added 'trash' to trigger the red rejected styling
+  if (s.includes('trash') || s.includes('reject') || s.includes('lost')) return 'rejected';
   if (s.includes('project') && s.includes('created')) return 'project-created';
   if (s.includes('converted'))                        return 'project-created';
   if (s.includes('to be contacted') || s.includes('new')) return 'to-be-contacted';
   if (s.includes('pending') || s.includes('review')) return 'pending';
-  if (s.includes('reject') || s.includes('lost'))    return 'rejected';
   if (s.includes('won') || s.includes('closed'))     return 'won';
   return 'default';
 };
@@ -50,16 +53,16 @@ const ToastContainer = ({ toasts, onRemove }) => (
 );
 
 // ─── Lead Detail Modal ────────────────────────────────────────────────────────
-const LeadDetailModal = ({ lead, onClose }) => {
+const LeadDetailModal = ({ lead, onClose, user }) => {
   if (!lead) return null;
+  
   const fields = [
     ['Client',       lead.client_name  || lead.client  || '—'],
     ['Project',      lead.project_name || lead.project || '—'],
     ['Status',       lead.status || '—'],
-    ['Contact',      lead.contact || lead.email || '—'],
-    ['Phone',        lead.phone   || '—'],
+    ['Contact No.',  lead.contact_no || '—'],
     ['Location',     lead.location || '—'],
-    ['Lead Source',  lead.source   || '—'],
+    ['Sales Rep',    lead.sales_rep?.name || user?.name || '—'], 
     ['Date Created', lead.created_at
         ? new Date(lead.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
         : '—'],
@@ -102,39 +105,50 @@ const LeadDetailModal = ({ lead, onClose }) => {
 // MAIN DASHBOARD
 // ═════════════════════════════════════════════════════════════════════════════
 const SalesDashboard = ({ user }) => {
+  const isManagement = ['super_admin', 'admin', 'manager', 'dept_head'].includes(user?.role);
+
   const [stats,        setStats]        = useState(null);
   const [leads,        setLeads]        = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [lastSync,     setLastSync]     = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [isExporting,  setIsExporting]  = useState(false);
 
   const { toasts, toast, removeToast } = useToast();
 
-  // ── Fetch dashboard stats ─────────────────────────────────────────────────
-  // Route: GET /api/sales/dashboard-stats
-  // Expected response: { total_leads, converted_projects, pending_approvals, win_rate, pipeline? }
   const fetchStats = useCallback(async () => {
     try {
       const res = await api.get('/sales/dashboard-stats');
       setStats(res.data);
     } catch (err) {
       console.error('[Sales] stats:', err?.response?.status, err?.message);
-      toast.error('Failed to load dashboard stats.');
     }
   }, []);
 
-  // ── Fetch recent leads ────────────────────────────────────────────────────
-  // Route: GET /api/sales/leads/recent
-  // Expected response: [] or { data: [] }
   const fetchLeads = useCallback(async () => {
     try {
-      const res = await api.get('/sales/leads/recent');
-      const rows = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-      setLeads(rows);
+      const [activeRes, trashedRes] = await Promise.all([
+        api.get('/leads'),
+        api.get('/leads/trashed').catch(() => ({ data: [] }))
+      ]);
+
+      const activeRows = Array.isArray(activeRes.data) ? activeRes.data : (activeRes.data?.data ?? []);
+      const trashedRows = Array.isArray(trashedRes.data) ? trashedRes.data : (trashedRes.data?.data ?? []);
+
+      const taggedTrashed = trashedRows.map(lead => ({
+        ...lead,
+        is_trashed: true,
+        status: lead.status + ' (Trashed)'
+      }));
+
+      const combinedRows = [...activeRows, ...taggedTrashed];
+      combinedRows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      setLeads(combinedRows);
     } catch (err) {
-      console.error('[Sales] leads:', err?.response?.status, err?.message);
-      toast.error('Failed to load recent leads.');
+      console.error('[Sales] leads:', err?.message);
+      toast.error('Failed to load leads.');
     }
   }, []);
 
@@ -153,15 +167,123 @@ const SalesDashboard = ({ user }) => {
     return () => clearInterval(id);
   }, [fetchAll]);
 
-  // ── Derived values — handles multiple possible API key names ─────────────
-  const totalLeads  = stats?.total_leads        ?? stats?.totalLeads        ?? 0;
-  const converted   = stats?.converted_projects ?? stats?.convertedProjects ?? 0;
-  const pendingAppr = stats?.pending_approvals  ?? stats?.pendingApprovals  ?? 0;
-  const winRate     = stats?.win_rate           ?? stats?.winRate           ?? '0%';
 
-  // Pipeline counts — from backend if provided, else derived from leads list
-  const pipelineCounts = stats?.pipeline ?? PIPELINE_STAGES.reduce((acc, stage) => {
+  // ── MONTHLY GRAPH DATA CALCULATOR (With Trashed Logic) ───────────────────
+  const monthlyData = useMemo(() => {
+    const monthsObj = {};
+    for (let i = -2; i <= 2; i++) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + i);
+      const monthKey = `${d.getFullYear()}-${d.getMonth()}`; 
+      const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+      monthsObj[monthKey] = { key: monthKey, name: monthName, total: 0, converted: 0, rejected: 0 };
+    }
+
+    leads.forEach(lead => {
+      if (!lead.created_at) return;
+      const d = new Date(lead.created_at);
+      const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+      
+      if (monthsObj[monthKey]) {
+        monthsObj[monthKey].total += 1;
+        const status = (lead.status || '').toLowerCase();
+        
+        if (lead.is_trashed || status.includes('reject') || status.includes('lost')) {
+          monthsObj[monthKey].rejected += 1;
+        } else if ((status.includes('project') && status.includes('created')) || status.includes('won')) {
+          monthsObj[monthKey].converted += 1;
+        }
+      }
+    });
+    
+    return Object.values(monthsObj);
+  }, [leads]);
+
+  const maxMonthlyVal = Math.max(1, ...monthlyData.flatMap(m => [m.total, m.converted, m.rejected]));
+  const yAxisLabels = [
+    maxMonthlyVal,
+    Math.round(maxMonthlyVal * 0.75),
+    Math.round(maxMonthlyVal * 0.5),
+    Math.round(maxMonthlyVal * 0.25),
+    0
+  ];
+
+  // ── EXPORT FUNCTION ───────────────────────────────────────────────────
+  const exportTrendToExcel = async () => {
+    if (monthlyData.length === 0) {
+      return toast.info("No trend data available to export.");
+    }
+    
+    try {
+      setIsExporting(true);
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('6-Month Sales Trend');
+
+      sheet.columns = [
+        { header: 'MONTH', key: 'month', width: 20 },
+        { header: 'TOTAL LEADS', key: 'total', width: 18 },
+        { header: 'PROJECTS CREATED', key: 'converted', width: 22 },
+        { header: 'LOST / TRASHED', key: 'rejected', width: 20 },
+      ];
+
+      monthlyData.forEach(data => {
+        sheet.addRow({
+          month: data.name,
+          total: data.total,
+          converted: data.converted,
+          rejected: data.rejected
+        });
+      });
+
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      sheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+          if (row.number > 1) cell.alignment = { vertical: 'middle', horizontal: 'center' }; 
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Sales_Trend_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      toast.success('Trend report downloaded successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate Excel report.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // ── DYNAMIC STATS CALCULATOR ──────────────────────────────────────────
+  const totalLeads = leads.length;
+  const activeLeadsCount = leads.filter(lead => !lead.is_trashed).length;
+  const trashedLeadsCount = leads.filter(lead => lead.is_trashed).length;
+
+  const converted = leads.filter(lead => {
+    if (lead.is_trashed) return false;
+    const status = (lead.status || '').toLowerCase();
+    return (status.includes('project') && status.includes('created')) || status.includes('won');
+  }).length;
+
+  const pendingAppr = leads.filter(lead => {
+    if (lead.is_trashed) return false;
+    const status = (lead.status || '').toLowerCase();
+    return status.includes('pending') || status.includes('review');
+  }).length;
+
+  const winRate = totalLeads > 0 ? Math.round((converted / totalLeads) * 100) + '%' : '0%';
+
+  const pipelineCounts = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage.key] = leads.filter(l => {
+      if (stage.key === 'rejected' && l.is_trashed) return true;
+      if (l.is_trashed) return false;
+      
       const cls = statusClass(l.status);
       return cls === stage.key.replace(/_/g, '-') ||
              (stage.key === 'to_be_contacted' && cls === 'to-be-contacted') ||
@@ -169,18 +291,12 @@ const SalesDashboard = ({ user }) => {
     }).length;
     return acc;
   }, {});
-
   const maxPipeline = Math.max(1, ...Object.values(pipelineCounts));
-
-  const today = new Date().toLocaleDateString('en-PH', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  });
 
   return (
     <div className="sd-wrapper">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
       <div className="sd-header">
         <div className="sd-header-left">
           <div className="sd-header-icon">📊</div>
@@ -226,7 +342,11 @@ const SalesDashboard = ({ user }) => {
               <div className="sd-stat-body">
                 <span className="sd-stat-value">{totalLeads}</span>
                 <span className="sd-stat-label">Total Leads</span>
-                <span className="sd-stat-sub">All time</span>
+                <span className="sd-stat-sub" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                  <span><span style={{ color: '#10b981', fontWeight: 'bold' }}>{activeLeadsCount}</span> Active</span>
+                  <span style={{ color: '#cbd5e1' }}>|</span>
+                  <span><span style={{ color: '#ef4444', fontWeight: 'bold' }}>{trashedLeadsCount}</span> Trashed</span>
+                </span>
               </div>
             </div>
 
@@ -264,20 +384,19 @@ const SalesDashboard = ({ user }) => {
             </div>
           </div>
 
-          {/* ══ BODY ═══════════════════════════════════════════════════════ */}
-          <div className="sd-body">
+          <div className="sd-main-grid">
 
-            {/* ── Recent Leads ──────────────────────────────────────────── */}
-            <div className="sd-card">
+            {/* ── Recent Leads ──── */}
+            <div className="sd-card sd-card-span-2">
               <div className="sd-card-head">
                 <div>
                   <p className="sd-card-title">📋 Recent Leads</p>
-                  <p className="sd-card-sub">Latest client pipeline activity</p>
+                  <p className="sd-card-sub">Latest {isManagement ? 'team' : 'personal'} pipeline activity</p>
                 </div>
               </div>
-              <div className="sd-table-wrap">
+              <div className="sd-table-wrap" style={{ maxHeight: '280px', overflowY: 'auto' }}>
                 <table className="sd-table">
-                  <thead>
+                  <thead style={{ position: 'sticky', top: 0, background: 'white', zIndex: 2 }}>
                     <tr>
                       <th>Client</th>
                       <th>Project</th>
@@ -321,32 +440,86 @@ const SalesDashboard = ({ user }) => {
               </div>
             </div>
 
-            {/* ── Pipeline Overview ──────────────────────────────────────── */}
+            {/* ── Monthly Trend Graph (Pure CSS) ─────────────────────── */}
+            <div className="sd-card">
+              <div className="sd-card-head sd-flex-between">
+                <div>
+                  <p className="sd-card-title">📉 {isManagement ? 'Team 6-Month Trend' : 'My 6-Month Trend'}</p>
+                  <p className="sd-card-sub">{isManagement ? 'Team monthly performance overview' : 'Your monthly performance overview'}</p>
+                </div>
+                <button 
+                  className="sd-export-btn" 
+                  onClick={exportTrendToExcel}
+                  disabled={isExporting}
+                >
+                  <Download size={14} /> 
+                  {isExporting ? 'Exporting...' : 'Export Excel'}
+                </button>
+              </div>
+              
+              <div className="sd-vertical-graph-container">
+                <div className="sd-graph-legend">
+                  <span className="sd-legend-item"><div className="sd-legend-color" style={{background: '#3b82f6'}}></div> Leads</span>
+                  <span className="sd-legend-item"><div className="sd-legend-color" style={{background: '#10b981'}}></div> Projects</span>
+                  <span className="sd-legend-item"><div className="sd-legend-color" style={{background: '#ef4444'}}></div> Lost</span>
+                </div>
+
+                <div className="sd-graph-y-axis">
+                  {yAxisLabels.map((val, i) => (
+                    <span key={i}>{val}</span>
+                  ))}
+                </div>
+
+                <div className="sd-graph-axes">
+                  {[4, 3, 2, 1, 0].map(num => (
+                    <div key={num} className="sd-axis-line"></div>
+                  ))}
+                </div>
+                
+                <div className="sd-graph-bars">
+                  {monthlyData.map(data => (
+                    <div key={data.key} className="sd-month-group">
+                      <div className="sd-month-bars">
+                        <div 
+                          className="sd-month-bar" 
+                          style={{ height: `${Math.max(5, (data.total / maxMonthlyVal) * 100)}%`, background: '#3b82f6' }}
+                          title={`${data.name} - Total Leads: ${data.total}`}
+                        >
+                          <span className="sd-graph-value">{data.total}</span>
+                        </div>
+                        <div 
+                          className="sd-month-bar" 
+                          style={{ height: `${Math.max(5, (data.converted / maxMonthlyVal) * 100)}%`, background: '#10b981' }}
+                          title={`${data.name} - Projects Created: ${data.converted}`}
+                        >
+                          <span className="sd-graph-value">{data.converted}</span>
+                        </div>
+                        <div 
+                          className="sd-month-bar" 
+                          style={{ height: `${Math.max(5, (data.rejected / maxMonthlyVal) * 100)}%`, background: '#ef4444' }}
+                          title={`${data.name} - Lost: ${data.rejected}`}
+                        >
+                          <span className="sd-graph-value">{data.rejected}</span>
+                        </div>
+                      </div>
+                      <span className="sd-graph-label">{data.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Pipeline Overview ────────────────── */}
             <div className="sd-card">
               <div className="sd-card-head">
                 <div>
-                  <p className="sd-card-title">📈 Pipeline Overview</p>
-                  <p className="sd-card-sub">Lead stage distribution</p>
+                  <p className="sd-card-title">📈 Pipeline List</p>
+                  <p className="sd-card-sub">Current distribution totals</p>
                 </div>
               </div>
 
-              {/* Stage count rows */}
-              <div className="sd-pipeline">
-                {PIPELINE_STAGES.map(stage => {
-                  const count = pipelineCounts[stage.key] ?? 0;
-                  return (
-                    <div key={stage.key} className="sd-pipeline-row">
-                      <span className="sd-pipeline-label">
-                        <span className="sd-pipeline-dot" style={{ background: stage.color }} />
-                        {stage.label}
-                      </span>
-                      <span className="sd-pipeline-count">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* 👇 The redundant text list section was safely removed from here! */}
 
-              {/* Horizontal bar chart */}
               <div className="sd-pipeline-bar-wrap">
                 {PIPELINE_STAGES.map(stage => {
                   const count = pipelineCounts[stage.key] ?? 0;
@@ -365,6 +538,7 @@ const SalesDashboard = ({ user }) => {
                 })}
               </div>
             </div>
+
           </div>
 
           {/* ══ FOOTER ═════════════════════════════════════════════════════ */}
@@ -382,7 +556,7 @@ const SalesDashboard = ({ user }) => {
 
       {/* Lead Detail Modal */}
       {selectedLead && (
-        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
+        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} user={user} />
       )}
     </div>
   );

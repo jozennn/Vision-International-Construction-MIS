@@ -85,6 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sales/dashboard-stats', [ProjectController::class, 'getSalesStats']);
     Route::get('/sales/leads/recent',    [ProjectController::class, 'getRecentLeads']);
 
+
     // --- ENGINEERING DASHBOARD ---
     Route::prefix('engineering')->group(function () {
         Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
@@ -96,6 +97,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- LEADS ---
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
+    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);  // For Customer.jsx
+    Route::get('/leads/trashed', [LeadController::class, 'trashed']);    // For SalesDashboard.jsx
+    Route::put('/leads/{id}/restore', [LeadController::class, 'restore']); //eto lang apat dinagdag ko sa taas ng leadcontroller
+    Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);//dasd
 
     // --- EMPLOYEES ---
     Route::apiResource('employees', EmployeeController::class)->except(['show']);
