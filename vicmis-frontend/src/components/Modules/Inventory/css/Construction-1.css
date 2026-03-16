@@ -740,8 +740,8 @@
 
   /* Table wrap */
   .wh-table-wrap {
-    margin: .85rem .75rem 0;
-    border-radius: 10px;
+    margin: 16px 16px 0;
+    border-radius: 12px;
     overflow-x: visible; /* cards don't need horizontal scroll */
   }
 
@@ -770,14 +770,14 @@
       "reserve   total"
       "condition type"
       "actions   actions";
-    gap: 4px 12px;
-    padding: 12px 14px;
+    gap: 6px 12px;
+    padding: 16px 18px;
     border-bottom: 1px solid var(--border);
     border-radius: 0;
     transition: background .12s;
   }
-  .wh-table tbody tr.wh-row:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-  .wh-table tbody tr.wh-row:last-child  { border-bottom: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+  .wh-table tbody tr.wh-row:first-child { border-radius: 12px 12px 0 0; }
+  .wh-table tbody tr.wh-row:last-child  { border-bottom: none; border-radius: 0 0 12px 12px; }
   .wh-table tbody tr.wh-row:hover { background: #FAF7F5; }
 
   /* Map each td to its grid area */
@@ -896,7 +896,7 @@
       "condition"
       "type"
       "actions";
-    padding: 10px 12px;
+    padding: 16px 18px;
   }
   .wh-table tbody tr.wh-row:first-child { border-radius: 0; }
   .wh-table tbody tr.wh-row:last-child  { border-radius: 0; }

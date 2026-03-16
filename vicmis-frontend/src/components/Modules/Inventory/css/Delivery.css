@@ -450,8 +450,8 @@
 
   /* Table wrap */
   .dl-table-wrap {
-    margin: .85rem .75rem 0;
-    border-radius: 10px;
+    margin: 16px 16px 0;
+    border-radius: 12px;
     overflow-x: visible;
   }
 
@@ -482,13 +482,13 @@
       "qty      date"
       "status   status"
       "actions  actions";
-    gap: 4px 12px;
-    padding: 12px 14px;
+    gap: 6px 12px;
+    padding: 16px 18px;
     border-bottom: 1px solid var(--border);
     border-radius: 0;
   }
-  .dl-table tbody tr.dl-row:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
-  .dl-table tbody tr.dl-row:last-child  { border-bottom: none; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+  .dl-table tbody tr.dl-row:first-child { border-radius: 12px 12px 0 0; }
+  .dl-table tbody tr.dl-row:last-child  { border-bottom: none; border-radius: 0 0 12px 12px; }
   .dl-table tbody tr.dl-row:hover       { background: #FAF7F5; }
 
   .dl-table tbody tr.dl-row td { padding: 2px 0; }
@@ -640,7 +640,7 @@
       "date"
       "status"
       "actions";
-    padding: 10px 12px;
+    padding: 16px 18px;
   }
   .dl-table tbody tr.dl-row:first-child { border-radius: 0; }
   .dl-table tbody tr.dl-row:last-child  { border-radius: 0; }
