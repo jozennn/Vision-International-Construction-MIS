@@ -161,13 +161,12 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--sh-sm);
-  overflow-x: auto;
+  overflow: auto;
 }
 .dl-table {
   width: 100%;
   border-collapse: collapse;
   font-size: .78rem;
-  min-width: 900px; /* reduced from 1100px */
 }
 .dl-table thead tr { background: var(--brand-black); }
 .dl-table thead th {
@@ -452,7 +451,7 @@
   .dl-table-wrap {
     margin: 16px 16px 0;
     border-radius: 12px;
-    overflow-x: visible;
+    overflow: hidden;
   }
 
   /* ── TABLE → CARD LAYOUT ── */

@@ -96,14 +96,13 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--sh-sm);
-  overflow-x: auto;
+  overflow: auto;
 }
 
 .is-table {
   width: 100%;
   border-collapse: collapse;
   font-size: .78rem;
-  min-width: 900px;
 }
 
 .is-table thead tr { background: var(--brand-black); }
@@ -882,7 +881,7 @@
   .is-table-wrap {
     margin: 16px 16px 0;
     border-radius: 12px;
-    overflow-x: visible; /* cards don't need horizontal scroll */
+    overflow: hidden;
   }
 
   /* ── TABLE → CARD LAYOUT ── */

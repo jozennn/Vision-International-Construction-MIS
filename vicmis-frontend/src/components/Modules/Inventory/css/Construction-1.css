@@ -207,14 +207,13 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
-  overflow-x: auto;
+  overflow: auto;
 }
 
 .wh-table {
   width: 100%;
   border-collapse: collapse;
   font-size: .78rem;
-  min-width: 900px; /* reduced from 1200px */
 }
 
 .wh-table thead tr {
@@ -742,7 +741,7 @@
   .wh-table-wrap {
     margin: 16px 16px 0;
     border-radius: 12px;
-    overflow-x: visible; /* cards don't need horizontal scroll */
+    overflow: hidden;
   }
 
   /* ── TABLE → CARD LAYOUT ── */
