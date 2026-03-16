@@ -42,8 +42,7 @@
 }
 
 /* =========================================
-   PAGE — full-screen background, flex column
-   so brand sits above the card naturally
+   PAGE — full-screen background
    ========================================= */
 
 .landing-screen {
@@ -56,13 +55,12 @@
   position: relative;
   overflow: hidden;
 
-  /* Stack brand + card vertically, centered */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1.1rem;
-  padding: 1.5rem 1rem;
+  padding: 1.5rem 1rem 0;
   box-sizing: border-box;
 }
 
@@ -83,7 +81,7 @@
 }
 
 /* =========================================
-   BRAND BLOCK — above the card, outside it
+   BRAND BLOCK — above the card
    ========================================= */
 
 .brand-above {
@@ -103,7 +101,6 @@
   object-fit: contain;
   border-radius: 16px;
   padding: 6px;
-  /* Subtle glow to lift off the dark background */
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
   margin-bottom: 0.2rem;
 }
@@ -116,7 +113,6 @@
   letter-spacing: 0.03em;
   line-height: 1.25;
   margin: 0;
-  /* Crisp text shadow for readability over photo */
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
   max-width: 280px;
 }
@@ -124,14 +120,39 @@
 .brand-tagline {
   font-size: 0.75rem;
   font-style: italic;
-  color: #fca5a5;       /* soft red-pink — readable on dark bg */
+  color: #fca5a5;
   font-weight: 600;
   margin: 0;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
+/* ── Divisions bar ── */
+.brand-divisions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  margin-top: 0.3rem;
+  animation: fadeUp 0.5s ease 0.5s both;
+}
+
+.brand-divisions span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.brand-divisions .divider {
+  color: #fca5a5;
+  font-weight: 400;
+}
+
 /* =========================================
-   LOGIN CARD — compact, no logo inside
+   LOGIN CARD
    ========================================= */
 
 .login-box {
@@ -162,7 +183,6 @@
   animation: lineExpand 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.9s forwards;
 }
 
-/* System label inside card */
 .card-system-label {
   font-size: 0.7rem;
   font-weight: 700;
@@ -196,7 +216,6 @@
 
 .input-group input {
   width: 100%;
-  /* 16px minimum — prevents iOS auto-zoom on focus */
   font-size: 16px;
   padding: 0.62rem 0.85rem;
   border: 1px solid #e2e8f0;
@@ -214,6 +233,11 @@
   box-shadow: 0 0 0 3px rgba(179, 29, 51, 0.1);
 }
 
+.input-group input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* =========================================
    PASSWORD FIELD
    ========================================= */
@@ -225,7 +249,7 @@
 }
 
 .password-wrapper input {
-  padding-right: 3.5rem; /* room for SHOW/HIDE */
+  padding-right: 3.5rem;
 }
 
 .password-toggle-btn {
@@ -246,11 +270,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Large enough tap target */
   min-width: 44px;
 }
 
 .password-toggle-btn:hover { color: #b31d33; }
+
+/* =========================================
+   LOCKOUT BANNER
+   ========================================= */
+
+.lockout-banner {
+  background: #fff7ed;
+  color: #92400e;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.78rem;
+  text-align: center;
+  margin-bottom: 0.7rem;
+  line-height: 1.5;
+}
+
+.lockout-banner strong {
+  font-family: monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
 
 /* =========================================
    SUBMIT BUTTON
@@ -358,16 +403,26 @@
 
 .resend-btn:hover { color: #991626; }
 
+/* ── Back to Login link ── */
 .back-link {
   background: none;
   border: none;
-  color: #3b82f6;
-  margin-top: 12px;
+  color: #64748b;
+  margin-top: 8px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
   width: 100%;
   min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: color 0.2s;
+  letter-spacing: 0.01em;
 }
+
+.back-link:hover { color: #b31d33; }
 
 /* =========================================
    ERROR MESSAGE
@@ -386,16 +441,84 @@
 }
 
 /* =========================================
+   FOOTER
+   ========================================= */
+
+.login-footer {
+  width: 100%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1rem 1rem 1.2rem;
+  margin-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  animation: fadeUp 0.5s ease 1.2s both;
+  box-sizing: border-box;
+}
+
+/* Social icons row */
+.footer-socials {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.footer-socials a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+  backdrop-filter: blur(4px);
+}
+
+.footer-socials a:hover {
+  background: #b31d33;
+  border-color: #b31d33;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Contact info */
+.footer-contact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  text-align: center;
+}
+
+.footer-contact span {
+  font-size: 0.67rem;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+/* "To God Be The Glory" */
+.footer-glory {
+  font-size: 0.65rem;
+  font-style: italic;
+  font-weight: 600;
+  color: #fca5a5;
+  margin: 0;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* =========================================
    UTILITY
    ========================================= */
 
 .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
-
-.bg-fixed-cover {
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-}
 
 /* =========================================
    TABLET  (≥ 600px)
@@ -404,14 +527,13 @@
 @media (min-width: 600px) {
   .landing-screen {
     gap: 1.4rem;
-    padding: 2rem 1.5rem;
+    padding: 2rem 1.5rem 0;
   }
 
   .brand-logo { width: 72px; height: 72px; }
-
   .brand-name { font-size: 1.1rem; max-width: 340px; }
-
   .brand-tagline { font-size: 0.78rem; }
+  .brand-divisions span { font-size: 0.67rem; }
 
   .login-box {
     max-width: 380px;
@@ -424,6 +546,13 @@
   }
 
   .enter-btn { font-size: 0.95rem; }
+
+  .footer-contact {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem 1rem;
+  }
 }
 
 /* =========================================
@@ -432,15 +561,14 @@
 
 @media (min-width: 1024px) {
   .landing-screen {
-    background-attachment: fixed; /* safe on desktop */
+    background-attachment: fixed;
     gap: 1.6rem;
   }
 
   .brand-logo { width: 80px; height: 80px; border-radius: 20px; }
-
   .brand-name { font-size: 1.2rem; max-width: 380px; letter-spacing: 0.04em; }
-
   .brand-tagline { font-size: 0.82rem; }
+  .brand-divisions span { font-size: 0.7rem; }
 
   .login-box {
     max-width: 400px;
@@ -460,6 +588,15 @@
   }
 
   .enter-btn { font-size: 1rem; padding: 0.78rem 1rem; }
+
+  .footer-contact {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem 1.2rem;
+  }
+
+  .footer-contact span { font-size: 0.7rem; }
 }
 
 /* =========================================
@@ -478,7 +615,7 @@
 
 @media (max-height: 520px) and (orientation: landscape) {
   .landing-screen {
-    flex-direction: row;       /* put brand left, card right in landscape */
+    flex-direction: row;
     justify-content: center;
     align-items: center;
     gap: 2rem;
@@ -489,14 +626,13 @@
   .brand-above {
     flex-shrink: 0;
     max-width: 180px;
-    animation: fadeUp 0.5s ease 0.2s both; /* reset to fadeUp in row layout */
+    animation: fadeUp 0.5s ease 0.2s both;
   }
 
   .brand-logo { width: 50px; height: 50px; }
-
   .brand-name { font-size: 0.82rem; }
-
   .brand-tagline { font-size: 0.68rem; }
+  .brand-divisions { display: none; }
 
   .login-box {
     max-width: 300px;
@@ -506,8 +642,11 @@
   .card-system-label { margin-bottom: 0.7rem; }
 
   .input-group { margin-bottom: 0.65rem; }
-
   .input-group input { padding: 0.55rem 0.8rem; }
 
   .enter-btn { margin-top: 0.4rem; padding: 0.6rem; }
+
+  .login-footer {
+    display: none;
+  }
 }
