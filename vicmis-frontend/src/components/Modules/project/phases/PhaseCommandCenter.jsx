@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import InstallerMonitoring  from './InstallerMonitoring.jsx';
 import TimelineGantt        from './TimelineGantt.jsx';
@@ -58,11 +58,54 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
   </div>
 );
 
+// ── Extracted Logistics panel so it can have its own hooks legally ────────────
+const LogisticsDispatch = ({ onAdvance }) => {
+  const [checks, setChecks] = useState({ inventory: false, transport: false, notified: false });
+  const ready = checks.inventory && checks.transport && checks.notified;
+
+  return (
+    <div className="pm-cc-wrapper">
+      <div className="pm-card">
+        <div className="pm-card-navy pm-navy-orange">
+          <h3 className="pm-title-md pm-text-white">🚚 Logistics: Material Dispatch Center</h3>
+        </div>
+        <div className="pm-cc-body">
+          <div className="pm-card-cream pm-cream-orange">
+            <h4 className="pm-title-lg pm-text-orange-dark">Dispatch Preparation Checklist</h4>
+            <div className="pm-grid-3 mb-4">
+              <label className="pm-checklist-item pm-checklist-orange">
+                <input type="checkbox" checked={checks.inventory}
+                  onChange={e => setChecks(c => ({ ...c, inventory: e.target.checked }))} />
+                <span className="pm-text-orange-dark">📦 Pulled from Inventory</span>
+              </label>
+              <label className="pm-checklist-item pm-checklist-orange">
+                <input type="checkbox" checked={checks.transport}
+                  onChange={e => setChecks(c => ({ ...c, transport: e.target.checked }))} />
+                <span className="pm-text-orange-dark">🚚 Transport Assigned</span>
+              </label>
+              <label className="pm-checklist-item pm-checklist-orange">
+                <input type="checkbox" checked={checks.notified}
+                  onChange={e => setChecks(c => ({ ...c, notified: e.target.checked }))} />
+                <span className="pm-text-orange-dark">📱 Eng Team Notified</span>
+              </label>
+            </div>
+            <PrimaryButton disabled={!ready} variant="orange"
+              onClick={() => onAdvance('Site Inspection & Project Monitoring')}>
+              ✓ Confirm Dispatch & Return to Engineer
+            </PrimaryButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════
 const PhaseCommandCenter = ({ project, cc, tracking, onAdvance, onUploadAdvance, isLogistics, user }) => {
   const [activeTab, setActiveTab] = useState('installers');
+
   const { status } = project;
 
   const {
@@ -73,44 +116,19 @@ const PhaseCommandCenter = ({ project, cc, tracking, onAdvance, onUploadAdvance,
 
   const { boqData } = tracking;
 
-  // ── Logistics Dispatch ──────────────────────────────────────────────────────
+  const timelineTrackingData = useMemo(() => {
+    try {
+      const raw = typeof tracking?.timeline_tracking === 'string'
+        ? JSON.parse(tracking.timeline_tracking)
+        : (tracking?.timeline_tracking ?? {});
+      return raw;
+    } catch { return {}; }
+  }, [tracking?.timeline_tracking]);
+
   if (status === 'Request Materials Needed' && isLogistics) {
-    const [checks, setChecks] = React.useState({ inventory: false, transport: false, notified: false });
-    const ready = checks.inventory && checks.transport && checks.notified;
-    return (
-      <div className="pm-cc-wrapper">
-        <div className="pm-card">
-          <div className="pm-card-navy pm-navy-orange">
-            <h3 className="pm-title-md pm-text-white">🚚 Logistics: Material Dispatch Center</h3>
-          </div>
-          <div className="pm-cc-body">
-            <div className="pm-card-cream pm-cream-orange">
-              <h4 className="pm-title-lg pm-text-orange-dark">Dispatch Preparation Checklist</h4>
-              <div className="pm-grid-3 mb-4">
-                <label className="pm-checklist-item pm-checklist-orange">
-                  <input type="checkbox" checked={checks.inventory} onChange={e => setChecks({ ...checks, inventory: e.target.checked })} />
-                  <span className="pm-text-orange-dark">📦 Pulled from Inventory</span>
-                </label>
-                <label className="pm-checklist-item pm-checklist-orange">
-                  <input type="checkbox" checked={checks.transport} onChange={e => setChecks({ ...checks, transport: e.target.checked })} />
-                  <span className="pm-text-orange-dark">🚚 Transport Assigned</span>
-                </label>
-                <label className="pm-checklist-item pm-checklist-orange">
-                  <input type="checkbox" checked={checks.notified} onChange={e => setChecks({ ...checks, notified: e.target.checked })} />
-                  <span className="pm-text-orange-dark">📱 Eng Team Notified</span>
-                </label>
-              </div>
-              <PrimaryButton disabled={!ready} variant="orange" onClick={() => onAdvance('Site Inspection & Project Monitoring')}>
-                ✓ Confirm Dispatch & Return to Engineer
-              </PrimaryButton>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <LogisticsDispatch onAdvance={onAdvance} />;
   }
 
-  // ── Main Command Center ─────────────────────────────────────────────────────
   return (
     <div className="pm-cc-wrapper">
       {showRequestModal && (
@@ -143,48 +161,63 @@ const PhaseCommandCenter = ({ project, cc, tracking, onAdvance, onUploadAdvance,
 
         <div className="pm-cc-body">
 
-          {/* ── TAB 1: Installer Monitoring ── */}
-          {activeTab === 'installers' && (
-            <InstallerMonitoring project={project} user={user} onLogSaved={() => {}} />
-          )}
+          {/*
+           * FIX: Instead of display:none/block, we use the .pm-tab-panel pattern.
+           *
+           * display:none removes the element from layout entirely, so when the tab
+           * becomes visible the browser has never calculated the panel's width.
+           * Child components that rely on their container's width for responsive
+           * breakpoints (min-width media queries on fixed containers, overflow-x
+           * scroll wrappers, table min-width rules, etc.) all silently break.
+           *
+           * The fix: keep every panel in the normal flow but use
+           *   visibility: hidden  +  height: 0  +  overflow: hidden  +  pointer-events: none
+           * for inactive panels.  The browser still computes layout (so responsive
+           * CSS works), but the user never sees or interacts with inactive tabs.
+           *
+           * The active panel gets:
+           *   visibility: visible  +  height: auto  +  overflow: visible
+           */}
 
-          {/* ── TAB 2: Materials Monitoring ── */}
-          {activeTab === 'materials' && (
+          {/* TAB 1: Installer Monitoring */}
+          <div className={`pm-tab-panel${activeTab === 'installers' ? ' pm-tab-panel--active' : ''}`}>
+            <InstallerMonitoring project={project} user={user} onLogSaved={() => {}} />
+          </div>
+
+          {/* TAB 2: Project Timeline */}
+          <div className={`pm-tab-panel${activeTab === 'timeline' ? ' pm-tab-panel--active' : ''}`}>
+            <TimelineGantt
+              project={project}
+              user={user}
+              trackingData={timelineTrackingData}
+              onSave={() => {}} />
+          </div>
+
+          {/* TAB 3: Materials Monitoring */}
+          <div className={`pm-tab-panel${activeTab === 'materials' ? ' pm-tab-panel--active' : ''}`}>
             <MaterialsMonitoring
               project={project}
               user={user}
               trackingData={tracking}
               onSave={() => {}} />
-          )}
+          </div>
 
-          {/* ── TAB 3: Timeline + Gantt ── */}
-          {activeTab === 'timeline' && (
-            <TimelineGantt
-              project={project}
-              user={user}
-              trackingData={(() => {
-                try {
-                  const raw = typeof tracking?.timeline_tracking === 'string'
-                    ? JSON.parse(tracking.timeline_tracking)
-                    : (tracking?.timeline_tracking ?? {});
-                  return raw;
-                } catch { return {}; }
-              })()}
-              onSave={() => {}} />
-          )}
-
-          {/* ── TAB 4: Issues ── */}
-          {activeTab === 'issues' && (
+          {/* TAB 4: Issues & Solutions */}
+          <div className={`pm-tab-panel${activeTab === 'issues' ? ' pm-tab-panel--active' : ''}`}>
             <div className="pm-animate-fadein">
               <h4 className="pm-title-lg">Problem Encountered & Solution Log</h4>
               <div className="pm-grid-2 mb-4">
                 <div className="pm-card-red pm-no-margin">
                   <label className="pm-label pm-label-red">⚠️ Problem Encountered *</label>
-                  <textarea value={issueLog.problem || ''} onChange={e => setIssueLog({ ...issueLog, problem: e.target.value })} className="pm-textarea" placeholder="Describe the issue..." />
+                  <textarea value={issueLog.problem || ''}
+                    onChange={e => setIssueLog({ ...issueLog, problem: e.target.value })}
+                    className="pm-textarea" placeholder="Describe the issue..." />
                 </div>
                 <div className="pm-card pm-card-solution pm-no-margin">
                   <label className="pm-label pm-label-green">✅ Solution / Action Taken</label>
-                  <textarea value={issueLog.solution || ''} onChange={e => setIssueLog({ ...issueLog, solution: e.target.value })} className="pm-textarea" placeholder="Describe the action taken..." />
+                  <textarea value={issueLog.solution || ''}
+                    onChange={e => setIssueLog({ ...issueLog, solution: e.target.value })}
+                    className="pm-textarea" placeholder="Describe the action taken..." />
                 </div>
               </div>
               <PrimaryButton variant="navy" onClick={handleIssueSubmit} disabled={isSubmittingIssue}>
@@ -210,14 +243,14 @@ const PhaseCommandCenter = ({ project, cc, tracking, onAdvance, onUploadAdvance,
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* ── TAB 5: Site Inspection ── */}
-          {activeTab === 'inspection' && (
+          {/* TAB 5: Site Inspection */}
+          <div className={`pm-tab-panel${activeTab === 'inspection' ? ' pm-tab-panel--active' : ''}`}>
             <SiteInspectionReport project={project} user={user} onSave={() => {}} />
-          )}
+          </div>
 
-          {/* ── Bottom Action Cards ── */}
+          {/* Bottom Action Cards — always visible, outside tab panels */}
           <hr className="pm-section-divider" />
           <div className="pm-grid-3">
             <div className="pm-action-card" data-variant="orange">

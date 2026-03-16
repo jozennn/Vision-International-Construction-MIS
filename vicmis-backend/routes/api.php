@@ -73,6 +73,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{id}/issues',      [ProjectController::class, 'getIssues']);
     Route::post('/projects/{id}/issues',     [ProjectController::class, 'storeIssue']);
 
+    Route::patch('/projects/{id}/qa-checks', [ProjectController::class, 'saveQaChecks']);
+
     // Material Requests
     Route::get('/projects/{id}/material-requests',  [MaterialRequestController::class, 'getProjectRequests']);
     Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
@@ -88,6 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
         Route::post('/assign-task',    [EngineeringController::class, 'assignTask']);
         Route::post('/pick-project',   [EngineeringController::class, 'pickProject']);
+        Route::get('/engineers', [EngineeringController::class, 'getEngineers']);
     });
 
     // --- LEADS ---

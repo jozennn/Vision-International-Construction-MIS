@@ -8,8 +8,6 @@ import '../css/MonitoringComponents.css';
 const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
 
 const InstallerMonitoring = ({ project, user }) => {
-    // ── Resolve roster from either project.installer_roster (top-level from
-    //    formatProject) or project.mobilization.installer_roster (nested)
     const roster = resolveRoster(project);
 
     const {
@@ -44,140 +42,42 @@ const InstallerMonitoring = ({ project, user }) => {
         } catch {}
     };
 
-    // ── Excel Export ──────────────────────────────────────────────────────
     const exportExcel = async () => {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Daily Monitoring');
-        const NAVY='FF1A1A2E', RED='FFFF1817', YELLOW='FFFFFF00', CREAM='FFEBDBD6', LGRAY='FFF2F2F2';
-        const b   = (sz=10) => ({ bold: true,  size: sz, name: 'Arial' });
-        const n   = (sz=10) => ({ bold: false, size: sz, name: 'Arial' });
-        const ctr = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        const lft = { horizontal: 'left',   vertical: 'middle', wrapText: true };
-        const fill= (c) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } });
-        const thin= { style: 'thin', color: { argb: 'FF000000' } };
-        const brd = { top: thin, bottom: thin, left: thin, right: thin };
-
-        ws.columns = [{ width: 6 }, { width: 28 }, { width: 14 }, { width: 14 }, { width: 22 }, { width: 28 }];
-        let r = 1;
-
+        const NAVY='FF1A1A2E',RED='FFFF1817',YELLOW='FFFFFF00',CREAM='FFEBDBD6',LGRAY='FFF2F2F2';
+        const b=(sz=10)=>({bold:true,size:sz,name:'Arial'});
+        const n=(sz=10)=>({bold:false,size:sz,name:'Arial'});
+        const ctr={horizontal:'center',vertical:'middle',wrapText:true};
+        const lft={horizontal:'left',vertical:'middle',wrapText:true};
+        const fill=(c)=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});
+        const thin={style:'thin',color:{argb:'FF000000'}};
+        const brd={top:thin,bottom:thin,left:thin,right:thin};
+        ws.columns=[{width:6},{width:28},{width:14},{width:14},{width:22},{width:28}];
+        let r=1;
         ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'VISION INTERNATIONAL CONSTRUCTION OPC\n"You Envision, We Build"';
-        ws.getCell(`A${r}`).font  = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-        ws.getCell(`A${r}`).fill  = fill(NAVY); ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 40; r++;
-
+        ws.getCell(`A${r}`).value='VISION INTERNATIONAL CONSTRUCTION OPC\n"You Envision, We Build"';
+        ws.getCell(`A${r}`).font={bold:true,size:13,name:'Arial',color:{argb:'FFFFFFFF'}};
+        ws.getCell(`A${r}`).fill=fill(NAVY); ws.getCell(`A${r}`).alignment=ctr; ws.getCell(`A${r}`).border=brd;
+        ws.getRow(r).height=40; r++;
         ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = "INSTALLER'S DAILY MONITORING ON SITE";
-        ws.getCell(`A${r}`).font  = b(12); ws.getCell(`A${r}`).fill = fill(CREAM);
-        ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 22; r++;
-
-        [['Project', projectName], ['Location', location], ['Requirement:', requirement],
-         ['Installer (Lead Man):', leadMan], ['Total Area:', currentLog.totalArea],
-         ['Date:', new Date(currentLog.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })]
-        ].forEach(([lbl, val]) => {
+        ws.getCell(`A${r}`).value="INSTALLER'S DAILY MONITORING ON SITE";
+        ws.getCell(`A${r}`).font=b(12); ws.getCell(`A${r}`).fill=fill(CREAM);
+        ws.getCell(`A${r}`).alignment=ctr; ws.getCell(`A${r}`).border=brd;
+        ws.getRow(r).height=22; r++;
+        [['Project',projectName],['Location',location],['Requirement:',requirement],
+         ['Installer (Lead Man):',leadMan],['Total Area:',currentLog.totalArea],
+         ['Date:',new Date(currentLog.date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})]
+        ].forEach(([lbl,val])=>{
             ws.mergeCells(`A${r}:B${r}`); ws.mergeCells(`C${r}:F${r}`);
-            ws.getCell(`A${r}`).value = lbl; ws.getCell(`A${r}`).font = b(); ws.getCell(`A${r}`).alignment = lft; ws.getCell(`A${r}`).border = brd;
-            ws.getCell(`C${r}`).value = val; ws.getCell(`C${r}`).font = n(); ws.getCell(`C${r}`).alignment = lft; ws.getCell(`C${r}`).border = brd;
-            ws.getRow(r).height = 18; r++;
+            ws.getCell(`A${r}`).value=lbl; ws.getCell(`A${r}`).font=b(); ws.getCell(`A${r}`).alignment=lft; ws.getCell(`A${r}`).border=brd;
+            ws.getCell(`C${r}`).value=val; ws.getCell(`C${r}`).font=n(); ws.getCell(`C${r}`).alignment=lft; ws.getCell(`C${r}`).border=brd;
+            ws.getRow(r).height=18; r++;
         });
         r++;
-
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'NO. OF INSTALLER'; ws.getCell(`A${r}`).font = b(11);
-        ws.getCell(`A${r}`).fill  = fill(YELLOW); ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 20; r++;
-
-        ['NO.', 'NAME', 'TIME IN', 'TIME OUT', 'PHOTO ATTACHMENT', 'CONCERNS / REMARKS'].forEach((h, ci) => {
-            const c = ws.getCell(r, ci + 1);
-            c.value = h; c.font = { bold: true, size: 10, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-            c.fill = fill(NAVY); c.alignment = ctr; c.border = brd;
-        });
-        ws.getRow(r).height = 20; r++;
-
-        const maxR = Math.max(currentLog.rows.length, 6);
-        for (let i = 0; i < maxR; i++) {
-            const row = currentLog.rows[i];
-            [i + 1, row?.name ?? '', row?.timeIn ?? '', row?.timeOut ?? '', '', row?.remarks ?? ''].forEach((v, ci) => {
-                const c = ws.getCell(r, ci + 1);
-                c.value = v; c.font = n(); c.alignment = ci === 1 ? lft : ctr; c.border = brd;
-                c.fill = fill(i % 2 === 0 ? 'FFFFFFFF' : LGRAY);
-            });
-            ws.getRow(r).height = 20; r++;
-        }
-        r++;
-
-        // Materials section
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'MATERIALS ON SITE'; ws.getCell(`A${r}`).font = b(11);
-        ws.getCell(`A${r}`).fill  = fill(YELLOW); ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 20; r++;
-
-        ws.mergeCells(`A${r}:B${r}`); ws.mergeCells(`C${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'Date of Delivery'; ws.getCell(`A${r}`).font = b(); ws.getCell(`A${r}`).alignment = lft; ws.getCell(`A${r}`).border = brd;
-        ws.getCell(`C${r}`).value = currentLog.clientStart || ''; ws.getCell(`C${r}`).font = n(); ws.getCell(`C${r}`).alignment = lft; ws.getCell(`C${r}`).border = brd;
-        ws.getRow(r).height = 18; r++;
-
-        ['NO.', 'DESCRIPTION', 'QUANTITY DELIVERED', 'QUANTITY INSTALLED', 'REMAINING QUANTITY', 'UNITS'].forEach((h, ci) => {
-            const c = ws.getCell(r, ci + 1);
-            c.value = h; c.font = { bold: true, size: 9, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-            c.fill = fill(NAVY); c.alignment = ctr; c.border = brd;
-        });
-        ws.getRow(r).height = 30; r++;
-        for (let i = 1; i <= 16; i++) {
-            [i, '', '', '', '', ''].forEach((v, ci) => { const c = ws.getCell(r, ci + 1); c.value = v; c.font = n(); c.alignment = ctr; c.border = brd; });
-            ws.getRow(r).height = 18; r++;
-        }
-        r++;
-
-        // Project Status
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'PROJECT STATUS'; ws.getCell(`A${r}`).font = b(11);
-        ws.getCell(`A${r}`).fill  = fill(YELLOW); ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 20; r++;
-
-        ws.mergeCells(`A${r}:C${r}`); ws.mergeCells(`D${r}:F${r}`);
-        ['PERCENTAGE (%) OF ACCOMPLISHMENT', 'STATUS / REMARKS'].forEach((h, ci) => {
-            const c = ws.getCell(r, ci === 0 ? 1 : 4);
-            c.value = h; c.font = { bold: true, size: 10, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-            c.fill = fill(NAVY); c.alignment = ctr; c.border = brd;
-        });
-        ws.getRow(r).height = 18; r++;
-        ws.mergeCells(`A${r}:C${r + 2}`); ws.mergeCells(`D${r}:F${r + 2}`);
-        ws.getCell(`A${r}`).value = currentLog.completion ? `${currentLog.completion}%` : ''; ws.getCell(`A${r}`).font = { bold: true, size: 24, name: 'Arial' }; ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getCell(`D${r}`).value = currentLog.remarks; ws.getCell(`D${r}`).font = n(); ws.getCell(`D${r}`).alignment = ctr; ws.getCell(`D${r}`).border = brd;
-        ws.getRow(r).height = 20; r += 3; r++;
-
-        ws.mergeCells(`A${r}:F${r}`); ws.getCell(`A${r}`).fill = fill(CREAM); ws.getCell(`A${r}`).border = brd; ws.getRow(r).height = 10; r++;
-        [['', 'PROJECT START DATE\n(DEPLOYMENT DATE)', 'PROJECT END DATE\n(TURN OVER DATE)', 'REMARKS'],
-         ['From Client', currentLog.clientStart, currentLog.clientEnd, ''],
-         ['Actual Deployment', currentLog.actualStart, currentLog.actualEnd, '']
-        ].forEach((cols, ri) => {
-            ws.getCell(r, 1).value = cols[0]; ws.getCell(r, 1).border = brd; ws.getCell(r, 1).alignment = ctr;
-            if (ri === 0) { ws.getCell(r, 1).fill = fill(NAVY); ws.getCell(r, 1).font = { bold: true, size: 9, name: 'Arial', color: { argb: 'FFFFFFFF' } }; }
-            [[2, 3], [4, 5], [6, 6]].forEach(([s, e], ci) => {
-                if (s !== e) ws.mergeCells(r, s, r, e);
-                const c = ws.getCell(r, s); c.value = cols[ci + 1]; c.border = brd; c.alignment = ctr;
-                if (ri === 0) { c.fill = fill(RED); c.font = { bold: true, size: 9, name: 'Arial', color: { argb: 'FFFFFFFF' } }; } else { c.font = n(9); }
-            });
-            ws.getRow(r).height = ri === 0 ? 30 : 18; r++;
-        });
-        r++;
-
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'ACCOMPLISHMENT REPORT ON SITE'; ws.getCell(`A${r}`).font = b(11);
-        ws.getCell(`A${r}`).fill  = fill(YELLOW); ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 20; r++;
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value = 'PROOF OF ACCOMPLISHED WORK';
-        ws.getCell(`A${r}`).font  = { bold: true, size: 10, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-        ws.getCell(`A${r}`).fill  = fill(NAVY); ws.getCell(`A${r}`).alignment = ctr; ws.getCell(`A${r}`).border = brd;
-        ws.getRow(r).height = 18; r++;
-        for (let i = 0; i < 8; i++) { ws.mergeCells(`A${r}:F${r}`); ws.getCell(`A${r}`).border = brd; ws.getRow(r).height = 20; r++; }
-
-        const buf     = await wb.xlsx.writeBuffer();
-        const dateStr = new Date(currentLog.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).replace(/ /g, '-');
-        saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        const buf=await wb.xlsx.writeBuffer();
+        const dateStr=new Date(currentLog.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'}).replace(/ /g,'-');
+        saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
             `${projectName}_DailyLog_${dateStr}.xlsx`);
     };
 
@@ -185,11 +85,11 @@ const InstallerMonitoring = ({ project, user }) => {
 
     return (
         <div className="mon-section">
-            {/* ── Page Header ── */}
+            {/* Header */}
             <div className="mon-page-header">
                 <div className="mon-header-meta">
-                    {[['Project', projectName], ['Location', location],
-                      ['Requirement', requirement], ['Lead Installer', leadMan]].map(([l, v]) => (
+                    {[['Project',projectName],['Location',location],
+                      ['Requirement',requirement],['Lead Installer',leadMan]].map(([l,v]) => (
                         <div key={l} className="mon-header-field">
                             <span className="mon-header-label">{l}</span>
                             <span className="mon-header-value">{v}</span>
@@ -199,16 +99,16 @@ const InstallerMonitoring = ({ project, user }) => {
                 <div className="mon-header-actions">
                     <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
                     <button className="mon-btn mon-btn-navy" onClick={handleSave} disabled={saving}>
-                        {saving ? 'Saving…' : '💾 Save Report'}
+                        {saving ? 'Saving…' : '💾 Save'}
                     </button>
                 </div>
             </div>
 
-            {/* ── Body ── */}
+            {/* Body */}
             <div className="mon-body">
                 {error && <div className="mon-error">⚠️ {error}</div>}
 
-                {/* ── Top info row: area + remarks + date ── */}
+                {/* Top info row — CSS controls layout (col on mobile, row on tablet+) */}
                 <div className="mon-top-row">
                     <div className="mon-top-field">
                         <span className="mon-input-label">Total Area Logged</span>
@@ -227,14 +127,14 @@ const InstallerMonitoring = ({ project, user }) => {
                         <span className="mon-input-label">📅 Log Date</span>
                         <input type="date" value={selectedDate}
                             onChange={e => setSelectedDate(e.target.value)}
-                            className="mon-input mon-date-input-inline" />
+                            className="mon-date-input-inline" />
                         <span className={`mon-date-status ${logExists ? 'exists' : 'new'}`}>
                             {logExists ? '✅ Log exists' : '🆕 New entry'}
                         </span>
                     </div>
                 </div>
 
-                {/* ── Timeline Logs: 2-col layout ── */}
+                {/* Timeline logs */}
                 <div className="mon-timeline-block">
                     <div className="mon-block-header">
                         <span className="mon-block-title">📅 Timeline Logs</span>
@@ -271,15 +171,13 @@ const InstallerMonitoring = ({ project, user }) => {
                     </div>
                 </div>
 
-                {/* ── Installer Table ── */}
+                {/* Installer Table */}
                 <div className="mon-table-card">
                     <div className="mon-table-toolbar">
-                        <div>
-                            <span className="mon-table-title">👷 No. of Installers — {selectedDate}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span className="mon-table-title">👷 Installers — {selectedDate}</span>
                             {roster.length > 0 && (
-                                <span className="mon-roster-badge">
-                                    {roster.length} from roster
-                                </span>
+                                <span className="mon-roster-badge">{roster.length} from roster</span>
                             )}
                         </div>
                         <button className="mon-add-btn" onClick={addRow}>+ Add Row</button>
@@ -288,76 +186,63 @@ const InstallerMonitoring = ({ project, user }) => {
                         <table className="mon-table">
                             <thead>
                                 <tr>
-                                    <th style={{ width: 40 }}>#</th>
-                                    <th className="th-left">Name</th>
-                                    <th className="th-left">Position</th>
-                                    <th>Time In</th>
-                                    <th>Time Out</th>
-                                    <th>Remarks</th>
-                                    <th style={{ width: 44 }}></th>
+                                    <th style={{ width: 36 }}>#</th>
+                                    <th className="th-left" style={{ minWidth: 120 }}>Name</th>
+                                    <th className="th-left" style={{ minWidth: 100 }}>Position</th>
+                                    <th style={{ minWidth: 80 }}>Time In</th>
+                                    <th style={{ minWidth: 80 }}>Time Out</th>
+                                    <th style={{ minWidth: 100 }}>Remarks</th>
+                                    <th style={{ width: 36 }}></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentLog.rows.map((row, idx) => {
-                                    // Check if this row was pre-filled from the mobilization roster
-                                    const fromRoster = roster[idx] && roster[idx].name === row.name;
-                                    return (
-                                        <tr key={row.id} className={row.name ? 'row-filled' : ''}>
-                                            <td className="td-num">{idx + 1}</td>
-                                            <td className="td-left">
-                                                <input type="text" value={row.name}
-                                                    onChange={e => updateRow(row.id, 'name', e.target.value)}
-                                                    className="mon-cell-input input-wide"
-                                                    placeholder="Full name" />
-                                            </td>
-                                            <td className="td-left">
-                                                {/* Dropdown seeded from roster position */}
-                                                <select value={row.position}
-                                                    onChange={e => updateRow(row.id, 'position', e.target.value)}
-                                                    className="mon-cell-select">
-                                                    <option value="">— Select —</option>
-                                                    {POSITIONS.map(p => (
-                                                        <option key={p} value={p}>{p}</option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <input type="time" value={row.timeIn}
-                                                    onChange={e => updateRow(row.id, 'timeIn', e.target.value)}
-                                                    className="mon-cell-input" />
-                                            </td>
-                                            <td>
-                                                <input type="time" value={row.timeOut}
-                                                    onChange={e => updateRow(row.id, 'timeOut', e.target.value)}
-                                                    className="mon-cell-input" />
-                                            </td>
-                                            <td>
-                                                <input type="text" value={row.remarks}
-                                                    onChange={e => updateRow(row.id, 'remarks', e.target.value)}
-                                                    className="mon-cell-input input-wide"
-                                                    placeholder="Notes…" />
-                                            </td>
-                                            <td>
-                                                <button className="mon-remove-btn"
-                                                    onClick={() => removeRow(row.id)}
-                                                    disabled={currentLog.rows.length <= 1}>✕</button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {currentLog.rows.map((row, idx) => (
+                                    <tr key={row.id} className={row.name ? 'row-filled' : ''}>
+                                        <td className="td-num">{idx + 1}</td>
+                                        <td className="td-left">
+                                            <input type="text" value={row.name}
+                                                onChange={e => updateRow(row.id, 'name', e.target.value)}
+                                                className="mon-cell-input input-wide" placeholder="Full name" />
+                                        </td>
+                                        <td className="td-left">
+                                            <select value={row.position}
+                                                onChange={e => updateRow(row.id, 'position', e.target.value)}
+                                                className="mon-cell-select">
+                                                <option value="">— Select —</option>
+                                                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="time" value={row.timeIn}
+                                                onChange={e => updateRow(row.id, 'timeIn', e.target.value)}
+                                                className="mon-cell-input" />
+                                        </td>
+                                        <td>
+                                            <input type="time" value={row.timeOut}
+                                                onChange={e => updateRow(row.id, 'timeOut', e.target.value)}
+                                                className="mon-cell-input" />
+                                        </td>
+                                        <td>
+                                            <input type="text" value={row.remarks}
+                                                onChange={e => updateRow(row.id, 'remarks', e.target.value)}
+                                                className="mon-cell-input input-wide" placeholder="Notes…" />
+                                        </td>
+                                        <td>
+                                            <button className="mon-remove-btn"
+                                                onClick={() => removeRow(row.id)}
+                                                disabled={currentLog.rows.length <= 1}>✕</button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
-
-                    {/* Roster summary pills */}
                     {roster.length > 0 && (
                         <div className="mon-roster-summary">
-                            {['Lead Installer', 'Installer', 'Helper', 'Supervisor'].map(pos => {
+                            {['Lead Installer','Installer','Helper','Supervisor'].map(pos => {
                                 const count = roster.filter(r => r.position === pos).length;
                                 return count > 0 ? (
-                                    <span key={pos} className="mon-roster-pill">
-                                        {count} {pos}
-                                    </span>
+                                    <span key={pos} className="mon-roster-pill">{count} {pos}</span>
                                 ) : null;
                             })}
                         </div>
@@ -370,9 +255,9 @@ const InstallerMonitoring = ({ project, user }) => {
                         <span className="mon-block-title">📸 Photo Attachments</span>
                     </div>
                     <div className="mon-photo-grid">
-                        {[['Main Progress Photo', photoMain, setPhotoMain, fileMainRef],
-                          ['Team Photo 1',        photo1,    setPhoto1,    file1Ref],
-                          ['Team Photo 2',        photo2,    setPhoto2,    file2Ref]].map(([label, state, setter, ref]) => (
+                        {[['Main Progress Photo',photoMain,setPhotoMain,fileMainRef],
+                          ['Team Photo 1',photo1,setPhoto1,file1Ref],
+                          ['Team Photo 2',photo2,setPhoto2,file2Ref]].map(([label,state,setter,ref]) => (
                             <div key={label} className="mon-photo-item">
                                 <span className="mon-photo-label">{label}</span>
                                 <label className={`mon-upload-trigger ${state ? 'has-file' : ''}`}>
@@ -409,7 +294,7 @@ const InstallerMonitoring = ({ project, user }) => {
                                         <div>
                                             <div className="mon-history-date">{l.log_date}</div>
                                             <div className="mon-history-meta">
-                                                {l.accomplishment_percent ?? 0}% complete · Area: {l.total_area ?? '—'}
+                                                {l.accomplishment_percent ?? 0}% · Area: {l.total_area ?? '—'}
                                             </div>
                                         </div>
                                         <span className="mon-history-badge">View</span>

@@ -1,13 +1,17 @@
 // src/hooks/useMaterialsMonitoring.js
-//
-// Manages all API calls for the Materials Monitoring tab.
-// Consumed by MaterialsMonitoring.jsx.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/api/axios';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split('T')[0];
+
+/** Strip time portion from any ISO date string → 'yyyy-MM-dd' */
+const toDateOnly = (val) => {
+    if (!val) return '';
+    if (typeof val === 'string') return val.split('T')[0].slice(0, 10);
+    return val;
+};
 
 export const totalDelivered = (item) =>
     (item.deliveries ?? []).reduce((s, d) => s + Number(d.qty || 0), 0);
@@ -19,15 +23,18 @@ export const getRunningTotal = (item, upToDate) => {
         .reduce((s, [, v]) => s + Number(v || 0), 0);
 };
 
-const emptyItem = (id) => ({
+export const getRemainingInventory = (item, upToDate) =>
+    totalDelivered(item) - getRunningTotal(item, upToDate);
+
+const emptyItem = (id, overrides = {}) => ({
     id,
     name:          '',
     description:   '',
     unit:          'pcs',
-    deliveries:    [{ date: '', qty: 0 }],
-    installed:     0,
+    deliveries:    [{ date: today(), qty: 0 }],
     remarks:       '',
     dailyConsumed: {},
+    ...overrides,
 });
 
 const safeParse = (raw) => {
@@ -37,37 +44,98 @@ const safeParse = (raw) => {
     } catch { return null; }
 };
 
-// Default sample rows shown before DB data loads
-// Remove these once you have real data in DB
-const SAMPLE_ITEMS = [
-    { id: 1, name: 'MAPLE HARDWOOD',        description: '1.81m x 73mm X 22mm',    unit: 'pcs',  deliveries: [{ date: '', qty: 5  }], installed: 2, remarks: '', dailyConsumed: {} },
-    { id: 2, name: 'PLYWOOD',               description: '1.22m x 2.44m X 11.5mm', unit: 'pcs',  deliveries: [{ date: '', qty: 0  }], installed: 0, remarks: '', dailyConsumed: {} },
-    { id: 3, name: 'WOOD JOIST',            description: '3m x 45mm X 45mm',        unit: 'pcs',  deliveries: [{ date: '', qty: 0  }], installed: 0, remarks: '', dailyConsumed: {} },
-    { id: 4, name: 'RUBBER PAD',            description: '75mm X 60mm X 20mm',      unit: 'pcs',  deliveries: [{ date: '', qty: 0  }], installed: 0, remarks: '', dailyConsumed: {} },
-    { id: 5, name: 'POLYETHYLENE PLASTIC',  description: '900sqm/Roll',              unit: 'roll', deliveries: [{ date: '', qty: 0  }], installed: 0, remarks: '', dailyConsumed: {} },
-    { id: 6, name: 'ALUMINUM THRESHOLD',    description: '4" X 6.4m',               unit: 'pcs',  deliveries: [{ date: '', qty: 0  }], installed: 0, remarks: '', dailyConsumed: {} },
-];
+const hasData = (item) => {
+    const hasDelivery = (item.deliveries ?? []).some(d => Number(d.qty) > 0);
+    const hasConsumed = Object.values(item.dailyConsumed ?? {}).some(v => Number(v) > 0);
+    return hasDelivery || hasConsumed;
+};
+
+/**
+ * Sanitize all date strings in a saved item to plain 'yyyy-MM-dd'.
+ * Fixes the React error: "2026-03-16T00:00:00.000000Z" does not conform
+ * to the required format "yyyy-MM-dd" for <input type="date">.
+ */
+const sanitizeItemDates = (item) => ({
+    ...item,
+    deliveries: (item.deliveries ?? []).map(d => ({
+        ...d,
+        date: toDateOnly(d.date),
+    })),
+});
+
+const mergeBoqIntoItems = (existingItems, boqData) => {
+    const boqRows = Object.values(boqData ?? {})
+        .flat()
+        .filter(row => row?.product_code);
+
+    if (boqRows.length === 0) return existingItems;
+
+    const byBoqKey      = {};
+    existingItems.forEach(item => { if (item.boqKey) byBoqKey[item.boqKey] = item; });
+
+    const activeBoqKeys = new Set(boqRows.map(r => r.product_code));
+    const manualItems   = existingItems.filter(item => !item.boqKey);
+
+    const boqItems = boqRows.map(row => {
+        const key = row.product_code;
+        if (byBoqKey[key]) {
+            return { ...byBoqKey[key], unit: byBoqKey[key].unit || row.unit || 'pcs' };
+        }
+        return emptyItem(Date.now() + Math.random(), {
+            boqKey:      key,
+            name:        row.description || key,
+            description: row.description || '',
+            unit:        row.unit || 'pcs',
+        });
+    });
+
+    const orphanedItems = existingItems.filter(
+        item => item.boqKey && !activeBoqKeys.has(item.boqKey) && hasData(item)
+    );
+
+    return [...manualItems, ...boqItems, ...orphanedItems];
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
-export const useMaterialsMonitoring = (projectId, initialMaterialItems = null) => {
+export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, boqData = null) => {
+
+    // ── IMPORTANT: ALL hooks must be declared unconditionally at the top ──
+    // useRef here alongside useState — never after a conditional or useEffect
+    const hydrated = useRef(false);
+
     const [items,       setItems]       = useState([]);
     const [currentDate, setCurrentDate] = useState(today());
     const [saving,      setSaving]      = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
     const [loading,     setLoading]     = useState(false);
     const [error,       setError]       = useState(null);
 
-    // ── Hydrate from tracking data passed from parent ────────────────────
+    // ── Seed items from saved DB data + BOQ (only once per project) ───────
     useEffect(() => {
-        const parsed = safeParse(initialMaterialItems);
-        if (parsed && parsed.length > 0) {
-            setItems(parsed);
-        } else {
-            // No saved data yet — use sample rows
-            setItems(SAMPLE_ITEMS);
-        }
-    }, [initialMaterialItems]);
+        if (hydrated.current) return;
 
-    // ── Item CRUD ────────────────────────────────────────────────────────
+        const parsed    = safeParse(initialMaterialItems);
+        const sanitized = parsed ? parsed.map(sanitizeItemDates) : null;
+
+        if (boqData) {
+            const base = (sanitized && sanitized.length > 0) ? sanitized : [];
+            setItems(mergeBoqIntoItems(base, boqData));
+        } else if (sanitized && sanitized.length > 0) {
+            setItems(sanitized);
+        }
+
+        hydrated.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
+
+    // Re-merge when BOQ changes
+    useEffect(() => {
+        if (!hydrated.current || !boqData) return;
+        setItems(prev => mergeBoqIntoItems(prev, boqData));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [JSON.stringify(boqData)]);
+
+    // ── Item CRUD ─────────────────────────────────────────────────────────
     const addItem    = () => setItems(p => [...p, emptyItem(Date.now())]);
     const removeItem = (id) => setItems(p => p.filter(i => i.id !== id));
 
@@ -80,7 +148,9 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null) =
             return {
                 ...i,
                 deliveries: i.deliveries.map((d, idx) =>
-                    idx === dIdx ? { ...d, [field]: value } : d
+                    idx === dIdx
+                        ? { ...d, [field]: field === 'date' ? toDateOnly(value) : value }
+                        : d
                 ),
             };
         }));
@@ -88,28 +158,29 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null) =
     const addDelivery = (itemId) =>
         setItems(p => p.map(i =>
             i.id === itemId
-                ? { ...i, deliveries: [...(i.deliveries ?? []), { date: '', qty: 0 }] }
+                ? { ...i, deliveries: [...(i.deliveries ?? []), { date: today(), qty: 0 }] }
                 : i
         ));
 
     const updateConsumed = (itemId, date, value) =>
         setItems(p => p.map(i =>
             i.id === itemId
-                ? { ...i, dailyConsumed: { ...(i.dailyConsumed ?? {}), [date]: Number(value) } }
+                ? { ...i, dailyConsumed: { ...(i.dailyConsumed ?? {}), [date]: Number(value) || 0 } }
                 : i
         ));
 
-    // ── Save ─────────────────────────────────────────────────────────────
-    // PATCH /api/projects/{id}/tracking/materials
+    // ── Save ──────────────────────────────────────────────────────────────
     const saveMaterials = async () => {
         if (!projectId) return;
         setSaving(true);
+        setSaveSuccess(false);
         setError(null);
         try {
-            const res = await api.patch(`/projects/${projectId}/tracking/materials`, {
+            await api.patch(`/projects/${projectId}/tracking/materials`, {
                 material_items: JSON.stringify(items),
             });
-            return res.data;
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 3000);
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save materials.';
             setError(msg);
@@ -119,7 +190,7 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null) =
         }
     };
 
-    // ── Fetch fresh (optional manual refresh) ───────────────────────────
+    // ── Fetch fresh from server ───────────────────────────────────────────
     const fetchMaterials = useCallback(async () => {
         if (!projectId) return;
         setLoading(true);
@@ -128,34 +199,31 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null) =
             const res    = await api.get(`/projects/${projectId}`);
             const mat    = res.data?.project?.material_items;
             const parsed = safeParse(mat);
-            if (parsed && parsed.length > 0) setItems(parsed);
+            if (parsed && parsed.length > 0) {
+                const sanitized = parsed.map(sanitizeItemDates);
+                setItems(mergeBoqIntoItems(sanitized, boqData));
+            }
         } catch (e) {
             setError(e.response?.data?.message ?? 'Failed to fetch materials.');
         } finally {
             setLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, boqData]);
 
     return {
-        // State
         items,
         currentDate,
         loading,
         saving,
+        saveSuccess,
         error,
-        // Setters
         setCurrentDate,
-        // Item helpers
         addItem,
         removeItem,
         updateItem,
         updateDelivery,
         addDelivery,
         updateConsumed,
-        // Computed helpers (exported so component doesn't duplicate)
-        totalDelivered,
-        getRunningTotal,
-        // Actions
         saveMaterials,
         fetchMaterials,
     };

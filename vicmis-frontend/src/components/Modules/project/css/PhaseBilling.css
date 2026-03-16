@@ -1,84 +1,170 @@
 /* ============================================================
-   PhaseBilling.css
+   PhaseBilling.css — Vision Brand: Black + Red Header, White Body
    Vision International Construction OPC
+   Brand colors: #221F1F (black) · #FF1817 (red) · #C20100 (red dark)
+                 #497B97 (blue) · #EBDBD6 (cream) · #FFFFFF (white)
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900;1,9..40,400&display=swap');
 
 :root {
-  --bill-navy:    #1A1A2E;
-  --bill-blue:    #497B97;
-  --bill-red:     #FF1817;
-  --bill-green:   #16a34a;
-  --bill-cream:   #EBDBD6;
-  --bill-black:   #221F1F;
-  --bill-border:  #E2D9D2;
-  --bill-surface: #F8F6F3;
-  --bill-white:   #FFFFFF;
-  --bill-radius:  10px;
-  --bill-shadow:  0 2px 8px rgba(34,31,31,0.08);
-  --bill-font:    'DM Sans', sans-serif;
+  --bill-black:       #221F1F;
+  --bill-black-deep:  #151313;
+  --bill-black-mid:   #2d2929;
+  --bill-red:         #FF1817;
+  --bill-red-dark:    #C20100;
+  --bill-red-deeper:  #A00101;
+  --bill-blue:        #497B97;
+  --bill-cream:       #EBDBD6;
+  --bill-white:       #FFFFFF;
+  --bill-surface:     #F8F6F3;
+  --bill-border-soft: #E2D9D2;
+  --bill-radius:      12px;
+  --bill-radius-sm:   8px;
+  --bill-font:        'DM Sans', sans-serif;
 }
 
 /* ── Wrapper ── */
 .bill-wrapper {
   font-family: var(--bill-font);
   color: var(--bill-black);
-  border: 1px solid var(--bill-border);
   border-radius: var(--bill-radius);
   overflow: hidden;
-  box-shadow: var(--bill-shadow);
   background: var(--bill-white);
+  border: 1px solid var(--bill-border-soft);
+  box-shadow: 0 4px 24px rgba(34,31,31,0.13);
+  animation: bill-fadein 0.28s ease;
 }
 
-/* ── Header band ── */
+@keyframes bill-fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   HEADER — Vision brand: #221F1F black, #FF1817 red accent line
+   ============================================================ */
 .bill-header {
-  padding: 18px 24px;
+  position: relative;
+  padding: 0;
+  min-height: 80px;
+  background: linear-gradient(135deg, var(--bill-black-deep) 0%, var(--bill-black) 55%, var(--bill-black-mid) 100%);
   border-bottom: 3px solid var(--bill-red);
 }
 
-.bill-header.is-progress { background: var(--bill-navy); }
-.bill-header.is-final    { background: var(--bill-green); }
-
-.bill-header-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--bill-white);
-  margin: 0;
+/* Diagonal red glow stripe right side */
+.bill-header::before {
+  content: '';
+  position: absolute;
+  top: 0; right: -40px; bottom: 0;
+  width: 220px;
+  transform: skewX(-16deg);
+  background: rgba(255, 24, 23, 0.09);
+  z-index: 0;
 }
 
-/* ── Body ── */
-.bill-body {
-  padding: 28px;
+/* Second faint stripe */
+.bill-header::after {
+  content: '';
+  position: absolute;
+  top: 0; right: -120px; bottom: 0;
+  width: 160px;
+  transform: skewX(-16deg);
+  background: rgba(255, 24, 23, 0.04);
+  z-index: 0;
+}
+
+.bill-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.bill-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 22px;
+  flex-shrink: 0;
+  background: rgba(255, 24, 23, 0.14);
+  border: 1px solid rgba(255, 24, 23, 0.35);
+}
+
+.bill-header-text {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 3px;
 }
 
-/* ── Two-column content grid ── */
+.bill-header-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--bill-white);
+  margin: 0;
+  letter-spacing: 0.2px;
+}
+
+.bill-header-subtitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: rgba(255, 100, 100, 0.75);
+}
+
+/* ============================================================
+   BODY — White
+   ============================================================ */
+.bill-body {
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--bill-white);
+}
+
 .bill-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
 }
 
-/* ── Statement card (left) ── */
+/* ── Statement card — red left bar ── */
 .bill-statement {
   background: var(--bill-surface);
-  border: 1px solid var(--bill-border);
+  border: 1px solid var(--bill-border-soft);
   border-radius: var(--bill-radius);
-  padding: 22px;
+  padding: 22px 22px 22px 26px;
   display: flex;
   flex-direction: column;
   gap: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.bill-statement::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--bill-red) 0%, var(--bill-red-dark) 100%);
 }
 
 .bill-statement-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--bill-black);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #999;
   padding-bottom: 14px;
-  border-bottom: 2px solid var(--bill-border);
+  border-bottom: 1px solid var(--bill-border-soft);
   margin-bottom: 16px;
 }
 
@@ -86,19 +172,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px dashed var(--bill-border);
+  padding: 11px 0;
+  border-bottom: 1px dashed var(--bill-border-soft);
 }
 
 .bill-statement-row:last-child { border-bottom: none; }
 
 .bill-statement-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #888;
+  font-weight: 500;
 }
 
 .bill-statement-value {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--bill-black);
 }
@@ -106,147 +193,185 @@
 .bill-percent-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 14px;
+  padding: 5px 14px;
   border-radius: 20px;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
 }
 
 .bill-percent-badge.progress {
   background: #eff6ff;
   color: var(--bill-blue);
+  border: 1px solid rgba(73,123,151,0.25);
 }
 
+/* Final accomplishment badge — Vision red */
 .bill-percent-badge.final {
-  background: #dcfce7;
-  color: var(--bill-green);
+  background: rgba(255, 24, 23, 0.07);
+  color: var(--bill-red-dark);
+  border: 1px solid rgba(255, 24, 23, 0.22);
 }
 
 .bill-payable-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 0 0;
-  margin-top: 4px;
-  border-top: 2px dashed var(--bill-border);
+  padding: 16px 0 2px;
+  margin-top: 6px;
+  border-top: 2px dashed var(--bill-border-soft);
 }
 
 .bill-payable-label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--bill-black);
 }
 
+/* Amount payable — Vision red */
 .bill-payable-amount {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 900;
-  color: var(--bill-green);
+  color: var(--bill-red-dark);
+  letter-spacing: -0.5px;
 }
 
-/* ── Photo / doc card (right) ── */
+/* ── Proof card — red left bar ── */
 .bill-proof-card {
-  background: var(--bill-white);
-  border: 1px solid var(--bill-border);
+  background: var(--bill-surface);
+  border: 1px solid var(--bill-border-soft);
   border-radius: var(--bill-radius);
-  padding: 22px;
+  padding: 22px 22px 22px 26px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bill-proof-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--bill-red) 0%, var(--bill-red-dark) 100%);
 }
 
 .bill-proof-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--bill-black);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #999;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--bill-border-soft);
 }
 
 .bill-site-photo {
   width: 100%;
-  height: 200px;
+  height: 180px;
   object-fit: cover;
-  border-radius: 8px;
-  border: 2px solid var(--bill-border);
+  border-radius: var(--bill-radius-sm);
+  border: 1px solid var(--bill-border-soft);
   display: block;
 }
 
 .bill-photo-empty {
   width: 100%;
-  height: 200px;
-  background: var(--bill-surface);
-  border-radius: 8px;
-  border: 2px dashed var(--bill-border);
+  height: 180px;
+  background: var(--bill-white);
+  border-radius: var(--bill-radius-sm);
+  border: 1.5px dashed var(--bill-border-soft);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .bill-photo-empty-text {
-  font-size: 13px;
+  font-size: 12px;
   color: #bbb;
   margin: 0;
 }
 
 .bill-photo-date {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #aaa;
 }
 
-/* ── Upload section ── */
+/* ── Upload section — cream tint, red top border ── */
 .bill-upload-section {
-  background: #FEF7F0;
-  border: 1px solid var(--bill-cream);
+  background: var(--bill-surface);
+  border: 1px solid var(--bill-border-soft);
+  border-top: 3px solid var(--bill-red);
   border-radius: var(--bill-radius);
-  padding: 24px;
+  padding: 28px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   text-align: center;
 }
 
 .bill-upload-title {
   font-size: 15px;
-  font-weight: 700;
-  color: var(--bill-red);
+  font-weight: 800;
+  color: var(--bill-black);
   margin: 0;
 }
 
 .bill-upload-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: #888;
   margin: 0;
-  max-width: 480px;
+  max-width: 440px;
+  line-height: 1.6;
 }
 
+/* Upload zone — neutral default, red on hover/selected */
 .bill-upload-zone {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 20px;
-  border: 1.5px dashed var(--bill-border);
-  border-radius: 8px;
+  gap: 12px;
+  padding: 13px 22px;
+  border: 1.5px dashed #c8bdb5;
+  border-radius: var(--bill-radius-sm);
   background: var(--bill-white);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--bill-blue);
+  font-weight: 600;
+  color: #888;
   transition: all 0.18s ease;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
 }
 
-.bill-upload-zone:hover      { border-color: var(--bill-blue); background: #EEF4F8; }
-.bill-upload-zone.has-file   { border-color: var(--bill-green); border-style: solid; background: #f0fdf4; color: var(--bill-green); }
+.bill-upload-zone:hover {
+  border-color: var(--bill-red);
+  background: rgba(255, 24, 23, 0.03);
+  color: var(--bill-red-dark);
+}
+
+.bill-upload-zone.has-file {
+  border-color: var(--bill-red-dark);
+  border-style: solid;
+  background: rgba(255, 24, 23, 0.05);
+  color: var(--bill-red-dark);
+}
 
 .bill-file-hidden { display: none; }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
-  .bill-grid  { grid-template-columns: 1fr; }
-  .bill-body  { padding: 18px; }
+@media (max-width: 700px) {
+  .bill-grid           { grid-template-columns: 1fr; }
+  .bill-body           { padding: 16px 16px 20px; gap: 14px; }
+  .bill-header-inner   { padding: 16px 18px; }
+  .bill-statement,
+  .bill-proof-card     { padding: 16px 16px 16px 20px; }
+  .bill-upload-section { padding: 20px 16px; }
 }

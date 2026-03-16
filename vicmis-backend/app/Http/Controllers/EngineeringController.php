@@ -357,4 +357,14 @@ class EngineeringController extends Controller
 
         return (float) $baseProgress;
     }
+
+    public function getEngineers() {
+    $engineers = \App\Models\EngineeringDept::with('user')->get()
+        ->map(fn($row) => [
+            'id'       => $row->user_id,
+            'name'     => $row->user->name ?? '',
+            'position' => $row->position   ?? '',
+        ])->filter(fn($e) => $e['name'])->values();
+    return response()->json(['engineers' => $engineers]);
+    }
 }

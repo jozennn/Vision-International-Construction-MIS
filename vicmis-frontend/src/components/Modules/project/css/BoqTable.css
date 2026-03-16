@@ -1,0 +1,301 @@
+/* ============================================================
+   BoqTable.css — Styles for the BOQ Table component
+   ============================================================ */
+
+/* ── Wrapper ── */
+.boq-wrapper {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0; /* CRITICAL: Allows flex child to shrink below content size */
+}
+
+/* ── Scroll container — this is what makes mobile work ── */
+.boq-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  border-radius: 6px;
+  /* Subtle scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--pm-border-dark, #ccc) transparent;
+}
+.boq-scroll::-webkit-scrollbar        { height: 6px; }
+.boq-scroll::-webkit-scrollbar-track  { background: transparent; }
+.boq-scroll::-webkit-scrollbar-thumb  { background: var(--pm-border-dark, #ccc); border-radius: 10px; }
+
+/* ── Table ── */
+.boq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--pm-font, 'DM Sans', sans-serif);
+  font-size: 13px;
+  /* auto layout so columns respect their minWidth and never crush */
+  table-layout: auto;
+  /* Hard minimum — table scrolls inside .boq-scroll instead of crushing */
+  min-width: 800px;
+  background: #fff;
+}
+
+/* Read-only variant is slightly more compact */
+.boq-table.boq-table--readonly {
+  min-width: 700px;
+  font-size: 12px;
+}
+
+/* ── Header ── */
+.boq-table thead tr {
+  background: var(--pm-black, #221F1F);
+  border-bottom: 3px solid var(--pm-red, #C20100);
+}
+
+.boq-table thead th {
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+.boq-table thead th:last-child { border-right: none; }
+
+/* Column min-widths — prevents crushing */
+.boq-th-category { min-width: 150px; }
+.boq-th-code     { min-width: 130px; }
+.boq-th-unit     { min-width: 70px;  text-align: center; }
+.boq-th-qty      { min-width: 70px;  text-align: center; }
+.boq-th-cost     { min-width: 110px; text-align: center; }
+.boq-th-total    { min-width: 110px; text-align: center; }
+.boq-th-stock    { min-width: 110px; text-align: center; }
+.boq-th-action   { min-width: 50px;  text-align: center; }
+.boq-th-hint     { font-size: 10px; font-weight: 400; opacity: .7; }
+
+/* ── Body rows ── */
+.boq-table tbody tr {
+  border-bottom: 1px solid var(--pm-border-soft, #e5e7eb);
+  transition: background .1s;
+}
+.boq-table tbody tr:last-child    { border-bottom: none; }
+.boq-table tbody tr:nth-child(even) { background: #fafafa; }
+.boq-table tbody tr:hover          { background: rgba(73,123,151,.05) !important; }
+.boq-table tbody tr.boq-row-warn   { background: #fffbeb !important; }
+.boq-table tbody tr.boq-row-warn:hover { background: #fef3c7 !important; }
+
+.boq-table tbody td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+
+/* ── Read-only cells ── */
+.boq-readonly-cell {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pm-text-dark, #221f1f);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boq-code-chip {
+  background: #f0f4f8;
+  border: 1px solid #d1dce6;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--pm-blue, #497B97);
+  font-weight: 600;
+}
+
+/* ── Stock inline (below the product code) ── */
+.boq-stock-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.boq-stock-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.boq-stock-label {
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.boq-stock-on  { color: #059669; }
+.boq-stock-low { color: #d97706; }
+.boq-stock-no  { color: #dc2626; }
+
+/* ── Stock badge (in Stock column) ── */
+.boq-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.boq-stock-on      { background: #d1fae5; color: #065f46; }
+.boq-stock-low     { background: #fef3c7; color: #92400e; }
+.boq-stock-no      { background: #fee2e2; color: #991b1b; }
+.boq-stock-unknown { background: #f3f4f6; color: #9ca3af; }
+
+/* ── Total cell ── */
+.boq-total-cell {
+  font-weight: 700;
+  color: var(--pm-black, #221f1f);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── Footer ── */
+.boq-table tfoot tr {
+  background: var(--pm-black, #221f1f);
+  border-top: 2px solid var(--pm-red, #C20100);
+}
+
+.pm-boq-total-label {
+  padding: 12px !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: .05em !important;
+  text-transform: uppercase !important;
+  color: #ffffff !important; /* FORCED WHITE */
+  text-align: right !important;
+}
+
+.pm-boq-total-val {
+  padding: 12px !important;
+  font-size: 16px !important; /* Slightly larger for emphasis */
+  font-weight: 900 !important;
+  color: #ffffff !important; /* FORCED WHITE */
+  white-space: nowrap !important;
+  text-align: right !important;
+}
+/* ── Empty row ── */
+.boq-empty-row {
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 24px !important;
+  font-size: 13px;
+}
+
+/* ── Add item button row ── */
+.boq-add-row {
+  text-align: center;
+  padding: 14px;
+  background: #fff;
+  border-top: 1px dashed var(--pm-border-soft, #e5e7eb);
+}
+
+/* ── Loading bar ── */
+.boq-loading-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border-bottom: 1px solid #bae6fd;
+  font-size: 12px;
+  color: #0369a1;
+  overflow: hidden;
+}
+.boq-loading-inner {
+  height: 3px;
+  flex: 1;
+  background: linear-gradient(90deg, #38bdf8 0%, #0ea5e9 50%, #38bdf8 100%);
+  background-size: 200% 100%;
+  animation: boq-shimmer 1.4s infinite;
+  border-radius: 2px;
+}
+@keyframes boq-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Stock alert banner ── */
+.boq-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fffbeb;
+  border: 1.5px solid #fbbf24;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.boq-alert-icon { font-size: 18px; flex-shrink: 0; }
+.boq-alert-title { font-size: 13px; font-weight: 700; color: #92400e; display: block; margin-bottom: 6px; }
+.boq-alert-list  { display: flex; flex-wrap: wrap; gap: 6px; }
+.boq-alert-chip  {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.chip-low { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+.chip-no  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.boq-alert-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Dropdown ── */
+.boq-dd-wrap     { position: relative; width: 100%; }
+.boq-dd-trigger { min-height: 32px; }
+.boq-dd-disabled { opacity: .55; }
+
+.boq-dd-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 999;
+  width: 100%;
+  min-width: 200px;
+  background: #fff;
+  border: 1.5px solid var(--pm-border-soft, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.15);
+  overflow: hidden;
+}
+.boq-dd-search {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--pm-border-soft, #e5e7eb);
+  padding: 10px;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.boq-dd-list  { max-height: 200px; overflow-y: auto; }
+.boq-dd-item  {
+  padding: 10px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.boq-dd-item:hover   { background: #f0f4f8; }
+.boq-dd-item.active  { background: #e0edff; font-weight: 600; color: var(--pm-blue, #497B97); }
+.boq-dd-empty { padding: 10px 12px; font-size: 12px; color: #9ca3af; font-style: italic; }
+
+/* ============================================================
+   MOBILE ≤ 640px
+   ============================================================ */
+@media (max-width: 640px) {
+  .boq-table { min-width: 550px; }
+  .boq-table.boq-table--readonly { min-width: 480px; }
+  .boq-table thead th { padding: 8px; font-size: 10px; }
+  .boq-table tbody td { padding: 8px; }
+  
+  .boq-readonly-cell { font-size: 11px; }
+  .boq-stock-label   { font-size: 9px; }
+  .boq-stock-badge   { font-size: 10px; padding: 2px 6px; }
+
+  .pm-boq-total-label { font-size: 11px; }
+  .pm-boq-total-val   { font-size: 12px; }
+}

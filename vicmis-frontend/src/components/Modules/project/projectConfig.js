@@ -12,7 +12,7 @@ export const WAITING_MSG = {
   'Pending Work Order Verification':           { dept: 'Sales Head',              msg: 'verify and approve the Work Order' },
   'Initial Site Inspection':                   { dept: 'Engineering',             msg: 'complete the Initial Site Inspection' },
   'Checking of Delivery of Materials':         { dept: 'Engineering / Logistics', msg: 'verify delivery of materials' },
-  'Pending DR Verification':                   { dept: 'Engineering Head',        msg: 'verify the Delivery Receipt' },
+  'Pending DR Verification':                   { dept: 'Logistics',               msg: 'verify stock availability and the P.O / Proof of Payment' }, // ← changed from Engineering Head
   'Bidding of Project':                        { dept: 'Management',              msg: 'complete the Bidding phase' },
   'Awarding of Project':                       { dept: 'Management',              msg: 'complete the Project Awarding' },
   'Contract Signing for Installer':            { dept: 'Engineering',             msg: 'complete the Subcontractor Handover' },
@@ -34,11 +34,11 @@ export const PHASE_ORDER = [
   { status: 'Actual Measurement',                        owner: 'engineering' },
   { status: 'Pending Head Review',                       owner: 'eng_head',   locked: true },
   { status: 'Purchase Order',                            owner: 'sales'       },
-  { status: 'P.O & Work Order',                          owner: 'sales'       },
+  { status: 'P.O & Work Order',                         owner: 'sales'       },
   { status: 'Pending Work Order Verification',           owner: 'sales_head', locked: true },
   { status: 'Initial Site Inspection',                   owner: 'engineering' },
   { status: 'Checking of Delivery of Materials',         owner: 'engineering' },
-  { status: 'Pending DR Verification',                   owner: 'eng_head',   locked: true },
+  { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true }, // ← changed from eng_head
   { status: 'Bidding of Project',                        owner: 'management'  },
   { status: 'Awarding of Project',                       owner: 'management'  },
   { status: 'Contract Signing for Installer',            owner: 'engineering' },
@@ -84,22 +84,15 @@ export const PHASE_COMPONENT_MAP = {
 };
 
 // Returns the immediately previous phase (one step back), or null if locked
-// We always go back exactly one step — not searching for an owner match.
-// This ensures "Deployment" goes back to "Contract Signing", not further.
 export const getPreviousPhase = (currentStatus, roles) => {
   const idx = PHASE_ORDER.findIndex(p => p.status === currentStatus);
   if (idx <= 0) return null;
 
-  // Check there's no locked phase between previous and current
-  // (i.e. the immediately previous phase itself must not be locked,
-  //  and nothing locked sits between it and the current phase)
   const prevPhase = PHASE_ORDER[idx - 1];
   if (!prevPhase) return null;
 
-  // Can't go back past a locked phase
   if (prevPhase.locked) return null;
 
-  // Can't go back if any locked phase sits between prev and current
   const lockedBetween = PHASE_ORDER.slice(idx, idx).some(p => p.locked);
   if (lockedBetween) return null;
 
@@ -113,7 +106,6 @@ const isDeptHead = (user) => user?.role === 'dept_head';
 export const canAccessProject = (project, user, userDept) => {
   if (!project) return false;
 
-  // Admins, managers, and ALL dept_heads see every project
   if (user?.role === 'admin' || user?.role === 'manager') return true;
   if (isDeptHead(user)) return true;
 
@@ -136,31 +128,30 @@ export const canAccessProject = (project, user, userDept) => {
 
 // Returns 'active' | 'waiting' for the current user + phase combo
 export const getPhaseAccess = (status, { isSales, isEng, isEngHead, isSalesHead, isLogistics, isAccounting, isOpsAss, isDeptHeadAny }) => {
-  // Management / admin always active on everything
   if (isOpsAss) return 'active';
 
   const map = {
-    'Floor Plan':                                isSales     || isSalesHead,
-    'Measurement based on Plan':                 isEng       || isEngHead,
-    'Actual Measurement':                        isEng       || isEngHead,
+    'Floor Plan':                                isSales      || isSalesHead,
+    'Measurement based on Plan':                 isEng        || isEngHead,
+    'Actual Measurement':                        isEng        || isEngHead,
     'Pending Head Review':                       isEngHead,
-    'Purchase Order':                            isSales     || isSalesHead,
-    'P.O & Work Order':                          isSales     || isSalesHead,
+    'Purchase Order':                            isSales      || isSalesHead,
+    'P.O & Work Order':                          isSales      || isSalesHead,
     'Pending Work Order Verification':           isSalesHead,
-    'Initial Site Inspection':                   isEng       || isEngHead,
-    'Checking of Delivery of Materials':         isEng       || isEngHead   || isLogistics,
-    'Pending DR Verification':                   isEngHead,
+    'Initial Site Inspection':                   isEng        || isEngHead,
+    'Checking of Delivery of Materials':         isEng        || isEngHead   || isLogistics,
+    'Pending DR Verification':                   isLogistics,                               // ← changed from isEngHead
     'Bidding of Project':                        isOpsAss,
     'Awarding of Project':                       isOpsAss,
-    'Contract Signing for Installer':            isEng       || isEngHead,
-    'Deployment and Orientation of Installers':  isEng       || isEngHead,
-    'Site Inspection & Project Monitoring':      isEng       || isEngHead,
+    'Contract Signing for Installer':            isEng        || isEngHead,
+    'Deployment and Orientation of Installers':  isEng        || isEngHead,
+    'Site Inspection & Project Monitoring':      isEng        || isEngHead,
     'Request Materials Needed':                  isLogistics,
     'Request Billing':                           isAccounting,
-    'Site Inspection & Quality Checking':        isEng       || isEngHead,
+    'Site Inspection & Quality Checking':        isEng        || isEngHead,
     'Pending QA Verification':                   isEngHead,
-    'Final Site Inspection with the Client':     isEng       || isEngHead,
-    'Signing of COC':                            isEng       || isEngHead,
+    'Final Site Inspection with the Client':     isEng        || isEngHead,
+    'Signing of COC':                            isEng        || isEngHead,
     'Request Final Billing':                     isAccounting,
     'Completed':                                 true,
     'Archived':                                  true,
@@ -224,10 +215,6 @@ export const useProjectActions = (selectedProject, refreshProject) => {
     )) return;
     setGoBackLoading(true);
     try {
-      // ── KEY FIX: send go_back: true, do NOT send rejection_notes ──────────
-      // Sending rejection_notes: null makes PHP's $request->has() return true,
-      // which triggers a ProjectRejectionLog insert with null reason → 500.
-      // go_back: true tells the backend to skip notifications and logs entirely.
       await api.patch(`/projects/${selectedProject.id}/status`, {
         status:  targetPhase,
         go_back: true,

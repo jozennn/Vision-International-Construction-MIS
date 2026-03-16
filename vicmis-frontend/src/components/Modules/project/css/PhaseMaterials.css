@@ -7,8 +7,10 @@
   flex-direction: column;
   gap: 16px;
   width: 100%;
-  height: auto;
+  max-width: 100%;
   min-height: 0;
+  box-sizing: border-box;
+  overflow-x: hidden; /* SAFETY: Prevents whole page horizontal wiggle */
 }
 
 /* ── Main card ── */
@@ -22,24 +24,25 @@
   margin-bottom: 0;
   transition: none;
   cursor: default;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid var(--pm-border-soft, #e5e7eb);
+  border-radius: 12px;
 }
 
-/* Neutralise any global .pm-card:hover rule */
 .pm-phase-wrapper .pm-card:hover {
   transform: none;
   box-shadow: var(--pm-shadow);
   border-color: var(--pm-border-soft);
 }
 
-/* ── Navy header: no radius needed — parent clips it ── */
 .pm-phase-wrapper .pm-card > .pm-card-navy {
   flex-shrink: 0;
   border-radius: 0;
 }
 
-/* ── Card body: overflow visible so content isn't clipped ── */
 .pm-phase-wrapper .pm-card > .pm-card-body {
-  overflow: visible;
   flex: 1 1 auto;
 }
 
@@ -49,30 +52,42 @@
   flex-direction: column;
   gap: 20px;
   padding: 28px 30px 32px;
-  height: auto;
-  overflow: visible;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0; /* CRITICAL: Allows flex items to shrink */
 }
 
-/* ── Gray section ── */
+/* ── Gray section (BOQ Container) ── */
 .pm-phase-wrapper .pm-card-gray {
   margin-bottom: 0;
-  height: auto;
-  overflow: visible;
+  box-sizing: border-box;
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 0; /* CRITICAL: Allows table to stay within card */
 }
 
-/* ── Cream section — NO hover effect ── */
+/* ── Cream section ── */
 .pm-phase-wrapper .pm-card-cream {
   margin-bottom: 0;
-  height: auto;
-  overflow: visible;
+  box-sizing: border-box;
+  width: 100%;
   text-align: center;
   border-style: dashed;
-  /* No transition, no hover */
+  background: #fffaf0;
+  border: 1px solid #feebc8;
+  border-radius: 8px;
+  padding: 20px;
 }
 
-/* ── Red rejection banner (standalone above card) ── */
-.pm-phase-wrapper > .pm-card-red {
-  margin-bottom: 0;
+/* ── Red rejection banner ── */
+.pm-phase-wrapper > .pm-card-red { 
+  margin-bottom: 0; 
+  background: #fff5f5; 
+  border-left: 4px solid #f56565; 
+  padding: 16px;
 }
 
 /* ── Button row ── */
@@ -80,11 +95,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-}
-
-@media (max-width: 600px) {
-  .pm-phase-wrapper .pm-grid-2    { grid-template-columns: 1fr; }
-  .pm-phase-wrapper .pm-card-body { padding: 18px 16px 24px; }
 }
 
 /* ── File input ── */
@@ -101,6 +111,7 @@
   border-radius: var(--pm-radius);
   background: rgba(73, 123, 151, 0.05);
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 /* ── Outline reject button ── */
@@ -120,166 +131,75 @@
   white-space: nowrap;
   transition: all 0.2s ease;
 }
+.pm-phase-wrapper .pm-btn-outline:hover { background: var(--pm-red); color: #fff; }
 
-.pm-phase-wrapper .pm-btn-outline:hover {
-  background: var(--pm-red);
-  color: #fff;
+/* ── Stock legend ── */
+.pm-stock-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: #f1f5f9;
+  border: 1px dashed var(--pm-border-soft, #e5e7eb);
+  border-radius: 8px;
 }
-
-/* ============================================================
-   AWARDING OF PROJECT — redesigned layout
-   ============================================================ */
-
-/* Navy header inner layout */
-.pm-award-header-inner {
+.pm-stock-legend-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  color: var(--pm-black);
+  text-transform: uppercase;
+}
+.pm-stock-legend-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.pm-award-subtitle {
-  color: rgba(255,255,255,0.55);
+  gap: 6px;
   font-size: 12px;
-  margin: 4px 0 0;
+  color: var(--pm-text-dark, #221f1f);
+  font-weight: 500;
 }
-
-.pm-award-step-badge {
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.2);
-  color: rgba(255,255,255,0.8);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  padding: 5px 12px;
-  border-radius: 20px;
-  white-space: nowrap;
+.pm-stock-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
-/* Two-column layout: left info + right form */
+/* ── Navy header ── */
+.pm-phase-wrapper .pm-card > .pm-card-navy {
+  width: 100%;
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1e293b;
+  border-bottom: 3px solid #FF1817;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   AWARDING OF PROJECT
+   ============================================================ */
 .pm-award-grid {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
   gap: 24px;
   align-items: start;
-}
-
-@media (max-width: 800px) {
-  .pm-award-grid { grid-template-columns: 1fr; }
-}
-
-/* Section label row with colored dot */
-.pm-award-section-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--pm-black);
-  margin-bottom: 14px;
-}
-
-.pm-award-step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.pm-dot-blue { background: var(--pm-blue); }
-.pm-dot-red  { background: var(--pm-red); }
-
-/* Left column */
-.pm-award-left {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.pm-award-doc-block {
-  background: var(--pm-surface-2, #f7f4f2);
-  border: 1px solid var(--pm-border-soft);
-  border-radius: var(--pm-radius);
-  padding: 16px 18px;
-}
-
-/* Checklist */
-.pm-award-checklist {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: #fafafa;
-  border: 1px solid var(--pm-border-soft);
-  border-radius: var(--pm-radius);
-  padding: 16px 18px;
-}
-
-.pm-check-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: #999;
-  transition: color 0.2s ease;
-}
-
-.pm-check-item.pm-check-done {
-  color: #1a7a4a;
-  font-weight: 500;
-}
-
-.pm-check-icon {
-  font-size: 14px;
-  font-weight: 700;
-  width: 18px;
-  text-align: center;
-  color: #ccc;
-}
-
-.pm-check-item.pm-check-done .pm-check-icon {
-  color: #1a7a4a;
-}
-
-/* Right column */
-.pm-award-right {
-  display: flex;
-  flex-direction: column;
+  width: 100%;
+  min-width: 0;
 }
 
 .pm-award-form-block {
   background: #fff;
-  border: 1.5px solid var(--pm-border-soft);
-  border-radius: var(--pm-radius);
+  border: 1.5px solid var(--pm-border-soft, #e5e7eb);
+  border-radius: 8px;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.pm-award-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-@media (max-width: 600px) {
-  .pm-award-form-row { grid-template-columns: 1fr; }
-}
-
-.pm-award-form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Custom file upload zone */
-.pm-award-upload-zone {
-  display: flex;
-  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .pm-upload-label {
@@ -287,49 +207,24 @@
   align-items: center;
   gap: 12px;
   padding: 14px 18px;
-  border: 1.5px dashed var(--pm-blue);
-  border-radius: var(--pm-radius);
+  border: 1.5px dashed #497B97;
+  border-radius: 8px;
   background: rgba(73, 123, 151, 0.04);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.pm-upload-label:hover {
-  background: rgba(73, 123, 151, 0.10);
-  border-color: var(--pm-red);
+/* ============================================================
+   RESPONSIVE OVERRIDES
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .pm-award-grid { grid-template-columns: 1fr; }
 }
 
-.pm-upload-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.pm-upload-text {
-  font-size: 13px;
-  color: var(--pm-blue);
-  font-weight: 500;
-  word-break: break-all;
-}
-
-/* ── Utilities ── */
-.pm-phase-wrapper .mt-4        { margin-top: 16px; }
-.pm-phase-wrapper .mb-4        { margin-bottom: 16px; }
-.pm-phase-wrapper .text-left   { text-align: left; }
-.pm-phase-wrapper .text-center { text-align: center; }
-
-/* ── Navy header: full width stretch ── */
-.pm-phase-wrapper .pm-card > .pm-card-navy,
-.pm-phase-wrapper .pm-card > .pm-card-navy.pm-navy-orange {
-  border-radius: 0 !important;
-  width: 100%;
-  padding: 18px 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 3px solid #FF1817;
-  box-sizing: border-box;
-}
-
-.pm-phase-wrapper .pm-card > .pm-card-navy.pm-navy-orange {
-  border-bottom-color: #f97316;
+@media (max-width: 640px) {
+  .pm-phase-wrapper .pm-card-body { padding: 16px; gap: 16px; }
+  .pm-phase-wrapper .pm-grid-2 { grid-template-columns: 1fr; }
+  .pm-phase-wrapper .pm-card > .pm-card-navy { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+  .pm-award-form-block { padding: 16px; }
+  .pm-upload-label { flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; }
 }

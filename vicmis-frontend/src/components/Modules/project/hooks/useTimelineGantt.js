@@ -52,23 +52,58 @@ const safeParse = (raw) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export const useTimelineGantt = (projectId, initialTrackingData = null) => {
-    const [tasks,         setTasks]         = useState([]);
-    const [installerCount,setInstallerCount] = useState(0);
-    const [saving,        setSaving]         = useState(false);
-    const [loading,       setLoading]        = useState(false);
-    const [error,         setError]          = useState(null);
+    const [tasks,          setTasks]          = useState([]);
+    const [installerCount, setInstallerCount] = useState(0);
+    const [saving,         setSaving]         = useState(false);
+    const [saveSuccess,    setSaveSuccess]    = useState(false);
+    const [loading,        setLoading]        = useState(false);
+    const [error,          setError]          = useState(null);
+    // Guards against tab-switch remounts overwriting unsaved edits
+    const [hydrated,       setHydrated]       = useState(false);
 
-    // ── Hydrate from existing tracking data ──────────────────────────────
+    // ── Hydrate from existing tracking data (only once per projectId) ─────
+    //
+    // KEY FIX: The old code depended on `initialTrackingData` so it re-ran
+    // every time the parent re-rendered (e.g. on tab switch), silently
+    // resetting tasks to the last-saved value and discarding unsaved edits.
+    //
+    // Now we use a `hydrated` flag so hydration only happens once.
+    // If initialTrackingData isn't available we fetch from the server instead.
     useEffect(() => {
-        if (!initialTrackingData) return;
-        const raw = safeParse(initialTrackingData);
-        if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) {
-            setTasks(raw.tasks);
+        if (hydrated) return; // already loaded — don't overwrite live edits
+
+        if (initialTrackingData) {
+            const raw = safeParse(initialTrackingData);
+            if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) {
+                setTasks(raw.tasks);
+            }
+            if (raw?.installer_count) {
+                setInstallerCount(raw.installer_count);
+            }
+            setHydrated(true);
+        } else if (projectId) {
+            // No prop data available — fetch directly from server
+            (async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const res = await api.get(`/projects/${projectId}`);
+                    const mat = res.data?.project?.materials ?? res.data?.project;
+                    const raw = safeParse(mat?.timeline_tracking);
+                    if (Array.isArray(raw?.tasks)) setTasks(raw.tasks);
+                    if (raw?.installer_count)      setInstallerCount(raw.installer_count);
+                } catch (e) {
+                    setError(e.response?.data?.message ?? 'Failed to fetch timeline.');
+                } finally {
+                    setLoading(false);
+                    setHydrated(true);
+                }
+            })();
         }
-        if (raw?.installer_count) {
-            setInstallerCount(raw.installer_count);
-        }
-    }, [initialTrackingData]);
+    // Intentionally only re-run when projectId changes (new project opened).
+    // Excluding initialTrackingData & hydrated prevents the reset-on-tab-switch bug.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
 
     // ── Task CRUD ────────────────────────────────────────────────────────
     const addTask  = () => setTasks(p => [...p, emptyTask(Date.now())]);
@@ -131,6 +166,7 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
     const saveTimeline = async () => {
         if (!projectId) return;
         setSaving(true);
+        setSaveSuccess(false);
         setError(null);
         try {
             const payload = {
@@ -140,6 +176,9 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
                 }),
             };
             const res = await api.patch(`/projects/${projectId}/tracking/timeline`, payload);
+            setSaveSuccess(true);
+            // Clear the success indicator after 3 seconds
+            setTimeout(() => setSaveSuccess(false), 3000);
             return res.data;
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save timeline.';
@@ -150,7 +189,7 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         }
     };
 
-    // ── Fetch fresh from backend (optional refresh) ──────────────────────
+    // ── Fetch fresh from backend (manual refresh) ────────────────────────
     const fetchTimeline = useCallback(async () => {
         if (!projectId) return;
         setLoading(true);
@@ -178,6 +217,7 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         projectDuration,
         loading,
         saving,
+        saveSuccess,
         error,
         // Setters
         setInstallerCount,

@@ -2,72 +2,70 @@ import React, { useState, useEffect, useRef } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/SiteInspection.css';
 import api from '@/api/axios';
-
-// ─── Default checklist items (mirrors the physical form) ─────────────────────
-const DEFAULT_CHECKLIST = [
-  { id: 'approved_plan',      label: 'Approved Plan or Layout' },
-  { id: 'smooth_flooring',    label: 'Smooth Finish Flooring (Close to Wall)' },
-  { id: 'no_crack',           label: 'No Crack or Hairlines' },
-  { id: 'mech_elec',          label: 'Done Mechanical, Electrical, Fire Protection, Plumbing and Sanitary' },
-  { id: 'waterproofing',      label: 'Done Waterproofing (if Required)' },
-  { id: 'painting',           label: 'Done Painting Works' },
-  { id: 'ceiling',            label: 'Done Ceiling Works' },
-  { id: 'doors_windows',      label: 'Done Installation of Doors and Windows (Closed Area)' },
-  { id: 'renovation',         label: 'Done Renovation / Dismantle Existing Flooring (if Applicable)' },
-  { id: 'topping_50mm',       label: 'Original Slab or Sub-Floor at Least 50mm Topping' },
-  { id: 'topping_100mm',      label: '100mm Topping for Outbound or 100mm Drop Flooring' },
-  { id: 'leveled',            label: 'Even or Leveled Flooring' },
-  { id: 'no_leak',            label: 'No Leak on Roofing' },
-  { id: 'playing_court',      label: 'Size of Playing Court and With or Without Outbound' },
-];
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // ─── Single checklist row ─────────────────────────────────────────────────────
-const CheckRow = ({ item, onToggle, onLabelChange, onRemove, readOnly }) => (
+const CheckRow = ({ item, onToggle, onLabelChange, onRemove }) => (
   <tr className="si-check-row">
     <td className="si-td-label">
-      {readOnly ? (
-        <span>{item.label}</span>
-      ) : (
-        <input
-          className="si-inline-input"
-          value={item.label}
-          onChange={e => onLabelChange(item.id, e.target.value)}
-          placeholder="Checklist item…"
-        />
-      )}
+      <input
+        className="si-inline-input"
+        value={item.label}
+        onChange={e => onLabelChange(item.id, e.target.value)}
+        placeholder="Checklist item…"
+      />
     </td>
-    <td className="si-td-check"><input type="checkbox" checked={item.yes}  onChange={() => onToggle(item.id, 'yes')}  className="si-checkbox" /></td>
-    <td className="si-td-check"><input type="checkbox" checked={item.no}   onChange={() => onToggle(item.id, 'no')}   className="si-checkbox" /></td>
-    <td className="si-td-check"><input type="checkbox" checked={item.na}   onChange={() => onToggle(item.id, 'na')}   className="si-checkbox" /></td>
+    <td className="si-td-check">
+      <input type="checkbox" checked={item.yes} onChange={() => onToggle(item.id, 'yes')} className="si-checkbox" />
+    </td>
+    <td className="si-td-check">
+      <input type="checkbox" checked={item.no}  onChange={() => onToggle(item.id, 'no')}  className="si-checkbox" />
+    </td>
+    <td className="si-td-check">
+      <input type="checkbox" checked={item.na}  onChange={() => onToggle(item.id, 'na')}  className="si-checkbox" />
+    </td>
     <td className="si-td-reco">
       <input
         className="si-inline-input"
         value={item.recommendation || ''}
         onChange={e => onLabelChange(item.id, e.target.value, 'recommendation')}
         placeholder="—"
-        disabled={readOnly}
       />
     </td>
-    {!readOnly && (
-      <td className="si-td-action">
-        <button className="si-remove-btn" onClick={() => onRemove(item.id)} title="Remove row">✕</button>
-      </td>
-    )}
+    <td className="si-td-action">
+      <button className="si-remove-btn" onClick={() => onRemove(item.id)} title="Remove row">✕</button>
+    </td>
   </tr>
 );
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const safeParse = (raw) => {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch { return null; }
+};
+
+// Strips Laravel ISO timestamp → yyyy-MM-dd for <input type="date">
+// e.g. "2026-03-16T00:00:00.000000Z" → "2026-03-16"
+const toDateInput = (val) => (val ? String(val).slice(0, 10) : '');
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) => {
-  const [engineers,    setEngineers]    = useState([]);
-  const [loadingEng,   setLoadingEng]   = useState(true);
-  const [uploadFile,   setUploadFile]   = useState(null);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [printMode,    setPrintMode]    = useState(false);
+  const [engineers,   setEngineers]   = useState([]);
+  const [loadingEng,  setLoadingEng]  = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [uploadFile,  setUploadFile]  = useState(null);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [exporting,   setExporting]   = useState(false);
+  const [savedOk,     setSavedOk]     = useState(false);
 
-  // ── Form header fields ────────────────────────────────────────────────────
+  const formCardRef = useRef(null);
+
   const [formHeader, setFormHeader] = useState({
-    project_name:    project?.project_name  || '',
-    site_location:   project?.site_location || '',
+    project_name:    project?.project_name || '',
+    site_location:   project?.location     || '',
     inspection_date: new Date().toISOString().split('T')[0],
     inspection_time: new Date().toTimeString().slice(0, 5),
     inspector_id:    '',
@@ -77,20 +75,26 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
     notes_remarks:   '',
   });
 
-  // ── Checklist rows ────────────────────────────────────────────────────────
-  const [checklist, setChecklist] = useState(
-    DEFAULT_CHECKLIST.map(item => ({ ...item, yes: false, no: false, na: false, recommendation: '' }))
-  );
+  const [checklist, setChecklist] = useState([]);
 
-  // ── Fetch engineers list (same as EngineeringDashboard assign modal) ──────
+  // ── 1. Fetch engineers ────────────────────────────────────────────────────
+  // Uses ONLY /engineering/dashboard-stats — the only engineering route
+  // that exists in api.php. No other endpoints are called here.
   useEffect(() => {
     const fetchEngineers = async () => {
       setLoadingEng(true);
       try {
-        const res = await api.get('/engineering/dashboard-stats');
-        setEngineers(res.data?.engineers_list || []);
+        const res  = await api.get('/engineering/dashboard-stats');
+        const list = (res.data?.engineers_list ?? [])
+          .map(eng => ({
+            id:       eng.id,
+            name:     eng.name     ?? '',
+            position: eng.position ?? eng.role ?? '',
+          }))
+          .filter(e => e.name);
+        setEngineers(list);
       } catch (err) {
-        console.error('[SiteInspection] failed to fetch engineers', err);
+        console.error('[SiteInspection] failed to fetch engineers:', err);
       } finally {
         setLoadingEng(false);
       }
@@ -98,51 +102,168 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
     fetchEngineers();
   }, []);
 
-  // ── Header field helper ───────────────────────────────────────────────────
+  // ── 2. Load previously saved inspection on mount ──────────────────────────
+  useEffect(() => {
+    if (!project?.id) { setLoadingData(false); return; }
+
+    const fetchSavedInspection = async () => {
+      setLoadingData(true);
+      try {
+        const res = await api.get(`/projects/${project.id}/site-inspection`);
+        const d   = res.data;
+
+        if (!d || !d.inspection_date) return;
+
+        setFormHeader({
+          project_name:    d.project_name       ?? project?.project_name ?? '',
+          site_location:   d.location           ?? project?.location     ?? '',
+          // Fix: convert "2026-03-16T00:00:00.000000Z" → "2026-03-16"
+          inspection_date: toDateInput(d.inspection_date) || new Date().toISOString().split('T')[0],
+          inspection_time: d.inspection_time    ?? new Date().toTimeString().slice(0, 5),
+          inspector_id:    d.inspector_id       ?? '',
+          inspector_name:  d.inspector_name     ?? '',
+          position:        d.inspector_position ?? '',
+          materials_scope: d.materials_scope    ?? '',
+          notes_remarks:   d.notes_remarks      ?? '',
+        });
+
+        const saved = safeParse(d.checklist);
+        if (saved && saved.length > 0) {
+          setChecklist(
+            saved
+              .filter(p =>
+                (p.label ?? p.problem ?? '').trim() ||
+                p.yes || p.no || p.na ||
+                (p.recommendation ?? p.solution ?? '').trim()
+              )
+              .map(p => ({
+                id:             p.id             ?? `row_${Date.now()}_${Math.random()}`,
+                label:          p.label          ?? p.problem  ?? '',
+                yes:            p.yes            ?? false,
+                no:             p.no             ?? false,
+                na:             p.na             ?? false,
+                recommendation: p.recommendation ?? p.solution ?? '',
+              }))
+          );
+        }
+      } catch (e) {
+        if (e.response?.status !== 404) {
+          console.error('[SiteInspection] failed to load saved inspection:', e);
+        }
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchSavedInspection();
+  }, [project?.id]);
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const setHeader = (key, val) => setFormHeader(prev => ({ ...prev, [key]: val }));
 
   const handleInspectorChange = (engineerId) => {
     const eng = engineers.find(e => String(e.id) === String(engineerId));
     setHeader('inspector_id',   engineerId);
     setHeader('inspector_name', eng?.name     || '');
-    setHeader('position',       eng?.position || eng?.role || '');
+    setHeader('position',       eng?.position || '');
   };
 
-  // ── Checklist helpers ─────────────────────────────────────────────────────
-  const toggleCheck = (id, col) => {
+  const toggleCheck = (id, col) =>
     setChecklist(prev => prev.map(item => {
       if (item.id !== id) return item;
-      // YES / NO / NA are mutually exclusive for YES and NO, but NA can coexist
       if (col === 'yes') return { ...item, yes: !item.yes, no: false };
       if (col === 'no')  return { ...item, no:  !item.no,  yes: false };
       return { ...item, na: !item.na };
     }));
-  };
 
-  const changeLabel = (id, val, field = 'label') => {
+  const changeLabel = (id, val, field = 'label') =>
     setChecklist(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
-  };
 
-  const addRow = () => {
+  const addRow = () =>
     setChecklist(prev => [
       ...prev,
-      { id: `custom_${Date.now()}`, label: '', yes: false, no: false, na: false, recommendation: '' }
+      { id: `row_${Date.now()}`, label: '', yes: false, no: false, na: false, recommendation: '' },
     ]);
-  };
 
   const removeRow = (id) => setChecklist(prev => prev.filter(item => item.id !== id));
+
+  const buildPayload = () => ({
+    ...formHeader,
+    inspector_position: formHeader.position,
+    location:           formHeader.site_location,
+    checklist:          JSON.stringify(checklist),
+  });
+
+  // ── Save Draft ────────────────────────────────────────────────────────────
+  const handleSaveDraft = async () => {
+    if (!project?.id) return;
+    setSavedOk(false);
+    try {
+      await api.post(`/projects/${project.id}/site-inspection`, buildPayload());
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 3000);
+    } catch (err) {
+      alert('Failed to save: ' + (err?.response?.data?.message || err.message));
+    }
+  };
+
+  // ── PDF export ────────────────────────────────────────────────────────────
+  const handleSavePdf = async () => {
+    if (!formCardRef.current) return;
+    setExporting(true);
+    try {
+      const noExport = formCardRef.current.querySelectorAll('.no-export');
+      noExport.forEach(el => { el.dataset.prevDisplay = el.style.display; el.style.display = 'none'; });
+
+      const canvas = await html2canvas(formCardRef.current, {
+        scale:           2,
+        useCORS:         true,
+        backgroundColor: '#ffffff',
+        logging:         false,
+        windowWidth:     formCardRef.current.scrollWidth,
+        windowHeight:    formCardRef.current.scrollHeight,
+      });
+
+      noExport.forEach(el => { el.style.display = el.dataset.prevDisplay || ''; });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf     = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW   = pdf.internal.pageSize.getWidth();
+      const pageH   = pdf.internal.pageSize.getHeight();
+      const imgH    = pageW * (canvas.height / canvas.width);
+
+      if (imgH <= pageH) {
+        pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH);
+      } else {
+        const pagePx = (pageH / imgH) * canvas.height;
+        let offsetPx = 0;
+        while (offsetPx < canvas.height) {
+          const slicePx     = Math.min(pagePx, canvas.height - offsetPx);
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width  = canvas.width;
+          sliceCanvas.height = slicePx;
+          sliceCanvas.getContext('2d').drawImage(canvas, 0, -offsetPx);
+          if (offsetPx > 0) pdf.addPage();
+          pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, (slicePx / canvas.height) * imgH);
+          offsetPx += slicePx;
+        }
+      }
+
+      pdf.save(`${formHeader.project_name || 'SiteInspection'}_${formHeader.inspection_date.replace(/-/g, '')}.pdf`);
+    } catch (err) {
+      console.error('[SiteInspection] PDF export failed:', err);
+      alert('PDF export failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!formHeader.inspector_id) { alert('Please select an inspector.'); return; }
     setSubmitting(true);
     try {
-      // Save inspection data first
-      await api.post(`/projects/${project.id}/site-inspection`, {
-        ...formHeader,
-        checklist: JSON.stringify(checklist),
-      });
-      // Then advance with photo upload
+      await api.post(`/projects/${project.id}/site-inspection`, buildPayload());
       await onUploadAdvance('Checking of Delivery of Materials', 'site_inspection_photo', uploadFile);
     } catch (err) {
       alert('Failed to submit inspection: ' + (err?.response?.data?.message || err.message));
@@ -151,33 +272,36 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
     }
   };
 
-  const handlePrint = () => {
-    setPrintMode(true);
-    setTimeout(() => { window.print(); setPrintMode(false); }, 200);
-  };
+  const allChecked = checklist.length > 0 && checklist.every(item => item.yes || item.no || item.na);
 
-  const allChecked = checklist.every(item => item.yes || item.no || item.na);
+  if (loadingData) {
+    return (
+      <div className="si-wrapper">
+        <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+          ⏳ Loading inspection data…
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`si-wrapper ${printMode ? 'si-print-mode' : ''}`}>
+    <div className="si-wrapper">
 
-      {/* ── Reference documents (hidden in print) ── */}
-      <div className="si-ref-docs no-print">
+      {/* ── Reference documents ── */}
+      <div className="si-ref-docs">
         <div className="pm-grid-2">
-          {renderDocumentLink('Purchase Order',  project.po_document)}
+          {renderDocumentLink('Purchase Order', project.po_document)}
           {renderDocumentLink('Work Order', project.work_order_document)}
         </div>
       </div>
 
-      {/* ══ INSPECTION FORM CARD ══════════════════════════════════════════ */}
-      <div className="si-form-card">
+      {/* ══ FORM CARD — only this is captured for PDF ════════════════════ */}
+      <div className="si-form-card" ref={formCardRef}>
 
-        {/* ── Letterhead ── */}
+        {/* Letterhead */}
         <div className="si-letterhead">
           <div className="si-letterhead-logo">
-            <div className="si-logo-circle">
-              <span>V</span>
-            </div>
+            <div className="si-logo-circle"><span>V</span></div>
           </div>
           <div className="si-letterhead-text">
             <h1 className="si-company-name">VISION INTERNATIONAL CONSTRUCTION OPC</h1>
@@ -189,33 +313,35 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
 
         <div className="si-form-title">SITE INSPECTION FORM</div>
 
-        {/* ── Header fields ── */}
+        {/* Header fields */}
         <div className="si-header-fields">
           <div className="si-field-row">
             <span className="si-field-label">PROJECT NAME:</span>
-            <input className="si-field-input" value={formHeader.project_name} onChange={e => setHeader('project_name', e.target.value)} />
+            <input className="si-field-input" value={formHeader.project_name}
+              onChange={e => setHeader('project_name', e.target.value)} />
           </div>
           <div className="si-field-row">
             <span className="si-field-label">SITE LOCATION:</span>
-            <input className="si-field-input" value={formHeader.site_location} onChange={e => setHeader('site_location', e.target.value)} />
+            <input className="si-field-input" value={formHeader.site_location}
+              onChange={e => setHeader('site_location', e.target.value)} />
           </div>
           <div className="si-field-row">
             <span className="si-field-label">DATE AND TIME OF INSPECTION:</span>
             <div className="si-field-datetime">
-              <input className="si-field-input" type="date" value={formHeader.inspection_date} onChange={e => setHeader('inspection_date', e.target.value)} style={{ flex: 1 }} />
-              <input className="si-field-input" type="time" value={formHeader.inspection_time} onChange={e => setHeader('inspection_time', e.target.value)} style={{ width: '110px' }} />
+              <input className="si-field-input" type="date" value={formHeader.inspection_date}
+                onChange={e => setHeader('inspection_date', e.target.value)} style={{ flex: 1 }} />
+              <input className="si-field-input" type="time" value={formHeader.inspection_time}
+                onChange={e => setHeader('inspection_time', e.target.value)} style={{ width: '110px' }} />
             </div>
           </div>
           <div className="si-field-row">
             <span className="si-field-label">INSPECTOR'S NAME:</span>
             {loadingEng ? (
-              <div className="si-field-input" style={{ color: 'var(--pm-text-muted)', fontStyle: 'italic' }}>Loading engineers…</div>
+              <div className="si-field-input si-loading-text">Loading engineers…</div>
             ) : (
-              <select
-                className="si-field-input si-field-select"
+              <select className="si-field-input si-field-select"
                 value={formHeader.inspector_id}
-                onChange={e => handleInspectorChange(e.target.value)}
-              >
+                onChange={e => handleInspectorChange(e.target.value)}>
                 <option value="">— Select Inspector —</option>
                 {engineers.map(eng => (
                   <option key={eng.id} value={eng.id}>{eng.name}</option>
@@ -225,15 +351,23 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
           </div>
           <div className="si-field-row">
             <span className="si-field-label">POSITION:</span>
-            <input className="si-field-input" value={formHeader.position} onChange={e => setHeader('position', e.target.value)} placeholder="Auto-filled from engineer selection" />
+            <input
+              className="si-field-input"
+              value={formHeader.position}
+              onChange={e => setHeader('position', e.target.value)}
+              placeholder="Auto-filled from engineer selection"
+              readOnly={!!formHeader.inspector_id}
+              style={formHeader.inspector_id ? { background: '#f3f4f6', cursor: 'not-allowed' } : {}}
+            />
           </div>
           <div className="si-field-row si-field-row-top">
             <span className="si-field-label">MATERIALS AND SCOPE OF WORKS:</span>
-            <textarea className="si-field-textarea" value={formHeader.materials_scope} onChange={e => setHeader('materials_scope', e.target.value)} rows={3} />
+            <textarea className="si-field-textarea" value={formHeader.materials_scope}
+              onChange={e => setHeader('materials_scope', e.target.value)} rows={3} />
           </div>
         </div>
 
-        {/* ── Checklist table ── */}
+        {/* Checklist table */}
         <div className="si-table-wrap">
           <table className="si-table">
             <thead>
@@ -243,43 +377,40 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
                 <th className="si-th-check">NO</th>
                 <th className="si-th-check">N/A</th>
                 <th className="si-th-reco">RECOMMENDATIONS</th>
-                <th className="si-th-action no-print">—</th>
+                <th className="si-th-action">—</th>
               </tr>
             </thead>
             <tbody>
+              {checklist.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', color: '#9ca3af', padding: '18px', fontStyle: 'italic' }}>
+                    No items yet — click "+ Add Checklist Item" below.
+                  </td>
+                </tr>
+              )}
               {checklist.map(item => (
-                <CheckRow
-                  key={item.id}
-                  item={item}
-                  onToggle={toggleCheck}
-                  onLabelChange={changeLabel}
-                  onRemove={removeRow}
-                  readOnly={false}
-                />
+                <CheckRow key={item.id} item={item}
+                  onToggle={toggleCheck} onLabelChange={changeLabel} onRemove={removeRow} />
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* ── Add row button ── */}
-        <div className="si-add-row-wrap no-print">
+        {/* Add row — hidden during PDF export via .no-export */}
+        <div className="si-add-row-wrap no-export">
           <button className="si-add-row-btn" onClick={addRow}>+ Add Checklist Item</button>
         </div>
 
-        {/* ── Notes / Remarks ── */}
+        {/* Notes */}
         <div className="si-notes-section">
           <div className="si-notes-label">NOTES/REMARKS:</div>
-          <textarea
-            className="si-notes-textarea"
-            value={formHeader.notes_remarks}
+          <textarea className="si-notes-textarea" value={formHeader.notes_remarks}
             onChange={e => setHeader('notes_remarks', e.target.value)}
-            rows={4}
-            placeholder="Enter any additional site notes or observations…"
-          />
+            rows={4} placeholder="Enter any additional site notes or observations…" />
         </div>
 
-        {/* ── Signature area (print only) ── */}
-        <div className="si-signature-row print-only">
+        {/* Signatures */}
+        <div className="si-signature-row">
           <div className="si-sig-block">
             <div className="si-sig-line" />
             <p className="si-sig-label">Inspector's Signature over Printed Name</p>
@@ -289,10 +420,11 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
             <p className="si-sig-label">Client's Signature over Printed Name</p>
           </div>
         </div>
-      </div>
 
-      {/* ── Upload "Before" photo ── */}
-      <div className="pm-card-cream no-print">
+      </div>{/* end si-form-card */}
+
+      {/* Upload photo */}
+      <div className="pm-card-cream">
         <label className="pm-label">📸 Upload "Before" Site Photo</label>
         <label className={`pm-upload-zone ${uploadFile ? 'has-file' : ''}`}>
           <span className="pm-upload-zone-icon">{uploadFile ? '✅' : '📷'}</span>
@@ -300,21 +432,37 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
             {uploadFile ? uploadFile.name : 'Click to choose photo'}
           </span>
           <span className="pm-upload-zone-hint">JPG, PNG accepted</span>
-          <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files[0])} style={{ display: 'none' }} />
+          <input type="file" accept="image/*"
+            onChange={e => setUploadFile(e.target.files[0])} style={{ display: 'none' }} />
         </label>
       </div>
 
-      {/* ── Action buttons ── */}
-      <div className="si-actions no-print">
-        <button className="si-print-btn" onClick={handlePrint}>🖨️ Print / Save as PDF</button>
-        <PrimaryButton
-          variant="red"
-          disabled={!allChecked || submitting}
-          onClick={handleSubmit}
-        >
-          {submitting ? '⏳ Submitting…' : allChecked ? '✓ Complete Inspection & Request Materials' : 'Complete All Checklist Items to Advance'}
-        </PrimaryButton>
+      {/* Action buttons */}
+      <div className="si-actions">
+        <div className="si-actions-left">
+          <button className="si-save-draft-btn" onClick={handleSaveDraft} disabled={submitting}>
+            💾 Save Draft
+          </button>
+          {savedOk && <span className="si-saved-badge">✅ Saved!</span>}
+        </div>
+        <div className="si-actions-right">
+          <button className="si-print-btn" onClick={handleSavePdf} disabled={exporting}>
+            {exporting ? '⏳ Generating PDF…' : '📄 Save as PDF'}
+          </button>
+          <PrimaryButton
+            variant="red"
+            disabled={!allChecked || submitting}
+            onClick={handleSubmit}
+          >
+            {submitting
+              ? '⏳ Submitting…'
+              : allChecked
+                ? '✓ Complete Inspection & Request Materials'
+                : 'Complete All Checklist Items to Advance'}
+          </PrimaryButton>
+        </div>
       </div>
+
     </div>
   );
 };

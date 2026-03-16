@@ -726,19 +726,13 @@ class ProjectController extends Controller
         $fullPath = storage_path('app/public/' . str_replace('public/', '', $path));
 
         if (!file_exists($fullPath)) {
-            return response()->json(['error' => 'File not found.'], 404);
+            return response()->json(['error' => 'Image not found at ' . $fullPath], 404);
         }
 
         $fileContents = file_get_contents($fullPath);
         $base64       = base64_encode($fileContents);
         $mime         = mime_content_type($fullPath);
-
-        // Correctly detect PDF, PNG, JPEG
-        $extension = match(true) {
-            str_contains($mime, 'pdf')  => 'pdf',
-            str_contains($mime, 'png')  => 'png',
-            default                     => 'jpeg',
-        };
+        $extension    = str_contains($mime, 'png') ? 'png' : 'jpeg';
 
         return response()->json([
             'base64'    => 'data:' . $mime . ';base64,' . $base64,
@@ -841,6 +835,35 @@ class ProjectController extends Controller
         if (isset($map[$field])) ($map[$field])();
     }
 
+     public function saveQaChecks(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'qa_check_boq'    => 'required|boolean',
+            'qa_check_debris' => 'required|boolean',
+            'qa_check_defect' => 'required|boolean',
+        ]);
+ 
+        $project = Project::findOrFail($id);
+ 
+        // updateOrCreate so the row is created on first checkbox tick
+        // even if the engineer hasn't uploaded a photo yet.
+        $qa = $project->qaHandover()->updateOrCreate(
+            ['project_id' => $project->id],
+            [
+                'qa_check_boq'    => $request->boolean('qa_check_boq'),
+                'qa_check_debris' => $request->boolean('qa_check_debris'),
+                'qa_check_defect' => $request->boolean('qa_check_defect'),
+            ]
+        );
+ 
+        return response()->json([
+            'message'         => 'QA checks saved.',
+            'qa_check_boq'    => $qa->qa_check_boq,
+            'qa_check_debris' => $qa->qa_check_debris,
+            'qa_check_defect' => $qa->qa_check_defect,
+        ]);
+    }
+
     private function formatProject(Project $project): array
     {
         $po        = $project->poOrder;
@@ -912,10 +935,13 @@ class ProjectController extends Controller
             'installer_roster'                 => $mob?->installer_roster ?? [],
             'installer_count'                  => $mob?->installer_count ?? 0,
 
-            // ── QA / Handover ─────────────────────────────────────────────
+             // ── QA / Handover ─────────────────────────────────────────────
             'qa_photo'               => $qa?->qa_photo,
             'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
             'coc_document'           => $qa?->coc_document,
+            'qa_check_boq'    => (bool) ($qa?->qa_check_boq    ?? false),
+            'qa_check_debris' => (bool) ($qa?->qa_check_debris ?? false),
+            'qa_check_defect' => (bool) ($qa?->qa_check_defect ?? false),
 
             // ── Billing ───────────────────────────────────────────────────
             'billing_invoice_document' => $project->progressBilling?->invoice_document,

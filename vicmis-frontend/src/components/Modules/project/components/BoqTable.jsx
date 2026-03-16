@@ -1,24 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import warehouseInventoryService from '@/api/warehouseInventoryService';
+import '../css/BoqTable.css';
 
-// ─── Stock badge config ───────────────────────────────────────────────────────
 const STOCK_CFG = {
-  'ON STOCK':  { cls: 'boq-stock-on',  dot: '#10B981', label: 'ON STOCK'  },
-  'LOW STOCK': { cls: 'boq-stock-low', dot: '#F59E0B', label: 'LOW STOCK' },
-  'NO STOCK':  { cls: 'boq-stock-no',  dot: '#EF4444', label: 'NO STOCK'  },
+  'ON STOCK':  { cls: 'boq-stock-on',  dot: '#10B981' },
+  'LOW STOCK': { cls: 'boq-stock-low', dot: '#F59E0B' },
+  'NO STOCK':  { cls: 'boq-stock-no',  dot: '#EF4444' },
 };
 
-// ─── Inline dropdown for category / code ─────────────────────────────────────
 const InlineSelect = ({ value, options, placeholder, onChange, disabled }) => {
-  const [open,   setOpen]   = useState(false);
-  const [query,  setQuery]  = useState('');
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ref = useRef(null);
 
-  // Click outside handler
   useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
@@ -37,27 +33,15 @@ const InlineSelect = ({ value, options, placeholder, onChange, disabled }) => {
         </span>
         <span style={{ fontSize: '10px', color: 'var(--pm-text-muted)', marginLeft: '4px' }}>▼</span>
       </div>
-
       {open && !disabled && (
         <div className="boq-dd-panel">
-          <input
-            autoFocus
-            className="boq-dd-search"
-            placeholder="Search..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onClick={e => e.stopPropagation()}
-          />
+          <input autoFocus className="boq-dd-search" placeholder="Search..." value={query}
+            onChange={e => setQuery(e.target.value)} onClick={e => e.stopPropagation()} />
           <div className="boq-dd-list">
-            {filtered.length === 0 && (
-              <div className="boq-dd-empty">No results</div>
-            )}
+            {filtered.length === 0 && <div className="boq-dd-empty">No results</div>}
             {filtered.map(opt => (
-              <div
-                key={opt}
-                className={`boq-dd-item ${value === opt ? 'active' : ''}`}
-                onClick={() => { onChange(opt); setOpen(false); setQuery(''); }}
-              >
+              <div key={opt} className={`boq-dd-item ${value === opt ? 'active' : ''}`}
+                onClick={() => { onChange(opt); setOpen(false); setQuery(''); }}>
                 {opt}
               </div>
             ))}
@@ -68,7 +52,6 @@ const InlineSelect = ({ value, options, placeholder, onChange, disabled }) => {
   );
 };
 
-// ─── Stock alert banner ───────────────────────────────────────────────────────
 const StockAlerts = ({ rows, inventory }) => {
   const alerts = rows
     .filter(r => r.product_code)
@@ -84,7 +67,9 @@ const StockAlerts = ({ rows, inventory }) => {
     <div className="boq-alert-banner">
       <div className="boq-alert-icon">⚠️</div>
       <div className="boq-alert-body">
-        <span className="boq-alert-title">Stock Warning — {alerts.length} item{alerts.length !== 1 ? 's' : ''} need attention</span>
+        <span className="boq-alert-title">
+          Stock Warning — {alerts.length} item{alerts.length !== 1 ? 's' : ''} need attention
+        </span>
         <div className="boq-alert-list">
           {alerts.map((item, i) => (
             <span key={i} className={`boq-alert-chip ${item.availability === 'NO STOCK' ? 'chip-no' : 'chip-low'}`}>
@@ -98,12 +83,10 @@ const StockAlerts = ({ rows, inventory }) => {
   );
 };
 
-// ─── Main BoqTable ────────────────────────────────────────────────────────────
 const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
-  const [inventory,   setInventory]   = useState([]);
-  const [loadingInv,  setLoadingInv]  = useState(true);
+  const [inventory, setInventory] = useState([]);
+  const [loadingInv, setLoadingInv] = useState(true);
 
-  // Updated Fetch logic using the warehouseInventoryService
   useEffect(() => {
     const fetchInventory = async () => {
       setLoadingInv(true);
@@ -120,15 +103,11 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
     fetchInventory();
   }, []);
 
-  const rows      = boqData[type] || [];
+  const rows = boqData[type] || [];
   const grandTotal = rows.reduce((s, r) => s + (parseFloat(r.total) || 0), 0);
 
-  // Derived lists from inventory
   const categories = [...new Set(inventory.map(i => i.product_category))].filter(Boolean).sort();
-
-  const codesForCategory = (category) =>
-    inventory.filter(i => i.product_category === category).map(i => i.product_code).filter(Boolean).sort();
-
+  const codesForCategory = (cat) => inventory.filter(i => i.product_category === cat).map(i => i.product_code).filter(Boolean).sort();
   const itemForCode = (code) => inventory.find(i => i.product_code === code);
 
   const handleCategoryChange = (idx, category) => {
@@ -140,21 +119,23 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
   const handleCodeChange = (idx, code) => {
     const item = itemForCode(code);
     onChange(type, idx, 'product_code', code);
-    if (item) {
-      onChange(type, idx, 'unit', item.unit || '');
-      if (!rows[idx]?.description) {
-        onChange(type, idx, 'description', item.product_code);
-      }
+    if (item) onChange(type, idx, 'unit', item.unit || '');
+  };
+
+  const handleQtyChange = (idx, value, invItem) => {
+    let qty = value;
+    if (invItem?.current_stock !== undefined) {
+      const max = parseFloat(invItem.current_stock);
+      if (!isNaN(max) && parseFloat(qty) > max) qty = String(max);
     }
+    onChange(type, idx, 'qty', qty);
   };
 
   return (
-    <div>
-      {!readOnly && !loadingInv && (
-        <StockAlerts rows={rows} inventory={inventory} />
-      )}
+    <div className="boq-wrapper" style={{ width: '100%', minWidth: 0 }}>
+      {!readOnly && !loadingInv && <StockAlerts rows={rows} inventory={inventory} />}
 
-      <div className="pm-table-wrapper">
+      <div className="boq-scroll" style={{ width: '100%', overflowX: 'auto' }}>
         {loadingInv && !readOnly && (
           <div className="boq-loading-bar">
             <div className="boq-loading-inner" />
@@ -162,15 +143,11 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
           </div>
         )}
 
-        <table className="pm-table boq-table-extended">
+        <table className={`boq-table${readOnly ? ' boq-table--readonly' : ''}`}>
           <thead>
             <tr>
-              <th className="boq-th-category">Product Category</th>
-              <th className="boq-th-code">
-                Product Code
-                {!readOnly && <span className="boq-th-hint"> (from inventory)</span>}
-              </th>
-              <th className="boq-th-desc">Description</th>
+              <th className="boq-th-category">Category</th>
+              <th className="boq-th-code">Code{!readOnly && <span className="boq-th-hint"> (inventory)</span>}</th>
               <th className="boq-th-unit">Unit</th>
               <th className="boq-th-qty">Qty</th>
               <th className="boq-th-cost">Unit Cost (₱)</th>
@@ -179,49 +156,41 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
               {!readOnly && <th className="boq-th-action">—</th>}
             </tr>
           </thead>
+
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={readOnly ? 8 : 9} className="boq-empty-row">
+                <td colSpan={readOnly ? 7 : 8} className="boq-empty-row">
                   No items added yet. Click "+ Add BOQ Item" to begin.
                 </td>
               </tr>
             )}
             {rows.map((row, idx) => {
-              const invItem     = itemForCode(row.product_code);
+              const invItem = itemForCode(row.product_code);
               const availability = invItem?.availability || null;
-              const stockCfg    = availability ? STOCK_CFG[availability] : null;
-              const codesAvail  = row.product_category ? codesForCategory(row.product_category) : [];
-              const isLowOrNo   = availability === 'LOW STOCK' || availability === 'NO STOCK';
+              const stockCfg = availability ? STOCK_CFG[availability] : null;
+              const codesAvail = row.product_category ? codesForCategory(row.product_category) : [];
+              const isLowOrNo = availability === 'LOW STOCK' || availability === 'NO STOCK';
+              const maxQty = invItem?.current_stock !== undefined ? parseFloat(invItem.current_stock) : undefined;
 
               return (
                 <tr key={idx} className={isLowOrNo ? 'boq-row-warn' : ''}>
-                  <td className="boq-td-category">
-                    {readOnly ? (
-                      <span className="boq-readonly-cell">{row.product_category || '—'}</span>
-                    ) : (
-                      <InlineSelect
-                        value={row.product_category || ''}
-                        options={categories}
-                        placeholder="Select category"
-                        onChange={(val) => handleCategoryChange(idx, val)}
-                        disabled={loadingInv}
-                      />
-                    )}
+                  <td>
+                    {readOnly
+                      ? <span className="boq-readonly-cell">{row.product_category || '—'}</span>
+                      : <InlineSelect value={row.product_category || ''} options={categories}
+                          placeholder="Select category" onChange={val => handleCategoryChange(idx, val)}
+                          disabled={loadingInv} />
+                    }
                   </td>
-
-                  <td className="boq-td-code">
-                    {readOnly ? (
-                      <span className="boq-readonly-cell boq-code-chip">{row.product_code || '—'}</span>
-                    ) : (
-                      <InlineSelect
-                        value={row.product_code || ''}
-                        options={codesAvail}
-                        placeholder={row.product_category ? 'Select code' : 'Pick category first'}
-                        onChange={(val) => handleCodeChange(idx, val)}
-                        disabled={!row.product_category || loadingInv}
-                      />
-                    )}
+                  <td>
+                    {readOnly
+                      ? <span className="boq-readonly-cell boq-code-chip">{row.product_code || '—'}</span>
+                      : <InlineSelect value={row.product_code || ''} options={codesAvail}
+                          placeholder={row.product_category ? 'Select code' : 'Pick category first'}
+                          onChange={val => handleCodeChange(idx, val)}
+                          disabled={!row.product_category || loadingInv} />
+                    }
                     {invItem && (
                       <div className="boq-stock-inline">
                         <span className="boq-stock-dot" style={{ background: stockCfg?.dot }} />
@@ -231,70 +200,36 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                       </div>
                     )}
                   </td>
-
                   <td>
-                    <input
-                      disabled={readOnly}
-                      value={row.description || ''}
-                      onChange={e => onChange(type, idx, 'description', e.target.value)}
-                      className="pm-input"
-                      style={{ margin: 0 }}
-                      placeholder="Item description"
-                    />
+                    <input disabled value={row.unit || ''} className="pm-input text-center"
+                      style={{ margin: 0, background: 'var(--pm-input-disabled-bg, #f3f4f6)', cursor: 'not-allowed' }}
+                      placeholder="—" readOnly />
                   </td>
-
                   <td>
-                    <input
-                      disabled={readOnly}
-                      value={row.unit || ''}
-                      onChange={e => onChange(type, idx, 'unit', e.target.value)}
-                      className="pm-input text-center"
-                      style={{ margin: 0 }}
-                      placeholder="pcs"
-                    />
+                    <input disabled={readOnly} type="number" value={row.qty || ''}
+                      min={0} max={maxQty ?? undefined}
+                      onChange={e => handleQtyChange(idx, e.target.value, invItem)}
+                      className="pm-input text-center" style={{ margin: 0 }} placeholder="0" />
                   </td>
-
                   <td>
-                    <input
-                      disabled={readOnly}
-                      type="number"
-                      value={row.qty || ''}
-                      onChange={e => onChange(type, idx, 'qty', e.target.value)}
-                      className="pm-input text-center"
-                      style={{ margin: 0 }}
-                      placeholder="0"
-                    />
-                  </td>
-
-                  <td>
-                    <input
-                      disabled={readOnly}
-                      type="number"
-                      value={row.unitCost || ''}
+                    <input disabled={readOnly} type="number" value={row.unitCost || ''}
                       onChange={e => onChange(type, idx, 'unitCost', e.target.value)}
-                      className="pm-input text-center"
-                      style={{ margin: 0 }}
-                      placeholder="0.00"
-                    />
+                      className="pm-input text-center" style={{ margin: 0 }} placeholder="0.00" />
                   </td>
-
-                  <td className="text-center boq-total-cell">
+                  <td className="boq-total-cell">
                     ₱{(parseFloat(row.total) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
-
-                  <td className="boq-td-stock">
-                    {stockCfg ? (
-                      <span className={`boq-stock-badge ${stockCfg.cls}`}>
-                        <span className="boq-stock-dot" style={{ background: stockCfg.dot }} />
-                        {availability}
-                      </span>
-                    ) : (
-                      <span className="boq-stock-badge boq-stock-unknown">—</span>
-                    )}
+                  <td style={{ textAlign: 'center' }}>
+                    {stockCfg
+                      ? <span className={`boq-stock-badge ${stockCfg.cls}`}>
+                          <span className="boq-stock-dot" style={{ background: stockCfg.dot }} />
+                          {availability}
+                        </span>
+                      : <span className="boq-stock-badge boq-stock-unknown">—</span>
+                    }
                   </td>
-
                   {!readOnly && (
-                    <td className="text-center">
+                    <td style={{ textAlign: 'center' }}>
                       <button type="button" onClick={() => onRemove(type, idx)} className="pm-btn-icon-danger">✕</button>
                     </td>
                   )}
@@ -306,7 +241,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
           {rows.length > 0 && (
             <tfoot>
               <tr>
-                <td colSpan={6} className="pm-boq-total-label">Grand Total Budget:</td>
+                <td colSpan={5} className="pm-boq-total-label">Grand Total Budget:</td>
                 <td className="pm-boq-total-val">
                   ₱{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
@@ -317,7 +252,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
         </table>
 
         {!readOnly && (
-          <div className="text-center" style={{ padding: '15px', background: '#fff' }}>
+          <div className="boq-add-row">
             <button type="button" onClick={() => onAdd(type)} className="pm-btn-outline">
               + Add BOQ Item
             </button>

@@ -7,10 +7,10 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
   const fileInputRef = useRef();
 
   const { status } = project;
-  const isFinal        = status === 'Request Final Billing';
-  const totalContract  = parseFloat(project.contract_amount) || 0;
-  const percent        = latestLog ? parseFloat(latestLog.accomplishment_percent) || 0 : 0;
-  const payableAmount  = totalContract * (percent / 100);
+  const isFinal       = status === 'Request Final Billing';
+  const totalContract = parseFloat(project.contract_amount) || 0;
+  const percent       = latestLog ? parseFloat(latestLog.accomplishment_percent) || 0 : 0;
+  const payableAmount = totalContract * (percent / 100);
 
   const handleFileChange = (e) => {
     setUploadFile(e.target.files[0] ?? null);
@@ -28,10 +28,20 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
     <div className="bill-wrapper">
 
       {/* ── Header ── */}
-      <div className={`bill-header ${isFinal ? 'is-final' : 'is-progress'}`}>
-        <h3 className="bill-header-title">
-          {isFinal ? '💸 Final Accounting Clearance' : '💰 Accounting Progress Billing'}
-        </h3>
+      <div className="bill-header">
+        <div className="bill-header-inner">
+          <div className="bill-header-icon">
+            {isFinal ? '💸' : '💰'}
+          </div>
+          <div className="bill-header-text">
+            <h3 className="bill-header-title">
+              {isFinal ? 'Final Accounting Clearance' : 'Progress Billing'}
+            </h3>
+            <span className="bill-header-subtitle">
+              {isFinal ? 'Project Closeout · Final Invoice' : 'Accounting · Payment Release'}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="bill-body">
@@ -118,7 +128,7 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
           </p>
 
           <label className={`bill-upload-zone ${uploadFile ? 'has-file' : ''}`}>
-            <span>{uploadFile ? '✅' : '📎'}</span>
+            <span style={{ fontSize: 18 }}>{uploadFile ? '✅' : '📎'}</span>
             <span>{uploadFile ? uploadFile.name : 'Click to choose file — PDF or Image'}</span>
             <input
               type="file"
@@ -130,7 +140,7 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
 
           <PrimaryButton
             disabled={!uploadFile}
-            variant="green"
+            variant="red"
             onClick={handleSubmit}>
             {uploadFile
               ? (isFinal
