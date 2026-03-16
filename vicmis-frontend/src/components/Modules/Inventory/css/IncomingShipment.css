@@ -49,7 +49,6 @@
   align-items: center;
   gap: .85rem;
 }
-
 .is-topbar-right {
   display: flex;
   align-items: center;
@@ -67,6 +66,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: background .15s;
+  white-space: nowrap;
 }
 .is-back-btn:hover { background: rgba(255,255,255,.18); }
 
@@ -83,6 +83,7 @@
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: background .15s;
+  flex-shrink: 0;
 }
 .is-refresh-btn:hover { background: rgba(255,255,255,.18); }
 .is-refresh-btn.spinning svg { animation: is-spin .8s linear infinite; }
@@ -105,9 +106,7 @@
   min-width: 900px;
 }
 
-.is-table thead tr {
-  background: var(--brand-black);
-}
+.is-table thead tr { background: var(--brand-black); }
 .is-table thead th {
   color: rgba(255,255,255,.8);
   font-weight: 600;
@@ -136,7 +135,7 @@
 .is-table td.text-center { text-align: center; }
 
 /* Cells */
-.is-shipno   { font-weight: 700; font-size: .8rem; white-space: nowrap; }
+.is-shipno    { font-weight: 700; font-size: .8rem; white-space: nowrap; }
 .is-container { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
 .is-location  { font-size: .75rem; color: var(--text-muted); }
 
@@ -152,7 +151,7 @@
   white-space: nowrap;
 }
 .is-origin-tag.intl  { background: rgba(194,1,0,.08);  color: var(--brand-red); border: 1px solid rgba(194,1,0,.2); }
-.is-origin-tag.local { background: rgba(73,123,151,.08); color: #2d5f78;          border: 1px solid rgba(73,123,151,.2); }
+.is-origin-tag.local { background: rgba(73,123,151,.08); color: #2d5f78; border: 1px solid rgba(73,123,151,.2); }
 
 /* Production status */
 .is-prod-tag {
@@ -230,14 +229,13 @@
   gap: 6px;
   justify-content: center;
 }
-.is-edit-btn,
-.is-received-stock-btn {
+.is-edit-btn {
   display: flex;
   align-items: center;
   gap: 7px;
-  background: #065F46;
-  color: #fff;
-  border: none;
+  background: rgba(73,123,151,.08);
+  border: 1px solid rgba(73,123,151,.25);
+  color: #2d5f78;
   border-radius: 6px;
   padding: .48rem 1rem;
   font-family: 'DM Sans', sans-serif;
@@ -246,34 +244,7 @@
   cursor: pointer;
   transition: background .15s, transform .1s;
 }
-.is-edit-btn {
-  background: rgba(73,123,151,.08);
-  border: 1px solid rgba(73,123,151,.25);
-  color: #2d5f78;
-}
 .is-edit-btn:hover { background: var(--brand-blue); color: #fff; border-color: var(--brand-blue); }
-
-.is-receive-btn {
-  background: rgba(16,185,129,.08);
-  border: 1px solid rgba(16,185,129,.25);
-  color: #065F46;
-}
-.is-received-stock-btn:hover  { background: #047857; }
-.is-received-stock-btn:active { transform: scale(.97); }
-
-.is-received-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  color: #065F46;
-  border-radius: 20px;
-  font-size: .65rem;
-  font-weight: 800;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-}
 
 /* Loading / empty */
 .is-loading-cell,
@@ -342,7 +313,7 @@
 }
 .is-modal-close:hover { background: rgba(255,255,255,.2); }
 
-/* Modal body (project table) */
+/* Modal body */
 .is-modal-body {
   padding: 1rem 1.3rem;
   overflow-x: auto;
@@ -424,7 +395,6 @@
   border-color: var(--brand-blue);
   box-shadow: 0 0 0 3px rgba(73,123,151,.12);
 }
-/* Re-use .ac-select-wrap + .ac-select-icon from AccountingDashboard */
 .ac-select-wrap { position: relative; }
 .ac-select-wrap .is-input { padding-right: 2rem; cursor: pointer; }
 .ac-select-icon { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-muted); }
@@ -468,13 +438,6 @@
 .is-btn-save:active  { transform: scale(.98); }
 .is-btn-save:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
-/* ── Responsive ───────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .is-topbar, .is-table-wrap { padding-left: 1rem; padding-right: 1rem; }
-  .is-table-wrap { margin-left: .75rem; margin-right: .75rem; }
-  .is-modal-grid { grid-template-columns: 1fr; }
-}
-
 /* ── Purpose tag ─────────────────────────────────────────── */
 .is-purpose-tag {
   display: inline-flex;
@@ -486,18 +449,20 @@
   border-radius: 4px;
   white-space: nowrap;
 }
-.is-purpose-tag.purpose-reserve {
+.is-purpose-tag.purpose-reserve,
+.purpose-reserve {
   background: rgba(194,1,0,.08);
   color: #A00101;
   border: 1px solid rgba(194,1,0,.2);
 }
-.is-purpose-tag.purpose-stock {
-  background: rgba(73,123,151,.08);
+.is-purpose-tag.purpose-stock,
+.purpose-stock {
+  background: rgba(73,123,151,.1);
   color: #2d5f78;
   border: 1px solid rgba(73,123,151,.2);
 }
 
-/* ── Wider modal for project table ──────────────────────────*/
+/* ── Wider modal ────────────────────────────────────────────*/
 .is-modal-wide { max-width: 720px; }
 
 /* ── Extra mini-table cells ─────────────────────────────────*/
@@ -510,14 +475,6 @@
 .is-select-icon {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   pointer-events: none; color: var(--text-muted);
-}
-
-
-/* ── Topbar right group ───────────────────────────────────── */
-.is-topbar-right {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
 }
 
 /* ── New Received Stock button ────────────────────────────── */
@@ -535,9 +492,9 @@
   font-weight: 700;
   cursor: pointer;
   transition: background .15s, transform .1s;
-  position: relative;
+  white-space: nowrap;
 }
-.is-received-stock-btn:hover { background: #047857; }
+.is-received-stock-btn:hover  { background: #047857; }
 .is-received-stock-btn:active { transform: scale(.97); }
 
 .is-received-badge {
@@ -555,7 +512,7 @@
   margin-left: 2px;
 }
 
-/* ── In Inventory tag on row ──────────────────────────────── */
+/* ── In Inventory tag ──────────────────────────────────────── */
 .is-inv-tag {
   display: inline-block;
   margin-left: 6px;
@@ -580,7 +537,6 @@
   overflow: hidden !important;
 }
 
-/* Header variant with icon */
 .is-received-header {
   display: flex !important;
   align-items: center;
@@ -596,13 +552,10 @@
   gap: .75rem;
 }
 .is-received-header-icon {
-  width: 36px;
-  height: 36px;
+  width: 36px; height: 36px;
   background: #065F46;
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   color: #fff;
   flex-shrink: 0;
 }
@@ -616,7 +569,7 @@
   min-height: 0;
 }
 
-/* ── Left column: shipment list ───────────────────────────── */
+/* Left column: shipment list */
 .is-received-list {
   background: #F4F2F0;
   border-right: 1px solid #E0D9D4;
@@ -655,7 +608,6 @@
 .is-received-item.active {
   background: #fff;
   border-right: 3px solid #C20100;
-  border-left: none;
 }
 
 .is-received-item-inner {
@@ -665,7 +617,6 @@
   min-width: 0;
 }
 
-/* "Shipment 1", "Shipment 2" sequential label */
 .is-received-seq {
   font-size: .68rem;
   font-weight: 800;
@@ -674,7 +625,6 @@
   color: #C20100;
 }
 
-/* Actual DB shipment number — shown smaller below */
 .is-received-code {
   font-size: .8rem;
   font-weight: 600;
@@ -701,7 +651,7 @@
   flex-shrink: 0;
 }
 
-/* ── Right column: detail ─────────────────────────────────── */
+/* Right column: detail */
 .is-received-detail {
   overflow-y: auto;
   background: #fff;
@@ -719,7 +669,7 @@
   gap: .6rem;
 }
 
-/* ── Detail content ───────────────────────────────────────── */
+/* Detail content */
 .is-detail-wrap {
   padding: 1.1rem 1.2rem;
   display: flex;
@@ -727,7 +677,6 @@
   gap: .85rem;
 }
 
-/* 2x2 meta grid */
 .is-detail-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -755,14 +704,12 @@
   color: #221F1F;
 }
 
-/* Table inside detail */
 .is-detail-table-wrap {
   border: 1px solid #E0D9D4;
   border-radius: 8px;
   overflow: hidden;
 }
 
-/* Info note */
 .is-detail-note {
   display: flex;
   align-items: flex-start;
@@ -777,7 +724,6 @@
 }
 .is-detail-note svg { flex-shrink: 0; margin-top: 1px; }
 
-/* Action buttons row */
 .is-detail-actions {
   display: flex;
   gap: .6rem;
@@ -819,9 +765,7 @@
 }
 .is-action-report:hover { background: #FEF3C7; }
 
-/* ══════════════════════════════════════════════════════════════
-   REPORT / RETURN MODAL
-   ══════════════════════════════════════════════════════════════ */
+/* ── Report modal ────────────────────────────────────────── */
 .is-modal-report { max-width: 540px !important; }
 
 .is-modal-header-warn {
@@ -911,39 +855,21 @@
 .is-btn-report:hover { background: #78350F; }
 .is-btn-report:disabled { background: #ccc; cursor: not-allowed; }
 
-/* ── Purpose tag colours (shared) ────────────────────────── */
-.purpose-reserve {
-  background: rgba(194,1,0,.08);
-  color: #C20100;
-  border: 1px solid rgba(194,1,0,.2);
-}
-.purpose-stock {
-  background: rgba(73,123,151,.1);
-  color: #2d5f78;
-  border: 1px solid rgba(73,123,151,.2);
-}
-
-/* ── Responsive ────────────────────────────────────────────── */
-@media (max-width: 700px) {
-  .is-received-layout { grid-template-columns: 1fr; }
-  .is-received-list { border-right: none; border-bottom: 1px solid #E0D9D4; max-height: 180px; }
-  .is-detail-meta { grid-template-columns: 1fr; }
-  .is-report-fields { grid-template-columns: 1fr; }
-}
 
 /* ═══════════════════════════════════════════════════════════
-   VICMIS — Incoming Shipments Responsive
+   RESPONSIVE
    ═══════════════════════════════════════════════════════════ */
 
-/* ─── Large Tablet (≤ 1024px) ─────────────────────────────── */
+/* ── Large Tablet (≤ 1024px) ─────────────────────────────── */
 @media (max-width: 1024px) {
-  .is-topbar   { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .is-topbar     { padding-left: 1.25rem; padding-right: 1.25rem; }
   .is-table-wrap { margin-left: 1.25rem; margin-right: 1.25rem; }
   .is-received-layout { grid-template-columns: 190px 1fr; }
 }
 
-/* ─── Tablet Portrait (≤ 768px) ───────────────────────────── */
+/* ── Tablet Portrait (≤ 768px) — card layout begins ─────── */
 @media (max-width: 768px) {
+  /* Top bar */
   .is-topbar {
     padding: .75rem 1rem;
     flex-wrap: wrap;
@@ -952,27 +878,100 @@
   .is-title    { font-size: .95rem; }
   .is-subtitle { display: none; }
 
+  /* Table wrap */
   .is-table-wrap {
     margin: .85rem .75rem 0;
     border-radius: 10px;
+    overflow-x: visible; /* cards don't need horizontal scroll */
   }
 
+  /* ── TABLE → CARD LAYOUT ── */
+  .is-table {
+    min-width: unset;
+    display: block;
+  }
+  .is-table thead { display: none; }
+  .is-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Each row becomes a card */
+  .is-table tbody tr.is-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "shipno   origin"
+      "status   status"
+      "prod     prod"
+      "date     location"
+      "projects projects"
+      "actions  actions";
+    gap: 4px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+  }
+  .is-table tbody tr.is-row:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .is-table tbody tr.is-row:last-child  { border-bottom: none; border-radius: 0 0 var(--r-lg) var(--r-lg); }
+  .is-table tbody tr.is-row:hover       { background: #FAF7F5; }
+
+  /* Map tds — adjust nth-child to match your column order:
+     1=Shipment#, 2=Origin, 3=Status, 4=Production, 5=Date, 6=Location, 7=Projects, 8=Actions */
+  .is-table tbody tr.is-row td { padding: 2px 0; }
+  .is-table tbody tr.is-row td:nth-child(1) { grid-area: shipno;   align-self: center; }
+  .is-table tbody tr.is-row td:nth-child(2) { grid-area: origin;   align-self: center; text-align: right; }
+  .is-table tbody tr.is-row td:nth-child(3) { grid-area: status;   padding-top: 4px; }
+  .is-table tbody tr.is-row td:nth-child(4) { grid-area: prod;     }
+  .is-table tbody tr.is-row td:nth-child(5) { grid-area: date;     }
+  .is-table tbody tr.is-row td:nth-child(6) { grid-area: location; text-align: right; align-self: center; }
+  .is-table tbody tr.is-row td:nth-child(7) { grid-area: projects; }
+  .is-table tbody tr.is-row td:nth-child(8) {
+    grid-area: actions;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    margin-top: 4px;
+    border-top: 1px dashed var(--border);
+  }
+
+  /* Micro-labels */
+  .is-table tbody tr.is-row td:nth-child(5)::before { content: "ETA"; display: block; font-size: .62rem; color: var(--text-light); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; }
+
+  /* Override inherited alignment */
+  .is-table tbody td.text-right  { text-align: inherit; }
+  .is-table tbody td.text-center { text-align: inherit; }
+
+  /* Loading / empty */
+  .is-loading-cell,
+  .is-empty-cell {
+    display: flex !important;
+    grid-column: 1 / -1;
+  }
+
+  /* Modal: bottom sheet */
   .is-overlay { align-items: flex-end; padding: 0; }
   .is-modal {
     max-width: 100%;
     border-radius: 16px 16px 0 0;
     max-height: 95vh;
+    animation: is-sheet-in .25s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes is-sheet-in {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
   }
   .is-modal-wide,
   .is-modal-received {
     max-width: 100% !important;
     width: 100% !important;
   }
+  .is-modal-header { border-radius: 16px 16px 0 0; }
+  .is-received-header { border-radius: 16px 16px 0 0; }
 
-  .is-modal-grid   { grid-template-columns: 1fr; }
-  .is-report-fields { grid-template-columns: 1fr; }
-  .is-detail-meta  { grid-template-columns: 1fr 1fr; }
-
+  /* Received panel stacks */
   .is-received-layout {
     grid-template-columns: 1fr;
   }
@@ -982,14 +981,18 @@
     max-height: 160px;
     overflow-y: auto;
   }
+
+  .is-modal-grid    { grid-template-columns: 1fr; }
+  .is-report-fields { grid-template-columns: 1fr; }
+  .is-detail-meta   { grid-template-columns: 1fr 1fr; }
 }
 
-/* ─── Phone (≤ 640px) ─────────────────────────────────────── */
+/* ── Phone (≤ 640px) ──────────────────────────────────────── */
 @media (max-width: 640px) {
   .is-topbar { padding: .65rem .85rem; }
 
   .is-topbar-right .is-refresh-btn { display: none; }
-  .is-received-stock-btn span { display: none; }
+  .is-received-stock-btn span      { display: none; }
 
   .is-table-wrap {
     margin: .75rem .5rem 0;
@@ -997,7 +1000,7 @@
   }
 
   .is-modal { border-radius: 14px 14px 0 0; }
-  .is-modal-header { padding: .85rem 1rem .75rem; }
+  .is-modal-header { padding: .85rem 1rem .75rem; border-radius: 14px 14px 0 0; }
   .is-modal-form   { padding: .9rem 1rem .85rem; }
 
   .is-modal-footer {
@@ -1011,15 +1014,16 @@
     justify-content: center;
   }
 
-  .is-detail-actions { flex-direction: column; }
+  .is-detail-actions    { flex-direction: column; }
   .is-action-add,
-  .is-action-report  { width: 100%; justify-content: center; }
+  .is-action-report     { width: 100%; justify-content: center; }
 
   .is-received-list { max-height: 140px; }
 }
 
-/* ─── Small Phone (≤ 480px) ───────────────────────────────── */
+/* ── Small Phone (≤ 480px) ────────────────────────────────── */
 @media (max-width: 480px) {
+  /* Topbar stacks */
   .is-topbar {
     flex-direction: column;
     align-items: flex-start;
@@ -1031,9 +1035,11 @@
     width: 100%;
     justify-content: flex-end;
   }
-  .is-received-stock-btn span { display: inline; }
-  .is-topbar-right .is-refresh-btn { display: flex; }
+  .is-received-stock-btn span              { display: inline; }
+  .is-received-stock-btn                   { width: 100%; justify-content: center; }
+  .is-topbar-right .is-refresh-btn         { display: flex; }
 
+  /* Table edge-to-edge */
   .is-table-wrap {
     margin: .5rem 0 0;
     border-radius: 0;
@@ -1041,28 +1047,43 @@
     border-right: none;
   }
 
-  .is-detail-meta  { grid-template-columns: 1fr; }
+  /* Single-column cards */
+  .is-table tbody tr.is-row {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "shipno"
+      "origin"
+      "status"
+      "prod"
+      "date"
+      "location"
+      "projects"
+      "actions";
+    padding: 10px 12px;
+  }
+  .is-table tbody tr.is-row:first-child { border-radius: 0; }
+  .is-table tbody tr.is-row:last-child  { border-radius: 0; }
+
+  .is-table tbody tr.is-row td:nth-child(2),
+  .is-table tbody tr.is-row td:nth-child(6) { text-align: left; }
+
+  .is-detail-meta   { grid-template-columns: 1fr; }
   .is-received-list { max-height: 120px; }
   .is-received-code { font-size: .75rem; }
 }
 
-/* ─── Touch Devices ────────────────────────────────────────── */
+/* ── Touch Devices ─────────────────────────────────────────── */
 @media (hover: none) {
-  .is-received-stock-btn:hover { transform: none; }
+  .is-received-stock-btn:hover  { background: #065F46; transform: none; }
   .is-received-stock-btn:active { transform: scale(.97); }
-
   .is-btn-save:active   { transform: scale(.98); }
   .is-btn-report:active { transform: scale(.98); }
-
   .is-row:hover  { background: transparent; }
   .is-row:active { background: #FAF7F5; }
+  .is-edit-btn:hover    { background: rgba(73,123,151,.08); color: #2d5f78; border-color: rgba(73,123,151,.25); }
+  .is-project-btn:hover { background: rgba(73,123,151,.08); }
 
-  .is-edit-btn:hover {
-    background: rgba(73,123,151,.08);
-    color: #2d5f78;
-    border-color: rgba(73,123,151,.25);
-  }
-  .is-project-btn:hover {
-    background: rgba(73,123,151,.08);
-  }
+  /* Bigger tap targets */
+  .is-edit-btn { padding: .6rem 1.1rem; }
+  .is-project-btn { padding: .4rem .8rem; }
 }
