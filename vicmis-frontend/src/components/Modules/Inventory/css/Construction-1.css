@@ -7,6 +7,15 @@
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 
+/* ── Width fix: counteract parent align-items:center ─────── */
+.inventory-wrapper,
+.wh-container {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
+}
+
 :root {
   --brand-black:   #221F1F;
   --brand-blue:    #497B97;
@@ -716,6 +725,14 @@
 
 /* ── Tablet Portrait (≤ 768px) — card layout begins ─────── */
 @media (max-width: 768px) {
+  /* Full-width fix */
+  .inventory-wrapper,
+  .wh-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+  }
+
   /* Top bar */
   .wh-topbar {
     padding: .75rem 1rem;
