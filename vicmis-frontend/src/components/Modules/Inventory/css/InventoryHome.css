@@ -1,153 +1,487 @@
-.inv-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 25px;
-    padding: 30px;
-    max-width: 1200px;
-    margin: 0 auto;
+/* ============================================================
+   ProjectManagement.css
+   Vision International Construction OPC
+   Aesthetic: Industrial Command — dark precision, red urgency,
+   cream warmth. Construction sites have weight; this UI does too.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Syne:wght@700;800&display=swap');
+
+:root {
+  --v-navy:       #1A1A2E;
+  --v-navy-mid:   #16213E;
+  --v-blue:       #497B97;
+  --v-blue-lt:    #6B9DB5;
+  --v-red:        #FF1817;
+  --v-red-dark:   #C20100;
+  --v-cream:      #EBDBD6;
+  --v-cream-lt:   #F5EDE9;
+  --v-black:      #221F1F;
+  --v-white:      #FFFFFF;
+  --v-surface:    #F8F5F2;
+  --v-border:     #E2D4CE;
+
+  --v-font-display: 'Syne', sans-serif;
+  --v-font-body:    'DM Sans', sans-serif;
+
+  --v-shadow-card: 0 2px 0 rgba(34,31,31,0.06), 0 8px 24px rgba(34,31,31,0.08);
+  --v-shadow-hover: 0 4px 0 var(--v-red), 0 16px 40px rgba(34,31,31,0.14);
+  --v-radius: 12px;
+  --v-transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.inv-card {
-    background: #FFF9C4;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
-    height: 200px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.3s ease;
-    color: white;
+/* ── Page shell ── */
+.pm-page {
+  min-height: 100vh;
+  background: var(--v-surface);
+  font-family: var(--v-font-body);
+  color: var(--v-black);
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.inv-card:hover {
-    transform: translateY(-8px);
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+/* ── Page header ── */
+.pm-page-header {
+  background: var(--v-navy);
+  padding: 28px 40px 24px;
+  border-bottom: 3px solid var(--v-red);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
 }
 
-.inv-card.add-card {
-    background: transparent;
-    border: 2px dashed #94a3b8;
-    color: #64748b;
+.pm-page-eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  display: block;
+  margin-bottom: 6px;
 }
 
-.inv-card.add-card:hover {
-    background: rgba(16, 185, 129, 0.1);
-    border-color: #10b981;
-    color: #065f46;
+.pm-page-title {
+  font-family: var(--v-font-display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--v-white);
+  margin: 0;
+  line-height: 1.1;
 }
 
-.card-number {
-    position: absolute;
-    top: 20px;
-    left: 25px;
-    font-size: 14px;
-    font-weight: 800;
-    color: rgba(30, 58, 138, 0.1);
+.pm-page-title span {
+  color: var(--v-red);
 }
 
-.inv-card:hover .card-number {
-    color: rgba(255, 255, 255, 0.3);
+.pm-page-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.5px;
 }
 
-.card-icon {
-    font-size: 45px;
-    margin-bottom: 12px;
+.pm-page-count strong {
+  color: var(--v-white);
+  font-size: 15px;
 }
 
-.card-title {
-    font-weight: 700;
-    font-size: 16px;
-    letter-spacing: 0.5px;
-    color: black;
+/* ── Grid ── */
+.pm-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  padding: 32px 40px;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* ── Tablet: 2 columns ── */
+/* ── Project Card ── */
+.pm-proj-card {
+  background: var(--v-white);
+  border: 1px solid var(--v-border);
+  border-radius: var(--v-radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--v-shadow-card);
+  transition: var(--v-transition);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+
+  opacity: 0;
+  transform: translateY(12px);
+  animation: pm-card-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes pm-card-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pm-proj-card:nth-child(1)  { animation-delay: 0.04s; }
+.pm-proj-card:nth-child(2)  { animation-delay: 0.08s; }
+.pm-proj-card:nth-child(3)  { animation-delay: 0.12s; }
+.pm-proj-card:nth-child(4)  { animation-delay: 0.16s; }
+.pm-proj-card:nth-child(5)  { animation-delay: 0.20s; }
+.pm-proj-card:nth-child(6)  { animation-delay: 0.24s; }
+.pm-proj-card:nth-child(7)  { animation-delay: 0.28s; }
+.pm-proj-card:nth-child(8)  { animation-delay: 0.32s; }
+.pm-proj-card:nth-child(n+9){ animation-delay: 0.36s; }
+
+.pm-proj-card:hover {
+  box-shadow: var(--v-shadow-hover);
+  transform: translateY(-3px);
+  border-color: transparent;
+}
+
+.pm-proj-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--v-red);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pm-proj-card:hover::before {
+  transform: scaleY(1);
+}
+
+/* ── Card top strip ── */
+.pm-card-strip {
+  height: 4px;
+  width: 100%;
+  background: var(--v-blue);
+  flex-shrink: 0;
+}
+
+.pm-card-strip.strip-monitoring  { background: var(--v-blue); }
+.pm-card-strip.strip-pending     { background: #f59e0b; }
+.pm-card-strip.strip-billing     { background: #16a34a; }
+.pm-card-strip.strip-completed   { background: #6b7280; }
+.pm-card-strip.strip-sales       { background: var(--v-blue-lt); }
+.pm-card-strip.strip-engineering { background: var(--v-navy-mid); }
+.pm-card-strip.strip-active      { background: var(--v-red); }
+
+/* ── Card header ── */
+.pm-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 18px 10px;
+  gap: 12px;
+}
+
+.pm-card-id {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #bbb;
+}
+
+/* ── Status badge ── */
+.pm-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.pm-status-chip.chip-active      { background: #fef2f2; color: var(--v-red-dark); border: 1px solid #fecaca; }
+.pm-status-chip.chip-pending     { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.pm-status-chip.chip-billing     { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.pm-status-chip.chip-completed   { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+.pm-status-chip.chip-engineering { background: var(--v-cream-lt); color: var(--v-black); border: 1px solid var(--v-cream); }
+
+.pm-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chip-active      .pm-status-dot { background: var(--v-red); }
+.chip-pending     .pm-status-dot { background: #f59e0b; }
+.chip-billing     .pm-status-dot { background: #16a34a; }
+.chip-completed   .pm-status-dot { background: #94a3b8; }
+.chip-engineering .pm-status-dot { background: var(--v-blue); }
+
+/* ── Card body ── */
+.pm-card-body {
+  padding: 0 18px 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pm-card-project-name {
+  font-family: var(--v-font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--v-navy);
+  margin: 0 0 10px;
+  line-height: 1.25;
+}
+
+.pm-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pm-card-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.pm-card-meta-key {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--v-blue);
+  min-width: 62px;
+  flex-shrink: 0;
+}
+
+.pm-card-meta-val {
+  color: var(--v-black);
+  font-weight: 500;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Card footer ── */
+.pm-card-foot {
+  margin-top: auto;
+  padding: 12px 18px;
+  border-top: 1px solid var(--v-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fdfcfb;
+}
+
+.pm-open-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--v-blue);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: gap 0.18s ease;
+}
+
+.pm-proj-card:hover .pm-open-label {
+  gap: 9px;
+  color: var(--v-red);
+}
+
+.pm-card-type-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #bbb;
+}
+
+/* ── Empty state ── */
+.pm-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 24px;
+  background: var(--v-white);
+  border: 1.5px dashed var(--v-border);
+  border-radius: var(--v-radius);
+}
+
+.pm-empty-icon { font-size: 40px; opacity: 0.4; }
+
+.pm-empty-title {
+  font-family: var(--v-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--v-navy);
+  margin: 0;
+}
+
+.pm-empty-sub {
+  font-size: 13px;
+  color: #aaa;
+  margin: 0;
+  text-align: center;
+}
+
+/* ── Loading state ── */
+.pm-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 24px;
+  font-family: var(--v-font-body);
+}
+
+.pm-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--v-cream);
+  border-top-color: var(--v-red);
+  border-radius: 50%;
+  animation: pm-spin 0.9s linear infinite;
+}
+
+@keyframes pm-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pm-loading-text {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #bbb;
+}
+
+/* ── Error state ── */
+.pm-error {
+  margin: 32px 40px;
+  padding: 16px 20px;
+  background: #fff1f1;
+  border: 1px solid #fecaca;
+  border-left: 4px solid var(--v-red);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--v-red-dark);
+  font-weight: 500;
+  font-family: var(--v-font-body);
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — mirrors inv-grid pattern exactly
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Large Tablet (≤ 1024px) ── */
+@media (max-width: 1024px) {
+  .pm-page-header   { padding: 20px 24px 16px; }
+  .pm-project-grid  { padding: 24px; gap: 16px; }
+}
+
+/* ── Tablet (≤ 768px) — 2 columns, matches inv-grid ── */
 @media (max-width: 768px) {
-    .inv-grid {
-        grid-template-columns: repeat(2, 1fr); /* force 2 cols */
-        gap: 16px;
-        padding: 20px;
-    }
+  .pm-page,
+  .pm-project-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    box-sizing: border-box;
+  }
 
-    .inv-card {
-        height: 170px;
-        border-radius: 18px;
-    }
+  .pm-page-header {
+    padding: 16px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
 
-    .card-icon {
-        font-size: 36px;
-        margin-bottom: 10px;
-    }
+  .pm-page-title  { font-size: 20px; }
+  .pm-page-eyebrow { font-size: 9px; }
 
-    .card-title {
-        font-size: 14px;
-    }
+  /* 2-column grid — same as inv-grid at 768px */
+  .pm-project-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    padding: 20px;
+  }
 
-    .card-number {
-        font-size: 12px;
-        top: 14px;
-        left: 18px;
-    }
+  .pm-card-project-name { font-size: 14px; margin-bottom: 8px; }
+  .pm-card-meta-key     { font-size: 8px; min-width: 54px; }
+  .pm-card-meta-val     { font-size: 11px; }
+  .pm-card-head         { padding: 12px 14px 8px; }
+  .pm-card-body         { padding: 0 14px 12px; }
+  .pm-card-foot         { padding: 10px 14px; }
+  .pm-open-label        { font-size: 10px; }
 }
 
-/* ── Mobile: KEEP 2 columns, just tighter ── */
+/* ── Mobile (≤ 480px) — keep 2 columns, tighter ── */
 @media (max-width: 480px) {
-    .inv-grid {
-        grid-template-columns: repeat(2, 1fr); /* ← was 1fr, now 2 cols */
-        gap: 12px;
-        padding: 16px;
-    }
+  .pm-page-header {
+    padding: 14px 16px;
+  }
 
-    .inv-card {
-        height: 150px;
-        border-radius: 16px;
-        transition: background 0.2s ease, border-color 0.2s ease,
-                    box-shadow 0.2s ease;
-    }
+  .pm-page-title { font-size: 18px; }
 
-    .inv-card:hover {
-        transform: none;
-    }
+  /* Keep 2 columns, just tighter — same as inv-grid at 480px */
+  .pm-project-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
 
-    .card-icon {
-        font-size: 32px;
-        margin-bottom: 8px;
-    }
+  .pm-proj-card:hover {
+    transform: none; /* no lift on small phones */
+  }
 
-    .card-title {
-        font-size: 13px;
-        letter-spacing: 0.3px;
-    }
-
-    .card-number {
-        font-size: 11px;
-        top: 12px;
-        left: 14px;
-    }
+  .pm-card-project-name { font-size: 13px; margin-bottom: 6px; }
+  .pm-card-meta-key     { font-size: 7.5px; min-width: 48px; }
+  .pm-card-meta-val     { font-size: 10.5px; }
+  .pm-card-head         { padding: 10px 12px 6px; gap: 6px; }
+  .pm-card-body         { padding: 0 12px 10px; }
+  .pm-card-foot         { padding: 8px 12px; }
+  .pm-card-id           { font-size: 8px; }
+  .pm-open-label        { font-size: 9px; }
+  .pm-card-type-tag     { font-size: 8px; }
+  .pm-status-chip       { font-size: 8px; padding: 2px 7px; }
+  .pm-card-strip        { height: 3px; }
 }
 
-/* ── Touch: active press instead of hover lift ── */
+/* ── Touch: press instead of hover lift ── */
 @media (hover: none) {
-    .inv-card:hover {
-        transform: none;
-    }
+  .pm-proj-card:hover {
+    transform: none;
+    box-shadow: var(--v-shadow-card);
+    border-color: var(--v-border);
+  }
 
-    .inv-card:active {
-        transform: scale(0.97);
-        background: rgba(59, 130, 246, 0.2);
-        border-color: rgba(59, 130, 246, 0.5);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
+  .pm-proj-card:active {
+    transform: scale(0.97);
+    box-shadow: var(--v-shadow-hover);
+    border-color: transparent;
+  }
 
-    .inv-card.add-card:active {
-        background: rgba(16, 185, 129, 0.1);
-        border-color: #10b981;
-        color: #065f46;
-    }
+  .pm-proj-card:hover::before { transform: scaleY(0); }
+  .pm-proj-card:active::before { transform: scaleY(1); }
 }
