@@ -36,6 +36,19 @@ class ProjectController extends Controller
         'latestRejection.rejectedBy',
     ];
 
+    // Phases where Logistics has access
+    private const LOGISTICS_PHASES = [
+        'Checking of Delivery of Materials',
+        'Pending DR Verification',
+        'Request Materials Needed',
+    ];
+
+    // Phases where Accounting / Procurement has access
+    private const ACCOUNTING_PHASES = [
+        'Request Billing',
+        'Request Final Billing',
+    ];
+
     // =========================================================================
     // 1. NOTIFICATION ENGINE
     // =========================================================================
@@ -148,6 +161,7 @@ class ProjectController extends Controller
 
         $query = Project::with(self::EAGER);
 
+        // ── Global access: admins, managers, management dept, ops emails ─────
         $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
             || str_contains($dept, 'management')
             || str_contains($email, 'ops')
@@ -156,6 +170,7 @@ class ProjectController extends Controller
         if (!$isGlobal) {
             $query->where(function ($q) use ($dept, $role, $email, $user) {
 
+                // ── Engineering ───────────────────────────────────────────
                 if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
                     $q->where(function ($engQ) use ($role, $user) {
                         $engQ->whereIn('status', [
@@ -177,7 +192,8 @@ class ProjectController extends Controller
                             'Final Site Inspection with the Client',
                             'Signing of COC',
                             'Request Final Billing',
-                        ]);
+                        ])
+                        ->orWhere('status', 'Completed'); // Engineering can see Completed
 
                         if ($role !== 'dept_head') {
                             $engQ->whereHas('assignments', function ($a) use ($user) {
@@ -188,6 +204,7 @@ class ProjectController extends Controller
                         }
                     });
 
+                // ── Sales ─────────────────────────────────────────────────
                 } elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
                     $q->where(function ($salesQ) use ($user) {
                         $salesQ->whereIn('status', [
@@ -196,6 +213,7 @@ class ProjectController extends Controller
                             'P.O & Work Order',
                             'Pending Work Order Verification',
                         ])
+                        ->orWhere('status', 'Completed') // Sales can see Completed
                         ->where(function ($ownerQ) use ($user) {
                             $ownerQ->whereHas('assignments', function ($a) use ($user) {
                                 $a->where('user_id', $user->id)
@@ -207,26 +225,28 @@ class ProjectController extends Controller
                         });
                     });
 
+                // ── Logistics / Inventory ─────────────────────────────────
+                // Only sees projects currently IN a logistics phase.
+                // No access to Completed or any other phase.
                 } elseif (
                     str_contains($dept, 'logistics') ||
                     str_contains($dept, 'inventory') ||
                     str_contains($email, 'logistic')
                 ) {
-                    $q->whereIn('status', [
-                        'Checking of Delivery of Materials',
-                        'Request Materials Needed',
-                    ]);
+                    $q->whereIn('status', self::LOGISTICS_PHASES);
 
+                // ── Accounting / Finance / Procurement ────────────────────
+                // Only sees projects currently IN a billing phase.
+                // No access to Completed or any other phase.
                 } elseif (
                     str_contains($dept, 'accounting') ||
                     str_contains($dept, 'finance') ||
+                    str_contains($dept, 'procurement') ||
                     str_contains($role, 'accounting') ||
                     str_contains($email, 'accounting')
                 ) {
-                    $q->whereIn('status', ['Request Billing', 'Request Final Billing']);
+                    $q->whereIn('status', self::ACCOUNTING_PHASES);
                 }
-
-                $q->orWhere('status', 'Completed');
             });
         }
 
@@ -254,10 +274,48 @@ class ProjectController extends Controller
     // 4. SINGLE PROJECT
     // =========================================================================
 
-    public function show($id): JsonResponse
+    public function show(Request $request, $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Not Authenticated'], 401);
+
         $project = Project::with(self::EAGER)->find($id);
         if (!$project) return response()->json(['message' => 'Project not found'], 404);
+
+        // ── Restrict logistics & accounting to their phases only ──────────────
+        $dept  = strtolower($user->dept ?? $user->department ?? '');
+        $role  = strtolower($user->role ?? '');
+        $email = strtolower($user->email ?? '');
+
+        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
+            || str_contains($dept, 'management')
+            || str_contains($dept, 'engineering')
+            || str_contains($dept, 'sales')
+            || str_contains($email, 'ops')
+            || str_contains($email, 'admin')
+            || str_contains($email, 'eng')
+            || str_contains($email, 'sales');
+
+        if (!$isGlobal) {
+            $isLogistics = str_contains($dept, 'logistics')
+                || str_contains($dept, 'inventory')
+                || str_contains($email, 'logistic');
+
+            $isAccounting = str_contains($dept, 'accounting')
+                || str_contains($dept, 'finance')
+                || str_contains($dept, 'procurement')
+                || str_contains($role, 'accounting')
+                || str_contains($email, 'accounting');
+
+            if ($isLogistics && !in_array($project->status, self::LOGISTICS_PHASES)) {
+                return response()->json(['message' => 'Access denied for current project phase.'], 403);
+            }
+
+            if ($isAccounting && !in_array($project->status, self::ACCOUNTING_PHASES)) {
+                return response()->json(['message' => 'Access denied for current project phase.'], 403);
+            }
+        }
+
         return response()->json(['project' => $this->formatProject($project)]);
     }
 
@@ -328,10 +386,8 @@ class ProjectController extends Controller
             );
         }
 
-        // ── Rejection vs advance vs go-back ─────────────────────────────────
+        // ── Rejection vs advance vs go-back ──────────────────────────────────
         if ($request->filled('rejection_notes')) {
-            // Use filled() not has() — has() returns true even for null values
-            // which causes a DB NOT NULL constraint failure on rejection_notes.
             ProjectRejectionLog::create([
                 'project_id'        => $project->id,
                 'rejected_phase'    => $project->status,
@@ -378,12 +434,10 @@ class ProjectController extends Controller
 
     // =========================================================================
     // 7. MOBILIZATION ENDPOINTS
-    // These replace the separate MobilizationController — all logic lives here.
     // =========================================================================
 
     /**
      * GET /api/projects/{id}/mobilization
-     * Returns the mobilization record for display (roster, photo, etc.)
      */
     public function getMobilization(int $id): JsonResponse
     {
@@ -408,8 +462,6 @@ class ProjectController extends Controller
 
     /**
      * POST /api/projects/{id}/mobilization/contract
-     * Confirms the handover checklist and advances to Deployment phase.
-     * Copies subcontractor_name from the project row into project_mobilizations.
      */
     public function saveMobilizationContract(Request $request, int $id): JsonResponse
     {
@@ -420,7 +472,6 @@ class ProjectController extends Controller
         try {
             $project = Project::with(self::EAGER)->findOrFail($id);
 
-            // Pull subcontractor name saved during the Awarding phase
             $subName = $project->mobilization?->subcontractor_name
                     ?? $project->subcontractor_name
                     ?? null;
@@ -450,21 +501,19 @@ class ProjectController extends Controller
     }
 
     /**
-     * POST /api/projects/{id}/mobilization/deploy   (multipart/form-data)
-     * Saves installer roster + mobilization photo, advances to Site Inspection.
+     * POST /api/projects/{id}/mobilization/deploy
      */
     public function saveMobilizationDeploy(Request $request, int $id): JsonResponse
     {
         $request->validate([
-            'new_status'       => 'required|string',
-            'installer_roster' => 'required|string',
+            'new_status'         => 'required|string',
+            'installer_roster'   => 'required|string',
             'mobilization_photo' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:10240',
         ]);
 
         try {
             $project = Project::with(self::EAGER)->findOrFail($id);
 
-            // Decode roster JSON string sent via FormData
             $roster = json_decode($request->installer_roster, true);
 
             if (!is_array($roster) || empty($roster)) {
@@ -485,7 +534,6 @@ class ProjectController extends Controller
                     ->store('mobilization_photos', 'public');
             }
 
-            // installer_roster mutator auto-syncs installer_count
             ProjectMobilization::updateOrCreate(
                 ['project_id' => $project->id],
                 array_filter([
@@ -795,7 +843,38 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 14. PRIVATE HELPERS
+    // 14. QA CHECKS
+    // =========================================================================
+
+    public function saveQaChecks(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'qa_check_boq'    => 'required|boolean',
+            'qa_check_debris' => 'required|boolean',
+            'qa_check_defect' => 'required|boolean',
+        ]);
+
+        $project = Project::findOrFail($id);
+
+        $qa = $project->qaHandover()->updateOrCreate(
+            ['project_id' => $project->id],
+            [
+                'qa_check_boq'    => $request->boolean('qa_check_boq'),
+                'qa_check_debris' => $request->boolean('qa_check_debris'),
+                'qa_check_defect' => $request->boolean('qa_check_defect'),
+            ]
+        );
+
+        return response()->json([
+            'message'         => 'QA checks saved.',
+            'qa_check_boq'    => $qa->qa_check_boq,
+            'qa_check_debris' => $qa->qa_check_debris,
+            'qa_check_defect' => $qa->qa_check_defect,
+        ]);
+    }
+
+    // =========================================================================
+    // 15. PRIVATE HELPERS
     // =========================================================================
 
     private function storePhaseFile(Project $project, string $field, string $path): void
@@ -833,35 +912,6 @@ class ProjectController extends Controller
         ];
 
         if (isset($map[$field])) ($map[$field])();
-    }
-
-     public function saveQaChecks(Request $request, $id): JsonResponse
-    {
-        $request->validate([
-            'qa_check_boq'    => 'required|boolean',
-            'qa_check_debris' => 'required|boolean',
-            'qa_check_defect' => 'required|boolean',
-        ]);
- 
-        $project = Project::findOrFail($id);
- 
-        // updateOrCreate so the row is created on first checkbox tick
-        // even if the engineer hasn't uploaded a photo yet.
-        $qa = $project->qaHandover()->updateOrCreate(
-            ['project_id' => $project->id],
-            [
-                'qa_check_boq'    => $request->boolean('qa_check_boq'),
-                'qa_check_debris' => $request->boolean('qa_check_debris'),
-                'qa_check_defect' => $request->boolean('qa_check_defect'),
-            ]
-        );
- 
-        return response()->json([
-            'message'         => 'QA checks saved.',
-            'qa_check_boq'    => $qa->qa_check_boq,
-            'qa_check_debris' => $qa->qa_check_debris,
-            'qa_check_defect' => $qa->qa_check_defect,
-        ]);
     }
 
     private function formatProject(Project $project): array
@@ -935,13 +985,13 @@ class ProjectController extends Controller
             'installer_roster'                 => $mob?->installer_roster ?? [],
             'installer_count'                  => $mob?->installer_count ?? 0,
 
-             // ── QA / Handover ─────────────────────────────────────────────
+            // ── QA / Handover ─────────────────────────────────────────────
             'qa_photo'               => $qa?->qa_photo,
             'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
             'coc_document'           => $qa?->coc_document,
-            'qa_check_boq'    => (bool) ($qa?->qa_check_boq    ?? false),
-            'qa_check_debris' => (bool) ($qa?->qa_check_debris ?? false),
-            'qa_check_defect' => (bool) ($qa?->qa_check_defect ?? false),
+            'qa_check_boq'           => (bool) ($qa?->qa_check_boq    ?? false),
+            'qa_check_debris'        => (bool) ($qa?->qa_check_debris ?? false),
+            'qa_check_defect'        => (bool) ($qa?->qa_check_defect ?? false),
 
             // ── Billing ───────────────────────────────────────────────────
             'billing_invoice_document' => $project->progressBilling?->invoice_document,

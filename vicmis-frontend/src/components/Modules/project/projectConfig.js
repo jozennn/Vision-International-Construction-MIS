@@ -12,7 +12,7 @@ export const WAITING_MSG = {
   'Pending Work Order Verification':           { dept: 'Sales Head',              msg: 'verify and approve the Work Order' },
   'Initial Site Inspection':                   { dept: 'Engineering',             msg: 'complete the Initial Site Inspection' },
   'Checking of Delivery of Materials':         { dept: 'Engineering / Logistics', msg: 'verify delivery of materials' },
-  'Pending DR Verification':                   { dept: 'Logistics',               msg: 'verify stock availability and the P.O / Proof of Payment' }, // ← changed from Engineering Head
+  'Pending DR Verification':                   { dept: 'Logistics',               msg: 'verify stock availability and the P.O / Proof of Payment' },
   'Bidding of Project':                        { dept: 'Management',              msg: 'complete the Bidding phase' },
   'Awarding of Project':                       { dept: 'Management',              msg: 'complete the Project Awarding' },
   'Contract Signing for Installer':            { dept: 'Engineering',             msg: 'complete the Subcontractor Handover' },
@@ -38,7 +38,7 @@ export const PHASE_ORDER = [
   { status: 'Pending Work Order Verification',           owner: 'sales_head', locked: true },
   { status: 'Initial Site Inspection',                   owner: 'engineering' },
   { status: 'Checking of Delivery of Materials',         owner: 'engineering' },
-  { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true }, // ← changed from eng_head
+  { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true },
   { status: 'Bidding of Project',                        owner: 'management'  },
   { status: 'Awarding of Project',                       owner: 'management'  },
   { status: 'Contract Signing for Installer',            owner: 'engineering' },
@@ -53,6 +53,19 @@ export const PHASE_ORDER = [
   { status: 'Request Final Billing',                     owner: 'accounting'  },
   { status: 'Completed',                                 owner: 'all'         },
   { status: 'Archived',                                  owner: 'all'         },
+];
+
+// Phases where Logistics is involved — used by canAccessProject & getPhaseAccess
+export const LOGISTICS_PHASES = [
+  'Checking of Delivery of Materials',
+  'Pending DR Verification',
+  'Request Materials Needed',
+];
+
+// Phases where Accounting / Procurement is involved
+export const ACCOUNTING_PHASES = [
+  'Request Billing',
+  'Request Final Billing',
 ];
 
 // Phase → component file map (used by the orchestrator)
@@ -102,32 +115,82 @@ export const getPreviousPhase = (currentStatus, roles) => {
 // ── Helper: check if the user is any kind of dept_head ───────────────────────
 const isDeptHead = (user) => user?.role === 'dept_head';
 
-// Returns true if the user is allowed to open/see this project
+/**
+ * canAccessProject
+ *
+ * Returns true if the user is allowed to open/see this project.
+ *
+ * Rules:
+ *  - Admin / Manager / dept_head            → always yes
+ *  - Management dept / ops email            → always yes
+ *  - Engineering                            → yes (filtered by assignment server-side)
+ *  - Sales                                  → yes for their own projects
+ *  - Logistics                              → ONLY when project is in a logistics phase
+ *  - Accounting / Finance / Procurement     → ONLY when project is in a billing phase
+ *  - Everything else                        → denied
+ */
 export const canAccessProject = (project, user, userDept) => {
   if (!project) return false;
 
-  if (user?.role === 'admin' || user?.role === 'manager') return true;
+  const dept = (userDept ?? '').toLowerCase();
+  const role = (user?.role ?? '').toLowerCase();
+  const email = (user?.email ?? '').toLowerCase();
+
+  // Global roles — full access
+  if (role === 'admin' || role === 'manager') return true;
   if (isDeptHead(user)) return true;
+  if (dept.includes('management') || email.includes('ops') || email.includes('admin')) return true;
 
-  if (userDept.includes('management')) return true;
+  // Engineering — full access (server already filters by assignment)
+  if (dept.includes('engineering') || email.includes('eng')) return true;
 
-  if (userDept.includes('sales')) {
+  // Sales — only their own projects
+  if (dept.includes('sales') || email.includes('sales')) {
     const createdById = project?.created_by || project?.lead?.created_by_id;
     if (!createdById) return true;
     return String(createdById) === String(user?.id);
   }
 
-  if (userDept.includes('engineering')) {
-    const assignedIds = project?.assigned_engineer_ids || [];
-    if (assignedIds.length === 0) return true;
-    return assignedIds.map(String).includes(String(user?.id));
+  // Logistics — ONLY while the project is in a logistics phase
+  if (dept.includes('logistics') || dept.includes('inventory') || email.includes('logistic')) {
+    return LOGISTICS_PHASES.includes(project?.status);
   }
 
-  return true;
+  // Accounting / Finance / Procurement — ONLY during billing phases
+  if (
+    dept.includes('accounting') ||
+    dept.includes('finance') ||
+    dept.includes('procurement') ||
+    role.includes('accounting') ||
+    email.includes('accounting')
+  ) {
+    return ACCOUNTING_PHASES.includes(project?.status);
+  }
+
+  // Deny everything else by default
+  return false;
 };
 
-// Returns 'active' | 'waiting' for the current user + phase combo
-export const getPhaseAccess = (status, { isSales, isEng, isEngHead, isSalesHead, isLogistics, isAccounting, isOpsAss, isDeptHeadAny }) => {
+/**
+ * getPhaseAccess
+ *
+ * Returns 'active' | 'waiting' for the current user + phase combo.
+ *
+ * isOpsAss should be true for management / ops / admin roles only.
+ * Logistics and Accounting are 'active' only on their own phases;
+ * all other phases return 'waiting' for them.
+ */
+export const getPhaseAccess = (status, {
+  isSales,
+  isEng,
+  isEngHead,
+  isSalesHead,
+  isLogistics,
+  isAccounting,
+  isOpsAss,
+  isDeptHeadAny,
+}) => {
+  // Ops / admin always active
   if (isOpsAss) return 'active';
 
   const map = {
@@ -139,23 +202,39 @@ export const getPhaseAccess = (status, { isSales, isEng, isEngHead, isSalesHead,
     'P.O & Work Order':                          isSales      || isSalesHead,
     'Pending Work Order Verification':           isSalesHead,
     'Initial Site Inspection':                   isEng        || isEngHead,
-    'Checking of Delivery of Materials':         isEng        || isEngHead   || isLogistics,
-    'Pending DR Verification':                   isLogistics,                               // ← changed from isEngHead
-    'Bidding of Project':                        isOpsAss,
-    'Awarding of Project':                       isOpsAss,
+
+    // Logistics joins Engineering for material delivery
+    'Checking of Delivery of Materials':         isEng        || isEngHead || isLogistics,
+
+    // Logistics exclusively owns DR Verification
+    'Pending DR Verification':                   isLogistics,
+
+    // Management-only phases (isOpsAss caught above — these are fallback false for others)
+    'Bidding of Project':                        false,
+    'Awarding of Project':                       false,
+
     'Contract Signing for Installer':            isEng        || isEngHead,
     'Deployment and Orientation of Installers':  isEng        || isEngHead,
     'Site Inspection & Project Monitoring':      isEng        || isEngHead,
+
+    // Logistics exclusively owns materials dispatch
     'Request Materials Needed':                  isLogistics,
+
+    // Accounting exclusively owns billing phases
     'Request Billing':                           isAccounting,
+
     'Site Inspection & Quality Checking':        isEng        || isEngHead,
     'Pending QA Verification':                   isEngHead,
     'Final Site Inspection with the Client':     isEng        || isEngHead,
     'Signing of COC':                            isEng        || isEngHead,
+
+    // Accounting exclusively owns final billing
     'Request Final Billing':                     isAccounting,
+
     'Completed':                                 true,
     'Archived':                                  true,
   };
+
   return map[status] ? 'active' : 'waiting';
 };
 

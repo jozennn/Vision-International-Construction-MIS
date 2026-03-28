@@ -1,24 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import VicmisLogo from '../assets/logo.png'; 
 import api from '../api/axios';
-import './Sidebar.css'; // Make sure to import the new CSS file
+import './Sidebar.css';
 
-const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser }) => {
-  const [isOpen, setIsOpen] = useState(false); // State for mobile hamburger menu
+const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubItem, setActiveSubItem }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+
+  // Keep dropdown open whenever Inventory is the active page
+  useEffect(() => {
+    if (activeItem === 'Inventory') {
+      setInventoryOpen(true);
+    } else {
+      setInventoryOpen(false);
+    }
+  }, [activeItem]);
+
+  const inventorySubItems = [
+    { id: 'Construction Materials', label: 'Construction Materials' },
+    { id: 'Incoming Shipment',      label: 'Incoming Shipment'      },
+    { id: 'Delivery Materials',     label: 'Delivery Materials'     },
+  ];
 
   const menuItems = [
     { name: 'Dashboard', icon: '🏠' },
-    { name: 'Project', icon: '📝' },
-    { name: 'Inventory', icon: '📦' },
-    { name: 'Customer', icon: '👤' },
-    { name: 'Setting', icon: '⚙️' },
+    { name: 'Project',   icon: '📝' },
+    { name: 'Inventory', icon: '📦', hasDropdown: true },
+    { name: 'Customer',  icon: '👤' },
+    { name: 'Setting',   icon: '⚙️' },
   ];
 
   const handleLogout = async () => {
     try {
       await api.post('/logout'); 
     } catch (error) {
-      console.error("Logout API call failed", error);
+      console.error('Logout API call failed', error);
     } finally {
       sessionStorage.clear(); 
       if (setUser) {
@@ -30,29 +46,41 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser }) => {
   };
 
   const handleItemClick = (name, isAllowed) => {
-    if (isAllowed) {
-      setActiveItem(name);
-      setIsOpen(false); // Automatically close the sidebar on mobile after clicking a link
+    if (!isAllowed) return;
+
+    if (name === 'Inventory') {
+      setActiveItem('Inventory');
+      setInventoryOpen(true);
+      // Auto-select first sub-item if nothing selected yet
+      if (!activeSubItem && setActiveSubItem) {
+        setActiveSubItem('Construction Materials');
+      }
+      setIsOpen(false);
+      return;
     }
+
+    setActiveItem(name);
+    setInventoryOpen(false);
+    if (setActiveSubItem) setActiveSubItem(null);
+    setIsOpen(false);
   };
 
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
+  const handleSubItemClick = (subId) => {
+    setActiveItem('Inventory');
+    if (setActiveSubItem) setActiveSubItem(subId);
+    setIsOpen(false);
   };
+
+  const toggleSidebar = () => setIsOpen(!isOpen);
 
   return (
     <>
-      {/* --- Hamburger Button (Hidden when sidebar is open) --- */}
       {!isOpen && (
-        <button className="hamburger-btn" onClick={toggleSidebar}>
-          ☰
-        </button>
+        <button className="hamburger-btn" onClick={toggleSidebar}>☰</button>
       )}
 
-      {/* --- Overlay (Darkens background on Mobile when open) --- */}
       {isOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
 
-      {/* --- Main Sidebar --- */}
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-top">
           <div className="sidebar-logo-container">
@@ -63,18 +91,43 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser }) => {
           <nav className="sidebar-nav-menu">
             <ul>
               {menuItems.map((item) => {
-                const isAllowed = item.name === 'Dashboard' ? true : (checkAccess ? checkAccess(item.name) : true);
-                
+                const isAllowed = item.name === 'Dashboard'
+                  ? true
+                  : (checkAccess ? checkAccess(item.name) : true);
+
+                const isActive = item.name === activeItem;
+
                 return (
-                  <li
-                    key={item.name}
-                    className={`sidebar-nav-item ${item.name === activeItem ? 'active' : ''} ${!isAllowed ? 'disabled' : ''}`}
-                    onClick={() => handleItemClick(item.name, isAllowed)}
-                  >
-                    <span className="sidebar-icon">{item.icon}</span>
-                    <span className="sidebar-item-name">{item.name}</span>
-                    {!isAllowed && <span className="sidebar-lock-icon">🔒</span>}
-                  </li>
+                  <React.Fragment key={item.name}>
+                    <li
+                      className={`sidebar-nav-item ${isActive ? 'active' : ''} ${!isAllowed ? 'disabled' : ''}`}
+                      onClick={() => handleItemClick(item.name, isAllowed)}
+                    >
+                      <span className="sidebar-icon">{item.icon}</span>
+                      <span className="sidebar-item-name">{item.name}</span>
+                      {!isAllowed && <span className="sidebar-lock-icon">🔒</span>}
+                      {item.hasDropdown && isAllowed && (
+                        <span className={`sidebar-chevron ${inventoryOpen ? 'open' : ''}`}>
+                          ›
+                        </span>
+                      )}
+                    </li>
+
+                    {/* Inventory sub-menu */}
+                    {item.hasDropdown && inventoryOpen && isAllowed && (
+                      <ul className="sidebar-submenu">
+                        {inventorySubItems.map((sub) => (
+                          <li
+                            key={sub.id}
+                            className={`sidebar-submenu-item ${activeSubItem === sub.id ? 'active' : ''}`}
+                            onClick={() => handleSubItemClick(sub.id)}
+                          >
+                            {sub.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </ul>

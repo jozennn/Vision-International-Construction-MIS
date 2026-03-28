@@ -9,7 +9,7 @@ import InventoryDashboard from './components/Dashboard/Inventory/InventoryDashbo
 import InventoryEmployeeDashboard from './components/Dashboard/Inventory/InventoryEmployeeDashboard.jsx';
 import AccountingDashboard from './components/Dashboard/Accounting/AccountingDashboard.jsx';
 import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDashboard.jsx'; 
-import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx'; // 👈 Imported Manager
+import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx';
 import Customer from './components/Modules/customer/Customer.jsx';
 import Inventory from './components/Modules/Inventory/Inventory.jsx';
 import Login from './components/Login.jsx';
@@ -26,20 +26,21 @@ const App = () => {
     return (savedUser && token) ? JSON.parse(savedUser) : null;
   });
   
-  const [activeItem, setActiveItem] = useState('Dashboard');
-  const [projects, setProjects] = useState([]);
+  const [activeItem, setActiveItem]       = useState('Dashboard');
+  const [activeSubItem, setActiveSubItem] = useState(null); // ← NEW
+  const [projects, setProjects]           = useState([]);
 
   // --- ACCESS CONTROL ---
   const checkAccess = useCallback((moduleName) => {
     if (!user) return false;
     
-    // 1. Settings is strictly for Super Admin ONLY
+    // Settings is strictly for Super Admin ONLY
     if (moduleName === 'Setting' && user.role !== 'super_admin') return false; 
 
-    // 👇 2. UPDATED (Line 38): Give Managers the master key
+    // Admins and managers get the master key
     if (['super_admin', 'admin', 'manager'].includes(user.role)) return true; 
 
-    // 3. Normal employees rely on the backend permissions array
+    // Normal employees rely on the backend permissions array
     return user.permissions?.includes(moduleName) || false;
   }, [user]);
 
@@ -53,6 +54,7 @@ const App = () => {
     sessionStorage.clear(); 
     setUser(null);
     setActiveItem('Dashboard');
+    setActiveSubItem(null); // ← clear sub-selection on logout
   };
 
   // --- DASHBOARD ROUTER ---
@@ -65,17 +67,9 @@ const App = () => {
       accountingCount: projects?.filter(p => p.activeStage === 4).length || 0
     };
 
-   if (user.role === 'super_admin') {
-         return <SuperAdminDashboard user={user} />;
-       }
-       
-   if (user.role === 'admin') {
-         return <AdminDashboard user={user} />;
-  } 
-       // 👇 NEW (Line 71): Route the manager to their new dashboard
-   if (user.role === 'manager') {
-         return <ManagerDashboard user={user} />;
-    }
+    if (user.role === 'super_admin') return <SuperAdminDashboard user={user} />;
+    if (user.role === 'admin')       return <AdminDashboard user={user} />;
+    if (user.role === 'manager')     return <ManagerDashboard user={user} />;
 
     if (dept === 'accounting' || dept === 'procurement' || dept === 'accounting/procurement') {
       return <AccountingDashboard user={user} notifications={notifications} />;
@@ -115,11 +109,31 @@ const App = () => {
 
     switch (activeItem) {
       case 'Project': 
-        return <Project projects={projects} setProjects={setProjects} user={user} />;
+        return (
+          <Project
+            projects={projects}
+            setProjects={setProjects}
+            user={user}
+          />
+        );
       case 'Customer': 
-        return <Customer user={user} onProjectCreated={(p) => { setProjects([...projects, p]); setActiveItem('Project'); }} />;
+        return (
+          <Customer
+            user={user}
+            onProjectCreated={(p) => {
+              setProjects([...projects, p]);
+              setActiveItem('Project');
+            }}
+          />
+        );
       case 'Inventory': 
-        return <Inventory user={user} />;
+        return (
+          <Inventory
+            user={user}
+            activeSubItem={activeSubItem}         // ← NEW
+            setActiveSubItem={setActiveSubItem}   // ← NEW
+          />
+        );
       case 'Setting': 
         return <Settings user={user} />;
       default: 
@@ -127,7 +141,7 @@ const App = () => {
     }
   };
 
-  // URL ROUTING CHECK FOR RESET PASSWORD
+  // --- URL ROUTING CHECK FOR RESET PASSWORD ---
   const isResetPage = window.location.pathname === '/reset-password';
   if (isResetPage) {
     return (
@@ -151,7 +165,13 @@ const App = () => {
         }}
       />
 
-      <Sidebar activeItem={activeItem} setActiveItem={setActiveItem} checkAccess={checkAccess} />
+      <Sidebar
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        activeSubItem={activeSubItem}           // ← NEW
+        setActiveSubItem={setActiveSubItem}     // ← NEW
+        checkAccess={checkAccess}
+      />
       
       <main className="content-area flex-1 h-full overflow-y-auto">
         <Header user={user} onLogout={handleLogout} />

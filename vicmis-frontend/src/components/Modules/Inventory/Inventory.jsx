@@ -1,47 +1,45 @@
-import React, { useState } from 'react';
-import InventoryHome from './InventoryHome';
-import ConstructionMat from './tab/ConstructionMat';
+import React, { useState, useEffect } from 'react';
+import ConstructionMat  from './tab/ConstructionMat';
 import IncomingShipment from './tab/IncomingShipment';
-import DeliveryMat from './tab/DeliveryMat';
-import MaterialRequest from './tab/MaterialRequest';
+import DeliveryMat      from './tab/DeliveryMat';
 
-const Inventory = () => {
-  const [currentView, setCurrentView] = useState('home');
-  
-  // New state to hold data for the transfer
+/**
+ * Inventory
+ *
+ * Props:
+ *  activeSubItem      – the currently selected sub-menu id coming from Sidebar
+ *  setActiveSubItem   – setter so Inventory can change the selection if needed
+ */
+const Inventory = ({ activeSubItem, setActiveSubItem }) => {
   const [arrivalData, setArrivalData] = useState(null);
 
-  // Logic to handle the transfer and view switch
+  // When an incoming shipment is confirmed as arrived, switch to Construction Materials
   const handleStockArrival = (shipment) => {
-    setArrivalData(shipment); 
-    setCurrentView('Construction Materials'); 
+    setArrivalData(shipment);
+    if (setActiveSubItem) setActiveSubItem('Construction Materials');
   };
+
+  const clearArrival = () => setArrivalData(null);
+
+  // Default to Construction Materials if nothing is selected yet
+  const view = activeSubItem ?? 'Construction Materials';
 
   return (
     <div className="inventory-wrapper">
-      {currentView === 'home' && (
-        <InventoryHome onSelectCategory={setCurrentView} />
-      )}
-      
-      {currentView === 'Construction Materials' && (
-        <ConstructionMat 
-          onBack={() => setCurrentView('home')} 
-          newArrivalData={arrivalData} 
-          clearArrivalData={() => setArrivalData(null)}
+      {view === 'Construction Materials' && (
+        <ConstructionMat
+          newArrivalData={arrivalData}
+          clearArrivalData={clearArrival}
         />
       )}
-      
-      {currentView === 'Incoming Shipment' && (
-        <IncomingShipment 
-          onBack={() => setCurrentView('home')} 
-          onStockArrival={handleStockArrival} 
-        />
+
+      {view === 'Incoming Shipment' && (
+        <IncomingShipment onStockArrival={handleStockArrival} />
       )}
-      
-      {currentView === 'Delivery Materials' && (
-        <DeliveryMat onBack={() => setCurrentView('home')} />
+
+      {view === 'Delivery Materials' && (
+        <DeliveryMat />
       )}
-      
     </div>
   );
 };
