@@ -85,22 +85,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sales/dashboard-stats', [ProjectController::class, 'getSalesStats']);
     Route::get('/sales/leads/recent',    [ProjectController::class, 'getRecentLeads']);
 
-
     // --- ENGINEERING DASHBOARD ---
     Route::prefix('engineering')->group(function () {
         Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
         Route::post('/assign-task',    [EngineeringController::class, 'assignTask']);
         Route::post('/pick-project',   [EngineeringController::class, 'pickProject']);
-        Route::get('/engineers', [EngineeringController::class, 'getEngineers']);
+        Route::get('/engineers',       [EngineeringController::class, 'getEngineers']);
     });
 
     // --- LEADS ---
     Route::apiResource('leads', LeadController::class);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
-    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);  // For Customer.jsx
-    Route::get('/leads/trashed', [LeadController::class, 'trashed']);    // For SalesDashboard.jsx
-    Route::put('/leads/{id}/restore', [LeadController::class, 'restore']); //eto lang apat dinagdag ko sa taas ng leadcontroller
-    Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);//dasd
+    Route::get('/leads/trash/all',     [LeadController::class, 'trashed']);
+    Route::get('/leads/trashed',       [LeadController::class, 'trashed']);
+    Route::put('/leads/{id}/restore',  [LeadController::class, 'restore']);
+    Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
 
     // --- EMPLOYEES ---
     Route::apiResource('employees', EmployeeController::class)->except(['show']);
@@ -111,6 +110,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- INVENTORY ---
     Route::prefix('inventory')->group(function () {
+
+        // ── Alerts (derived from warehouse_inventory availability column) ──────
+        // Must be declared BEFORE any {id} wildcard routes to avoid conflicts.
+        Route::get('/alerts', [WarehouseInventoryController::class, 'getAlerts']);
+
+        // Shipments
         Route::get('/shipments/meta',    [IncomingShipmentController::class, 'meta']);
         Route::get('/shipments/reports', [IncomingShipmentController::class, 'getReports']);
         Route::post('/shipments/report', [IncomingShipmentController::class, 'storeReport']);
@@ -120,6 +125,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
         Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
 
+        // Logistics
         Route::get('/logistics/meta',             [LogisticsController::class, 'meta']);
         Route::get('/logistics',                  [LogisticsController::class, 'index']);
         Route::post('/logistics',                 [LogisticsController::class, 'store']);
@@ -138,14 +144,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // --- ADMIN ---
-    Route::get('/admin/users', [AdminUserController::class, 'index']);
-    Route::post('/admin/users', [AdminUserController::class, 'store']);
-    Route::put('/admin/users/{id}', [AdminUserController::class, 'update']);
-    Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
-
-    // System Error Logs Route
-    Route::get('/admin/system-logs', [AdminUserController::class, 'getSystemLogs']);
-
-    Route::get('/admin/activities', [AdminUserController::class, 'getActivities']);// get activity logs
-    Route::get('/admin/dashboard-stats', [AdminUserController::class, 'getDashboardStats']); //super admin dashboard
+    Route::get('/admin/users',           [AdminUserController::class, 'index']);
+    Route::post('/admin/users',          [AdminUserController::class, 'store']);
+    Route::put('/admin/users/{id}',      [AdminUserController::class, 'update']);
+    Route::delete('/admin/users/{id}',   [AdminUserController::class, 'destroy']);
+    Route::get('/admin/system-logs',     [AdminUserController::class, 'getSystemLogs']);
+    Route::get('/admin/activities',      [AdminUserController::class, 'getActivities']);
+    Route::get('/admin/dashboard-stats', [AdminUserController::class, 'getDashboardStats']);
 });

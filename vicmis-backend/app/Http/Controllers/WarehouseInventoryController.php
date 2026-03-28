@@ -66,8 +66,6 @@ class WarehouseInventoryController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            // product_category is now a free string — no Rule::in() restriction
-            // This allows new categories added via shipment check-in
             'product_category' => 'required|string|max:150',
             'product_code'     => 'required|string|max:100',
             'unit'             => 'required|string|max:50',
@@ -82,7 +80,6 @@ class WarehouseInventoryController extends Controller
             'notes'            => 'nullable|string',
         ]);
 
-        // Always derive availability from current_stock — ignore any client-sent value
         $validated['availability'] = WarehouseInventory::deriveAvailability(
             $validated['current_stock']
         );
@@ -125,7 +122,6 @@ class WarehouseInventoryController extends Controller
             'notes'            => 'nullable|string',
         ]);
 
-        // Re-derive availability whenever current_stock is sent
         if (isset($validated['current_stock'])) {
             $validated['availability'] = WarehouseInventory::deriveAvailability(
                 $validated['current_stock']
@@ -152,6 +148,23 @@ class WarehouseInventoryController extends Controller
             'categories'        => array_keys(WarehouseInventory::categories()),
             'preset_codes'      => WarehouseInventory::presetCodes(),
             'units_by_category' => WarehouseInventory::categories(),
+        ]);
+    }
+
+    // ─── GET /api/inventory/alerts ────────────────────────────────────────────
+    // Called by InventoryEmployeeDashboard via setInterval polling.
+    // Derives counts from the existing `availability` column — no extra table needed.
+    public function getAlerts(): JsonResponse
+    {
+        $noStock  = WarehouseInventory::where('availability', 'NO STOCK')->count();
+        $lowStock = WarehouseInventory::where('availability', 'LOW STOCK')->count();
+        $onStock  = WarehouseInventory::where('availability', 'ON STOCK')->count();
+
+        return response()->json([
+            'no_stock'     => $noStock,
+            'low_stock'    => $lowStock,
+            'on_stock'     => $onStock,
+            'total_alerts' => $noStock + $lowStock,
         ]);
     }
 }
