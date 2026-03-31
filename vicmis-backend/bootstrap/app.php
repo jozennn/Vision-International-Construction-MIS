@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
 
-        $middleware->appendToGroup('api', \App\Http\Middleware\VerifyRequestOrigin::class);
+        $middleware->prependToGroup('api', \App\Http\Middleware\VerifyRequestOrigin::class);
 
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             return route('login');
         });
+	$middleware->trustProxies(at : '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (AuthenticationException $e, Request $request) {
