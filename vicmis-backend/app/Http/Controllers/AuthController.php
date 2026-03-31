@@ -49,8 +49,9 @@ class AuthController extends Controller
             $user = User::where('email', $request->email)->first();
 
             if (!$user || !Hash::check($request->password, $user->password)) {
-                // Increment failed attempt counter
-                Cache::put($key, $attempts + 1, now()->addMinutes(self::LOCKOUT_MINUTES));
+                // Initialize counter if first attempt, then increment
+                Cache::add($key, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
+                Cache::increment($key);
 
                 Log::warning('Failed login attempt', ['ip' => $ip, 'email' => $request->email]);
 
@@ -127,7 +128,10 @@ class AuthController extends Controller
 
             // Check code match
             if ((string) $user->two_factor_code !== (string) $request->code) {
-                Cache::put($key2fa, $attempts + 1, now()->addMinutes(self::LOCKOUT_MINUTES));
+                // Initialize counter if first attempt, then increment
+                Cache::add($key2fa, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
+                Cache::increment($key2fa);
+
                 Log::warning('Invalid 2FA code', ['ip' => $ip, 'user_id' => $user->id]);
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
@@ -245,12 +249,12 @@ class AuthController extends Controller
         }
 
         return match(true) {
-            $dept === 'engineering'                                          => ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'],
-            $dept === 'hr'                                                   => ['Dashboard', 'Human Resource', 'Documents', 'Setting'],
-            $dept === 'sales'                                                => ['Dashboard', 'Customer', 'Project', 'Documents', 'Inventory'],
-            in_array($dept, ['inventory', 'logistics'])                      => ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'],
+            $dept === 'engineering'                                                  => ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'],
+            $dept === 'hr'                                                           => ['Dashboard', 'Human Resource', 'Documents', 'Setting'],
+            $dept === 'sales'                                                        => ['Dashboard', 'Customer', 'Project', 'Documents', 'Inventory'],
+            in_array($dept, ['inventory', 'logistics'])                              => ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'],
             str_contains($dept, 'accounting') || str_contains($dept, 'procurement') => ['Dashboard', 'Documents', 'Setting', 'Accounting'],
-            default                                                          => ['Dashboard'],
+            default                                                                  => ['Dashboard'],
         };
     }
 }
