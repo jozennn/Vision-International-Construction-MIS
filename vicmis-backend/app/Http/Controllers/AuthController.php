@@ -49,7 +49,6 @@ class AuthController extends Controller
             $user = User::where('email', $request->email)->first();
 
             if (!$user || !Hash::check($request->password, $user->password)) {
-                // Initialize counter if first attempt, then increment
                 Cache::add($key, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
                 Cache::increment($key);
 
@@ -63,13 +62,12 @@ class AuthController extends Controller
             // Successful credential check — reset attempt counter
             Cache::forget($key);
 
-            // FIX: Store code as string to preserve leading zeros
+            // Store code as string to preserve leading zeros (e.g. "012345")
             $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             $user->update([
                 'two_factor_code'       => $code,
-                // FIX: Use UTC explicitly to avoid timezone mismatch
-                'two_factor_expires_at' => now()->utc()->addMinutes(5),
+                'two_factor_expires_at' => now()->addMinutes(5),
             ]);
 
             Mail::to($user->email)->send(new TwoFactorCodeMail($code));
@@ -101,8 +99,8 @@ class AuthController extends Controller
             'code'  => ['required', 'string', 'digits:6'],
         ]);
 
-        $ip      = $request->ip();
-        $key2fa  = '2fa_attempts:' . $ip;
+        $ip       = $request->ip();
+        $key2fa   = '2fa_attempts:' . $ip;
         $attempts = Cache::get($key2fa, 0);
 
         // Brute force guard on 2FA codes too
@@ -120,8 +118,8 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
 
-            // FIX: Use now()->utc()->gte() for reliable timezone-safe comparison
-            if (!$user->two_factor_expires_at || now()->utc()->gte($user->two_factor_expires_at)) {
+            // Timezone-safe expiry check
+            if (!$user->two_factor_expires_at || now()->gte($user->two_factor_expires_at)) {
                 $user->update([
                     'two_factor_code'       => null,
                     'two_factor_expires_at' => null,
@@ -129,9 +127,8 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Verification code has expired. Please log in again.'], 422);
             }
 
-            // FIX: Cast both sides to string — safe even if DB column is integer
+            // Compare as strings — safe even if DB column is integer type
             if ((string) $user->two_factor_code !== (string) $request->code) {
-                // Initialize counter if first attempt, then increment
                 Cache::add($key2fa, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
                 Cache::increment($key2fa);
 
@@ -150,9 +147,30 @@ class AuthController extends Controller
             // Resolve permissions by role / department
             $permissions = $this->resolvePermissions($user);
 
-            // Session-based auth — HttpOnly cookie, no token issued to frontend
-            Auth::login($user);
+            // Use the 'web' guard explicitly for session-based login.
+            // Auth::login() with the default sanctum guard resolves to
+            // RequestGuard (stateless) — it won't write to the session.
+            // The 'web' guard is always session-based and works with statefulApi().
+            Auth::guard('web')->login($user);
             $request->session()->regenerate();
+
+            $sessionLifetime = (int) config('session.lifetime', 30);
+            $sessionId       = $request->session()->getId();
+
+            // Store session fingerprint (SHA-256 of IP + User-Agent).
+            // VerifyRequestOrigin checks this on every request — if the cookie
+            // is copied to a different device/IP the fingerprint won't match
+            // and the session is killed immediately server-side.
+            Cache::put(
+                'session_fp:' . $sessionId,
+                hash('sha256', $request->ip() . '|' . $request->userAgent()),
+                now()->addMinutes($sessionLifetime)
+            );
+
+            // Store absolute login timestamp.
+            // AbsoluteSessionTimeout middleware enforces a hard ceiling on
+            // session length regardless of activity (default 8 hours).
+            $request->session()->put('login_time', now()->timestamp);
 
             Log::info('User logged in', [
                 'user_id'    => $user->id,
@@ -161,7 +179,8 @@ class AuthController extends Controller
                 'role'       => $user->role,
             ]);
 
-            // FIX: Return { user: {...} } — frontend reads response.data.user
+            // Return { user: {...} } — frontend reads response.data.user.
+            // No token issued — session cookie is set automatically (HttpOnly).
             return response()->json([
                 'user' => [
                     'id'          => $user->id,
@@ -189,9 +208,17 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         try {
-            Log::info('User logged out', ['user_id' => $request->user()?->id]);
+            $sessionId = $request->session()->getId();
+            $userId    = $request->user()?->id;
 
-            Auth::logout();
+            Log::info('User logged out', ['user_id' => $userId]);
+
+            // Clean up fingerprint and login_time from cache on explicit logout
+            Cache::forget('session_fp:' . $sessionId);
+
+            // Use 'web' guard — Auth::logout() crashes when sanctum resolves
+            // to RequestGuard (stateless/token mode) which has no logout() method.
+            Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 

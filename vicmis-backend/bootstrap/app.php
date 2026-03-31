@@ -32,6 +32,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Custom origin check prepended to the api group
         $middleware->prependToGroup('api', \App\Http\Middleware\VerifyRequestOrigin::class);
 
+         // Layer 2: Absolute session timeout — forces re-login after MAX_SESSION_HOURS
+        // regardless of activity. Prevents sessions from living forever via keep-alive.
+        $middleware->appendToGroup('api', \App\Http\Middleware\AbsoluteSessionTimeout::class);
+
         // FIX 2: Route [login] not defined — this app is API-only with no named
         // web routes, so calling route('login') throws. Return null for ALL requests
         // so the AuthenticationException handler below always fires instead.
