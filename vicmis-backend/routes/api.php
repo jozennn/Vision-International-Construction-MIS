@@ -20,10 +20,12 @@ use App\Http\Controllers\{
 | Public Routes
 |--------------------------------------------------------------------------
 */
-
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/login',      [AuthController::class, 'login']);
     Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
+    // Public — called when session is dead but refresh_token cookie exists.
+    // Must be outside auth:sanctum otherwise it 401s before it can restore the session.
+    Route::post('/refresh',    [AuthController::class, 'refresh']);
 });
 
 /*
@@ -170,11 +172,11 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
 
     // --- INVENTORY (write) ---
     Route::prefix('inventory')->group(function () {
-        Route::post('/shipments/report',                    [IncomingShipmentController::class, 'storeReport']);
-        Route::post('/shipments',                           [IncomingShipmentController::class, 'storeShipment']);
-        Route::put('/shipments/{id}',                       [IncomingShipmentController::class, 'updateShipment']);
-        Route::post('/shipments/{id}/add-to-inventory',     [IncomingShipmentController::class, 'addToInventory']);
-        Route::patch('/shipments/{id}/receive',             [IncomingShipmentController::class, 'markAsReceived']);
+        Route::post('/shipments/report',                [IncomingShipmentController::class, 'storeReport']);
+        Route::post('/shipments',                       [IncomingShipmentController::class, 'storeShipment']);
+        Route::put('/shipments/{id}',                   [IncomingShipmentController::class, 'updateShipment']);
+        Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
+        Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
 
         Route::post('/logistics',                 [LogisticsController::class, 'store']);
         Route::patch('/logistics/{id}/delivered', [LogisticsController::class, 'markDelivered']);
@@ -193,12 +195,5 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::post('/admin/users',        [AdminUserController::class, 'store']);
         Route::put('/admin/users/{id}',    [AdminUserController::class, 'update']);
         Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
-    });
-
-    Route::middleware('throttle:10,1')->group(function () {
-    Route::post('/login',      [AuthController::class, 'login']);
-    Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
-    // NEW: Silent session restore from HttpOnly refresh_token cookie
-    Route::post('/refresh',    [AuthController::class, 'refresh']);
     });
 });
