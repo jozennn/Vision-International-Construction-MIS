@@ -78,8 +78,8 @@ const Login = ({ onEnterSystem }) => {
         setError('');
         setIsLoading(true);
         try {
-            // Pass remember_me to backend so it knows whether to issue
-            // a refresh token after 2FA succeeds
+            // Pass remember_me so the backend knows whether to issue a
+            // refresh token after 2FA succeeds.
             const response = await api.post('/login', { email, password, remember_me: rememberMe });
             if (response.data.status === '2FA_REQUIRED') {
                 setAttempts(0);
@@ -119,10 +119,16 @@ const Login = ({ onEnterSystem }) => {
             const response = await api.post('/verify-2fa', { email, code: twoFactorCode });
             if (response.data.user) {
                 const { user } = response.data;
-                sessionStorage.setItem('user', JSON.stringify(user));
+
+                // Do NOT store user in sessionStorage or localStorage.
+                // The laravel_session cookie (HttpOnly) is the source of truth.
+                // On page reload, App.jsx calls GET /api/user to restore state.
+                // The refresh_token HttpOnly cookie handles session recovery
+                // transparently via the axios interceptor → POST /api/refresh.
+
                 setTimeout(() => {
                     setIsLoading(false);
-                    onEnterSystem(user);
+                    onEnterSystem(user); // hand off to React state only
                 }, 500);
             }
         } catch (err) {

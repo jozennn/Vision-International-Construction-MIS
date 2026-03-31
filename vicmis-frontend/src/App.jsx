@@ -1,22 +1,22 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import api from '@/api/axios';
+import api, { initCsrf } from '@/api/axios';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import Project from './components/Modules/project/Project.jsx';
 import Settings from './components/Settings.jsx';
-import EngineeringDashboard from './components/Dashboard/Engineering/EngineeringDashboard.jsx'; 
+import EngineeringDashboard from './components/Dashboard/Engineering/EngineeringDashboard.jsx';
 import SalesDashboard from './components/Dashboard/Sales/SalesDashboard.jsx';
 import InventoryDashboard from './components/Dashboard/Inventory/InventoryDashboard.jsx';
 import InventoryEmployeeDashboard from './components/Dashboard/Inventory/InventoryEmployeeDashboard.jsx';
 import AccountingDashboard from './components/Dashboard/Accounting/AccountingDashboard.jsx';
-import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDashboard.jsx'; 
+import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDashboard.jsx';
 import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx';
 import Customer from './components/Modules/customer/Customer.jsx';
 import Inventory from './components/Modules/Inventory/Inventory.jsx';
 import Login from './components/Login.jsx';
-import ResetPassword from './components/ResetPassword.jsx'; 
+import ResetPassword from './components/ResetPassword.jsx';
 import AdminDashboard from './components/Dashboard/Admin/AdminDashboard.jsx';
-import './App.css'; 
+import './App.css';
 import { Toaster } from 'react-hot-toast';
 
 const App = () => {
@@ -31,44 +31,31 @@ const App = () => {
   const [projects, setProjects]           = useState([]);
 
   // ── Session restore on every page load / refresh ──────────────────────
-  // Priority:
+  // The laravel_session cookie (HttpOnly) is the source of truth.
+  // No sessionStorage or localStorage is read — the server decides
+  // whether the session is valid.
+  //
+  // Flow:
   //   1. GET /api/user  — succeeds if the session cookie is still alive
-  //   2. POST /api/refresh — if session is dead but a refresh_token HttpOnly
-  //      cookie exists (Remember Me was checked), rotate the token and restore
-  //   3. Both fail — show the login screen
+  //   2. Axios interceptor (axios.js) silently calls POST /api/refresh
+  //      if the session is dead but the refresh_token HttpOnly cookie
+  //      exists (Remember Me was checked), then replays GET /api/user
+  //   3. Both fail — axios interceptor redirects to /login, authReady
+  //      is set so the login screen renders without a flash
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        // Step 1: session cookie still alive?
+        await initCsrf();
+        // The axios interceptor handles the /refresh retry automatically
+        // if this call returns 401. If refresh also fails, the interceptor
+        // redirects to /login — so the catch block below only fires for
+        // genuine network errors or non-401 failures.
         const res = await api.get('/user');
-        const stored     = sessionStorage.getItem('user');
-        const storedUser = stored ? JSON.parse(stored) : {};
-        // Merge: /api/user gives live role/dept, sessionStorage has permissions
-        const restoredUser = { ...storedUser, ...res.data };
-        sessionStorage.setItem('user', JSON.stringify(restoredUser));
-        setUser(restoredUser);
-      } catch (sessionErr) {
-        if (sessionErr.response?.status !== 401) {
-          // Network error or server error — don't attempt refresh
-          sessionStorage.removeItem('user');
-          setUser(null);
-          return;
-        }
-
-        // Step 2: session expired — try the HttpOnly refresh_token cookie.
-        // JS can't read the cookie value, but the browser attaches it automatically.
-        try {
-          const refreshRes = await api.post('/refresh');
-          if (refreshRes.data.user) {
-            const refreshedUser = refreshRes.data.user;
-            sessionStorage.setItem('user', JSON.stringify(refreshedUser));
-            setUser(refreshedUser);
-          }
-        } catch {
-          // Refresh token missing, expired, or revoked — show login
-          sessionStorage.removeItem('user');
-          setUser(null);
-        }
+        setUser(res.data);
+      } catch {
+        // Interceptor already handled 401 (attempted refresh + redirect).
+        // Any error reaching here means we're unauthenticated.
+        setUser(null);
       } finally {
         setAuthReady(true);
       }
@@ -76,43 +63,6 @@ const App = () => {
 
     restoreSession();
   }, []);
-
-  // ── Mid-session 401 handler ───────────────────────────────────────────
-  // If a session expires while the user is actively using the app, attempt
-  // one silent refresh before forcing them back to the login screen.
-  useEffect(() => {
-    const interceptor = api.interceptors.response.use(
-      res => res,
-      async err => {
-        const status        = err.response?.status;
-        const isRefreshCall = err.config?.url?.includes('/refresh');
-        const isAuthCall    = err.config?.url?.includes('/login') ||
-                              err.config?.url?.includes('/verify-2fa');
-
-        if (status === 401 && !isRefreshCall && !isAuthCall && user) {
-          try {
-            // Rotate refresh token and retry the original failed request
-            await api.post('/refresh');
-            return api.request(err.config);
-          } catch {
-            // Refresh also failed — clear state and show login
-            sessionStorage.clear();
-            setUser(null);
-          }
-        }
-
-        // AbsoluteSessionTimeout sends this code after 8 hours
-        if (err.response?.data?.code === 'SESSION_EXPIRED') {
-          sessionStorage.clear();
-          setUser(null);
-        }
-
-        return Promise.reject(err);
-      }
-    );
-    // Clean up interceptor when component unmounts or user changes
-    return () => api.interceptors.response.eject(interceptor);
-  }, [user]);
 
   // ── Access control ────────────────────────────────────────────────────
   const checkAccess = useCallback((moduleName) => {
@@ -122,20 +72,23 @@ const App = () => {
     return user.permissions?.includes(moduleName) || false;
   }, [user]);
 
+  // ── Login success ─────────────────────────────────────────────────────
+  // User data comes directly from the /verify-2fa response body.
+  // Nothing is written to sessionStorage or localStorage — the
+  // laravel_session cookie maintains authentication going forward.
   const handleLoginSuccess = (userData) => {
-    sessionStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     setActiveItem('Dashboard');
   };
 
+  // ── Logout ────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
-      // Invalidates session + revokes refresh token + expires cookie server-side
+      // Server invalidates session + revokes refresh token + expires cookie
       await api.post('/logout');
     } catch {
       // Even if the backend call fails, clear local state
     } finally {
-      sessionStorage.clear();
       setUser(null);
       setActiveItem('Dashboard');
       setActiveSubItem(null);
@@ -144,7 +97,7 @@ const App = () => {
 
   // ── Dashboard router ──────────────────────────────────────────────────
   const renderDashboard = () => {
-    const dept = user.department?.toLowerCase();
+    const dept         = user.department?.toLowerCase();
     const isManagement = ['admin', 'super_admin', 'manager', 'dept_head'].includes(user.role);
 
     const notifications = {
