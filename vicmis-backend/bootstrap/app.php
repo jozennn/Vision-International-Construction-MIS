@@ -15,39 +15,37 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-        // FIX: Enable Sanctum stateful (session/cookie) auth for API routes.
-        // Without this, Auth::login() in verify2FA() writes to the session
-        // but auth:sanctum never reads it back — causing the 500.
+        // FIX 1: Enable Sanctum stateful (session/cookie) auth for all API routes.
+        // This registers EnsureFrontendRequestsAreStateful so that Auth::login()
+        // in verify2FA() persists to the session and auth:sanctum can read it back.
+        // "Session store not set on request" means this was missing or not activating.
         $middleware->statefulApi();
 
-        // CSRF: exclude API routes (Sanctum uses XSRF-TOKEN header instead)
+        // CSRF: API routes use XSRF-TOKEN header — skip blade CSRF checks
         $middleware->validateCsrfTokens(except: [
             'api/*',
         ]);
 
-        // CORS must run early so preflight OPTIONS requests get proper headers
+        // CORS must run early so preflight OPTIONS requests are handled correctly
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
 
-        // Custom origin check on every API request
+        // Custom origin check prepended to the api group
         $middleware->prependToGroup('api', \App\Http\Middleware\VerifyRequestOrigin::class);
 
-        // Redirect unauthenticated web visitors to login;
-        // return null for API/JSON so our custom AuthenticationException handler fires
+        // FIX 2: Route [login] not defined — this app is API-only with no named
+        // web routes, so calling route('login') throws. Return null for ALL requests
+        // so the AuthenticationException handler below always fires instead.
         $middleware->redirectGuestsTo(function (Request $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
-                return null;
-            }
-            return route('login');
+            return null;
         });
 
-        // Trust all proxies (needed when behind nginx / load balancer on production)
+        // Trust all proxies — required when behind nginx/load balancer on production
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Always return JSON 401 for API routes instead of a redirect
+        // Always return JSON 401 for unauthenticated requests (web or API).
+        // Safe to do globally since there are no web/blade views in this app.
         $exceptions->render(function (AuthenticationException $e, Request $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json(['message' => 'Unauthenticated.'], 401);
-            }
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         });
     })->create();
