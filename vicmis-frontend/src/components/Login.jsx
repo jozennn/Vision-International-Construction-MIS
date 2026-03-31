@@ -5,6 +5,7 @@ import './Login.css';
 const MAX_ATTEMPTS  = 3;
 const LOCKOUT_MINS  = 15;
 const LOCKOUT_MS    = LOCKOUT_MINS * 60 * 1000;
+const OTP_SECONDS   = 300; // 5 minutes — matches backend's addMinutes(5)
 
 const Login = ({ onEnterSystem }) => {
     const [email, setEmail]                 = useState('');
@@ -13,7 +14,7 @@ const Login = ({ onEnterSystem }) => {
     const [show2FA, setShow2FA]             = useState(false);
     const [error, setError]                 = useState('');
     const [isLoading, setIsLoading]         = useState(false);
-    const [timeLeft, setTimeLeft]           = useState(60);
+    const [timeLeft, setTimeLeft]           = useState(OTP_SECONDS);
     const [canResend, setCanResend]         = useState(false);
     const [showPassword, setShowPassword]   = useState(false);
 
@@ -41,20 +42,41 @@ const Login = ({ onEnterSystem }) => {
     }, [lockedUntil]);
 
     // ── OTP expiry timer ────────────────────────────────────────────────
+    // FIX: depends only on show2FA — resets cleanly each time 2FA screen opens,
+    // and never re-mounts the interval on every timeLeft tick (which caused racing to 0).
     useEffect(() => {
-        let timer;
-        if (show2FA && timeLeft > 0) {
-            timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-        } else if (timeLeft === 0) {
-            setCanResend(true);
-        }
+        if (!show2FA) return;
+
+        setTimeLeft(OTP_SECONDS);
+        setCanResend(false);
+
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    setCanResend(true);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
         return () => clearInterval(timer);
-    }, [show2FA, timeLeft]);
+    }, [show2FA]); // ← only depends on show2FA, NOT timeLeft
 
     const formatCountdown = (secs) => {
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
         const s = (secs % 60).toString().padStart(2, '0');
         return `${m}:${s}`;
+    };
+
+    const formatTimeLeft = (secs) => {
+        if (secs >= 60) {
+            const m = Math.floor(secs / 60);
+            const s = secs % 60;
+            return s > 0 ? `${m}m ${s}s` : `${m}m`;
+        }
+        return `${secs}s`;
     };
 
     // ── Phase 1: Initial Login ──────────────────────────────────────────
@@ -69,8 +91,7 @@ const Login = ({ onEnterSystem }) => {
                 setAttempts(0);
                 setTimeout(() => {
                     setIsLoading(false);
-                    setShow2FA(true);
-                    setTimeLeft(60);
+                    setShow2FA(true);  // triggers the OTP timer useEffect
                     setCanResend(false);
                 }, 800);
             }
@@ -102,11 +123,12 @@ const Login = ({ onEnterSystem }) => {
         setIsLoading(true);
         try {
             const response = await api.post('/verify-2fa', { email, code: twoFactorCode });
-            if (response.data.access_token) {
-                const { access_token, user } = response.data;
-                sessionStorage.setItem('token', access_token);
+
+            // FIX: Backend uses session auth — it returns { user: {...} }, NOT access_token.
+            // No token storage needed; the HttpOnly session cookie is set automatically.
+            if (response.data.user) {
+                const { user } = response.data;
                 sessionStorage.setItem('user', JSON.stringify(user));
-                api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
                 setTimeout(() => {
                     setIsLoading(false);
                     onEnterSystem(user);
@@ -121,6 +143,15 @@ const Login = ({ onEnterSystem }) => {
                 setError('Invalid or expired verification code. Please try again.');
             }
         }
+    };
+
+    // ── Resend Code ─────────────────────────────────────────────────────
+    const handleResend = async () => {
+        setError('');
+        setTwoFactorCode('');
+        // Temporarily hide and re-show 2FA to reset the timer via useEffect
+        setShow2FA(false);
+        await handleLogin(null);
     };
 
     // ── Back to Login ───────────────────────────────────────────────────
@@ -204,8 +235,8 @@ const Login = ({ onEnterSystem }) => {
                             </label>
                             <div className="timer-display">
                                 Expires in:{' '}
-                                <span className={timeLeft < 10 ? 'urgent' : ''}>
-                                    {timeLeft}s
+                                <span className={timeLeft < 30 ? 'urgent' : ''}>
+                                    {formatTimeLeft(timeLeft)}
                                 </span>
                             </div>
                             <input
@@ -215,7 +246,7 @@ const Login = ({ onEnterSystem }) => {
                                 placeholder="000000"
                                 value={twoFactorCode}
                                 disabled={isLoading}
-                                onChange={e => setTwoFactorCode(e.target.value)}
+                                onChange={e => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
                                 required
                                 autoFocus
                             />
@@ -224,12 +255,14 @@ const Login = ({ onEnterSystem }) => {
                                     <button
                                         type="button"
                                         className="resend-btn"
-                                        onClick={handleLogin}
+                                        onClick={handleResend}
                                     >
                                         Resend Code
                                     </button>
                                 ) : (
-                                    <span className="helper-text">Wait to resend…</span>
+                                    <span className="helper-text">
+                                        Resend available in {formatTimeLeft(timeLeft)}
+                                    </span>
                                 )}
                             </div>
                         </div>

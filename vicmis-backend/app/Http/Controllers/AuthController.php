@@ -63,10 +63,13 @@ class AuthController extends Controller
             // Successful credential check — reset attempt counter
             Cache::forget($key);
 
-            $code = random_int(100000, 999999);
+            // FIX: Store code as string to preserve leading zeros
+            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
             $user->update([
                 'two_factor_code'       => $code,
-                'two_factor_expires_at' => now()->addMinutes(5),
+                // FIX: Use UTC explicitly to avoid timezone mismatch
+                'two_factor_expires_at' => now()->utc()->addMinutes(5),
             ]);
 
             Mail::to($user->email)->send(new TwoFactorCodeMail($code));
@@ -117,8 +120,8 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
 
-            // Check expiry
-            if (!$user->two_factor_expires_at || now()->isAfter($user->two_factor_expires_at)) {
+            // FIX: Use now()->utc()->gte() for reliable timezone-safe comparison
+            if (!$user->two_factor_expires_at || now()->utc()->gte($user->two_factor_expires_at)) {
                 $user->update([
                     'two_factor_code'       => null,
                     'two_factor_expires_at' => null,
@@ -126,7 +129,7 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Verification code has expired. Please log in again.'], 422);
             }
 
-            // Check code match
+            // FIX: Cast both sides to string — safe even if DB column is integer
             if ((string) $user->two_factor_code !== (string) $request->code) {
                 // Initialize counter if first attempt, then increment
                 Cache::add($key2fa, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
@@ -158,6 +161,7 @@ class AuthController extends Controller
                 'role'       => $user->role,
             ]);
 
+            // FIX: Return { user: {...} } — frontend reads response.data.user
             return response()->json([
                 'user' => [
                     'id'          => $user->id,
