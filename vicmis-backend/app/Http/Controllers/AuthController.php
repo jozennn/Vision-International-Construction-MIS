@@ -12,14 +12,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
 use App\Models\User;
+use App\Models\RefreshToken;
 use App\Mail\TwoFactorCodeMail;
 
 class AuthController extends Controller
 {
-    // Max failed login attempts before lockout
-    private const MAX_ATTEMPTS = 5;
-    // Lockout duration in minutes
+    private const MAX_ATTEMPTS    = 5;
     private const LOCKOUT_MINUTES = 15;
+    private const REFRESH_DAYS    = 30;   // Remember Me refresh token lifetime
+    private const SESSION_MINUTES = 30;   // Normal session lifetime (no Remember Me)
 
     /*
     |--------------------------------------------------------------------------
@@ -29,14 +30,14 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email'    => ['required', 'email', 'max:255'],
-            'password' => ['required', 'string', 'max:255'],
+            'email'       => ['required', 'email', 'max:255'],
+            'password'    => ['required', 'string', 'max:255'],
+            'remember_me' => ['boolean'],
         ]);
 
         $ip  = $request->ip();
         $key = 'login_attempts:' . $ip;
 
-        // --- Brute force lockout check ---
         $attempts = Cache::get($key, 0);
         if ($attempts >= self::MAX_ATTEMPTS) {
             Log::warning('Login lockout triggered', ['ip' => $ip, 'email' => $request->email]);
@@ -51,15 +52,10 @@ class AuthController extends Controller
             if (!$user || !Hash::check($request->password, $user->password)) {
                 Cache::add($key, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
                 Cache::increment($key);
-
                 Log::warning('Failed login attempt', ['ip' => $ip, 'email' => $request->email]);
-
-                return response()->json([
-                    'message' => 'Wrong email or password. Please try again.',
-                ], 401);
+                return response()->json(['message' => 'Wrong email or password. Please try again.'], 401);
             }
 
-            // Successful credential check — reset attempt counter
             Cache::forget($key);
 
             // Store code as string to preserve leading zeros (e.g. "012345")
@@ -74,6 +70,14 @@ class AuthController extends Controller
 
             Log::info('2FA code sent', ['user_id' => $user->id]);
 
+            // Stash remember_me for 5 min so verify2FA can read it after the
+            // user submits their OTP (the original request is gone by then)
+            Cache::put(
+                'remember_me:' . $user->email,
+                (bool) $request->input('remember_me', false),
+                now()->addMinutes(5)
+            );
+
             return response()->json([
                 'status' => '2FA_REQUIRED',
                 'email'  => $user->email,
@@ -81,15 +85,13 @@ class AuthController extends Controller
 
         } catch (\Throwable $e) {
             Log::error('Login error: ' . $e->getMessage(), ['ip' => $ip]);
-            return response()->json([
-                'message' => 'An unexpected error occurred. Please try again.',
-            ], 500);
+            return response()->json(['message' => 'An unexpected error occurred. Please try again.'], 500);
         }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Verify 2FA — Step 2: validate code, start session
+    | Verify 2FA — Step 2: validate code, start session, maybe issue refresh token
     |--------------------------------------------------------------------------
     */
     public function verify2FA(Request $request)
@@ -103,7 +105,6 @@ class AuthController extends Controller
         $key2fa   = '2fa_attempts:' . $ip;
         $attempts = Cache::get($key2fa, 0);
 
-        // Brute force guard on 2FA codes too
         if ($attempts >= self::MAX_ATTEMPTS) {
             Log::warning('2FA lockout triggered', ['ip' => $ip, 'email' => $request->email]);
             return response()->json([
@@ -118,69 +119,183 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
 
-            // Timezone-safe expiry check
             if (!$user->two_factor_expires_at || now()->gte($user->two_factor_expires_at)) {
-                $user->update([
-                    'two_factor_code'       => null,
-                    'two_factor_expires_at' => null,
-                ]);
+                $user->update(['two_factor_code' => null, 'two_factor_expires_at' => null]);
                 return response()->json(['message' => 'Verification code has expired. Please log in again.'], 422);
             }
 
-            // Compare as strings — safe even if DB column is integer type
             if ((string) $user->two_factor_code !== (string) $request->code) {
                 Cache::add($key2fa, 0, now()->addMinutes(self::LOCKOUT_MINUTES));
                 Cache::increment($key2fa);
-
                 Log::warning('Invalid 2FA code', ['ip' => $ip, 'user_id' => $user->id]);
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
 
-            // Success — clear counters and code
+            // Success — clear counters and 2FA code
             Cache::forget($key2fa);
+            $user->update(['two_factor_code' => null, 'two_factor_expires_at' => null]);
 
-            $user->update([
-                'two_factor_code'       => null,
-                'two_factor_expires_at' => null,
-            ]);
-
-            // Resolve permissions by role / department
             $permissions = $this->resolvePermissions($user);
+            $rememberMe  = Cache::pull('remember_me:' . $user->email, false);
 
-            // Use the 'web' guard explicitly for session-based login.
-            // Auth::login() with the default sanctum guard resolves to
-            // RequestGuard (stateless) — it won't write to the session.
-            // The 'web' guard is always session-based and works with statefulApi().
-            Auth::guard('web')->login($user);
+            // Use 'web' guard explicitly — the default sanctum guard resolves to
+            // RequestGuard (stateless) and won't write to the session
+            Auth::guard('web')->login($user, $rememberMe);
             $request->session()->regenerate();
 
-            $sessionLifetime = (int) config('session.lifetime', 30);
-            $sessionId       = $request->session()->getId();
+            $sessionLifetime = $rememberMe
+                ? self::REFRESH_DAYS * 24 * 60  // 30 days in minutes
+                : self::SESSION_MINUTES;
 
-            // Store session fingerprint (SHA-256 of IP + User-Agent).
-            // VerifyRequestOrigin checks this on every request — if the cookie
-            // is copied to a different device/IP the fingerprint won't match
-            // and the session is killed immediately server-side.
+            $sessionId = $request->session()->getId();
+
+            // Session fingerprint — VerifyRequestOrigin checks this on every request.
+            // If the cookie is copied to a different device/IP, the fingerprint
+            // won't match and the session is killed server-side immediately.
             Cache::put(
                 'session_fp:' . $sessionId,
                 hash('sha256', $request->ip() . '|' . $request->userAgent()),
                 now()->addMinutes($sessionLifetime)
             );
 
-            // Store absolute login timestamp.
-            // AbsoluteSessionTimeout middleware enforces a hard ceiling on
-            // session length regardless of activity (default 8 hours).
+            // Absolute login timestamp — AbsoluteSessionTimeout middleware uses this
+            // to enforce a hard 8-hour ceiling regardless of activity
             $request->session()->put('login_time', now()->timestamp);
+            $request->session()->put('remember_me', $rememberMe);
 
-            Log::info('User logged in', [
-                'user_id'    => $user->id,
-                'ip'         => $ip,
-                'department' => $user->department,
-                'role'       => $user->role,
+            $response = response()->json([
+                'user' => [
+                    'id'          => $user->id,
+                    'name'        => $user->name,
+                    'email'       => $user->email,
+                    'role'        => $user->role,
+                    'department'  => $user->department,
+                    'permissions' => $permissions,
+                ],
+                'remember_me' => $rememberMe,
             ]);
 
-            // Return { user: {...} } — frontend reads response.data.user.
-            // No token issued — session cookie is set automatically (HttpOnly).
+            // If Remember Me is checked — issue a separate refresh token as an
+            // HttpOnly Secure SameSite=Strict cookie. The raw token never touches
+            // the DB; only its SHA-256 hash is stored. On page refresh the frontend
+            // calls POST /api/refresh to silently rotate the token and restore the session.
+            if ($rememberMe) {
+                $rawToken    = Str::random(64);
+                $hashedToken = hash('sha256', $rawToken);
+
+                // Revoke any existing tokens for this user on this device
+                RefreshToken::where('user_id', $user->id)
+                    ->where('user_agent', substr($request->userAgent() ?? '', 0, 255))
+                    ->delete();
+
+                RefreshToken::create([
+                    'user_id'    => $user->id,
+                    'token'      => $hashedToken,
+                    'user_agent' => substr($request->userAgent() ?? '', 0, 255),
+                    'ip_address' => $ip,
+                    'expires_at' => now()->addDays(self::REFRESH_DAYS),
+                ]);
+
+                $response->cookie(
+                    'refresh_token',
+                    $rawToken,
+                    self::REFRESH_DAYS * 24 * 60,   // minutes
+                    '/',
+                    config('session.domain'),
+                    true,    // Secure — HTTPS only
+                    true,    // HttpOnly — invisible to JavaScript
+                    false,
+                    'Strict' // SameSite — never sent cross-site
+                );
+            }
+
+            Log::info('User logged in', [
+                'user_id'     => $user->id,
+                'ip'          => $ip,
+                'department'  => $user->department,
+                'role'        => $user->role,
+                'remember_me' => $rememberMe,
+            ]);
+
+            return $response;
+
+        } catch (\Throwable $e) {
+            Log::error('2FA verify error: ' . $e->getMessage(), ['ip' => $ip]);
+            return response()->json(['message' => 'An unexpected error occurred. Please try again.'], 500);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Refresh — silently restore session from HttpOnly refresh token cookie
+    |--------------------------------------------------------------------------
+    */
+    public function refresh(Request $request)
+    {
+        $rawToken = $request->cookie('refresh_token');
+
+        if (!$rawToken) {
+            return response()->json(['message' => 'No refresh token.'], 401);
+        }
+
+        try {
+            $hashedToken  = hash('sha256', $rawToken);
+            $refreshToken = RefreshToken::where('token', $hashedToken)
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$refreshToken) {
+                // Token not found or expired — clear the stale cookie
+                return response()
+                    ->json(['message' => 'Refresh token invalid or expired.'], 401)
+                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true, false, 'Strict');
+            }
+
+            $user = User::find($refreshToken->user_id);
+
+            if (!$user) {
+                $refreshToken->delete();
+                return response()->json(['message' => 'User not found.'], 401);
+            }
+
+            // ── Token Rotation ───────────────────────────────────────────────
+            // Delete the used token immediately and issue a brand-new one.
+            // If an attacker steals an old token and tries to use it after the
+            // legitimate user has already rotated it, it won't exist in the DB.
+            $refreshToken->delete();
+
+            $newRawToken    = Str::random(64);
+            $newHashedToken = hash('sha256', $newRawToken);
+
+            RefreshToken::create([
+                'user_id'    => $user->id,
+                'token'      => $newHashedToken,
+                'user_agent' => substr($request->userAgent() ?? '', 0, 255),
+                'ip_address' => $request->ip(),
+                'expires_at' => now()->addDays(self::REFRESH_DAYS),
+            ]);
+
+            Auth::guard('web')->login($user, true);
+            $request->session()->regenerate();
+
+            $sessionId = $request->session()->getId();
+
+            Cache::put(
+                'session_fp:' . $sessionId,
+                hash('sha256', $request->ip() . '|' . $request->userAgent()),
+                now()->addMinutes(self::REFRESH_DAYS * 24 * 60)
+            );
+
+            $request->session()->put('login_time', now()->timestamp);
+            $request->session()->put('remember_me', true);
+
+            $permissions = $this->resolvePermissions($user);
+
+            Log::info('Session refreshed via refresh token', [
+                'user_id' => $user->id,
+                'ip'      => $request->ip(),
+            ]);
+
             return response()->json([
                 'user' => [
                     'id'          => $user->id,
@@ -190,13 +305,22 @@ class AuthController extends Controller
                     'department'  => $user->department,
                     'permissions' => $permissions,
                 ],
-            ]);
+                'remember_me' => true,
+            ])->cookie(
+                'refresh_token',
+                $newRawToken,
+                self::REFRESH_DAYS * 24 * 60,
+                '/',
+                config('session.domain'),
+                true,
+                true,
+                false,
+                'Strict'
+            );
 
         } catch (\Throwable $e) {
-            Log::error('2FA verify error: ' . $e->getMessage(), ['ip' => $ip]);
-            return response()->json([
-                'message' => 'An unexpected error occurred. Please try again.',
-            ], 500);
+            Log::error('Refresh error: ' . $e->getMessage());
+            return response()->json(['message' => 'An unexpected error occurred.'], 500);
         }
     }
 
@@ -213,16 +337,24 @@ class AuthController extends Controller
 
             Log::info('User logged out', ['user_id' => $userId]);
 
-            // Clean up fingerprint and login_time from cache on explicit logout
+            // Clean up session fingerprint from cache
             Cache::forget('session_fp:' . $sessionId);
 
-            // Use 'web' guard — Auth::logout() crashes when sanctum resolves
-            // to RequestGuard (stateless/token mode) which has no logout() method.
+            // Revoke refresh token for this device if one exists
+            $rawToken = $request->cookie('refresh_token');
+            if ($rawToken) {
+                RefreshToken::where('token', hash('sha256', $rawToken))->delete();
+            }
+
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return response()->json(['message' => 'Successfully logged out.']);
+            // Expire the refresh_token cookie on the client immediately
+            return response()
+                ->json(['message' => 'Successfully logged out.'])
+                ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true, false, 'Strict');
+
         } catch (\Throwable $e) {
             Log::error('Logout error: ' . $e->getMessage());
             return response()->json(['message' => 'Logout failed. Please try again.'], 500);

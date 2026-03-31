@@ -440,6 +440,63 @@
   line-height: 1.45;
 }
 
+/* ── Remember Me row ─────────────────────────────────────────────────── */
+.remember-me-row {
+    display: flex;
+    align-items: center;
+    margin: 4px 0 12px 0;
+}
+
+.remember-me-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.remember-me-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #cbd5e0;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+}
+
+.remember-me-checkbox:checked {
+    background: #9b1c1c;
+    border-color: #9b1c1c;
+}
+
+.remember-me-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0px;
+    width: 5px;
+    height: 9px;
+    border: 2px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+}
+
+.remember-me-checkbox:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.remember-me-text {
+    font-size: 13px;
+    color: #4a5568;
+}
+
 /* =========================================
    FOOTER
    ========================================= */

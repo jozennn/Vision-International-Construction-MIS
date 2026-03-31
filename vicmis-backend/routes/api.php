@@ -194,4 +194,11 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::put('/admin/users/{id}',    [AdminUserController::class, 'update']);
         Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
     });
+
+    Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/login',      [AuthController::class, 'login']);
+    Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
+    // NEW: Silent session restore from HttpOnly refresh_token cookie
+    Route::post('/refresh',    [AuthController::class, 'refresh']);
+    });
 });
