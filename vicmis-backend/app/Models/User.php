@@ -20,7 +20,7 @@ class User extends Authenticatable
         'department',
         'status',
         'two_factor_code',
-        'two_factor_expires_at'
+        'two_factor_expires_at',
     ];
 
     protected $hidden = [
@@ -31,9 +31,12 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'email_verified_at'     => 'datetime',
+            'password'              => 'hashed',
             'two_factor_expires_at' => 'datetime',
+            // FIX: Cast as string so leading-zero codes like "012345"
+            // are never truncated to integers when read back from the DB.
+            'two_factor_code'       => 'string',
         ];
     }
 
@@ -62,7 +65,7 @@ class User extends Authenticatable
     public function getJobDetails()
     {
         $table = $this->getDepartmentTable();
-        
+
         if (!$table) return null;
 
         return DB::table($table)->where('user_id', $this->id)->first();
@@ -70,7 +73,6 @@ class User extends Authenticatable
 
     public function employeeRequests()
     {
-    // This allows $user->employeeRequests to work
-        return $this->hasMany(EmployeeRequest::class); 
+        return $this->hasMany(EmployeeRequest::class);
     }
 }
