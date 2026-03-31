@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             return route('login');
         });
+	$middleware->trustProxies(at : '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (AuthenticationException $e, Request $request) {
