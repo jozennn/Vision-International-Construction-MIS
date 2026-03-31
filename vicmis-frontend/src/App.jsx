@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import api from '@/api/axios';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import Project from './components/Modules/project/Project.jsx';
@@ -20,15 +21,43 @@ import { Toaster } from 'react-hot-toast';
 
 const App = () => {
   // --- AUTHENTICATION STATE ---
-  const [user, setUser] = useState(() => {
-    const savedUser = sessionStorage.getItem('user');
-    const token = sessionStorage.getItem('token');
-    return (savedUser && token) ? JSON.parse(savedUser) : null;
-  });
-  
+  // FIX: Removed token check — this app uses session cookies, no token is ever stored.
+  // On refresh, we can't trust sessionStorage alone; we must verify with the backend.
+  // null  = not yet checked (show loading spinner)
+  // false = checked, not authenticated (show login)
+  // {...} = checked, authenticated (show app)
+  const [user, setUser]                   = useState(null);
+  const [authReady, setAuthReady]         = useState(false); // prevents login flash on refresh
+
   const [activeItem, setActiveItem]       = useState('Dashboard');
-  const [activeSubItem, setActiveSubItem] = useState(null); // ← NEW
+  const [activeSubItem, setActiveSubItem] = useState(null);
   const [projects, setProjects]           = useState([]);
+
+  // --- SESSION RESTORE ON REFRESH ---
+  // On every mount (including page refresh), ask the backend if the session
+  // cookie is still valid. If yes, restore the user into state silently.
+  // If no (401), clear stale sessionStorage and show the login screen.
+  useEffect(() => {
+    api.get('/user')
+      .then(res => {
+        // Session cookie is valid — backend returned the authenticated user.
+        // Merge with stored permissions since /api/user may not return them.
+        const stored = sessionStorage.getItem('user');
+        const storedUser = stored ? JSON.parse(stored) : {};
+        const restoredUser = { ...storedUser, ...res.data };
+        setUser(restoredUser);
+        sessionStorage.setItem('user', JSON.stringify(restoredUser));
+      })
+      .catch(() => {
+        // 401 — session expired or cookie missing. Clear stale data.
+        sessionStorage.removeItem('user');
+        setUser(null);
+      })
+      .finally(() => {
+        // Whether success or failure, we now know the auth state — stop showing spinner.
+        setAuthReady(true);
+      });
+  }, []); // runs once on mount / page refresh
 
   // --- ACCESS CONTROL ---
   const checkAccess = useCallback((moduleName) => {
@@ -50,11 +79,17 @@ const App = () => {
     setActiveItem('Dashboard');
   };
 
-  const handleLogout = () => {
-    sessionStorage.clear(); 
-    setUser(null);
-    setActiveItem('Dashboard');
-    setActiveSubItem(null); // ← clear sub-selection on logout
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+    } catch {
+      // Even if the backend call fails, clear local state
+    } finally {
+      sessionStorage.clear();
+      setUser(null);
+      setActiveItem('Dashboard');
+      setActiveSubItem(null);
+    }
   };
 
   // --- DASHBOARD ROUTER ---
@@ -130,8 +165,8 @@ const App = () => {
         return (
           <Inventory
             user={user}
-            activeSubItem={activeSubItem}         // ← NEW
-            setActiveSubItem={setActiveSubItem}   // ← NEW
+            activeSubItem={activeSubItem}
+            setActiveSubItem={setActiveSubItem}
           />
         );
       case 'Setting': 
@@ -152,6 +187,20 @@ const App = () => {
     );
   }
 
+  // --- LOADING STATE ---
+  // Show a blank screen (or spinner) while we verify the session on refresh.
+  // Without this, users see a login flash before being restored to the dashboard.
+  if (!authReady) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-red-700 border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) return <Login onEnterSystem={handleLoginSuccess} />;
 
   return (
@@ -168,8 +217,8 @@ const App = () => {
       <Sidebar
         activeItem={activeItem}
         setActiveItem={setActiveItem}
-        activeSubItem={activeSubItem}           // ← NEW
-        setActiveSubItem={setActiveSubItem}     // ← NEW
+        activeSubItem={activeSubItem}
+        setActiveSubItem={setActiveSubItem}
         checkAccess={checkAccess}
       />
       
