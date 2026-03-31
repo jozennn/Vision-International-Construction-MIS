@@ -21,44 +21,113 @@ use App\Http\Controllers\{
 |--------------------------------------------------------------------------
 */
 
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/login',      [AuthController::class, 'login']);
+    Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
+});
 
 /*
 |--------------------------------------------------------------------------
-| Protected Routes (Sanctum)
+| Protected Routes (Sanctum + Rate Limited)
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- USER & AUTH ---
     Route::get('/user', fn(Request $request) => $request->user());
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // --- NOTIFICATIONS ---
-    Route::get('/notifications', [ProjectController::class, 'getNotifications']);
-    Route::post('/notifications/{id}/read', [ProjectController::class, 'markNotificationRead']);
+    Route::get('/notifications',             [ProjectController::class, 'getNotifications']);
+    Route::post('/notifications/{id}/read',  [ProjectController::class, 'markNotificationRead']);
 
-    // --- PROJECTS & WORKFLOW ---
+    // --- PROJECTS (read) ---
     Route::get('/projects',      [ProjectController::class, 'index']);
-    Route::post('/projects',     [ProjectController::class, 'store']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
 
-    // Status Updates
+    // Site Inspection (read)
+    Route::get('/projects/{id}/site-inspection', [ProjectController::class, 'getSiteInspection']);
+
+    // Mobilization (read)
+    Route::get('/projects/{id}/mobilization', [ProjectController::class, 'getMobilization']);
+
+    // Command Center (read)
+    Route::get('/projects/{id}/daily-logs',  [ProjectController::class, 'getDailyLogs']);
+    Route::get('/projects/{id}/issues',      [ProjectController::class, 'getIssues']);
+
+    // Material Requests (read)
+    Route::get('/projects/{id}/material-requests', [MaterialRequestController::class, 'getProjectRequests']);
+    Route::get('/material-requests/pending',        [MaterialRequestController::class, 'getPending']);
+
+    // Image proxy
+    Route::get('/fetch-image', [ProjectController::class, 'fetchImage']);
+
+    // --- SALES DASHBOARD (read) ---
+    Route::get('/sales/dashboard-stats', [ProjectController::class, 'getSalesStats']);
+    Route::get('/sales/leads/recent',    [ProjectController::class, 'getRecentLeads']);
+
+    // --- ENGINEERING DASHBOARD (read) ---
+    Route::prefix('engineering')->group(function () {
+        Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
+        Route::get('/engineers',       [EngineeringController::class, 'getEngineers']);
+    });
+
+    // --- LEADS (read) ---
+    Route::get('/leads',           [LeadController::class, 'index']);
+    Route::get('/leads/{id}',      [LeadController::class, 'show']);
+    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);
+    Route::get('/leads/trashed',   [LeadController::class, 'trashed']);
+
+    // --- INVENTORY (read) ---
+    Route::prefix('inventory')->group(function () {
+        Route::get('/alerts',            [WarehouseInventoryController::class, 'getAlerts']);
+        Route::get('/shipments/meta',    [IncomingShipmentController::class, 'meta']);
+        Route::get('/shipments/reports', [IncomingShipmentController::class, 'getReports']);
+        Route::get('/shipments',         [IncomingShipmentController::class, 'getShipments']);
+        Route::get('/logistics/meta',    [LogisticsController::class, 'meta']);
+        Route::get('/logistics',         [LogisticsController::class, 'index']);
+    });
+
+    // --- WAREHOUSE INVENTORY (read) ---
+    Route::prefix('warehouse-inventory')->group(function () {
+        Route::get('/meta', [WarehouseInventoryController::class, 'meta']);
+        Route::get('/',     [WarehouseInventoryController::class, 'index']);
+        Route::get('/{id}', [WarehouseInventoryController::class, 'show']);
+    });
+
+    // --- ADMIN (read) ---
+    Route::middleware('can:admin-action')->group(function () {
+        Route::get('/admin/users',           [AdminUserController::class, 'index']);
+        Route::get('/admin/system-logs',     [AdminUserController::class, 'getSystemLogs']);
+        Route::get('/admin/activities',      [AdminUserController::class, 'getActivities']);
+        Route::get('/admin/dashboard-stats', [AdminUserController::class, 'getDashboardStats']);
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Protected Mutating Routes (Sanctum + Write Rate Limit + Origin Check)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
+
+    // --- PROJECTS (write) ---
+    Route::post('/projects', [ProjectController::class, 'store']);
+
     Route::patch('/projects/{id}/status', [ProjectController::class, 'updateStatus']);
     Route::post('/projects/{id}/status',  [ProjectController::class, 'updateStatus']);
 
     // BOQ
     Route::post('/projects/{id}/submit-plan',   [ProjectController::class, 'submitPlanData']);
     Route::post('/projects/{id}/submit-actual', [ProjectController::class, 'submitActualData']);
-    Route::post('/projects/{id}/approve-boq',   [ProjectController::class, 'approveBOQ']);
+    Route::middleware('can:manager-action')->group(function () {
+        Route::post('/projects/{id}/approve-boq', [ProjectController::class, 'approveBOQ']);
+    });
 
     // Site Inspection
     Route::post('/projects/{id}/site-inspection', [ProjectController::class, 'submitSiteInspection']);
-    Route::get('/projects/{id}/site-inspection',  [ProjectController::class, 'getSiteInspection']);
 
-    // Mobilization — all handled by ProjectController
-    Route::get( '/projects/{id}/mobilization',          [ProjectController::class, 'getMobilization']);
+    // Mobilization
     Route::post('/projects/{id}/mobilization/contract', [ProjectController::class, 'saveMobilizationContract']);
     Route::post('/projects/{id}/mobilization/deploy',   [ProjectController::class, 'saveMobilizationDeploy']);
 
@@ -67,88 +136,62 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/projects/{id}/tracking/timeline',  [ProjectController::class, 'saveTrackingTimeline']);
     Route::patch('/projects/{id}/tracking',           [ProjectController::class, 'saveTrackingLegacy']);
 
-    // Command Center
+    // Command Center (write)
     Route::post('/projects/{id}/daily-logs', [ProjectController::class, 'storeDailyLog']);
-    Route::get('/projects/{id}/daily-logs',  [ProjectController::class, 'getDailyLogs']);
-    Route::get('/projects/{id}/issues',      [ProjectController::class, 'getIssues']);
     Route::post('/projects/{id}/issues',     [ProjectController::class, 'storeIssue']);
-
     Route::patch('/projects/{id}/qa-checks', [ProjectController::class, 'saveQaChecks']);
 
-    // Material Requests
-    Route::get('/projects/{id}/material-requests',  [MaterialRequestController::class, 'getProjectRequests']);
+    // Material Requests (write)
     Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
+    Route::patch('/material-requests/{id}',         [MaterialRequestController::class, 'updateStatus']);
 
-    Route::get('/fetch-image', [ProjectController::class, 'fetchImage']);
-
-    // --- SALES DASHBOARD ---
-    Route::get('/sales/dashboard-stats', [ProjectController::class, 'getSalesStats']);
-    Route::get('/sales/leads/recent',    [ProjectController::class, 'getRecentLeads']);
-
-    // --- ENGINEERING DASHBOARD ---
-    Route::prefix('engineering')->group(function () {
-        Route::get('/dashboard-stats', [EngineeringController::class, 'getDashboardStats']);
-        Route::post('/assign-task',    [EngineeringController::class, 'assignTask']);
-        Route::post('/pick-project',   [EngineeringController::class, 'pickProject']);
-        Route::get('/engineers',       [EngineeringController::class, 'getEngineers']);
+    // --- ENGINEERING (write) ---
+    Route::prefix('engineering')->middleware('can:engineering-action')->group(function () {
+        Route::post('/assign-task',  [EngineeringController::class, 'assignTask']);
+        Route::post('/pick-project', [EngineeringController::class, 'pickProject']);
     });
 
-    // --- LEADS ---
-    Route::apiResource('leads', LeadController::class);
+    // --- LEADS (write) ---
+    Route::post('/leads',              [LeadController::class, 'store']);
+    Route::put('/leads/{id}',          [LeadController::class, 'update']);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
-    Route::get('/leads/trash/all',     [LeadController::class, 'trashed']);
-    Route::get('/leads/trashed',       [LeadController::class, 'trashed']);
-    Route::put('/leads/{id}/restore',  [LeadController::class, 'restore']);
-    Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
+    Route::delete('/leads/{id}',       [LeadController::class, 'destroy']);
 
-    // --- EMPLOYEES ---
-    Route::apiResource('employees', EmployeeController::class)->except(['show']);
+    // Leads — destructive (admin/manager only)
+    Route::middleware('can:manager-action')->group(function () {
+        Route::put('/leads/{id}/restore',  [LeadController::class, 'restore']);
+        Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
+    });
 
-    // --- LOGISTICS & MATERIAL REQUESTS ---
-    Route::get('/material-requests/pending', [MaterialRequestController::class, 'getPending']);
-    Route::patch('/material-requests/{id}',  [MaterialRequestController::class, 'updateStatus']);
+    // --- EMPLOYEES (write) ---
+    Route::middleware('can:manager-action')->group(function () {
+        Route::apiResource('employees', EmployeeController::class)->except(['show']);
+    });
 
-    // --- INVENTORY ---
+    // --- INVENTORY (write) ---
     Route::prefix('inventory')->group(function () {
+        Route::post('/shipments/report',                    [IncomingShipmentController::class, 'storeReport']);
+        Route::post('/shipments',                           [IncomingShipmentController::class, 'storeShipment']);
+        Route::put('/shipments/{id}',                       [IncomingShipmentController::class, 'updateShipment']);
+        Route::post('/shipments/{id}/add-to-inventory',     [IncomingShipmentController::class, 'addToInventory']);
+        Route::patch('/shipments/{id}/receive',             [IncomingShipmentController::class, 'markAsReceived']);
 
-        // ── Alerts (derived from warehouse_inventory availability column) ──────
-        // Must be declared BEFORE any {id} wildcard routes to avoid conflicts.
-        Route::get('/alerts', [WarehouseInventoryController::class, 'getAlerts']);
-
-        // Shipments
-        Route::get('/shipments/meta',    [IncomingShipmentController::class, 'meta']);
-        Route::get('/shipments/reports', [IncomingShipmentController::class, 'getReports']);
-        Route::post('/shipments/report', [IncomingShipmentController::class, 'storeReport']);
-        Route::get('/shipments',         [IncomingShipmentController::class, 'getShipments']);
-        Route::post('/shipments',        [IncomingShipmentController::class, 'storeShipment']);
-        Route::put('/shipments/{id}',    [IncomingShipmentController::class, 'updateShipment']);
-        Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
-        Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
-
-        // Logistics
-        Route::get('/logistics/meta',             [LogisticsController::class, 'meta']);
-        Route::get('/logistics',                  [LogisticsController::class, 'index']);
         Route::post('/logistics',                 [LogisticsController::class, 'store']);
         Route::patch('/logistics/{id}/delivered', [LogisticsController::class, 'markDelivered']);
         Route::delete('/logistics/{id}',          [LogisticsController::class, 'destroy']);
     });
 
-    // --- WAREHOUSE INVENTORY ---
+    // --- WAREHOUSE INVENTORY (write) ---
     Route::prefix('warehouse-inventory')->group(function () {
-        Route::get('/meta', [WarehouseInventoryController::class, 'meta']);
-        Route::get('/',     [WarehouseInventoryController::class, 'index']);
-        Route::post('/',    [WarehouseInventoryController::class, 'store']);
-        Route::get('/{id}', [WarehouseInventoryController::class, 'show']);
-        Route::put('/{id}', [WarehouseInventoryController::class, 'update']);
+        Route::post('/',       [WarehouseInventoryController::class, 'store']);
+        Route::put('/{id}',    [WarehouseInventoryController::class, 'update']);
         Route::delete('/{id}', [WarehouseInventoryController::class, 'destroy']);
     });
 
-    // --- ADMIN ---
-    Route::get('/admin/users',           [AdminUserController::class, 'index']);
-    Route::post('/admin/users',          [AdminUserController::class, 'store']);
-    Route::put('/admin/users/{id}',      [AdminUserController::class, 'update']);
-    Route::delete('/admin/users/{id}',   [AdminUserController::class, 'destroy']);
-    Route::get('/admin/system-logs',     [AdminUserController::class, 'getSystemLogs']);
-    Route::get('/admin/activities',      [AdminUserController::class, 'getActivities']);
-    Route::get('/admin/dashboard-stats', [AdminUserController::class, 'getDashboardStats']);
+    // --- ADMIN (write — admin only) ---
+    Route::middleware('can:admin-action')->group(function () {
+        Route::post('/admin/users',        [AdminUserController::class, 'store']);
+        Route::put('/admin/users/{id}',    [AdminUserController::class, 'update']);
+        Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
+    });
 });

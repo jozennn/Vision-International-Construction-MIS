@@ -1,40 +1,35 @@
 import axios from 'axios';
 
+const BASE = 'https://visionintlconstopc.com';
+
 const api = axios.create({
-  baseURL: 'https://visionintlconstopc.com/api',
-  withCredentials: true, // MUST be true for Laravel Sanctum/Cookies
+  baseURL: `${BASE}/api`,
+  withCredentials: true, // sends laravel_session cookie + XSRF-TOKEN automatically
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  }
+  },
 });
 
-// Request Interceptor
-api.interceptors.request.use((config) => {
-    const token = sessionStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-}, (error) => Promise.reject(error));
+// Call once before login — sets the HttpOnly session cookie and
+// the readable XSRF-TOKEN cookie. Axios picks up XSRF-TOKEN
+// automatically and sends it as X-XSRF-TOKEN on every request.
+export async function initCsrf() {
+  await axios.get(`${BASE}/sanctum/csrf-cookie`, { withCredentials: true });
+}
 
-// Optimized Response Interceptor
+// No interceptor needed to attach a token — the cookie is sent automatically.
+// No sessionStorage, no localStorage, no Authorization header.
 api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        const { response } = error;
-
-        if (response && response.status === 401) {
-            // Check if we are already on the login page to avoid loops
-            if (!window.location.pathname.includes('/login')) {
-                sessionStorage.clear();
-                // Instead of window.location, you could also use a state-based redirect 
-                // but this is the most reliable way to clear the React state entirely.
-                window.location.href = '/login'; 
-            }
-        }
-        return Promise.reject(error);
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
+    return Promise.reject(error);
+  }
 );
 
 export default api;
