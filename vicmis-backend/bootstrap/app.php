@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,5 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('api', \App\Http\Middleware\VerifyRequestOrigin::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+
+        // Return JSON 401 for unauthenticated API requests
+        // instead of trying to redirect to a 'login' named route
+        $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e) {
+            return $request->is('api/*') || $request->expectsJson();
+        });
+
     })->create();
