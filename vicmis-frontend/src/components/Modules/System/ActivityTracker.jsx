@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
+import './css/ActivityTracker.css';
 
 const MODULE_COLORS = {
   Leads: '#3b82f6', Projects: '#8b5cf6', Inventory: '#f59e0b',

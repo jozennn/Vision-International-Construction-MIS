@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '@/api/axios';
+import './css/SystemLogs.css';
 
 const SystemLogs = () => {
   const [errorLogs, setErrorLogs] = useState([]);

@@ -6,14 +6,11 @@ import './Sidebar.css';
 const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubItem, setActiveSubItem }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen]   = useState(false);
 
-  // Keep dropdown open whenever Inventory is the active page
   useEffect(() => {
-    if (activeItem === 'Inventory') {
-      setInventoryOpen(true);
-    } else {
-      setInventoryOpen(false);
-    }
+    setInventoryOpen(activeItem === 'Inventory');
+    setSettingsOpen(activeItem === 'Setting');
   }, [activeItem]);
 
   const inventorySubItems = [
@@ -22,12 +19,19 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     { id: 'Delivery Materials',     label: 'Delivery Materials'     },
   ];
 
+  const settingsSubItems = [
+    { id: 'users',    label: 'User Management'    },
+    { id: 'database', label: 'Database Manager'   },
+    { id: 'activity', label: 'Activity Tracker'   },
+    { id: 'logs',     label: 'System Diagnostics' },
+  ];
+
   const menuItems = [
     { name: 'Dashboard', icon: '🏠' },
     { name: 'Project',   icon: '📝' },
     { name: 'Inventory', icon: '📦', hasDropdown: true },
     { name: 'Customer',  icon: '👤' },
-    { name: 'Setting',   icon: '⚙️' },
+    { name: 'Setting',   icon: '⚙️', hasDropdown: true },
   ];
 
   const handleLogout = async () => {
@@ -51,7 +55,7 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     if (name === 'Inventory') {
       setActiveItem('Inventory');
       setInventoryOpen(true);
-      // Auto-select first sub-item if nothing selected yet
+      setSettingsOpen(false);
       if (!activeSubItem && setActiveSubItem) {
         setActiveSubItem('Construction Materials');
       }
@@ -59,14 +63,30 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       return;
     }
 
+    if (name === 'Setting') {
+      setActiveItem('Setting');
+      setSettingsOpen(true);
+      setInventoryOpen(false);
+      if (setActiveSubItem) setActiveSubItem('users');
+      setIsOpen(false);
+      return;
+    }
+
     setActiveItem(name);
     setInventoryOpen(false);
+    setSettingsOpen(false);
     if (setActiveSubItem) setActiveSubItem(null);
     setIsOpen(false);
   };
 
-  const handleSubItemClick = (subId) => {
+  const handleInventorySubItemClick = (subId) => {
     setActiveItem('Inventory');
+    if (setActiveSubItem) setActiveSubItem(subId);
+    setIsOpen(false);
+  };
+
+  const handleSettingsSubItemClick = (subId) => {
+    setActiveItem('Setting');
     if (setActiveSubItem) setActiveSubItem(subId);
     setIsOpen(false);
   };
@@ -96,6 +116,9 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                   : (checkAccess ? checkAccess(item.name) : true);
 
                 const isActive = item.name === activeItem;
+                const isInventory = item.name === 'Inventory';
+                const isSetting   = item.name === 'Setting';
+                const chevronOpen = isInventory ? inventoryOpen : isSetting ? settingsOpen : false;
 
                 return (
                   <React.Fragment key={item.name}>
@@ -107,20 +130,35 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                       <span className="sidebar-item-name">{item.name}</span>
                       {!isAllowed && <span className="sidebar-lock-icon">🔒</span>}
                       {item.hasDropdown && isAllowed && (
-                        <span className={`sidebar-chevron ${inventoryOpen ? 'open' : ''}`}>
+                        <span className={`sidebar-chevron ${chevronOpen ? 'open' : ''}`}>
                           ›
                         </span>
                       )}
                     </li>
 
                     {/* Inventory sub-menu */}
-                    {item.hasDropdown && inventoryOpen && isAllowed && (
+                    {isInventory && inventoryOpen && isAllowed && (
                       <ul className="sidebar-submenu">
                         {inventorySubItems.map((sub) => (
                           <li
                             key={sub.id}
                             className={`sidebar-submenu-item ${activeSubItem === sub.id ? 'active' : ''}`}
-                            onClick={() => handleSubItemClick(sub.id)}
+                            onClick={() => handleInventorySubItemClick(sub.id)}
+                          >
+                            {sub.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Settings sub-menu */}
+                    {isSetting && settingsOpen && isAllowed && (
+                      <ul className="sidebar-submenu">
+                        {settingsSubItems.map((sub) => (
+                          <li
+                            key={sub.id}
+                            className={`sidebar-submenu-item ${activeSubItem === sub.id ? 'active' : ''}`}
+                            onClick={() => handleSettingsSubItemClick(sub.id)}
                           >
                             {sub.label}
                           </li>

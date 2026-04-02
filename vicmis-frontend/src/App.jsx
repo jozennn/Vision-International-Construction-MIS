@@ -162,7 +162,12 @@ const App = () => {
           />
         );
       case 'Setting':
-        return <ControlCenter user={user} />;
+      return (
+        <ControlCenter
+          user={user}
+          activeSubItem={activeSubItem}
+          setActiveSubItem={setActiveSubItem}
+        /> );
       default:
         return <div className="p-20">Module Under Development</div>;
     }

@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+/* ── STATS BAR ───────────────────────────────── */
+.sl-log-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.sl-log-stat-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+  min-width: 90px;
+}
+.sl-log-stat-btn:hover  { border-color: var(--stat-color); }
+.sl-log-stat-btn.active {
+  border-color: var(--stat-color);
+  background: color-mix(in srgb, var(--stat-color) 8%, #fff);
+}
+.sl-stat-count { font-size: 1.4rem; font-weight: 700; line-height: 1; }
+.sl-stat-label { font-size: 0.72rem; color: #94a3b8; margin-top: 3px; font-weight: 500; }
+
+/* ── SEARCH ──────────────────────────────────── */
+.sl-search-wrap { position: relative; margin-bottom: 16px; }
+.sl-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: #94a3b8; font-size: 1.1rem; pointer-events: none;
+}
+.sl-search-input {
+  width: 100%;
+  padding: 9px 12px 9px 36px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-family: 'DM Mono', monospace;
+  color: #4af626;
+  background: #1e1e1e;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.sl-search-input::placeholder { color: #4a5568; }
+.sl-search-input:focus {
+  outline: none;
+  border-color: #4af626;
+  box-shadow: 0 0 0 3px rgba(74,246,38,0.1);
+}
+
+/* ── TERMINAL ────────────────────────────────── */
+.sl-terminal {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.sl-terminal-bar {
+  background: #3a3a3a;
+  padding: 10px 16px;
+  display: flex; align-items: center; gap: 6px;
+}
+.sl-term-dot { width: 12px; height: 12px; border-radius: 50%; }
+.sl-term-dot.red    { background: #ff5f57; }
+.sl-term-dot.yellow { background: #ffbd2e; }
+.sl-term-dot.green  { background: #28c840; }
+.sl-term-title {
+  margin-left: 10px;
+  font-size: 0.78rem; color: #888;
+  font-family: 'DM Mono', monospace;
+}
+.sl-terminal-body {
+  background: #1e1e1e;
+  color: #4af626;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 16px;
+  height: 55vh;
+  overflow-y: auto;
+}
+.sl-log-line {
+  display: flex;
+  gap: 12px;
+  padding: 3px 0 3px 8px;
+  border-left: 2px solid;
+  margin-bottom: 3px;
+  word-break: break-all;
+}
+.sl-log-num {
+  color: #444; flex-shrink: 0;
+  user-select: none; min-width: 36px;
+}
+.sl-term-empty { padding: 16px 8px; }

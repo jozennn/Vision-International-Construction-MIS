@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
+import './css/DatabaseManager.css';
 
 const CRON_PRESETS = [
   { label: 'Every hour',       value: '0 * * * *' },
