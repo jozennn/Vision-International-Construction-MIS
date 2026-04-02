@@ -3,13 +3,13 @@ import api from '@/api/axios';
 import './css/DatabaseManager.css';
 
 const CRON_PRESETS = [
-  { label: 'Every hour',       value: '0 * * * *' },
-  { label: 'Every 6 hours',    value: '0 */6 * * *' },
-  { label: 'Daily at midnight',value: '0 0 * * *' },
-  { label: 'Daily at 2 AM',    value: '0 2 * * *' },
-  { label: 'Weekly (Sunday)',  value: '0 0 * * 0' },
-  { label: 'Monthly (1st)',    value: '0 0 1 * *' },
-  { label: 'Custom',           value: 'custom' },
+  { label: 'Every hour',        value: '0 * * * *'   },
+  { label: 'Every 6 hours',     value: '0 */6 * * *' },
+  { label: 'Daily at midnight', value: '0 0 * * *'   },
+  { label: 'Daily at 2 AM',     value: '0 2 * * *'   },
+  { label: 'Weekly (Sunday)',   value: '0 0 * * 0'   },
+  { label: 'Monthly (1st)',     value: '0 0 1 * *'   },
+  { label: 'Custom',            value: 'custom'       },
 ];
 
 const StatusBadge = ({ status }) => {
@@ -21,25 +21,29 @@ const StatusBadge = ({ status }) => {
   };
   const { label, color } = map[status] || map.pending;
   return (
-    <span style={{ background: `${color}18`, color, borderColor: `${color}30`, border: '1px solid', borderRadius: '999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 }}>
+    <span style={{
+      background: `${color}18`, color, border: '1px solid',
+      borderColor: `${color}30`, borderRadius: '999px',
+      padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600,
+    }}>
       {label}
     </span>
   );
 };
 
 const DatabaseManager = () => {
-  const [backups, setBackups] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('backup');
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importFile, setImportFile] = useState(null);
+  const [backups, setBackups]               = useState([]);
+  const [schedules, setSchedules]           = useState([]);
+  const [isLoading, setIsLoading]           = useState(true);
+  const [activeTab, setActiveTab]           = useState('backup');
+  const [isExporting, setIsExporting]       = useState(false);
+  const [isImporting, setIsImporting]       = useState(false);
+  const [importFile, setImportFile]         = useState(null);
   const [importProgress, setImportProgress] = useState('');
-  const [scheduleForm, setScheduleForm] = useState({
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [scheduleForm, setScheduleForm]     = useState({
     name: '', cron: '0 2 * * *', customCron: '', retention: 7, enabled: true,
   });
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -59,7 +63,6 @@ const DatabaseManager = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  /* ── EXPORT (mysqldump via backend) ── */
   const handleExport = async () => {
     try {
       setIsExporting(true);
@@ -71,28 +74,20 @@ const DatabaseManager = () => {
       a.click();
       URL.revokeObjectURL(url);
       await fetchData();
-    } catch (err) {
-      alert('Export failed. Check server logs.');
-    } finally {
-      setIsExporting(false);
-    }
+    } catch { alert('Export failed. Check server logs.'); }
+    finally { setIsExporting(false); }
   };
 
-  /* ── MANUAL BACKUP (save to server) ── */
   const handleManualBackup = async () => {
     if (!window.confirm('Create a manual backup now?')) return;
     try {
       setIsExporting(true);
       await api.post('/admin/database/backup');
       await fetchData();
-    } catch (err) {
-      alert('Backup failed. Check server logs.');
-    } finally {
-      setIsExporting(false);
-    }
+    } catch { alert('Backup failed. Check server logs.'); }
+    finally { setIsExporting(false); }
   };
 
-  /* ── IMPORT ── */
   const handleImport = async () => {
     if (!importFile) { alert('Please select a .sql file.'); return; }
     if (!window.confirm('⚠️ Importing will OVERWRITE the current database. Are you absolutely sure?')) return;
@@ -108,38 +103,27 @@ const DatabaseManager = () => {
       setImportProgress('Done!');
       alert('Database imported successfully!');
       setImportFile(null);
-    } catch (err) {
-      alert('Import failed. Ensure the file is a valid .sql dump.');
-    } finally {
-      setIsImporting(false);
-      setImportProgress('');
-    }
+    } catch { alert('Import failed. Ensure the file is a valid .sql dump.'); }
+    finally { setIsImporting(false); setImportProgress(''); }
   };
 
-  /* ── DELETE BACKUP ── */
   const handleDeleteBackup = async (id, filename) => {
     if (!window.confirm(`Delete backup "${filename}"?`)) return;
     try {
       await api.delete(`/admin/database/backups/${id}`);
       setBackups(prev => prev.filter(b => b.id !== id));
-    } catch (err) {
-      alert('Failed to delete backup.');
-    }
+    } catch { alert('Failed to delete backup.'); }
   };
 
-  /* ── DOWNLOAD BACKUP ── */
   const handleDownloadBackup = async (id, filename) => {
     try {
       const res = await api.get(`/admin/database/backups/${id}/download`, { responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
       URL.revokeObjectURL(url);
-    } catch (err) {
-      alert('Download failed.');
-    }
+    } catch { alert('Download failed.'); }
   };
 
-  /* ── SCHEDULE ── */
   const handleSaveSchedule = async (e) => {
     e.preventDefault();
     const cronValue = scheduleForm.cron === 'custom' ? scheduleForm.customCron : scheduleForm.cron;
@@ -148,18 +132,14 @@ const DatabaseManager = () => {
       await fetchData();
       setShowScheduleForm(false);
       setScheduleForm({ name: '', cron: '0 2 * * *', customCron: '', retention: 7, enabled: true });
-    } catch (err) {
-      alert('Failed to save schedule.');
-    }
+    } catch { alert('Failed to save schedule.'); }
   };
 
   const handleToggleSchedule = async (id, enabled) => {
     try {
       await api.patch(`/admin/database/schedules/${id}`, { enabled: !enabled });
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, enabled: !enabled } : s));
-    } catch (err) {
-      alert('Failed to toggle schedule.');
-    }
+    } catch { alert('Failed to toggle schedule.'); }
   };
 
   const handleDeleteSchedule = async (id) => {
@@ -167,9 +147,7 @@ const DatabaseManager = () => {
     try {
       await api.delete(`/admin/database/schedules/${id}`);
       setSchedules(prev => prev.filter(s => s.id !== id));
-    } catch (err) {
-      alert('Failed to delete schedule.');
-    }
+    } catch { alert('Failed to delete schedule.'); }
   };
 
   const formatSize = (bytes) => {
@@ -180,13 +158,13 @@ const DatabaseManager = () => {
   };
 
   const formatDate = (ts) => ts ? new Date(ts).toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   }) : '—';
 
   const TABS = [
-    { key: 'backup',   icon: '🗄️',  label: 'Backup & Export' },
-    { key: 'import',   icon: '📥',  label: 'Import / Restore' },
-    { key: 'schedule', icon: '🕐',  label: 'Schedules' },
+    { key: 'backup',   icon: '🗄️', label: 'Backup & Export'  },
+    { key: 'import',   icon: '📥', label: 'Import / Restore' },
+    { key: 'schedule', icon: '🕐', label: 'Schedules'        },
   ];
 
   return (
@@ -196,7 +174,7 @@ const DatabaseManager = () => {
           <h2 className="vcc-module-title">Database Manager</h2>
           <p className="vcc-module-subtitle">Backup, restore, and automate database operations</p>
         </div>
-        <div className="vcc-db-quick-actions">
+        <div className="db-quick-actions">
           <button className="vcc-btn-ghost" onClick={handleExport} disabled={isExporting}>
             {isExporting ? '↻ Exporting...' : '⬇ Export .sql'}
           </button>
@@ -207,9 +185,13 @@ const DatabaseManager = () => {
       </div>
 
       {/* Tab Nav */}
-      <div className="vcc-tab-nav">
+      <div className="db-tab-nav">
         {TABS.map(t => (
-          <button key={t.key} className={`vcc-tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
+          <button
+            key={t.key}
+            className={`db-tab ${activeTab === t.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(t.key)}
+          >
             <span>{t.icon}</span> {t.label}
           </button>
         ))}
@@ -219,25 +201,25 @@ const DatabaseManager = () => {
         <div className="vcc-loader"><div className="vcc-spinner" /></div>
       ) : (
         <>
-          {/* ── TAB: BACKUP LIST ── */}
+          {/* ── BACKUP TAB ── */}
           {activeTab === 'backup' && (
-            <div className="vcc-db-panel">
-              <div className="vcc-db-info-bar">
-                <div className="vcc-db-stat">
-                  <span className="vcc-db-stat-val">{backups.length}</span>
-                  <span className="vcc-db-stat-lbl">Total Backups</span>
+            <div>
+              <div className="db-info-bar">
+                <div className="db-stat">
+                  <span className="db-stat-val">{backups.length}</span>
+                  <span className="db-stat-lbl">Total Backups</span>
                 </div>
-                <div className="vcc-db-stat">
-                  <span className="vcc-db-stat-val">{formatSize(backups.reduce((s, b) => s + (b.size || 0), 0))}</span>
-                  <span className="vcc-db-stat-lbl">Total Size</span>
+                <div className="db-stat">
+                  <span className="db-stat-val">{formatSize(backups.reduce((s, b) => s + (b.size || 0), 0))}</span>
+                  <span className="db-stat-lbl">Total Size</span>
                 </div>
-                <div className="vcc-db-stat">
-                  <span className="vcc-db-stat-val">{backups.filter(b => b.type === 'scheduled').length}</span>
-                  <span className="vcc-db-stat-lbl">Auto Backups</span>
+                <div className="db-stat">
+                  <span className="db-stat-val">{backups.filter(b => b.type === 'scheduled').length}</span>
+                  <span className="db-stat-lbl">Auto Backups</span>
                 </div>
-                <div className="vcc-db-stat">
-                  <span className="vcc-db-stat-val">{backups.filter(b => b.type === 'manual').length}</span>
-                  <span className="vcc-db-stat-lbl">Manual Backups</span>
+                <div className="db-stat">
+                  <span className="db-stat-val">{backups.filter(b => b.type === 'manual').length}</span>
+                  <span className="db-stat-lbl">Manual Backups</span>
                 </div>
               </div>
 
@@ -247,23 +229,25 @@ const DatabaseManager = () => {
                   <p>No backups yet. Create your first backup using the button above.</p>
                 </div>
               ) : (
-                <table className="vcc-table">
+                <table className="db-table">
                   <thead>
                     <tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th>Status</th><th>Actions</th></tr>
                   </thead>
                   <tbody>
                     {backups.map(b => (
                       <tr key={b.id}>
-                        <td className="vcc-td-mono">{b.filename}</td>
-                        <td>
-                          <span className={`vcc-type-badge ${b.type}`}>{b.type}</span>
-                        </td>
+                        <td className="db-td-mono">{b.filename}</td>
+                        <td><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
                         <td>{formatSize(b.size)}</td>
                         <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
                         <td><StatusBadge status={b.status} /></td>
-                        <td className="vcc-td-actions">
-                          <button className="vcc-btn-edit" onClick={() => handleDownloadBackup(b.id, b.filename)}>⬇ Download</button>
-                          <button className="vcc-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>Delete</button>
+                        <td className="db-td-actions">
+                          <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
+                            ⬇ Download
+                          </button>
+                          <button className="db-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -273,60 +257,66 @@ const DatabaseManager = () => {
             </div>
           )}
 
-          {/* ── TAB: IMPORT ── */}
+          {/* ── IMPORT TAB ── */}
           {activeTab === 'import' && (
-            <div className="vcc-db-panel">
-              <div className="vcc-import-warning">
-                <span className="vcc-warn-icon">⚠️</span>
+            <div>
+              <div className="db-import-warning">
+                <span className="db-warn-icon">⚠️</span>
                 <div>
                   <strong>Danger Zone</strong>
                   <p>Importing a .sql file will <strong>completely replace</strong> your current database. This action cannot be undone. Always verify the file before importing.</p>
                 </div>
               </div>
 
-              <div className="vcc-import-card">
-                <h3 className="vcc-import-title">Restore from SQL Dump</h3>
-                <p className="vcc-import-sub">Upload a .sql file generated by mysqldump to restore your database.</p>
+              <div className="db-import-card">
+                <h3 className="db-import-title">Restore from SQL Dump</h3>
+                <p className="db-import-sub">Upload a .sql file generated by mysqldump to restore your database.</p>
 
-                <div className="vcc-file-drop" onClick={() => document.getElementById('sql-file-input').click()}>
+                <div className="db-file-drop" onClick={() => document.getElementById('sql-file-input').click()}>
                   {importFile ? (
-                    <div className="vcc-file-selected">
-                      <span className="vcc-file-icon">📄</span>
+                    <div className="db-file-selected">
+                      <span className="db-file-icon">📄</span>
                       <div>
-                        <p className="vcc-file-name">{importFile.name}</p>
-                        <p className="vcc-file-size">{formatSize(importFile.size)}</p>
+                        <p className="db-file-name">{importFile.name}</p>
+                        <p className="db-file-size">{formatSize(importFile.size)}</p>
                       </div>
-                      <button className="vcc-file-clear" onClick={e => { e.stopPropagation(); setImportFile(null); }}>×</button>
+                      <button className="db-file-clear" onClick={e => { e.stopPropagation(); setImportFile(null); }}>×</button>
                     </div>
                   ) : (
-                    <div className="vcc-file-placeholder">
+                    <div className="db-file-placeholder">
                       <span style={{ fontSize: '2rem' }}>📁</span>
                       <p>Click to select a <strong>.sql</strong> file</p>
                       <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>or drag and drop here</p>
                     </div>
                   )}
-                  <input id="sql-file-input" type="file" accept=".sql" style={{ display: 'none' }}
-                    onChange={e => setImportFile(e.target.files[0])} />
+                  <input
+                    id="sql-file-input" type="file" accept=".sql"
+                    style={{ display: 'none' }}
+                    onChange={e => setImportFile(e.target.files[0])}
+                  />
                 </div>
 
                 {importProgress && (
-                  <div className="vcc-import-progress">
-                    <div className="vcc-progress-bar"><div className="vcc-progress-fill" /></div>
+                  <div className="db-import-progress">
+                    <div className="db-progress-bar"><div className="db-progress-fill" /></div>
                     <span>{importProgress}</span>
                   </div>
                 )}
 
-                <button className="vcc-btn-danger" onClick={handleImport} disabled={!importFile || isImporting}
-                  style={{ marginTop: '16px', width: '100%' }}>
+                <button
+                  className="db-btn-restore"
+                  onClick={handleImport}
+                  disabled={!importFile || isImporting}
+                >
                   {isImporting ? '↻ Restoring Database...' : '⚡ Restore Database'}
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── TAB: SCHEDULES ── */}
+          {/* ── SCHEDULE TAB ── */}
           {activeTab === 'schedule' && (
-            <div className="vcc-db-panel">
+            <div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
                 <button className="vcc-btn-primary" onClick={() => setShowScheduleForm(!showScheduleForm)}>
                   {showScheduleForm ? '× Cancel' : '+ Add Schedule'}
@@ -334,40 +324,58 @@ const DatabaseManager = () => {
               </div>
 
               {showScheduleForm && (
-                <form className="vcc-schedule-form" onSubmit={handleSaveSchedule}>
-                  <h4 className="vcc-schedule-form-title">New Backup Schedule</h4>
-                  <div className="vcc-form-row">
-                    <div className="vcc-field full">
+                <form className="db-schedule-form" onSubmit={handleSaveSchedule}>
+                  <h4 className="db-schedule-form-title">New Backup Schedule</h4>
+                  <div className="db-form-row">
+                    <div className="db-field full">
                       <label>Schedule Name</label>
-                      <input type="text" value={scheduleForm.name} onChange={e => setScheduleForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g., Nightly Production Backup" required />
+                      <input
+                        type="text" value={scheduleForm.name}
+                        onChange={e => setScheduleForm(p => ({ ...p, name: e.target.value }))}
+                        placeholder="e.g., Nightly Production Backup" required
+                      />
                     </div>
-                    <div className="vcc-field half">
+                    <div className="db-field half">
                       <label>Frequency</label>
-                      <select value={scheduleForm.cron} onChange={e => setScheduleForm(p => ({ ...p, cron: e.target.value }))}>
+                      <select
+                        value={scheduleForm.cron}
+                        onChange={e => setScheduleForm(p => ({ ...p, cron: e.target.value }))}
+                      >
                         {CRON_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                       </select>
                     </div>
                     {scheduleForm.cron === 'custom' && (
-                      <div className="vcc-field half">
+                      <div className="db-field half">
                         <label>Custom Cron Expression</label>
-                        <input type="text" value={scheduleForm.customCron} onChange={e => setScheduleForm(p => ({ ...p, customCron: e.target.value }))} placeholder="0 3 * * *" required />
+                        <input
+                          type="text" value={scheduleForm.customCron}
+                          onChange={e => setScheduleForm(p => ({ ...p, customCron: e.target.value }))}
+                          placeholder="0 3 * * *" required
+                        />
                       </div>
                     )}
-                    <div className="vcc-field half">
+                    <div className="db-field half">
                       <label>Retention (days)</label>
-                      <input type="number" min="1" max="365" value={scheduleForm.retention} onChange={e => setScheduleForm(p => ({ ...p, retention: parseInt(e.target.value) }))} />
+                      <input
+                        type="number" min="1" max="365" value={scheduleForm.retention}
+                        onChange={e => setScheduleForm(p => ({ ...p, retention: parseInt(e.target.value) }))}
+                      />
                     </div>
-                    <div className="vcc-field half vcc-toggle-field">
+                    <div className="db-field half db-toggle-field">
                       <label>Enable on Save</label>
-                      <div className="vcc-toggle-wrap">
-                        <button type="button" className={`vcc-toggle ${scheduleForm.enabled ? 'on' : ''}`} onClick={() => setScheduleForm(p => ({ ...p, enabled: !p.enabled }))}>
-                          <span className="vcc-toggle-knob" />
+                      <div className="db-toggle-wrap">
+                        <button
+                          type="button"
+                          className={`db-toggle ${scheduleForm.enabled ? 'on' : ''}`}
+                          onClick={() => setScheduleForm(p => ({ ...p, enabled: !p.enabled }))}
+                        >
+                          <span className="db-toggle-knob" />
                         </button>
                         <span>{scheduleForm.enabled ? 'Enabled' : 'Disabled'}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="vcc-modal-foot">
+                  <div className="db-form-foot">
                     <button type="button" className="vcc-btn-ghost" onClick={() => setShowScheduleForm(false)}>Cancel</button>
                     <button type="submit" className="vcc-btn-primary">Save Schedule</button>
                   </div>
@@ -380,24 +388,28 @@ const DatabaseManager = () => {
                   <p>No schedules configured. Add one to automate your backups.</p>
                 </div>
               ) : (
-                <div className="vcc-schedule-list">
+                <div className="db-schedule-list">
                   {schedules.map(s => (
-                    <div key={s.id} className={`vcc-schedule-card ${s.enabled ? 'enabled' : 'disabled'}`}>
-                      <div className="vcc-schedule-card-left">
-                        <div className="vcc-schedule-name">{s.name}</div>
-                        <div className="vcc-schedule-meta">
-                          <code className="vcc-cron">{s.cron}</code>
+                    <div key={s.id} className={`db-schedule-card ${s.enabled ? 'enabled' : 'disabled'}`}>
+                      <div>
+                        <div className="db-schedule-name">{s.name}</div>
+                        <div className="db-schedule-meta">
+                          <code className="db-cron">{s.cron}</code>
                           <span>·</span>
                           <span>Retain {s.retention} days</span>
                           {s.next_run && <><span>·</span><span>Next: {formatDate(s.next_run)}</span></>}
                           {s.last_run && <><span>·</span><span>Last: {formatDate(s.last_run)}</span></>}
                         </div>
                       </div>
-                      <div className="vcc-schedule-card-right">
-                        <button type="button" className={`vcc-toggle ${s.enabled ? 'on' : ''}`} onClick={() => handleToggleSchedule(s.id, s.enabled)}>
-                          <span className="vcc-toggle-knob" />
+                      <div className="db-schedule-card-right">
+                        <button
+                          type="button"
+                          className={`db-toggle ${s.enabled ? 'on' : ''}`}
+                          onClick={() => handleToggleSchedule(s.id, s.enabled)}
+                        >
+                          <span className="db-toggle-knob" />
                         </button>
-                        <button className="vcc-btn-delete" onClick={() => handleDeleteSchedule(s.id)}>Remove</button>
+                        <button className="db-btn-delete" onClick={() => handleDeleteSchedule(s.id)}>Remove</button>
                       </div>
                     </div>
                   ))}

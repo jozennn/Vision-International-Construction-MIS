@@ -92,7 +92,9 @@ const UserManagement = ({ user }) => {
       <div className="vcc-module-header">
         <div>
           <h2 className="vcc-module-title">User Management</h2>
-          <p className="vcc-module-subtitle">{users.length} accounts across {Object.keys(groupedUsers).length} departments</p>
+          <p className="vcc-module-subtitle">
+            {users.length} accounts across {Object.keys(groupedUsers).length} departments
+          </p>
         </div>
         <button className="vcc-btn-primary" onClick={openCreateModal}>
           <span>+</span> Create Account
@@ -102,32 +104,39 @@ const UserManagement = ({ user }) => {
       {isLoading ? (
         <div className="vcc-loader"><div className="vcc-spinner" /></div>
       ) : (
-        <div className="vcc-dept-grid">
+        <div className="um-dept-grid">
           {Object.entries(groupedUsers).map(([dept, members]) => (
-            <div key={dept} className="vcc-dept-card">
-              <div className="vcc-dept-label">
-                <span className="vcc-dept-dot" />
+            <div key={dept} className="um-dept-card">
+              <div className="um-dept-label">
+                <span className="um-dept-dot" />
                 {dept}
-                <span className="vcc-dept-count">{members.length}</span>
+                <span className="um-dept-count">{members.length}</span>
               </div>
-              <table className="vcc-table">
+              <table className="um-table">
                 <thead>
                   <tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {members.map(emp => (
                     <tr key={emp.id}>
-                      <td className="vcc-td-name">{emp.name}</td>
-                      <td className="vcc-td-email">{emp.email}</td>
+                      <td className="um-td-name">{emp.name}</td>
+                      <td className="um-td-email">{emp.email}</td>
                       <td>
-                        <span className="vcc-role-badge" style={{ background: `${ROLE_COLORS[emp.role] || '#64748b'}18`, color: ROLE_COLORS[emp.role] || '#64748b', borderColor: `${ROLE_COLORS[emp.role] || '#64748b'}30` }}>
+                        <span
+                          className="um-role-badge"
+                          style={{
+                            background: `${ROLE_COLORS[emp.role] || '#64748b'}18`,
+                            color: ROLE_COLORS[emp.role] || '#64748b',
+                            borderColor: `${ROLE_COLORS[emp.role] || '#64748b'}30`,
+                          }}
+                        >
                           {emp.role.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="vcc-td-actions">
-                        <button className="vcc-btn-edit" onClick={() => openEditModal(emp)}>Edit</button>
+                      <td className="um-td-actions">
+                        <button className="um-btn-edit" onClick={() => openEditModal(emp)}>Edit</button>
                         {emp.id !== user.id && (
-                          <button className="vcc-btn-delete" onClick={() => handleDeleteUser(emp.id, emp.name)}>Delete</button>
+                          <button className="um-btn-delete" onClick={() => handleDeleteUser(emp.id, emp.name)}>Delete</button>
                         )}
                       </td>
                     </tr>
@@ -140,38 +149,52 @@ const UserManagement = ({ user }) => {
       )}
 
       {isModalOpen && (
-        <div className="vcc-modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="vcc-modal" onClick={e => e.stopPropagation()}>
-            <div className="vcc-modal-head">
+        <div className="um-modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="um-modal" onClick={e => e.stopPropagation()}>
+            <div className="um-modal-head">
               <h3>{editingUserId ? 'Edit Account' : 'Create New Account'}</h3>
-              <button className="vcc-modal-close" onClick={() => setIsModalOpen(false)}>×</button>
+              <button className="um-modal-close" onClick={() => setIsModalOpen(false)}>×</button>
             </div>
-            <form onSubmit={handleSubmit} className="vcc-form">
-              <div className="vcc-form-row">
-                <div className="vcc-field full">
+            <form onSubmit={handleSubmit} className="um-form">
+              <div className="um-form-row">
+                <div className="um-field full">
                   <label>Full Name</label>
-                  <input type="text" name="name" value={formData.name} onChange={handleInputChange} required placeholder="Juan dela Cruz" />
+                  <input
+                    type="text" name="name" value={formData.name}
+                    onChange={handleInputChange} required placeholder="Juan dela Cruz"
+                  />
                 </div>
-                <div className="vcc-field full">
+                <div className="um-field full">
                   <label>Email Address</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} required placeholder="juan@vision.com" />
+                  <input
+                    type="email" name="email" value={formData.email}
+                    onChange={handleInputChange} required placeholder="juan@vision.com"
+                  />
                 </div>
-                <div className="vcc-field full">
-                  <label>Password {editingUserId && <span className="vcc-hint">(leave blank to keep current)</span>}</label>
-                  <div className="vcc-pass-wrap">
-                    <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleInputChange} required={!editingUserId} minLength="6" />
-                    <button type="button" className="vcc-pass-toggle" onClick={() => setShowPassword(!showPassword)}>
+                <div className="um-field full">
+                  <label>
+                    Password{' '}
+                    {editingUserId && <span className="um-hint">(leave blank to keep current)</span>}
+                  </label>
+                  <div className="um-pass-wrap">
+                    <input
+                      type={showPassword ? 'text' : 'password'} name="password"
+                      value={formData.password} onChange={handleInputChange}
+                      required={!editingUserId} minLength="6"
+                    />
+                    <button type="button" className="um-pass-toggle" onClick={() => setShowPassword(!showPassword)}>
                       {showPassword ? 'HIDE' : 'SHOW'}
                     </button>
                   </div>
                 </div>
-                <div className="vcc-field half">
+                <div className="um-field half">
                   <label>Department</label>
                   <select name="department" value={formData.department} onChange={handleInputChange} required>
-                    {['IT','Management','Sales','Logistics','Engineering','Accounting/Procurement','HR'].map(d => <option key={d} value={d}>{d}</option>)}
+                    {['IT','Management','Sales','Logistics','Engineering','Accounting/Procurement','HR']
+                      .map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
-                <div className="vcc-field half">
+                <div className="um-field half">
                   <label>Role / Access Level</label>
                   <select name="role" value={formData.role} onChange={handleInputChange} required>
                     <option value="super_admin">Super Admin</option>
@@ -185,9 +208,11 @@ const UserManagement = ({ user }) => {
                   </select>
                 </div>
               </div>
-              <div className="vcc-modal-foot">
+              <div className="um-modal-foot">
                 <button type="button" className="vcc-btn-ghost" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="vcc-btn-primary">{editingUserId ? 'Update User' : 'Create User'}</button>
+                <button type="submit" className="vcc-btn-primary">
+                  {editingUserId ? 'Update User' : 'Create User'}
+                </button>
               </div>
             </form>
           </div>

@@ -5,8 +5,8 @@ import './css/SystemLogs.css';
 const SystemLogs = () => {
   const [errorLogs, setErrorLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
+  const [filter, setFilter]       = useState('all');
+  const [search, setSearch]       = useState('');
   const bottomRef = useRef(null);
 
   const fetchLogs = async () => {
@@ -56,49 +56,65 @@ const SystemLogs = () => {
       </div>
 
       {/* Stats Bar */}
-      <div className="vcc-log-stats">
+      <div className="sl-log-stats">
         {[
-          { key: 'all', label: 'All Logs', count: errorLogs.length, color: '#94a3b8' },
-          { key: 'error', label: 'Errors', count: counts.error || 0, color: '#ef4444' },
-          { key: 'warn', label: 'Warnings', count: counts.warn || 0, color: '#f59e0b' },
-          { key: 'info', label: 'Info', count: counts.info || 0, color: '#3b82f6' },
+          { key: 'all',   label: 'All Logs',  count: errorLogs.length,    color: '#94a3b8' },
+          { key: 'error', label: 'Errors',    count: counts.error || 0,   color: '#ef4444' },
+          { key: 'warn',  label: 'Warnings',  count: counts.warn  || 0,   color: '#f59e0b' },
+          { key: 'info',  label: 'Info',      count: counts.info  || 0,   color: '#3b82f6' },
         ].map(({ key, label, count, color }) => (
-          <button key={key} className={`vcc-log-stat-btn ${filter === key ? 'active' : ''}`}
-            style={{ '--stat-color': color }} onClick={() => setFilter(key)}>
-            <span className="vcc-stat-count" style={{ color }}>{count}</span>
-            <span className="vcc-stat-label">{label}</span>
+          <button
+            key={key}
+            className={`sl-log-stat-btn ${filter === key ? 'active' : ''}`}
+            style={{ '--stat-color': color }}
+            onClick={() => setFilter(key)}
+          >
+            <span className="sl-stat-count" style={{ color }}>{count}</span>
+            <span className="sl-stat-label">{label}</span>
           </button>
         ))}
       </div>
 
       {/* Search */}
-      <div className="vcc-log-search">
-        <span className="vcc-search-icon">⌕</span>
-        <input className="vcc-search-input dark" type="text" placeholder="Search logs..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="sl-search-wrap">
+        <span className="sl-search-icon">⌕</span>
+        <input
+          className="sl-search-input"
+          type="text"
+          placeholder="Search logs..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Terminal */}
       {isLoading ? (
         <div className="vcc-loader"><div className="vcc-spinner" /></div>
       ) : (
-        <div className="vcc-terminal">
-          <div className="vcc-terminal-bar">
-            <span className="vcc-term-dot red" /><span className="vcc-term-dot yellow" /><span className="vcc-term-dot green" />
-            <span className="vcc-term-title">vision-system — bash</span>
+        <div className="sl-terminal">
+          <div className="sl-terminal-bar">
+            <span className="sl-term-dot red" />
+            <span className="sl-term-dot yellow" />
+            <span className="sl-term-dot green" />
+            <span className="sl-term-title">vision-system — bash</span>
           </div>
-          <div className="vcc-terminal-body">
+          <div className="sl-terminal-body">
             {filteredLogs.length === 0 ? (
-              <div className="vcc-term-empty">
+              <div className="sl-term-empty">
                 <span style={{ color: '#4af626' }}>$ </span>
-                <span style={{ color: '#94a3b8' }}>{errorLogs.length === 0 ? 'System running clean. No errors detected. ✓' : 'No logs match current filters.'}</span>
+                <span style={{ color: '#94a3b8' }}>
+                  {errorLogs.length === 0
+                    ? 'System running clean. No errors detected. ✓'
+                    : 'No logs match current filters.'}
+                </span>
               </div>
             ) : (
               filteredLogs.map((log, i) => {
-                const type = classifyLog(log);
+                const type  = classifyLog(log);
                 const color = type === 'error' ? '#ff5555' : type === 'warn' ? '#f59e0b' : type === 'info' ? '#60a5fa' : '#4af626';
                 return (
-                  <div key={i} className="vcc-log-line" style={{ borderLeftColor: `${color}40` }}>
-                    <span className="vcc-log-num">{String(i + 1).padStart(4, '0')}</span>
+                  <div key={i} className="sl-log-line" style={{ borderLeftColor: `${color}40` }}>
+                    <span className="sl-log-num">{String(i + 1).padStart(4, '0')}</span>
                     <span style={{ color }}>{log}</span>
                   </div>
                 );

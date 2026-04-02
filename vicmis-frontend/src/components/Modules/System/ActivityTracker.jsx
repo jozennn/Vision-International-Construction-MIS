@@ -3,14 +3,19 @@ import api from '@/api/axios';
 import './css/ActivityTracker.css';
 
 const MODULE_COLORS = {
-  Leads: '#3b82f6', Projects: '#8b5cf6', Inventory: '#f59e0b',
-  Logistics: '#10b981', Users: '#ef4444', Settings: '#64748b', Engineering: '#0891b2',
+  Leads:       '#3b82f6',
+  Projects:    '#8b5cf6',
+  Inventory:   '#f59e0b',
+  Logistics:   '#10b981',
+  Users:       '#ef4444',
+  Settings:    '#64748b',
+  Engineering: '#0891b2',
 };
 
 const ActivityTracker = () => {
-  const [activities, setActivities] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [activities, setActivities]     = useState([]);
+  const [isLoading, setIsLoading]       = useState(true);
+  const [search, setSearch]             = useState('');
   const [moduleFilter, setModuleFilter] = useState('All');
 
   const fetchActivities = async () => {
@@ -37,7 +42,7 @@ const ActivityTracker = () => {
   });
 
   const formatTime = (ts) => new Date(ts).toLocaleString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 
   return (
@@ -51,20 +56,32 @@ const ActivityTracker = () => {
       </div>
 
       {/* Filters */}
-      <div className="vcc-filter-bar">
-        <div className="vcc-search-wrap">
-          <span className="vcc-search-icon">⌕</span>
-          <input className="vcc-search-input" type="text" placeholder="Search user or action..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="at-filter-bar">
+        <div className="at-search-wrap">
+          <span className="at-search-icon">⌕</span>
+          <input
+            className="at-search-input"
+            type="text"
+            placeholder="Search user or action..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-        <select className="vcc-select" value={moduleFilter} onChange={e => setModuleFilter(e.target.value)}>
-          {uniqueModules.map(m => <option key={m} value={m}>{m === 'All' ? 'All Modules' : m}</option>)}
+        <select
+          className="at-select"
+          value={moduleFilter}
+          onChange={e => setModuleFilter(e.target.value)}
+        >
+          {uniqueModules.map(m => (
+            <option key={m} value={m}>{m === 'All' ? 'All Modules' : m}</option>
+          ))}
         </select>
       </div>
 
       {isLoading ? (
         <div className="vcc-loader"><div className="vcc-spinner" /></div>
       ) : (
-        <div className="vcc-activity-timeline">
+        <div className="at-timeline">
           {filtered.length === 0 ? (
             <div className="vcc-empty">
               <div className="vcc-empty-icon">📭</div>
@@ -74,17 +91,24 @@ const ActivityTracker = () => {
             filtered.map((act, i) => {
               const color = MODULE_COLORS[act.module] || '#64748b';
               return (
-                <div key={act.id} className="vcc-timeline-row" style={{ animationDelay: `${i * 0.02}s` }}>
-                  <div className="vcc-timeline-dot" style={{ background: color }} />
-                  <div className="vcc-timeline-content">
-                    <div className="vcc-timeline-meta">
-                      <span className="vcc-timeline-user">{act.user_name}</span>
-                      <span className="vcc-module-pill" style={{ background: `${color}20`, color, borderColor: `${color}40` }}>
+                <div
+                  key={act.id}
+                  className="at-timeline-row"
+                  style={{ animationDelay: `${i * 0.02}s` }}
+                >
+                  <div className="at-timeline-dot" style={{ background: color }} />
+                  <div className="at-timeline-content">
+                    <div className="at-timeline-meta">
+                      <span className="at-timeline-user">{act.user_name}</span>
+                      <span
+                        className="at-module-pill"
+                        style={{ background: `${color}20`, color, borderColor: `${color}40` }}
+                      >
                         {act.module}
                       </span>
-                      <span className="vcc-timeline-time">{formatTime(act.created_at)}</span>
+                      <span className="at-timeline-time">{formatTime(act.created_at)}</span>
                     </div>
-                    <p className="vcc-timeline-desc">{act.description}</p>
+                    <p className="at-timeline-desc">{act.description}</p>
                   </div>
                 </div>
               );
