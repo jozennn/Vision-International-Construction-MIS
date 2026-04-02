@@ -3,7 +3,7 @@ import api, { initCsrf } from '@/api/axios';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import Project from './components/Modules/project/Project.jsx';
-import Settings from './components/Settings.jsx';
+import ControlCenter from './components/Modules/System/ControlCenter.jsx';
 import EngineeringDashboard from './components/Dashboard/Engineering/EngineeringDashboard.jsx';
 import SalesDashboard from './components/Dashboard/Sales/SalesDashboard.jsx';
 import InventoryDashboard from './components/Dashboard/Inventory/InventoryDashboard.jsx';
@@ -162,7 +162,7 @@ const App = () => {
           />
         );
       case 'Setting':
-        return <Settings user={user} />;
+        return <ControlCenter user={user} />;
       default:
         return <div className="p-20">Module Under Development</div>;
     }

@@ -13,6 +13,7 @@ use App\Http\Controllers\{
     IncomingShipmentController,
     LogisticsController,
     AdminUserController,
+    DatabaseBackupController, 
 };
 
 /*
@@ -195,5 +196,18 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::post('/admin/users',        [AdminUserController::class, 'store']);
         Route::put('/admin/users/{id}',    [AdminUserController::class, 'update']);
         Route::delete('/admin/users/{id}', [AdminUserController::class, 'destroy']);
+
+        Route::prefix('admin/database')->group(function () {
+            Route::get('/backups',               [DatabaseBackupController::class, 'index']);
+            Route::post('/backup',               [DatabaseBackupController::class, 'backup']);
+            Route::post('/export',               [DatabaseBackupController::class, 'export']);
+            Route::get('/backups/{id}/download', [DatabaseBackupController::class, 'download']);
+            Route::delete('/backups/{id}',       [DatabaseBackupController::class, 'destroy']);
+            Route::post('/import',               [DatabaseBackupController::class, 'import']);
+            Route::get('/schedules',             [DatabaseBackupController::class, 'listSchedules']);
+            Route::post('/schedules',            [DatabaseBackupController::class, 'storeSchedule']);
+            Route::patch('/schedules/{id}',      [DatabaseBackupController::class, 'updateSchedule']);
+            Route::delete('/schedules/{id}',     [DatabaseBackupController::class, 'destroySchedule']);
+        });
     });
 });
