@@ -77,9 +77,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- LEADS (read) ---
     Route::get('/leads',           [LeadController::class, 'index']);
+    Route::get('/leads/trashed',   [LeadController::class, 'trashed']);  // ← move UP before {id}
+    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);  // ← move UP before {id}
     Route::get('/leads/{id}',      [LeadController::class, 'show']);
-    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);
-    Route::get('/leads/trashed',   [LeadController::class, 'trashed']);
 
     // --- INVENTORY (read) ---
     Route::prefix('inventory')->group(function () {
