@@ -170,4 +170,11 @@ class LeadController extends Controller
             return response()->json(['error' => 'Permanent delete failed.'], 500);
         }
     }
+     public function show($id)
+    {
+    $lead = \App\Models\Lead::withTrashed()->findOrFail($id);
+    return response()->json($lead);
+    }
+
+
 }
