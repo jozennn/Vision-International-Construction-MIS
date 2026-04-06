@@ -20,7 +20,7 @@ class AuthController extends Controller
     private const MAX_ATTEMPTS    = 5;
     private const LOCKOUT_MINUTES = 15;
     private const REFRESH_DAYS    = 30;   // Remember Me refresh token lifetime
-    private const SESSION_MINUTES = 30;   // Normal session lifetime (no Remember Me)
+    private const SESSION_MINUTES = 480;   // Normal session lifetime (no Remember Me)
 
     /*
     |--------------------------------------------------------------------------

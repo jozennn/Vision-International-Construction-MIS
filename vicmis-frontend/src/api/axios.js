@@ -18,6 +18,13 @@ export async function initCsrf() {
   await axios.get(`${BASE}/sanctum/csrf-cookie`, { withCredentials: true });
 }
 
+// ── Boot guard ────────────────────────────────────────────────────────────────
+// While App.jsx is running restoreSession(), we suppress the interceptor's
+// auto-redirect so it doesn't race ahead and send the user to /login before
+// authReady is set. App.jsx controls the redirect itself after boot.
+let suppressRedirect = false;
+export const setSuppressRedirect = (val) => { suppressRedirect = val; };
+
 // ── In-flight refresh state ───────────────────────────────────────────────────
 // Prevents multiple simultaneous 401s from firing multiple /refresh calls.
 // All requests that 401 while a refresh is in progress are queued and
@@ -50,7 +57,7 @@ api.interceptors.response.use(
       }
     }
 
-    // ── 401: Unauthorized ────────────────────────────────────────────────────
+    // ── 401: Unauthorized ─────────────────────────────────────────────────────
     if (error.response?.status === 401) {
       const url = originalRequest.url ?? '';
 
@@ -58,12 +65,14 @@ api.interceptors.response.use(
       // infinite loop (/refresh 401 → try refresh → /refresh 401 → ...).
       const isAuthEndpoint =
         url.includes('/refresh') ||
-        url.includes('/login') ||
+        url.includes('/login')   ||
         url.includes('/verify-2fa');
 
       // Also skip if this request has already been retried once.
       if (originalRequest._retry || isAuthEndpoint) {
-        if (!window.location.pathname.includes('/login')) {
+        // Only redirect if we are NOT in the boot sequence.
+        // During boot, App.jsx handles the outcome itself.
+        if (!suppressRedirect && !window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
         return Promise.reject(error);
@@ -95,7 +104,8 @@ api.interceptors.response.use(
         return api.request(originalRequest); // replay the original request
       } catch (refreshError) {
         processQueue(refreshError);
-        if (!window.location.pathname.includes('/login')) {
+        // Only redirect if we are NOT in the boot sequence.
+        if (!suppressRedirect && !window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

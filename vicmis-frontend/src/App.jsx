@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import api, { initCsrf } from '@/api/axios';
+import api, { initCsrf, setSuppressRedirect } from '@/api/axios';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import Project from './components/Modules/project/Project.jsx';
@@ -51,12 +51,21 @@ const App = () => {
   //      Zero 401s fired, zero console noise.
   //
   //   3. If has_session is present → a session or refresh token cookie exists.
-  //      Call GET /api/user. The axios interceptor handles the rest:
-  //        a. 200 → session alive, set user state.
-  //        b. 401 → interceptor calls POST /api/refresh automatically,
-  //                 then replays GET /api/user. If refresh succeeds, user
-  //                 is restored silently. If refresh also fails, interceptor
-  //                 redirects to /login.
+  //      suppressRedirect is set to true so the axios interceptor does NOT
+  //      auto-redirect to /login during this sequence — App.jsx handles
+  //      the outcome itself once all attempts are exhausted.
+  //
+  //      a. Call GET /api/user.
+  //         - 200 → session still alive, set user, done.
+  //         - 401 → session expired, fall through to step b.
+  //
+  //      b. Re-init CSRF and call POST /api/refresh explicitly.
+  //         - 200 → refresh token valid, new session issued, set user, done.
+  //         - 401 → no valid refresh token either, clear user → login screen.
+  //
+  //   4. suppressRedirect is always re-enabled in the finally block so
+  //      normal post-boot 401s (e.g. token revoked mid-session) still
+  //      redirect to /login correctly.
   useEffect(() => {
     const restoreSession = async () => {
       // Step 1 — check indicator cookie before touching the network
@@ -69,17 +78,31 @@ const App = () => {
         return;
       }
 
-      // Step 2 — session or refresh token may exist, verify with the server
+      // Step 2 — suppress interceptor redirects during the boot sequence
+      setSuppressRedirect(true);
+
       try {
         await initCsrf();
-        const res = await api.get('/user');
-        setUser(res.data);
-      } catch {
-        // Interceptor already attempted /refresh. If it also failed, the
-        // interceptor clears the stale has_session cookie server-side and
-        // redirects to /login. Nothing extra needed here.
-        setUser(null);
+
+        try {
+          // Step 3a — try the existing Laravel session first
+          const res = await api.get('/user');
+          setUser(res.data);
+        } catch {
+          // Step 3b — session expired, attempt silent refresh explicitly
+          try {
+            await initCsrf(); // re-fetch CSRF — it may have expired too
+            const res = await api.post('/refresh');
+            setUser(res.data.user);
+          } catch {
+            // Both session and refresh token failed — user must log in again
+            setUser(null);
+          }
+        }
+
       } finally {
+        // Step 4 — always re-enable redirects and unblock the UI
+        setSuppressRedirect(false);
         setAuthReady(true);
       }
     };
@@ -210,8 +233,9 @@ const App = () => {
 
   // ── Loading spinner ───────────────────────────────────────────────────
   // Shown while verifying auth state on page load.
-  // Only appears when has_session is present and we're waiting on /api/user.
-  // When has_session is absent, authReady is set immediately with no spinner.
+  // Only appears when has_session is present and we're waiting on /api/user
+  // or /api/refresh. When has_session is absent, authReady is set
+  // immediately and the spinner never shows.
   if (!authReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -223,8 +247,10 @@ const App = () => {
     );
   }
 
+  // ── Login screen ──────────────────────────────────────────────────────
   if (!user) return <Login onEnterSystem={handleLoginSuccess} />;
 
+  // ── Main app ──────────────────────────────────────────────────────────
   return (
     <div className="app-container flex h-screen w-full overflow-hidden bg-gray-50">
       <Toaster
