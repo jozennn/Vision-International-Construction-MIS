@@ -379,7 +379,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       {/* Top Bar */}
       <div className="is-topbar">
         <div className="is-topbar-left">
-          <button className="is-back-btn" onClick={onBack}>← Back</button>
           <div className="is-title-block">
             <h1 className="is-title">Incoming Shipments</h1>
             <p className="is-subtitle">Logistics Master Tracker</p>

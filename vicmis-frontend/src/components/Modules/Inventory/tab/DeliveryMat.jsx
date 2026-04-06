@@ -261,7 +261,6 @@ const DeliveryMat = ({ onBack }) => {
       {/* ── Top Bar ── */}
       <div className="dl-topbar">
         <div className="dl-topbar-left">
-          <button className="dl-back-btn" onClick={onBack}>← Back</button>
           <div className="dl-title-block">
             <h1 className="dl-title">Delivery Logistics</h1>
             <p className="dl-subtitle">Dispatch &amp; Trucking Management</p>

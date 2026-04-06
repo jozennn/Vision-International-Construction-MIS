@@ -271,7 +271,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       {/* Top Bar */}
       <div className="wh-topbar">
         <div className="wh-topbar-left">
-          <button className="wh-back-btn" onClick={onBack}>← Back</button>
           <div className="wh-title-block">
             <h1 className="wh-title">Warehouse Inventory</h1>
             <p className="wh-subtitle">Construction Materials</p>
