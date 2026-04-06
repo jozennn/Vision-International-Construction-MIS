@@ -19,6 +19,15 @@ import AdminDashboard from './components/Dashboard/Admin/AdminDashboard.jsx';
 import './App.css';
 import { Toaster } from 'react-hot-toast';
 
+// ── Helper: read a cookie value by name ──────────────────────────────────────
+// Used to check the has_session indicator before firing any API calls.
+// has_session is NOT HttpOnly so this is safe to read from JS.
+const getCookie = (name) =>
+  document.cookie
+    .split('; ')
+    .find(row => row.startsWith(name + '='))
+    ?.split('=')[1] ?? null;
+
 const App = () => {
   // null      = not yet checked (show loading spinner)
   // null+ready = checked, not authenticated (show login)
@@ -31,30 +40,44 @@ const App = () => {
   const [projects, setProjects]           = useState([]);
 
   // ── Session restore on every page load / refresh ──────────────────────
-  // The laravel_session cookie (HttpOnly) is the source of truth.
-  // No sessionStorage or localStorage is read — the server decides
-  // whether the session is valid.
+  // Boot flow:
   //
-  // Flow:
-  //   1. GET /api/user  — succeeds if the session cookie is still alive
-  //   2. Axios interceptor (axios.js) silently calls POST /api/refresh
-  //      if the session is dead but the refresh_token HttpOnly cookie
-  //      exists (Remember Me was checked), then replays GET /api/user
-  //   3. Both fail — axios interceptor redirects to /login, authReady
-  //      is set so the login screen renders without a flash
+  //   1. Read the has_session cookie (readable by JS, set by the server on
+  //      login/refresh, cleared on logout). Contains no sensitive data —
+  //      just a '1' flag that tells us whether to bother calling the API.
+  //
+  //   2. If has_session is absent → no session or refresh token exists.
+  //      Skip all API calls and show the login screen immediately.
+  //      Zero 401s fired, zero console noise.
+  //
+  //   3. If has_session is present → a session or refresh token cookie exists.
+  //      Call GET /api/user. The axios interceptor handles the rest:
+  //        a. 200 → session alive, set user state.
+  //        b. 401 → interceptor calls POST /api/refresh automatically,
+  //                 then replays GET /api/user. If refresh succeeds, user
+  //                 is restored silently. If refresh also fails, interceptor
+  //                 redirects to /login.
   useEffect(() => {
     const restoreSession = async () => {
+      // Step 1 — check indicator cookie before touching the network
+      const hasSession = getCookie('has_session');
+
+      if (!hasSession) {
+        // No session exists — skip API calls entirely, go straight to login
+        setUser(null);
+        setAuthReady(true);
+        return;
+      }
+
+      // Step 2 — session or refresh token may exist, verify with the server
       try {
         await initCsrf();
-        // The axios interceptor handles the /refresh retry automatically
-        // if this call returns 401. If refresh also fails, the interceptor
-        // redirects to /login — so the catch block below only fires for
-        // genuine network errors or non-401 failures.
         const res = await api.get('/user');
         setUser(res.data);
       } catch {
-        // Interceptor already handled 401 (attempted refresh + redirect).
-        // Any error reaching here means we're unauthenticated.
+        // Interceptor already attempted /refresh. If it also failed, the
+        // interceptor clears the stale has_session cookie server-side and
+        // redirects to /login. Nothing extra needed here.
         setUser(null);
       } finally {
         setAuthReady(true);
@@ -74,8 +97,8 @@ const App = () => {
 
   // ── Login success ─────────────────────────────────────────────────────
   // User data comes directly from the /verify-2fa response body.
-  // Nothing is written to sessionStorage or localStorage — the
-  // laravel_session cookie maintains authentication going forward.
+  // The server sets has_session, laravel_session, and optionally
+  // refresh_token cookies — nothing is stored in JS storage.
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     setActiveItem('Dashboard');
@@ -84,7 +107,8 @@ const App = () => {
   // ── Logout ────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
-      // Server invalidates session + revokes refresh token + expires cookie
+      // Server invalidates session + revokes refresh token +
+      // expires both refresh_token and has_session cookies
       await api.post('/logout');
     } catch {
       // Even if the backend call fails, clear local state
@@ -162,12 +186,13 @@ const App = () => {
           />
         );
       case 'Setting':
-      return (
-        <ControlCenter
-          user={user}
-          activeSubItem={activeSubItem}
-          setActiveSubItem={setActiveSubItem}
-        /> );
+        return (
+          <ControlCenter
+            user={user}
+            activeSubItem={activeSubItem}
+            setActiveSubItem={setActiveSubItem}
+          />
+        );
       default:
         return <div className="p-20">Module Under Development</div>;
     }
@@ -185,7 +210,8 @@ const App = () => {
 
   // ── Loading spinner ───────────────────────────────────────────────────
   // Shown while verifying auth state on page load.
-  // Prevents the login screen from flashing before session is confirmed.
+  // Only appears when has_session is present and we're waiting on /api/user.
+  // When has_session is absent, authReady is set immediately with no spinner.
   if (!authReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">

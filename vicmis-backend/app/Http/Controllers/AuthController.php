@@ -175,6 +175,23 @@ class AuthController extends Controller
                 'remember_me' => $rememberMe,
             ]);
 
+            // Always set the has_session indicator cookie on successful login.
+            // This is NOT HttpOnly — JavaScript reads it on boot to decide
+            // whether to attempt GET /api/user or skip straight to login.
+            // It contains no sensitive data — just a presence signal.
+            // Lifetime matches the longer of the two: session or refresh token.
+            $response->cookie(
+                'has_session',
+                '1',
+                $sessionLifetime,
+                '/',
+                config('session.domain'),
+                true,   // Secure — HTTPS only
+                false,  // NOT HttpOnly — must be readable by JS
+                false,
+                'Strict'
+            );
+
             // If Remember Me is checked — issue a separate refresh token as an
             // HttpOnly Secure SameSite=Strict cookie. The raw token never touches
             // the DB; only its SHA-256 hash is stored. On page refresh the frontend
@@ -206,6 +223,20 @@ class AuthController extends Controller
                     true,    // HttpOnly — invisible to JavaScript
                     false,
                     'Strict' // SameSite — never sent cross-site
+                );
+
+                // Extend has_session to match the refresh token lifetime
+                // when Remember Me is checked (overrides the shorter session cookie above)
+                $response->cookie(
+                    'has_session',
+                    '1',
+                    self::REFRESH_DAYS * 24 * 60,
+                    '/',
+                    config('session.domain'),
+                    true,
+                    false,  // NOT HttpOnly
+                    false,
+                    'Strict'
                 );
             }
 
@@ -245,10 +276,11 @@ class AuthController extends Controller
                 ->first();
 
             if (!$refreshToken) {
-                // Token not found or expired — clear the stale cookie
+                // Token not found or expired — clear both stale cookies
                 return response()
                     ->json(['message' => 'Refresh token invalid or expired.'], 401)
-                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true, false, 'Strict');
+                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true, false, 'Strict')
+                    ->cookie('has_session',   '', -1, '/', config('session.domain'), true, false, false, 'Strict');
             }
 
             $user = User::find($refreshToken->user_id);
@@ -306,7 +338,8 @@ class AuthController extends Controller
                     'permissions' => $permissions,
                 ],
                 'remember_me' => true,
-            ])->cookie(
+            ])
+            ->cookie(
                 'refresh_token',
                 $newRawToken,
                 self::REFRESH_DAYS * 24 * 60,
@@ -314,6 +347,19 @@ class AuthController extends Controller
                 config('session.domain'),
                 true,
                 true,
+                false,
+                'Strict'
+            )
+            // Rotate has_session alongside the refresh token so they
+            // always expire together
+            ->cookie(
+                'has_session',
+                '1',
+                self::REFRESH_DAYS * 24 * 60,
+                '/',
+                config('session.domain'),
+                true,
+                false,  // NOT HttpOnly
                 false,
                 'Strict'
             );
@@ -350,10 +396,11 @@ class AuthController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            // Expire the refresh_token cookie on the client immediately
+            // Expire both cookies on the client immediately
             return response()
                 ->json(['message' => 'Successfully logged out.'])
-                ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true, false, 'Strict');
+                ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')
+                ->cookie('has_session',   '', -1, '/', config('session.domain'), true, false, false, 'Strict');
 
         } catch (\Throwable $e) {
             Log::error('Logout error: ' . $e->getMessage());
