@@ -19,8 +19,8 @@ class AuthController extends Controller
 {
     private const MAX_ATTEMPTS    = 5;
     private const LOCKOUT_MINUTES = 15;
-    private const REFRESH_DAYS    = 30;   // Remember Me refresh token lifetime
-    private const SESSION_MINUTES = 480;   // Normal session lifetime (no Remember Me)
+    private const REFRESH_DAYS    = 30;   // Refresh token lifetime (all users)
+    private const SESSION_MINUTES = 480;  // 8 hours — covers a full workday
 
     /*
     |--------------------------------------------------------------------------
@@ -91,8 +91,14 @@ class AuthController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Verify 2FA — Step 2: validate code, start session, maybe issue refresh token
+    | Verify 2FA — Step 2: validate code, start session, always issue refresh token
     |--------------------------------------------------------------------------
+    |
+    | Every successful login now receives a refresh token regardless of whether
+    | Remember Me was checked. This ensures employees are never locked out mid-
+    | workday simply because their 8-hour session expired. Remember Me is kept
+    | for logging and UX purposes but no longer gates the refresh token.
+    |
     */
     public function verify2FA(Request $request)
     {
@@ -131,7 +137,7 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
 
-            // Success — clear counters and 2FA code
+            // Success — clear counters and 2FA fields
             Cache::forget($key2fa);
             $user->update(['two_factor_code' => null, 'two_factor_expires_at' => null]);
 
@@ -143,9 +149,10 @@ class AuthController extends Controller
             Auth::guard('web')->login($user, $rememberMe);
             $request->session()->regenerate();
 
-            $sessionLifetime = $rememberMe
-                ? self::REFRESH_DAYS * 24 * 60  // 30 days in minutes
-                : self::SESSION_MINUTES;
+            // All sessions get the full 30-day cookie lifetime so the refresh
+            // token can silently restore them. The 8-hour SESSION_MINUTES ceiling
+            // is enforced server-side by AbsoluteSessionTimeout middleware.
+            $cookieLifetime = self::REFRESH_DAYS * 24 * 60; // minutes
 
             $sessionId = $request->session()->getId();
 
@@ -155,13 +162,33 @@ class AuthController extends Controller
             Cache::put(
                 'session_fp:' . $sessionId,
                 hash('sha256', $request->ip() . '|' . $request->userAgent()),
-                now()->addMinutes($sessionLifetime)
+                now()->addMinutes($cookieLifetime)
             );
 
             // Absolute login timestamp — AbsoluteSessionTimeout middleware uses this
             // to enforce a hard 8-hour ceiling regardless of activity
             $request->session()->put('login_time', now()->timestamp);
             $request->session()->put('remember_me', $rememberMe);
+
+            // ── Always issue a refresh token ─────────────────────────────────
+            // Every login gets a refresh token so the session can be silently
+            // restored after it expires without forcing a re-login. The raw
+            // token never touches the DB — only its SHA-256 hash is stored.
+            $rawToken    = Str::random(64);
+            $hashedToken = hash('sha256', $rawToken);
+
+            // Revoke any existing tokens for this user on this device
+            RefreshToken::where('user_id', $user->id)
+                ->where('user_agent', substr($request->userAgent() ?? '', 0, 255))
+                ->delete();
+
+            RefreshToken::create([
+                'user_id'    => $user->id,
+                'token'      => $hashedToken,
+                'user_agent' => substr($request->userAgent() ?? '', 0, 255),
+                'ip_address' => $ip,
+                'expires_at' => now()->addDays(self::REFRESH_DAYS),
+            ]);
 
             $response = response()->json([
                 'user' => [
@@ -175,15 +202,27 @@ class AuthController extends Controller
                 'remember_me' => $rememberMe,
             ]);
 
-            // Always set the has_session indicator cookie on successful login.
-            // This is NOT HttpOnly — JavaScript reads it on boot to decide
+            // refresh_token — HttpOnly, invisible to JS, sent automatically on
+            // every request. Backend rotates it on each use (see refresh()).
+            $response->cookie(
+                'refresh_token',
+                $rawToken,
+                $cookieLifetime,
+                '/',
+                config('session.domain'),
+                true,   // Secure — HTTPS only
+                true,   // HttpOnly — invisible to JavaScript
+                false,
+                'Strict'
+            );
+
+            // has_session — NOT HttpOnly so JS can read it on boot to decide
             // whether to attempt GET /api/user or skip straight to login.
-            // It contains no sensitive data — just a presence signal.
-            // Lifetime matches the longer of the two: session or refresh token.
+            // Contains no sensitive data — just a presence signal.
             $response->cookie(
                 'has_session',
                 '1',
-                $sessionLifetime,
+                $cookieLifetime,
                 '/',
                 config('session.domain'),
                 true,   // Secure — HTTPS only
@@ -191,54 +230,6 @@ class AuthController extends Controller
                 false,
                 'Strict'
             );
-
-            // If Remember Me is checked — issue a separate refresh token as an
-            // HttpOnly Secure SameSite=Strict cookie. The raw token never touches
-            // the DB; only its SHA-256 hash is stored. On page refresh the frontend
-            // calls POST /api/refresh to silently rotate the token and restore the session.
-            if ($rememberMe) {
-                $rawToken    = Str::random(64);
-                $hashedToken = hash('sha256', $rawToken);
-
-                // Revoke any existing tokens for this user on this device
-                RefreshToken::where('user_id', $user->id)
-                    ->where('user_agent', substr($request->userAgent() ?? '', 0, 255))
-                    ->delete();
-
-                RefreshToken::create([
-                    'user_id'    => $user->id,
-                    'token'      => $hashedToken,
-                    'user_agent' => substr($request->userAgent() ?? '', 0, 255),
-                    'ip_address' => $ip,
-                    'expires_at' => now()->addDays(self::REFRESH_DAYS),
-                ]);
-
-                $response->cookie(
-                    'refresh_token',
-                    $rawToken,
-                    self::REFRESH_DAYS * 24 * 60,   // minutes
-                    '/',
-                    config('session.domain'),
-                    true,    // Secure — HTTPS only
-                    true,    // HttpOnly — invisible to JavaScript
-                    false,
-                    'Strict' // SameSite — never sent cross-site
-                );
-
-                // Extend has_session to match the refresh token lifetime
-                // when Remember Me is checked (overrides the shorter session cookie above)
-                $response->cookie(
-                    'has_session',
-                    '1',
-                    self::REFRESH_DAYS * 24 * 60,
-                    '/',
-                    config('session.domain'),
-                    true,
-                    false,  // NOT HttpOnly
-                    false,
-                    'Strict'
-                );
-            }
 
             Log::info('User logged in', [
                 'user_id'     => $user->id,
@@ -279,7 +270,7 @@ class AuthController extends Controller
                 // Token not found or expired — clear both stale cookies
                 return response()
                     ->json(['message' => 'Refresh token invalid or expired.'], 401)
-                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true, false, 'Strict')
+                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')
                     ->cookie('has_session',   '', -1, '/', config('session.domain'), true, false, false, 'Strict');
             }
 
@@ -299,6 +290,8 @@ class AuthController extends Controller
             $newRawToken    = Str::random(64);
             $newHashedToken = hash('sha256', $newRawToken);
 
+            $cookieLifetime = self::REFRESH_DAYS * 24 * 60;
+
             RefreshToken::create([
                 'user_id'    => $user->id,
                 'token'      => $newHashedToken,
@@ -315,7 +308,7 @@ class AuthController extends Controller
             Cache::put(
                 'session_fp:' . $sessionId,
                 hash('sha256', $request->ip() . '|' . $request->userAgent()),
-                now()->addMinutes(self::REFRESH_DAYS * 24 * 60)
+                now()->addMinutes($cookieLifetime)
             );
 
             $request->session()->put('login_time', now()->timestamp);
@@ -342,20 +335,18 @@ class AuthController extends Controller
             ->cookie(
                 'refresh_token',
                 $newRawToken,
-                self::REFRESH_DAYS * 24 * 60,
+                $cookieLifetime,
                 '/',
                 config('session.domain'),
                 true,
-                true,
+                true,   // HttpOnly
                 false,
                 'Strict'
             )
-            // Rotate has_session alongside the refresh token so they
-            // always expire together
             ->cookie(
                 'has_session',
                 '1',
-                self::REFRESH_DAYS * 24 * 60,
+                $cookieLifetime,
                 '/',
                 config('session.domain'),
                 true,
