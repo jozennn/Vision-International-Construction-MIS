@@ -2,13 +2,16 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '@/api/axios';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { RefreshCw, TrendingUp, Briefcase, Clock, Award, ChevronRight, ShieldCheck, Download } from 'lucide-react';
+import {
+  RefreshCw, TrendingUp, Briefcase, Clock, Award,
+  ChevronRight, ShieldCheck, Download, ArrowUpRight,
+  ArrowDownRight, X, Filter,
+} from 'lucide-react';
 import './SalesDashboard.css';
 
-// ─── Status → CSS class ───────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const statusClass = (status = '') => {
   const s = (status || '').toLowerCase();
-  // 👇 UPDATED: Added 'trash' to trigger the red rejected styling
   if (s.includes('trash') || s.includes('reject') || s.includes('lost')) return 'rejected';
   if (s.includes('project') && s.includes('created')) return 'project-created';
   if (s.includes('converted'))                        return 'project-created';
@@ -18,15 +21,39 @@ const statusClass = (status = '') => {
   return 'default';
 };
 
-// ─── Pipeline stage config ────────────────────────────────────────────────────
-const PIPELINE_STAGES = [
-  { key: 'to_be_contacted', label: 'To be Contacted', color: '#10B981' },
-  { key: 'pending',         label: 'Pending Review',  color: '#F59E0B' },
-  { key: 'project_created', label: 'Project Created', color: '#3B82F6' },
-  { key: 'rejected',        label: 'Rejected / Lost', color: '#EF4444' },
-];
+// Which leads each card filter should show
+const CARD_FILTERS = {
+  all: {
+    label: 'All Leads',
+    color: '#497B97',
+    fn: () => true,
+  },
+  converted: {
+    label: 'Converted Projects',
+    color: '#059669',
+    fn: l => {
+      if (l.is_trashed) return false;
+      const s = (l.status || '').toLowerCase();
+      return (s.includes('project') && s.includes('created')) || s.includes('won');
+    },
+  },
+  pending: {
+    label: 'Pending Approvals',
+    color: '#C20100',
+    fn: l => {
+      if (l.is_trashed) return false;
+      const s = (l.status || '').toLowerCase();
+      return s.includes('pending') || s.includes('review');
+    },
+  },
+  winrate: {
+    label: 'Active Leads',
+    color: '#B45309',
+    fn: l => !l.is_trashed,
+  },
+};
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
+// ── Toast ─────────────────────────────────────────────────────────────────────
 const useToast = () => {
   const [toasts, setToasts] = useState([]);
   const add = useCallback((message, type = 'info') => {
@@ -52,32 +79,28 @@ const ToastContainer = ({ toasts, onRemove }) => (
   </div>
 );
 
-// ─── Lead Detail Modal ────────────────────────────────────────────────────────
+// ── Lead Detail Modal ─────────────────────────────────────────────────────────
 const LeadDetailModal = ({ lead, onClose, user }) => {
   if (!lead) return null;
-  
   const fields = [
     ['Client',       lead.client_name  || lead.client  || '—'],
     ['Project',      lead.project_name || lead.project || '—'],
     ['Status',       lead.status || '—'],
     ['Contact No.',  lead.contact_no || '—'],
     ['Location',     lead.location || '—'],
-    ['Sales Rep',    lead.sales_rep?.name || user?.name || '—'], 
+    ['Sales Rep',    lead.sales_rep?.name || user?.name || '—'],
     ['Date Created', lead.created_at
         ? new Date(lead.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
         : '—'],
-    ['Notes',        lead.notes || '—'],
+    ['Notes', lead.notes || '—'],
   ];
-
   return (
     <div className="sd-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="sd-modal">
         <div className="sd-modal-header">
           <div>
             <h2 className="sd-modal-title">Lead Details</h2>
-            <p className="sd-modal-sub">
-              {lead.client_name || lead.client} · {lead.project_name || lead.project}
-            </p>
+            <p className="sd-modal-sub">{lead.client_name || lead.client} · {lead.project_name || lead.project}</p>
           </div>
           <button className="sd-modal-close" onClick={onClose}>✕</button>
         </div>
@@ -107,7 +130,6 @@ const LeadDetailModal = ({ lead, onClose, user }) => {
 const SalesDashboard = ({ user }) => {
   const isManagement = ['super_admin', 'admin', 'manager', 'dept_head'].includes(user?.role);
 
-  const [stats,        setStats]        = useState(null);
   const [leads,        setLeads]        = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
@@ -115,37 +137,23 @@ const SalesDashboard = ({ user }) => {
   const [selectedLead, setSelectedLead] = useState(null);
   const [isExporting,  setIsExporting]  = useState(false);
 
+  // Active card filter — null = show all
+  const [activeFilter, setActiveFilter] = useState(null);
+
   const { toasts, toast, removeToast } = useToast();
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await api.get('/sales/dashboard-stats');
-      setStats(res.data);
-    } catch (err) {
-      console.error('[Sales] stats:', err?.response?.status, err?.message);
-    }
-  }, []);
-
+  // ── Data fetching ─────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
     try {
       const [activeRes, trashedRes] = await Promise.all([
         api.get('/leads'),
-        api.get('/leads/trashed').catch(() => ({ data: [] }))
+        api.get('/leads/trashed').catch(() => ({ data: [] })),
       ]);
-
-      const activeRows = Array.isArray(activeRes.data) ? activeRes.data : (activeRes.data?.data ?? []);
+      const activeRows  = Array.isArray(activeRes.data)  ? activeRes.data  : (activeRes.data?.data  ?? []);
       const trashedRows = Array.isArray(trashedRes.data) ? trashedRes.data : (trashedRes.data?.data ?? []);
-
-      const taggedTrashed = trashedRows.map(lead => ({
-        ...lead,
-        is_trashed: true,
-        status: lead.status + ' (Trashed)'
-      }));
-
-      const combinedRows = [...activeRows, ...taggedTrashed];
-      combinedRows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-      setLeads(combinedRows);
+      const tagged = trashedRows.map(l => ({ ...l, is_trashed: true, status: l.status + ' (Trashed)' }));
+      const all = [...activeRows, ...tagged].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setLeads(all);
     } catch (err) {
       console.error('[Sales] leads:', err?.message);
       toast.error('Failed to load leads.');
@@ -153,13 +161,12 @@ const SalesDashboard = ({ user }) => {
   }, []);
 
   const fetchAll = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    else         setRefreshing(true);
-    await Promise.all([fetchStats(), fetchLeads()]);
+    if (!silent) setLoading(true); else setRefreshing(true);
+    await fetchLeads();
     setLastSync(new Date());
     setLoading(false);
     setRefreshing(false);
-  }, [fetchStats, fetchLeads]);
+  }, [fetchLeads]);
 
   useEffect(() => {
     fetchAll();
@@ -167,270 +174,274 @@ const SalesDashboard = ({ user }) => {
     return () => clearInterval(id);
   }, [fetchAll]);
 
+  // ── Computed values ───────────────────────────────────────────────────
+  const totalLeads    = leads.length;
+  const activeCount   = leads.filter(l => !l.is_trashed).length;
+  const trashedCount  = leads.filter(l => l.is_trashed).length;
+  const converted     = leads.filter(CARD_FILTERS.converted.fn).length;
+  const pendingAppr   = leads.filter(CARD_FILTERS.pending.fn).length;
+  const winRate       = totalLeads > 0 ? Math.round((converted / totalLeads) * 100) : 0;
 
-  // ── MONTHLY GRAPH DATA CALCULATOR (With Trashed Logic) ───────────────────
+  // ── Filtered leads for table ──────────────────────────────────────────
+  const displayedLeads = useMemo(() => {
+    if (!activeFilter) return leads;
+    return leads.filter(CARD_FILTERS[activeFilter].fn);
+  }, [leads, activeFilter]);
+
+  // ── Monthly chart data ────────────────────────────────────────────────
   const monthlyData = useMemo(() => {
-    const monthsObj = {};
+    const obj = {};
     for (let i = -2; i <= 2; i++) {
       const d = new Date();
       d.setMonth(d.getMonth() + i);
-      const monthKey = `${d.getFullYear()}-${d.getMonth()}`; 
-      const monthName = d.toLocaleDateString('en-US', { month: 'short' });
-      monthsObj[monthKey] = { key: monthKey, name: monthName, total: 0, converted: 0, rejected: 0 };
+      const key  = `${d.getFullYear()}-${d.getMonth()}`;
+      const name = d.toLocaleDateString('en-US', { month: 'short' });
+      obj[key] = { key, name, total: 0, converted: 0, rejected: 0 };
     }
-
-    leads.forEach(lead => {
-      if (!lead.created_at) return;
-      const d = new Date(lead.created_at);
-      const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
-      
-      if (monthsObj[monthKey]) {
-        monthsObj[monthKey].total += 1;
-        const status = (lead.status || '').toLowerCase();
-        
-        if (lead.is_trashed || status.includes('reject') || status.includes('lost')) {
-          monthsObj[monthKey].rejected += 1;
-        } else if ((status.includes('project') && status.includes('created')) || status.includes('won')) {
-          monthsObj[monthKey].converted += 1;
-        }
-      }
+    leads.forEach(l => {
+      if (!l.created_at) return;
+      const d   = new Date(l.created_at);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!obj[key]) return;
+      obj[key].total += 1;
+      const s = (l.status || '').toLowerCase();
+      if (l.is_trashed || s.includes('reject') || s.includes('lost')) obj[key].rejected += 1;
+      else if ((s.includes('project') && s.includes('created')) || s.includes('won')) obj[key].converted += 1;
     });
-    
-    return Object.values(monthsObj);
+    return Object.values(obj);
   }, [leads]);
 
-  const maxMonthlyVal = Math.max(1, ...monthlyData.flatMap(m => [m.total, m.converted, m.rejected]));
-  const yAxisLabels = [
-    maxMonthlyVal,
-    Math.round(maxMonthlyVal * 0.75),
-    Math.round(maxMonthlyVal * 0.5),
-    Math.round(maxMonthlyVal * 0.25),
-    0
-  ];
+  const maxVal      = Math.max(1, ...monthlyData.flatMap(m => [m.total, m.converted, m.rejected]));
+  const yLabels     = [maxVal, Math.round(maxVal*.75), Math.round(maxVal*.5), Math.round(maxVal*.25), 0];
 
-  // ── EXPORT FUNCTION ───────────────────────────────────────────────────
+  // ── Card click handler ────────────────────────────────────────────────
+  const handleCardClick = (filterKey) => {
+    setActiveFilter(prev => prev === filterKey ? null : filterKey);
+    // Scroll to table smoothly
+    setTimeout(() => {
+      document.querySelector('.sd-card--leads')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
+  // ── Excel export ──────────────────────────────────────────────────────
   const exportTrendToExcel = async () => {
-    if (monthlyData.length === 0) {
-      return toast.info("No trend data available to export.");
-    }
-    
+    if (monthlyData.length === 0) { toast.info('No trend data to export.'); return; }
     try {
       setIsExporting(true);
-      const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('6-Month Sales Trend');
-
-      sheet.columns = [
-        { header: 'MONTH', key: 'month', width: 20 },
-        { header: 'TOTAL LEADS', key: 'total', width: 18 },
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('6-Month Sales Trend');
+      ws.columns = [
+        { header: 'MONTH',            key: 'month',     width: 20 },
+        { header: 'TOTAL LEADS',      key: 'total',     width: 18 },
         { header: 'PROJECTS CREATED', key: 'converted', width: 22 },
-        { header: 'LOST / TRASHED', key: 'rejected', width: 20 },
+        { header: 'LOST / TRASHED',   key: 'rejected',  width: 20 },
       ];
-
-      monthlyData.forEach(data => {
-        sheet.addRow({
-          month: data.name,
-          total: data.total,
-          converted: data.converted,
-          rejected: data.rejected
-        });
-      });
-
-      const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-      sheet.eachRow((row) => {
-        row.eachCell((cell) => {
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-          if (row.number > 1) cell.alignment = { vertical: 'middle', horizontal: 'center' }; 
-        });
-      });
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `Sales_Trend_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-      
-      toast.success('Trend report downloaded successfully!');
+      monthlyData.forEach(d => ws.addRow({ month: d.name, total: d.total, converted: d.converted, rejected: d.rejected }));
+      const hr = ws.getRow(1);
+      hr.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
+      hr.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF221F1F' } };
+      hr.alignment = { vertical: 'middle', horizontal: 'center' };
+      ws.eachRow(row => row.eachCell(cell => {
+        cell.border = { top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+        if (row.number > 1) cell.alignment = { vertical:'middle', horizontal:'center' };
+      }));
+      const buf = await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Sales_Trend_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success('Trend report exported successfully!');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to generate Excel report.');
+      toast.error('Failed to export report.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  // ── DYNAMIC STATS CALCULATOR ──────────────────────────────────────────
-  const totalLeads = leads.length;
-  const activeLeadsCount = leads.filter(lead => !lead.is_trashed).length;
-  const trashedLeadsCount = leads.filter(lead => lead.is_trashed).length;
-
-  const converted = leads.filter(lead => {
-    if (lead.is_trashed) return false;
-    const status = (lead.status || '').toLowerCase();
-    return (status.includes('project') && status.includes('created')) || status.includes('won');
-  }).length;
-
-  const pendingAppr = leads.filter(lead => {
-    if (lead.is_trashed) return false;
-    const status = (lead.status || '').toLowerCase();
-    return status.includes('pending') || status.includes('review');
-  }).length;
-
-  const winRate = totalLeads > 0 ? Math.round((converted / totalLeads) * 100) + '%' : '0%';
-
-  const pipelineCounts = PIPELINE_STAGES.reduce((acc, stage) => {
-    acc[stage.key] = leads.filter(l => {
-      if (stage.key === 'rejected' && l.is_trashed) return true;
-      if (l.is_trashed) return false;
-      
-      const cls = statusClass(l.status);
-      return cls === stage.key.replace(/_/g, '-') ||
-             (stage.key === 'to_be_contacted' && cls === 'to-be-contacted') ||
-             (stage.key === 'project_created' && cls === 'project-created');
-    }).length;
-    return acc;
-  }, {});
-  const maxPipeline = Math.max(1, ...Object.values(pipelineCounts));
-
+  // ─────────────────────────────────────────────────────────────────────
   return (
     <div className="sd-wrapper">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
+      {/* Header */}
       <div className="sd-header">
         <div className="sd-header-left">
-          <div className="sd-header-icon">📊</div>
+          <div className="sd-header-icon"><TrendingUp size={20} color="#fff" /></div>
           <div>
             <h1 className="sd-header-title">Sales Dashboard</h1>
+            <p className="sd-header-sub">{isManagement ? 'Team performance overview' : `${user?.name || 'Personal'} pipeline`}</p>
           </div>
         </div>
         <div className="sd-header-right">
-          <div className="sd-live-pill">
-            <span className="sd-live-dot" />
-            Live
-          </div>
+          <div className="sd-live-pill"><span className="sd-live-dot" />Live</div>
           {lastSync && (
             <span className="sd-sync-label">
               <RefreshCw size={11} />
-              {lastSync.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {lastSync.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}
             </span>
           )}
-          <button
-            className={`sd-refresh-btn ${refreshing ? 'spinning' : ''}`}
-            onClick={() => fetchAll(true)}
-            disabled={refreshing}
-            title="Refresh"
-          >
+          <button className={`sd-refresh-btn ${refreshing ? 'spinning' : ''}`} onClick={() => fetchAll(true)} disabled={refreshing}>
             <RefreshCw size={15} />
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="sd-loading-screen">
-          <div className="sd-spinner" />
-          <p>Loading sales data…</p>
-        </div>
+        <div className="sd-loading-screen"><div className="sd-spinner" /><p>Loading sales data…</p></div>
       ) : (
-        <>
-          {/* ══ STAT CARDS ═════════════════════════════════════════════════ */}
+        <div className="sd-page-body">
+
+          {/* ── Stat cards ─────────────────────────────────────────── */}
           <div className="sd-stats-grid">
-            <div className="sd-stat-card" style={{ animationDelay: '0ms' }}>
-              <div className="sd-stat-icon" style={{ background: 'rgba(73,123,151,.12)', color: '#497B97' }}>
-                <TrendingUp size={20} />
+
+            {/* Total Leads */}
+            <button
+              className={`sd-stat-card sd-stat-card--btn ${activeFilter === 'all' ? 'sd-stat-card--active' : ''}`}
+              style={{ '--card-accent': '#497B97', animationDelay: '0ms' }}
+              onClick={() => handleCardClick('all')}
+            >
+              <div className="sd-stat-icon-wrap" style={{ background: 'rgba(73,123,151,.12)' }}>
+                <TrendingUp size={22} color="#497B97" />
               </div>
               <div className="sd-stat-body">
                 <span className="sd-stat-value">{totalLeads}</span>
                 <span className="sd-stat-label">Total Leads</span>
-                <span className="sd-stat-sub" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
-                  <span><span style={{ color: '#10b981', fontWeight: 'bold' }}>{activeLeadsCount}</span> Active</span>
-                  <span style={{ color: '#cbd5e1' }}>|</span>
-                  <span><span style={{ color: '#ef4444', fontWeight: 'bold' }}>{trashedLeadsCount}</span> Trashed</span>
-                </span>
+                <div className="sd-stat-tags">
+                  <span className="sd-tag sd-tag--green">{activeCount} Active</span>
+                  <span className="sd-tag sd-tag--red">{trashedCount} Trashed</span>
+                </div>
               </div>
-            </div>
+              <span className="sd-card-hint">Click to filter</span>
+            </button>
 
-            <div className="sd-stat-card" style={{ animationDelay: '60ms' }}>
-              <div className="sd-stat-icon" style={{ background: 'rgba(5,150,105,.1)', color: '#059669' }}>
-                <Briefcase size={20} />
+            {/* Converted */}
+            <button
+              className={`sd-stat-card sd-stat-card--btn ${activeFilter === 'converted' ? 'sd-stat-card--active' : ''}`}
+              style={{ '--card-accent': '#059669', animationDelay: '80ms' }}
+              onClick={() => handleCardClick('converted')}
+            >
+              <div className="sd-stat-icon-wrap" style={{ background: 'rgba(5,150,105,.1)' }}>
+                <Briefcase size={22} color="#059669" />
               </div>
               <div className="sd-stat-body">
                 <span className="sd-stat-value">{converted}</span>
                 <span className="sd-stat-label">Converted Projects</span>
-                <span className="sd-stat-sub">Projects created</span>
+                <span className="sd-stat-sub">Successfully created</span>
               </div>
-            </div>
+              {converted > 0 && (
+                <div className="sd-stat-trend sd-stat-trend--up">
+                  <ArrowUpRight size={13} />{winRate}%
+                </div>
+              )}
+              <span className="sd-card-hint">Click to filter</span>
+            </button>
 
-            <div className="sd-stat-card highlight" style={{ animationDelay: '120ms' }}>
-              <div className="sd-stat-icon" style={{ background: 'rgba(194,1,0,.15)', color: '#EBDBD6' }}>
-                <Clock size={20} />
+            {/* Pending */}
+            <button
+              className={`sd-stat-card sd-stat-card--btn sd-stat-card--highlight ${activeFilter === 'pending' ? 'sd-stat-card--active-inv' : ''}`}
+              style={{ animationDelay: '160ms' }}
+              onClick={() => handleCardClick('pending')}
+            >
+              <div className="sd-stat-icon-wrap" style={{ background: 'rgba(255,255,255,.15)' }}>
+                <Clock size={22} color="#fff" />
               </div>
               <div className="sd-stat-body">
                 <span className="sd-stat-value">{pendingAppr}</span>
                 <span className="sd-stat-label">Pending Approvals</span>
-                <span className="sd-stat-sub" style={{ color: 'rgba(235,219,214,.45)' }}>Needs attention</span>
+                <span className="sd-stat-sub" style={{ color: 'rgba(235,219,214,.6)' }}>Needs attention</span>
               </div>
-            </div>
+              {pendingAppr > 0 && <div className="sd-stat-badge-alert">!</div>}
+              <span className="sd-card-hint sd-card-hint--inv">Click to filter</span>
+            </button>
 
-            <div className="sd-stat-card" style={{ animationDelay: '180ms' }}>
-              <div className="sd-stat-icon" style={{ background: 'rgba(180,83,9,.1)', color: '#B45309' }}>
-                <Award size={20} />
+            {/* Win rate */}
+            <button
+              className={`sd-stat-card sd-stat-card--btn ${activeFilter === 'winrate' ? 'sd-stat-card--active' : ''}`}
+              style={{ '--card-accent': '#B45309', animationDelay: '240ms' }}
+              onClick={() => handleCardClick('winrate')}
+            >
+              <div className="sd-stat-icon-wrap" style={{ background: 'rgba(180,83,9,.1)' }}>
+                <Award size={22} color="#B45309" />
               </div>
               <div className="sd-stat-body">
-                <span className="sd-stat-value">{winRate}</span>
+                <span className="sd-stat-value">{winRate}%</span>
                 <span className="sd-stat-label">Win Rate</span>
-                <span className="sd-stat-sub">Conversion ratio</span>
+                <span className="sd-stat-sub">Active leads only</span>
               </div>
-            </div>
+              <div className={`sd-stat-trend ${winRate >= 50 ? 'sd-stat-trend--up' : 'sd-stat-trend--down'}`}>
+                {winRate >= 50 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                {winRate >= 50 ? 'Good' : 'Low'}
+              </div>
+              <span className="sd-card-hint">Click to filter</span>
+            </button>
           </div>
 
-          <div className="sd-main-grid">
+          {/* ── Main row ───────────────────────────────────────────── */}
+          <div className="sd-main-row">
 
-            {/* ── Recent Leads ──── */}
-            <div className="sd-card sd-card-span-2">
+            {/* Leads table */}
+            <div className="sd-card sd-card--leads">
               <div className="sd-card-head">
                 <div>
-                  <p className="sd-card-title">📋 Recent Leads</p>
-                  <p className="sd-card-sub">Latest {isManagement ? 'team' : 'personal'} pipeline activity</p>
+                  <p className="sd-card-title">
+                    {activeFilter ? CARD_FILTERS[activeFilter].label : 'Recent Leads'}
+                  </p>
+                  <p className="sd-card-sub">
+                    {activeFilter
+                      ? `Filtered — ${displayedLeads.length} result${displayedLeads.length !== 1 ? 's' : ''}`
+                      : `Latest ${isManagement ? 'team' : 'personal'} pipeline activity`}
+                  </p>
+                </div>
+                <div className="sd-card-head-right">
+                  {activeFilter && (
+                    <button className="sd-clear-filter-btn" onClick={() => setActiveFilter(null)}>
+                      <X size={11} /> Clear filter
+                    </button>
+                  )}
+                  <span className="sd-count-pill">{displayedLeads.length}</span>
                 </div>
               </div>
-              <div className="sd-table-wrap" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+
+              {/* Active filter banner */}
+              {activeFilter && (
+                <div className="sd-filter-banner" style={{ '--banner-color': CARD_FILTERS[activeFilter].color }}>
+                  <Filter size={12} />
+                  Showing: <strong>{CARD_FILTERS[activeFilter].label}</strong>
+                  <button className="sd-filter-banner-clear" onClick={() => setActiveFilter(null)}>
+                    <X size={11} /> Clear
+                  </button>
+                </div>
+              )}
+
+              <div className="sd-table-wrap">
                 <table className="sd-table">
-                  <thead style={{ position: 'sticky', top: 0, background: 'white', zIndex: 2 }}>
+                  <thead>
                     <tr>
                       <th>Client</th>
                       <th>Project</th>
                       <th>Status</th>
                       <th>Date</th>
-                      <th>Action</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leads.length === 0 ? (
+                    {displayedLeads.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="sd-empty-cell">No leads found.</td>
+                        <td colSpan="5" className="sd-empty-cell">
+                          {activeFilter ? 'No leads match this filter.' : 'No leads found.'}
+                        </td>
                       </tr>
-                    ) : leads.map((lead, idx) => (
+                    ) : displayedLeads.map((lead, idx) => (
                       <tr key={lead.id ?? idx}>
-                        <td className="sd-client">
-                          {lead.client_name ?? lead.client ?? '—'}
-                        </td>
-                        <td className="sd-project">
-                          {lead.project_name ?? lead.project ?? '—'}
-                        </td>
-                        <td>
-                          <span className={`sd-status ${statusClass(lead.status)}`}>
-                            {lead.status ?? '—'}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        <td className="sd-client">{lead.client_name ?? lead.client ?? '—'}</td>
+                        <td className="sd-project">{lead.project_name ?? lead.project ?? '—'}</td>
+                        <td><span className={`sd-status ${statusClass(lead.status)}`}>{lead.status ?? '—'}</span></td>
+                        <td className="sd-date">
                           {lead.created_at
-                            ? new Date(lead.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+                            ? new Date(lead.created_at).toLocaleDateString('en-PH', { month:'short', day:'numeric', year:'numeric' })
                             : '—'}
                         </td>
                         <td>
                           <button className="sd-details-btn" onClick={() => setSelectedLead(lead)}>
-                            Details <ChevronRight size={11} />
+                            View <ChevronRight size={11} />
                           </button>
                         </td>
                       </tr>
@@ -440,124 +451,74 @@ const SalesDashboard = ({ user }) => {
               </div>
             </div>
 
-            {/* ── Monthly Trend Graph (Pure CSS) ─────────────────────── */}
-            <div className="sd-card">
-              <div className="sd-card-head sd-flex-between">
-                <div>
-                  <p className="sd-card-title">📉 {isManagement ? 'Team 6-Month Trend' : 'My 6-Month Trend'}</p>
-                  <p className="sd-card-sub">{isManagement ? 'Team monthly performance overview' : 'Your monthly performance overview'}</p>
-                </div>
-                <button 
-                  className="sd-export-btn" 
-                  onClick={exportTrendToExcel}
-                  disabled={isExporting}
-                >
-                  <Download size={14} /> 
-                  {isExporting ? 'Exporting...' : 'Export Excel'}
-                </button>
-              </div>
-              
-              <div className="sd-vertical-graph-container">
-                <div className="sd-graph-legend">
-                  <span className="sd-legend-item"><div className="sd-legend-color" style={{background: '#3b82f6'}}></div> Leads</span>
-                  <span className="sd-legend-item"><div className="sd-legend-color" style={{background: '#10b981'}}></div> Projects</span>
-                  <span className="sd-legend-item"><div className="sd-legend-color" style={{background: '#ef4444'}}></div> Lost</span>
-                </div>
-
-                <div className="sd-graph-y-axis">
-                  {yAxisLabels.map((val, i) => (
-                    <span key={i}>{val}</span>
-                  ))}
-                </div>
-
-                <div className="sd-graph-axes">
-                  {[4, 3, 2, 1, 0].map(num => (
-                    <div key={num} className="sd-axis-line"></div>
-                  ))}
-                </div>
-                
-                <div className="sd-graph-bars">
-                  {monthlyData.map(data => (
-                    <div key={data.key} className="sd-month-group">
-                      <div className="sd-month-bars">
-                        <div 
-                          className="sd-month-bar" 
-                          style={{ height: `${Math.max(5, (data.total / maxMonthlyVal) * 100)}%`, background: '#3b82f6' }}
-                          title={`${data.name} - Total Leads: ${data.total}`}
-                        >
-                          <span className="sd-graph-value">{data.total}</span>
-                        </div>
-                        <div 
-                          className="sd-month-bar" 
-                          style={{ height: `${Math.max(5, (data.converted / maxMonthlyVal) * 100)}%`, background: '#10b981' }}
-                          title={`${data.name} - Projects Created: ${data.converted}`}
-                        >
-                          <span className="sd-graph-value">{data.converted}</span>
-                        </div>
-                        <div 
-                          className="sd-month-bar" 
-                          style={{ height: `${Math.max(5, (data.rejected / maxMonthlyVal) * 100)}%`, background: '#ef4444' }}
-                          title={`${data.name} - Lost: ${data.rejected}`}
-                        >
-                          <span className="sd-graph-value">{data.rejected}</span>
-                        </div>
-                      </div>
-                      <span className="sd-graph-label">{data.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Pipeline Overview ────────────────── */}
-            <div className="sd-card">
+            {/* Trend chart */}
+            <div className="sd-card sd-card--chart">
               <div className="sd-card-head">
                 <div>
-                  <p className="sd-card-title">📈 Pipeline List</p>
-                  <p className="sd-card-sub">Current distribution totals</p>
+                  <p className="sd-card-title">{isManagement ? 'Team 6-Month Trend' : 'My 6-Month Trend'}</p>
+                  <p className="sd-card-sub">Monthly performance overview</p>
                 </div>
+                <button className="sd-export-btn" onClick={exportTrendToExcel} disabled={isExporting}>
+                  <Download size={13} />
+                  {isExporting ? 'Exporting…' : 'Export'}
+                </button>
               </div>
 
-              {/* 👇 The redundant text list section was safely removed from here! */}
+              <div className="sd-chart-body">
+                <div className="sd-chart-legend">
+                  <span className="sd-leg-item"><span className="sd-leg-dot" style={{ background:'#378ADD' }} />Leads</span>
+                  <span className="sd-leg-item"><span className="sd-leg-dot" style={{ background:'#10B981' }} />Projects</span>
+                  <span className="sd-leg-item"><span className="sd-leg-dot" style={{ background:'#EF4444' }} />Lost</span>
+                </div>
 
-              <div className="sd-pipeline-bar-wrap">
-                {PIPELINE_STAGES.map(stage => {
-                  const count = pipelineCounts[stage.key] ?? 0;
-                  const pct   = Math.round((count / maxPipeline) * 100);
-                  return (
-                    <div key={stage.key}>
-                      <div className="sd-pipeline-bar-label">
-                        <span>{stage.label}</span>
-                        <span>{count}</span>
-                      </div>
-                      <div className="sd-bar-track">
-                        <div className="sd-bar-fill" style={{ width: `${pct}%`, background: stage.color }} />
-                      </div>
+                <div className="sd-chart-inner">
+                  <div className="sd-y-axis">
+                    {yLabels.map((v, i) => <span key={i}>{v}</span>)}
+                  </div>
+                  <div className="sd-chart-plot">
+                    <div className="sd-grid-lines">
+                      {[0,1,2,3,4].map(i => <div key={i} className="sd-grid-line" />)}
                     </div>
-                  );
-                })}
+                    <div className="sd-bars-row">
+                      {monthlyData.map(data => (
+                        <div key={data.key} className="sd-month-col">
+                          <div className="sd-bar-group">
+                            {[
+                              { val: data.total,     color:'#378ADD', label:`Leads: ${data.total}` },
+                              { val: data.converted, color:'#10B981', label:`Projects: ${data.converted}` },
+                              { val: data.rejected,  color:'#EF4444', label:`Lost: ${data.rejected}` },
+                            ].map((bar, bi) => (
+                              <div key={bi} className="sd-bar-wrap">
+                                <div
+                                  className="sd-bar"
+                                  style={{ height:`${Math.max(3,(bar.val/maxVal)*100)}%`, background:bar.color }}
+                                  title={`${data.name} — ${bar.label}`}
+                                >
+                                  {bar.val > 0 && <span className="sd-bar-tip">{bar.val}</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <span className="sd-month-label">{data.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
           </div>
 
-          {/* ══ FOOTER ═════════════════════════════════════════════════════ */}
+          {/* Footer */}
           <footer className="sd-footer">
             <ShieldCheck size={13} />
-            <span>
-              VICMIS · Vision Brand Management ·{' '}
-              {lastSync
-                ? `Last synced: ${lastSync.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-                : 'Syncing…'}
-            </span>
+            <span>VICMIS · Vision Brand Management · {lastSync ? `Last synced: ${lastSync.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}` : 'Syncing…'}</span>
           </footer>
-        </>
+        </div>
       )}
 
-      {/* Lead Detail Modal */}
-      {selectedLead && (
-        <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} user={user} />
-      )}
+      {selectedLead && <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} user={user} />}
     </div>
   );
 };
