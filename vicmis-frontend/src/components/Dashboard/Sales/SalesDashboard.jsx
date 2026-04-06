@@ -264,10 +264,8 @@ const SalesDashboard = ({ user }) => {
       {/* Header */}
       <div className="sd-header">
         <div className="sd-header-left">
-          <div className="sd-header-icon"><TrendingUp size={20} color="#fff" /></div>
           <div>
             <h1 className="sd-header-title">Sales Dashboard</h1>
-            <p className="sd-header-sub">{isManagement ? 'Team performance overview' : `${user?.name || 'Personal'} pipeline`}</p>
           </div>
         </div>
         <div className="sd-header-right">
@@ -509,12 +507,6 @@ const SalesDashboard = ({ user }) => {
             </div>
 
           </div>
-
-          {/* Footer */}
-          <footer className="sd-footer">
-            <ShieldCheck size={13} />
-            <span>VICMIS · Vision Brand Management · {lastSync ? `Last synced: ${lastSync.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}` : 'Syncing…'}</span>
-          </footer>
         </div>
       )}
 
