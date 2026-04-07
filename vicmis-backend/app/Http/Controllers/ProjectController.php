@@ -49,6 +49,15 @@ class ProjectController extends Controller
         'Request Final Billing',
     ];
 
+    // Phases visible to Sales users (for their own projects only)
+    private const SALES_PHASES = [
+        'Floor Plan',
+        'Purchase Order',
+        'P.O & Work Order',
+        'Pending Work Order Verification',
+        'Completed',
+    ];
+
     // =========================================================================
     // 1. NOTIFICATION ENGINE
     // =========================================================================
@@ -161,7 +170,7 @@ class ProjectController extends Controller
 
         $query = Project::with(self::EAGER);
 
-        // ── Global access: admins, managers, management dept, ops emails ─────
+        // ── Global access: admins, managers, management dept, ops emails ──────
         $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
             || str_contains($dept, 'management')
             || str_contains($email, 'ops')
@@ -170,7 +179,7 @@ class ProjectController extends Controller
         if (!$isGlobal) {
             $query->where(function ($q) use ($dept, $role, $email, $user) {
 
-                // ── Engineering ───────────────────────────────────────────
+                // ── Engineering ───────────────────────────────────────────────
                 if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
                     $q->where(function ($engQ) use ($role, $user) {
                         $engQ->whereIn('status', [
@@ -193,7 +202,7 @@ class ProjectController extends Controller
                             'Signing of COC',
                             'Request Final Billing',
                         ])
-                        ->orWhere('status', 'Completed'); // Engineering can see Completed
+                        ->orWhere('status', 'Completed');
 
                         if ($role !== 'dept_head') {
                             $engQ->whereHas('assignments', function ($a) use ($user) {
@@ -204,30 +213,32 @@ class ProjectController extends Controller
                         }
                     });
 
-                // ── Sales ─────────────────────────────────────────────────
+                // ── Sales ─────────────────────────────────────────────────────
+                // FIX: ownership check wraps ALL statuses including Completed,
+                // and created_by is now also checked so self-created projects
+                // are always visible regardless of assignment records.
                 } elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
                     $q->where(function ($salesQ) use ($user) {
-                        $salesQ->whereIn('status', [
-                            'Floor Plan',
-                            'Purchase Order',
-                            'P.O & Work Order',
-                            'Pending Work Order Verification',
-                        ])
-                        ->orWhere('status', 'Completed') // Sales can see Completed
-                        ->where(function ($ownerQ) use ($user) {
-                            $ownerQ->whereHas('assignments', function ($a) use ($user) {
-                                $a->where('user_id', $user->id)
-                                  ->where('role', 'sales')
-                                  ->whereNull('removed_at');
-                            })->orWhereHas('lead', function ($l) use ($user) {
-                                $l->where('sales_rep_id', $user->id);
-                            });
-                        });
+
+                        // Must own the project (any of the three ownership signals)
+                        $salesQ->where(function ($ownerQ) use ($user) {
+                            $ownerQ->where('created_by', $user->id)           // ← FIX: created_by check
+                                   ->orWhereHas('assignments', function ($a) use ($user) {
+                                       $a->where('user_id', $user->id)
+                                         ->where('role', 'sales')
+                                         ->whereNull('removed_at');
+                                   })
+                                   ->orWhereHas('lead', function ($l) use ($user) {
+                                       $l->where('sales_rep_id', $user->id);
+                                   });
+                        })
+                        // AND the project must be in a sales-visible phase
+                        // FIX: Completed is inside this block so only owned
+                        // completed projects are returned, not everyone's.
+                        ->whereIn('status', self::SALES_PHASES);
                     });
 
-                // ── Logistics / Inventory ─────────────────────────────────
-                // Only sees projects currently IN a logistics phase.
-                // No access to Completed or any other phase.
+                // ── Logistics / Inventory ─────────────────────────────────────
                 } elseif (
                     str_contains($dept, 'logistics') ||
                     str_contains($dept, 'inventory') ||
@@ -235,9 +246,7 @@ class ProjectController extends Controller
                 ) {
                     $q->whereIn('status', self::LOGISTICS_PHASES);
 
-                // ── Accounting / Finance / Procurement ────────────────────
-                // Only sees projects currently IN a billing phase.
-                // No access to Completed or any other phase.
+                // ── Accounting / Finance / Procurement ────────────────────────
                 } elseif (
                     str_contains($dept, 'accounting') ||
                     str_contains($dept, 'finance') ||
@@ -282,7 +291,6 @@ class ProjectController extends Controller
         $project = Project::with(self::EAGER)->find($id);
         if (!$project) return response()->json(['message' => 'Project not found'], 404);
 
-        // ── Restrict logistics & accounting to their phases only ──────────────
         $dept  = strtolower($user->dept ?? $user->department ?? '');
         $role  = strtolower($user->role ?? '');
         $email = strtolower($user->email ?? '');
@@ -290,17 +298,38 @@ class ProjectController extends Controller
         $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
             || str_contains($dept, 'management')
             || str_contains($dept, 'engineering')
-            || str_contains($dept, 'sales')
             || str_contains($email, 'ops')
             || str_contains($email, 'admin')
-            || str_contains($email, 'eng')
-            || str_contains($email, 'sales');
+            || str_contains($email, 'eng');
 
         if (!$isGlobal) {
+            // ── Sales: must own the project AND be in a sales-visible phase ──
+            $isSales = str_contains($dept, 'sales') || str_contains($email, 'sales');
+
+            if ($isSales) {
+                $ownsProject = $project->created_by === $user->id
+                    || $project->assignments()
+                               ->where('user_id', $user->id)
+                               ->where('role', 'sales')
+                               ->whereNull('removed_at')
+                               ->exists()
+                    || optional($project->lead)->sales_rep_id === $user->id;
+
+                $inSalesPhase = in_array($project->status, self::SALES_PHASES);
+
+                if (!$ownsProject || !$inSalesPhase) {
+                    return response()->json(['message' => 'Access denied for current project phase.'], 403);
+                }
+
+                return response()->json(['project' => $this->formatProject($project)]);
+            }
+
+            // ── Logistics ────────────────────────────────────────────────────
             $isLogistics = str_contains($dept, 'logistics')
                 || str_contains($dept, 'inventory')
                 || str_contains($email, 'logistic');
 
+            // ── Accounting ───────────────────────────────────────────────────
             $isAccounting = str_contains($dept, 'accounting')
                 || str_contains($dept, 'finance')
                 || str_contains($dept, 'procurement')
@@ -333,7 +362,8 @@ class ProjectController extends Controller
             'project_type' => 'required',
         ]);
 
-        $validated['status'] = 'Floor Plan';
+        $validated['status']     = 'Floor Plan';
+        $validated['created_by'] = Auth::id(); // ensure created_by is always stamped
         $project = Project::create($validated);
         Lead::where('id', $request->lead_id)->update(['status' => 'Project Created']);
 
@@ -925,7 +955,7 @@ class ProjectController extends Controller
         $boqActual = $project->boqActual;
 
         return [
-            // ── Core ──────────────────────────────────────────────────────
+            // ── Core ──────────────────────────────────────────────────────────
             'id'                    => $project->id,
             'lead_id'               => $project->lead_id,
             'project_name'          => $project->project_name,
@@ -938,31 +968,31 @@ class ProjectController extends Controller
             'floor_plan_image'      => $project->floor_plan_image,
             'created_at'            => $project->created_at,
 
-            // ── Personnel ─────────────────────────────────────────────────
+            // ── Personnel ─────────────────────────────────────────────────────
             'created_by'            => $project->created_by,
             'created_by_name'       => $project->created_by_name,
             'assigned_engineers'    => $project->assigned_engineers,
             'assigned_engineer_ids' => $project->assigned_engineer_ids,
 
-            // ── Rejection ─────────────────────────────────────────────────
+            // ── Rejection ─────────────────────────────────────────────────────
             'rejection_notes'       => $project->rejection_notes,
 
-            // ── BOQ Plan ──────────────────────────────────────────────────
+            // ── BOQ Plan ──────────────────────────────────────────────────────
             'plan_measurement'      => $boqPlan?->plan_measurement,
             'plan_sqm'              => $boqPlan?->plan_sqm,
             'plan_boq'              => $boqPlan?->boq_rows ? json_encode($boqPlan->boq_rows) : null,
 
-            // ── BOQ Actual ────────────────────────────────────────────────
+            // ── BOQ Actual ────────────────────────────────────────────────────
             'actual_measurement'    => $boqActual?->actual_measurement,
             'actual_sqm'            => $boqActual?->actual_sqm,
             'final_boq'             => $boqActual?->boq_rows ? json_encode($boqActual->boq_rows) : null,
             'is_phase1_approved'    => $boqActual?->review_status === 'approved',
 
-            // ── PO ────────────────────────────────────────────────────────
+            // ── PO ────────────────────────────────────────────────────────────
             'po_document'           => $po?->po_document,
             'work_order_document'   => $po?->work_order_document,
 
-            // ── Site inspection ───────────────────────────────────────────
+            // ── Site inspection ───────────────────────────────────────────────
             'site_inspection_photo'  => $si?->inspection_photo,
             'site_inspection_report' => $si ? [
                 'inspector_name'  => $si->inspector_name,
@@ -972,11 +1002,11 @@ class ProjectController extends Controller
                 'notes_remarks'   => $si->notes_remarks,
             ] : null,
 
-            // ── Materials ─────────────────────────────────────────────────
+            // ── Materials ─────────────────────────────────────────────────────
             'delivery_receipt_document' => $mat?->delivery_receipt_document,
             'bidding_document'          => $mat?->bidding_document,
 
-            // ── Mobilization ──────────────────────────────────────────────
+            // ── Mobilization ──────────────────────────────────────────────────
             'subcontractor_name'               => $mob?->subcontractor_name
                                                   ?? $mat?->subcontractor_name
                                                   ?? $project->subcontractor_name,
@@ -985,7 +1015,7 @@ class ProjectController extends Controller
             'installer_roster'                 => $mob?->installer_roster ?? [],
             'installer_count'                  => $mob?->installer_count ?? 0,
 
-            // ── QA / Handover ─────────────────────────────────────────────
+            // ── QA / Handover ─────────────────────────────────────────────────
             'qa_photo'               => $qa?->qa_photo,
             'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
             'coc_document'           => $qa?->coc_document,
@@ -993,11 +1023,11 @@ class ProjectController extends Controller
             'qa_check_debris'        => (bool) ($qa?->qa_check_debris ?? false),
             'qa_check_defect'        => (bool) ($qa?->qa_check_defect ?? false),
 
-            // ── Billing ───────────────────────────────────────────────────
+            // ── Billing ───────────────────────────────────────────────────────
             'billing_invoice_document' => $project->progressBilling?->invoice_document,
             'final_invoice_document'   => $project->finalBilling?->invoice_document,
 
-            // ── Tracking ──────────────────────────────────────────────────
+            // ── Tracking ──────────────────────────────────────────────────────
             'material_items'    => $mat?->material_items,
             'timeline_tracking' => $mat?->timeline_tracking,
         ];
