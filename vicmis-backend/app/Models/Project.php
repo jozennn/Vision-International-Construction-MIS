@@ -19,6 +19,7 @@ class Project extends Model
         'is_completed',
         'floor_plan_image',
         'contract_amount',
+        'created_by',
     ];
 
     protected $casts = [
@@ -183,13 +184,4 @@ class Project extends Model
      * The user ID of the sales rep (used by canAccessProject).
      * Mirrors the same priority logic as getCreatedByNameAttribute.
      */
-    public function getCreatedByAttribute(): ?int
-    {
-        $fromAssignment = $this->salesAgent?->user_id;
-        if ($fromAssignment) return (int) $fromAssignment;
-
-        return $this->lead?->sales_rep_id
-            ? (int) $this->lead->sales_rep_id
-            : null;
-    }
 }
