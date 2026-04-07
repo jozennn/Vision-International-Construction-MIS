@@ -1,6 +1,19 @@
 // ─── VICMIS Project Module — Central Configuration ────────────────────────────
 // All phase constants, waiting messages, access logic, and phase order live here.
 // Import from this file in any phase component or hook.
+//
+// ── PHASES TEMPORARILY REMOVED (no company template yet) ─────────────────────
+// The following phases are commented out and can be restored once company
+// document templates are available:
+//   - P.O & Work Order
+//   - Pending Work Order Verification
+//   - Awarding of Project              (was: Uploading Winning Contractor Bid)
+//   - Contract Signing for Installer
+//   - Pending QA Verification
+//   - Final Site Inspection with the Client
+//   - Signing of COC
+//   - Request Final Billing (both the Accounting wait and the phase itself)
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const WAITING_MSG = {
   'Floor Plan':                                { dept: 'Sales',                   msg: 'upload the initial Floor Plan' },
@@ -8,23 +21,23 @@ export const WAITING_MSG = {
   'Actual Measurement':                        { dept: 'Engineering',             msg: 'submit the Actual Site Measurement' },
   'Pending Head Review':                       { dept: 'Engineering Head',        msg: 'review and approve the Final BOQ' },
   'Purchase Order':                            { dept: 'Sales',                   msg: 'upload the Purchase Order' },
-  'P.O & Work Order':                          { dept: 'Sales',                   msg: 'prepare and upload the Work Order' },
-  'Pending Work Order Verification':           { dept: 'Sales Head',              msg: 'verify and approve the Work Order' },
+  // 'P.O & Work Order':                       { dept: 'Sales',                   msg: 'prepare and upload the Work Order' },
+  // 'Pending Work Order Verification':        { dept: 'Sales Head',              msg: 'verify and approve the Work Order' },
   'Initial Site Inspection':                   { dept: 'Engineering',             msg: 'complete the Initial Site Inspection' },
   'Checking of Delivery of Materials':         { dept: 'Engineering / Logistics', msg: 'verify delivery of materials' },
   'Pending DR Verification':                   { dept: 'Logistics',               msg: 'verify stock availability and the P.O / Proof of Payment' },
   'Bidding of Project':                        { dept: 'Management',              msg: 'complete the Bidding phase' },
-  'Awarding of Project':                       { dept: 'Management',              msg: 'complete the Project Awarding' },
-  'Contract Signing for Installer':            { dept: 'Engineering',             msg: 'complete the Subcontractor Handover' },
+  // 'Awarding of Project':                    { dept: 'Management',              msg: 'complete the Project Awarding' },
+  // 'Contract Signing for Installer':         { dept: 'Engineering',             msg: 'complete the Subcontractor Handover' },
   'Deployment and Orientation of Installers':  { dept: 'Engineering',             msg: 'complete Site Mobilization' },
   'Site Inspection & Project Monitoring':      { dept: 'Engineering',             msg: 'complete active construction monitoring' },
   'Request Materials Needed':                  { dept: 'Logistics',               msg: 'dispatch the requested materials' },
   'Request Billing':                           { dept: 'Accounting',              msg: 'process the Progress Billing' },
   'Site Inspection & Quality Checking':        { dept: 'Engineering',             msg: 'complete internal QA/QC' },
-  'Pending QA Verification':                   { dept: 'Engineering Head',        msg: 'verify the QA photo' },
-  'Final Site Inspection with the Client':     { dept: 'Engineering',             msg: 'complete the Client Walkthrough' },
-  'Signing of COC':                            { dept: 'Engineering',             msg: 'upload the Certificate of Completion' },
-  'Request Final Billing':                     { dept: 'Accounting',              msg: 'process the Final Billing' },
+  // 'Pending QA Verification':                { dept: 'Engineering Head',        msg: 'verify the QA photo' },
+  // 'Final Site Inspection with the Client':  { dept: 'Engineering',             msg: 'complete the Client Walkthrough' },
+  // 'Signing of COC':                         { dept: 'Engineering',             msg: 'upload the Certificate of Completion' },
+  // 'Request Final Billing':                  { dept: 'Accounting',              msg: 'process the Final Billing' },
 };
 
 // locked: true = a head approved this phase; nobody can go back past it
@@ -34,23 +47,23 @@ export const PHASE_ORDER = [
   { status: 'Actual Measurement',                        owner: 'engineering' },
   { status: 'Pending Head Review',                       owner: 'eng_head',   locked: true },
   { status: 'Purchase Order',                            owner: 'sales'       },
-  { status: 'P.O & Work Order',                         owner: 'sales'       },
-  { status: 'Pending Work Order Verification',           owner: 'sales_head', locked: true },
+  // { status: 'P.O & Work Order',                       owner: 'sales'       },              // ← removed: no template yet
+  // { status: 'Pending Work Order Verification',        owner: 'sales_head', locked: true }, // ← removed: no template yet
   { status: 'Initial Site Inspection',                   owner: 'engineering' },
   { status: 'Checking of Delivery of Materials',         owner: 'engineering' },
   { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true },
   { status: 'Bidding of Project',                        owner: 'management'  },
-  { status: 'Awarding of Project',                       owner: 'management'  },
-  { status: 'Contract Signing for Installer',            owner: 'engineering' },
+  // { status: 'Awarding of Project',                    owner: 'management'  },              // ← removed: no template yet
+  // { status: 'Contract Signing for Installer',         owner: 'engineering' },              // ← removed: no template yet
   { status: 'Deployment and Orientation of Installers',  owner: 'engineering' },
   { status: 'Site Inspection & Project Monitoring',      owner: 'engineering' },
   { status: 'Request Materials Needed',                  owner: 'logistics'   },
   { status: 'Request Billing',                           owner: 'accounting'  },
   { status: 'Site Inspection & Quality Checking',        owner: 'engineering' },
-  { status: 'Pending QA Verification',                   owner: 'eng_head',   locked: true },
-  { status: 'Final Site Inspection with the Client',     owner: 'engineering' },
-  { status: 'Signing of COC',                            owner: 'engineering' },
-  { status: 'Request Final Billing',                     owner: 'accounting'  },
+  // { status: 'Pending QA Verification',                owner: 'eng_head',   locked: true }, // ← removed: no template yet
+  // { status: 'Final Site Inspection with the Client',  owner: 'engineering' },              // ← removed: no template yet
+  // { status: 'Signing of COC',                         owner: 'engineering' },              // ← removed: no template yet
+  // { status: 'Request Final Billing',                  owner: 'accounting'  },              // ← removed: no template yet
   { status: 'Completed',                                 owner: 'all'         },
   { status: 'Archived',                                  owner: 'all'         },
 ];
@@ -65,7 +78,7 @@ export const LOGISTICS_PHASES = [
 // Phases where Accounting / Procurement is involved
 export const ACCOUNTING_PHASES = [
   'Request Billing',
-  'Request Final Billing',
+  // 'Request Final Billing', // ← removed: no template yet
 ];
 
 // Phase → component file map (used by the orchestrator)
@@ -75,23 +88,23 @@ export const PHASE_COMPONENT_MAP = {
   'Actual Measurement':                        'PhaseBoqActual',
   'Pending Head Review':                       'PhaseBOQReview',
   'Purchase Order':                            'PhasePOWorkOrder',
-  'P.O & Work Order':                          'PhasePOWorkOrder',
-  'Pending Work Order Verification':           'PhasePOWorkOrder',
+  // 'P.O & Work Order':                       'PhasePOWorkOrder',    // ← removed: no template yet
+  // 'Pending Work Order Verification':        'PhasePOWorkOrder',    // ← removed: no template yet
   'Initial Site Inspection':                   'PhaseSiteInspection',
   'Checking of Delivery of Materials':         'PhaseMaterials',
   'Pending DR Verification':                   'PhaseMaterials',
   'Bidding of Project':                        'PhaseMaterials',
-  'Awarding of Project':                       'PhaseMaterials',
-  'Contract Signing for Installer':            'PhaseMobilization',
+  // 'Awarding of Project':                    'PhaseMaterials',      // ← removed: no template yet
+  // 'Contract Signing for Installer':         'PhaseMobilization',   // ← removed: no template yet
   'Deployment and Orientation of Installers':  'PhaseMobilization',
   'Site Inspection & Project Monitoring':      'PhaseCommandCenter',
   'Request Materials Needed':                  'PhaseCommandCenter',
   'Request Billing':                           'PhaseBilling',
   'Site Inspection & Quality Checking':        'PhaseQAHandover',
-  'Pending QA Verification':                   'PhaseQAHandover',
-  'Final Site Inspection with the Client':     'PhaseQAHandover',
-  'Signing of COC':                            'PhaseQAHandover',
-  'Request Final Billing':                     'PhaseBilling',
+  // 'Pending QA Verification':                'PhaseQAHandover',     // ← removed: no template yet
+  // 'Final Site Inspection with the Client':  'PhaseQAHandover',     // ← removed: no template yet
+  // 'Signing of COC':                         'PhaseQAHandover',     // ← removed: no template yet
+  // 'Request Final Billing':                  'PhaseBilling',        // ← removed: no template yet
   'Completed':                                 'PhaseCompleted',
   'Archived':                                  'PhaseCompleted',
 };
@@ -199,8 +212,8 @@ export const getPhaseAccess = (status, {
     'Actual Measurement':                        isEng        || isEngHead,
     'Pending Head Review':                       isEngHead,
     'Purchase Order':                            isSales      || isSalesHead,
-    'P.O & Work Order':                          isSales      || isSalesHead,
-    'Pending Work Order Verification':           isSalesHead,
+    // 'P.O & Work Order':                       isSales      || isSalesHead,   // ← removed: no template yet
+    // 'Pending Work Order Verification':        isSalesHead,                   // ← removed: no template yet
     'Initial Site Inspection':                   isEng        || isEngHead,
 
     // Logistics joins Engineering for material delivery
@@ -211,9 +224,9 @@ export const getPhaseAccess = (status, {
 
     // Management-only phases (isOpsAss caught above — these are fallback false for others)
     'Bidding of Project':                        false,
-    'Awarding of Project':                       false,
+    // 'Awarding of Project':                    false,                         // ← removed: no template yet
 
-    'Contract Signing for Installer':            isEng        || isEngHead,
+    // 'Contract Signing for Installer':         isEng        || isEngHead,     // ← removed: no template yet
     'Deployment and Orientation of Installers':  isEng        || isEngHead,
     'Site Inspection & Project Monitoring':      isEng        || isEngHead,
 
@@ -224,12 +237,12 @@ export const getPhaseAccess = (status, {
     'Request Billing':                           isAccounting,
 
     'Site Inspection & Quality Checking':        isEng        || isEngHead,
-    'Pending QA Verification':                   isEngHead,
-    'Final Site Inspection with the Client':     isEng        || isEngHead,
-    'Signing of COC':                            isEng        || isEngHead,
+    // 'Pending QA Verification':                isEngHead,                     // ← removed: no template yet
+    // 'Final Site Inspection with the Client':  isEng        || isEngHead,     // ← removed: no template yet
+    // 'Signing of COC':                         isEng        || isEngHead,     // ← removed: no template yet
 
     // Accounting exclusively owns final billing
-    'Request Final Billing':                     isAccounting,
+    // 'Request Final Billing':                  isAccounting,                  // ← removed: no template yet
 
     'Completed':                                 true,
     'Archived':                                  true,

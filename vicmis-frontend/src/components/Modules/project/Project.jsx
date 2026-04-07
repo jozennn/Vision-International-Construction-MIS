@@ -280,7 +280,8 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseBOQReview {...sharedPhaseProps} boqData={tracking.boqData} />
             )}
 
-            {['Purchase Order', 'P.O & Work Order', 'Pending Work Order Verification'].includes(status) && (
+            {/* Purchase Order only — P.O & Work Order and Pending Work Order Verification removed (no template yet) */}
+            {status === 'Purchase Order' && (
               <PhasePOWorkOrder {...sharedPhaseProps} />
             )}
 
@@ -288,11 +289,13 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseSiteInspection {...sharedPhaseProps} />
             )}
 
-            {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project', 'Awarding of Project'].includes(status) && (
+            {/* Awarding of Project removed (no template yet) */}
+            {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project'].includes(status) && (
               <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} />
             )}
 
-            {['Contract Signing for Installer', 'Deployment and Orientation of Installers'].includes(status) && (
+            {/* Contract Signing for Installer removed (no template yet) */}
+            {status === 'Deployment and Orientation of Installers' && (
               <PhaseMobilization {...sharedPhaseProps} />
             )}
 
@@ -305,11 +308,13 @@ const Project = ({ user, projects, setProjects }) => {
               />
             )}
 
-            {['Request Billing', 'Request Final Billing'].includes(status) && (
+            {status === 'Request Billing' && (
               <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />
             )}
 
-            {['Site Inspection & Quality Checking', 'Pending QA Verification', 'Final Site Inspection with the Client', 'Signing of COC'].includes(status) && (
+            {/* Pending QA Verification, Final Site Inspection with the Client,
+                Signing of COC, and Request Final Billing removed (no template yet) */}
+            {status === 'Site Inspection & Quality Checking' && (
               <PhaseQAHandover {...sharedPhaseProps} />
             )}
 
