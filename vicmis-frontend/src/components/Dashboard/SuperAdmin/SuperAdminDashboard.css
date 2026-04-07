@@ -194,10 +194,16 @@
 /* ── Main Grid ── */
 .sa-main-grid {
   display: grid;
-  grid-template-columns: 3fr 2fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.1rem;
   padding: 1.1rem 1.75rem 0;
-  align-items: start;
+  align-items: stretch;
+}
+
+@media (max-width: 1024px) {
+  .sa-main-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Panel ── */
