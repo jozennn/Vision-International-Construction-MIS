@@ -31,28 +31,34 @@ import PhaseCompleted      from './phases/PhaseCompleted.jsx';
 
 import './css/Project.css';
 
-const Project = () => {
-  const user     = JSON.parse(sessionStorage.getItem('user')) || { role: 'admin', department: 'IT', name: 'Admin User' };
-  const userDept = (user.dept || user.department || '').toLowerCase();
+// ── user comes from App.jsx via props (React state restored from cookie/session)
+// ── Never read from sessionStorage — it's empty after a page refresh
+const Project = ({ user, projects, setProjects }) => {
+  const userDept = (user?.dept || user?.department || '').toLowerCase();
 
   // ── Role flags ───────────────────────────────────────────────────────────
   const isSales      = userDept.includes('sales');
-  const isSalesHead  = userDept.includes('sales')       && user.role === 'dept_head';
+  const isSalesHead  = userDept.includes('sales')       && user?.role === 'dept_head';
   const isEng        = userDept.includes('engineering');
-  const isEngHead    = userDept.includes('engineering') && user.role === 'dept_head';
+  const isEngHead    = userDept.includes('engineering') && user?.role === 'dept_head';
   const isLogistics  = userDept.includes('logistics')  || userDept.includes('inventory');
   const isAccounting = userDept.includes('accounting') || userDept.includes('finance');
-  const isOpsAss     = userDept.includes('management') || user.role === 'admin' || user.role === 'manager';
+  const isOpsAss     = userDept.includes('management') || user?.role === 'admin' || user?.role === 'manager';
 
   // Any dept_head (sales, engineering, logistics, accounting, etc.) sees ALL projects
-  const isDeptHeadAny = user.role === 'dept_head';
+  const isDeptHeadAny = user?.role === 'dept_head';
 
   const roles = { isSales, isSalesHead, isEng, isEngHead, isLogistics, isAccounting, isOpsAss, isDeptHeadAny };
 
-  const userDeptMode = isSalesHead ? 'SALES HEAD' : isSales ? 'SALES' : isEngHead ? 'ENGINEERING HEAD'
-    : isEng ? 'ENGINEERING' : isLogistics ? 'LOGISTICS' : isAccounting ? 'ACCOUNTING'
-    : isOpsAss ? 'MANAGEMENT' : isDeptHeadAny ? 'DEPT HEAD'
-    : (user.department || 'STAFF').toUpperCase();
+  const userDeptMode = isSalesHead    ? 'SALES HEAD'
+    : isSales                         ? 'SALES'
+    : isEngHead                       ? 'ENGINEERING HEAD'
+    : isEng                           ? 'ENGINEERING'
+    : isLogistics                     ? 'LOGISTICS'
+    : isAccounting                    ? 'ACCOUNTING'
+    : isOpsAss                        ? 'MANAGEMENT'
+    : isDeptHeadAny                   ? 'DEPT HEAD'
+    : (user?.department || 'STAFF').toUpperCase();
 
   // ── Views ────────────────────────────────────────────────────────────────
   const [currentView,     setCurrentView]     = useState('home');
@@ -64,9 +70,11 @@ const Project = () => {
   const refreshProject = async () => {
     if (!selectedProject?.id) return;
     try {
-      const res  = await api.get(`/projects/${selectedProject.id}`);
+      const res = await api.get(`/projects/${selectedProject.id}`);
       setSelectedProject(res.data.project || res.data);
-    } catch (err) { console.error('Refresh failed', err); }
+    } catch (err) {
+      console.error('Refresh failed', err);
+    }
   };
 
   const actions  = useProjectActions(selectedProject, refreshProject);
@@ -79,18 +87,26 @@ const Project = () => {
       try {
         const res  = await api.get(`/projects/${id}`);
         const proj = res.data.project || res.data;
-        if (!proj?.id) return alert("Project not found or out of scope.");
-        // dept_head bypass — canAccessProject already handles this
+        if (!proj?.id) return alert('Project not found or out of scope.');
         if (!canAccessProject(proj, user, userDept)) return alert("You don't have access to this project.");
         setSelectedProject(proj);
         setCurrentView('workflow-detail');
-      } catch (err) { console.error('Teleport failed', err); }
+      } catch (err) {
+        console.error('Teleport failed', err);
+      }
     };
 
     const pending = sessionStorage.getItem('autoOpenProjectId');
-    if (pending) { sessionStorage.removeItem('autoOpenProjectId'); teleport(pending); }
+    if (pending) {
+      sessionStorage.removeItem('autoOpenProjectId');
+      teleport(pending);
+    }
 
-    const handler = (e) => { sessionStorage.removeItem('autoOpenProjectId'); teleport(e.detail); };
+    const handler = (e) => {
+      sessionStorage.removeItem('autoOpenProjectId');
+      teleport(e.detail);
+    };
+
     window.addEventListener('open-project', handler);
     return () => window.removeEventListener('open-project', handler);
   }, []);
@@ -108,24 +124,26 @@ const Project = () => {
     try {
       await api.post(`/projects/${selectedProject.id}/submit-plan`, {
         plan_measurement: tracking.boqData.planMeasurement,
-        plan_sqm:         tracking.boqData.planSqm,        // saves to project_boq_plans.plan_sqm
+        plan_sqm:         tracking.boqData.planSqm,
         plan_boq:         JSON.stringify(tracking.boqData.planBOQ),
       });
-      // status advance is handled server-side in submitPlanData()
       await refreshProject();
-    } catch (err) { alert(`Failed to save Plan Data: ${err.message}`); }
+    } catch (err) {
+      alert(`Failed to save Plan Data: ${err.message}`);
+    }
   };
 
   const submitActualPhase = async () => {
     try {
       await api.post(`/projects/${selectedProject.id}/submit-actual`, {
         actual_measurement: tracking.boqData.actualMeasurement,
-        actual_sqm:         tracking.boqData.actualSqm,    // saves to project_boq_actuals.actual_sqm
+        actual_sqm:         tracking.boqData.actualSqm,
         final_boq:          JSON.stringify(tracking.boqData.finalBOQ),
       });
-      // status advance is handled server-side in submitActualData()
       await refreshProject();
-    } catch (err) { alert(`Failed to submit Actual BOQ: ${err.message}`); }
+    } catch (err) {
+      alert(`Failed to submit Actual BOQ: ${err.message}`);
+    }
   };
 
   // ── Render document link helper ───────────────────────────────────────────
@@ -134,7 +152,14 @@ const Project = () => {
     return (
       <div className="pm-doc-link no-print">
         <span className="pm-doc-label">📄 {label}</span>
-        <a href={`/storage/${filePath}`} target="_blank" rel="noreferrer" className="pm-doc-btn">View Document</a>
+        <a
+          href={`/storage/${filePath}`}
+          target="_blank"
+          rel="noreferrer"
+          className="pm-doc-btn"
+        >
+          View Document
+        </a>
       </div>
     );
   };
@@ -193,9 +218,15 @@ const Project = () => {
       {/* ── Header ── */}
       <div className="pm-header no-print">
         <div className="pm-header-left">
-          <button onClick={() => setCurrentView('home')} className="pm-back-btn">← BACK TO DASHBOARD</button>
+          <button onClick={() => setCurrentView('home')} className="pm-back-btn">
+            ← BACK TO DASHBOARD
+          </button>
           {previousPhase && (
-            <button className="pm-back-phase-btn" onClick={() => actions.handleGoBackPhase(previousPhase)} disabled={actions.goBackLoading}>
+            <button
+              className="pm-back-phase-btn"
+              onClick={() => actions.handleGoBackPhase(previousPhase)}
+              disabled={actions.goBackLoading}
+            >
               {actions.goBackLoading ? '⏳ Going back…' : `↩ Back to: ${previousPhase}`}
             </button>
           )}
@@ -217,20 +248,74 @@ const Project = () => {
 
         {phaseAccess === 'active' && (
           <>
-            {status === 'Floor Plan'                                && <PhaseFloorPlan {...sharedPhaseProps} />}
-            {status === 'Measurement based on Plan'                 && <PhaseBoqPlan {...sharedPhaseProps} boqData={tracking.boqData} setBoqData={tracking.setBoqData} addBoqRow={tracking.addBoqRow} removeBoqRow={tracking.removeBoqRow} handleBoqChange={tracking.handleBoqChange} onSubmitPlan={submitPlanPhase} />}
-            {status === 'Actual Measurement'                        && <PhaseBoqActual {...sharedPhaseProps} boqData={tracking.boqData} setBoqData={tracking.setBoqData} addBoqRow={tracking.addBoqRow} removeBoqRow={tracking.removeBoqRow} handleBoqChange={tracking.handleBoqChange} onSubmitActual={submitActualPhase} />}
-            {status === 'Pending Head Review'                       && <PhaseBOQReview {...sharedPhaseProps} boqData={tracking.boqData} />}
-            {['Purchase Order','P.O & Work Order','Pending Work Order Verification'].includes(status) && <PhasePOWorkOrder {...sharedPhaseProps} />}
-            {status === 'Initial Site Inspection'                   && <PhaseSiteInspection {...sharedPhaseProps} />}
-            {['Checking of Delivery of Materials','Pending DR Verification','Bidding of Project','Awarding of Project'].includes(status) && <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} />}
-            {['Contract Signing for Installer','Deployment and Orientation of Installers'].includes(status) && <PhaseMobilization {...sharedPhaseProps} />}
-            {['Site Inspection & Project Monitoring','Request Materials Needed'].includes(status) && (
-              <PhaseCommandCenter {...sharedPhaseProps} cc={cc} tracking={tracking} user={user} />
+            {status === 'Floor Plan' && (
+              <PhaseFloorPlan {...sharedPhaseProps} />
             )}
-            {['Request Billing','Request Final Billing'].includes(status) && <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />}
-            {['Site Inspection & Quality Checking','Pending QA Verification','Final Site Inspection with the Client','Signing of COC'].includes(status) && <PhaseQAHandover {...sharedPhaseProps} />}
-            {['Completed','Archived'].includes(status) && <PhaseCompleted {...sharedPhaseProps} exportCOABoardToExcel={() => {}} />}
+
+            {status === 'Measurement based on Plan' && (
+              <PhaseBoqPlan
+                {...sharedPhaseProps}
+                boqData={tracking.boqData}
+                setBoqData={tracking.setBoqData}
+                addBoqRow={tracking.addBoqRow}
+                removeBoqRow={tracking.removeBoqRow}
+                handleBoqChange={tracking.handleBoqChange}
+                onSubmitPlan={submitPlanPhase}
+              />
+            )}
+
+            {status === 'Actual Measurement' && (
+              <PhaseBoqActual
+                {...sharedPhaseProps}
+                boqData={tracking.boqData}
+                setBoqData={tracking.setBoqData}
+                addBoqRow={tracking.addBoqRow}
+                removeBoqRow={tracking.removeBoqRow}
+                handleBoqChange={tracking.handleBoqChange}
+                onSubmitActual={submitActualPhase}
+              />
+            )}
+
+            {status === 'Pending Head Review' && (
+              <PhaseBOQReview {...sharedPhaseProps} boqData={tracking.boqData} />
+            )}
+
+            {['Purchase Order', 'P.O & Work Order', 'Pending Work Order Verification'].includes(status) && (
+              <PhasePOWorkOrder {...sharedPhaseProps} />
+            )}
+
+            {status === 'Initial Site Inspection' && (
+              <PhaseSiteInspection {...sharedPhaseProps} />
+            )}
+
+            {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project', 'Awarding of Project'].includes(status) && (
+              <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} />
+            )}
+
+            {['Contract Signing for Installer', 'Deployment and Orientation of Installers'].includes(status) && (
+              <PhaseMobilization {...sharedPhaseProps} />
+            )}
+
+            {['Site Inspection & Project Monitoring', 'Request Materials Needed'].includes(status) && (
+              <PhaseCommandCenter
+                {...sharedPhaseProps}
+                cc={cc}
+                tracking={tracking}
+                user={user}
+              />
+            )}
+
+            {['Request Billing', 'Request Final Billing'].includes(status) && (
+              <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />
+            )}
+
+            {['Site Inspection & Quality Checking', 'Pending QA Verification', 'Final Site Inspection with the Client', 'Signing of COC'].includes(status) && (
+              <PhaseQAHandover {...sharedPhaseProps} />
+            )}
+
+            {['Completed', 'Archived'].includes(status) && (
+              <PhaseCompleted {...sharedPhaseProps} exportCOABoardToExcel={() => {}} />
+            )}
           </>
         )}
       </div>
