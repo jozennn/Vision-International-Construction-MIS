@@ -70,7 +70,6 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
     inspection_time: new Date().toTimeString().slice(0, 5),
     inspector_id:    '',
     inspector_name:  '',
-    position:        '',
     materials_scope: '',
     notes_remarks:   '',
   });
@@ -89,7 +88,6 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
           .map(eng => ({
             id:       eng.id,
             name:     eng.name     ?? '',
-            position: eng.position ?? eng.role ?? '',
           }))
           .filter(e => e.name);
         setEngineers(list);
@@ -122,7 +120,6 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
           inspection_time: d.inspection_time    ?? new Date().toTimeString().slice(0, 5),
           inspector_id:    d.inspector_id       ?? '',
           inspector_name:  d.inspector_name     ?? '',
-          position:        d.inspector_position ?? '',
           materials_scope: d.materials_scope    ?? '',
           notes_remarks:   d.notes_remarks      ?? '',
         });
@@ -348,17 +345,6 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
                 ))}
               </select>
             )}
-          </div>
-          <div className="si-field-row">
-            <span className="si-field-label">POSITION:</span>
-            <input
-              className="si-field-input"
-              value={formHeader.position}
-              onChange={e => setHeader('position', e.target.value)}
-              placeholder="Auto-filled from engineer selection"
-              readOnly={!!formHeader.inspector_id}
-              style={formHeader.inspector_id ? { background: '#f3f4f6', cursor: 'not-allowed' } : {}}
-            />
           </div>
           <div className="si-field-row si-field-row-top">
             <span className="si-field-label">MATERIALS AND SCOPE OF WORKS:</span>
