@@ -215,28 +215,28 @@ public function index(Request $request): JsonResponse
                 });
 
             // ✅ Sales
-            } elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
-                $q->where(function ($salesQ) use ($user) {
-                    $salesQ->where(function ($ownerQ) use ($user) {
-                        $ownerQ
-                            ->where(function ($createdQ) use ($user) {
-                                $createdQ->whereNotNull('created_by')
-                                         ->where('created_by', (int) $user->id);
-                            })
-                            ->orWhereHas('assignments', function ($a) use ($user) {
-                                $a->where('user_id', $user->id)
-                                  ->where('role', 'sales')
-                                  ->whereNull('removed_at');
-                            })
-                            ->orWhereHas('lead', function ($l) use ($user) {
-                                $l->where('sales_rep_id', $user->id);
-                            });
-                    })
-                    ->whereIn('status', self::SALES_PHASES);
-                });
+                } elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
+                    $q->where(function ($salesQ) use ($user) {
+                        $salesQ->where(function ($ownerQ) use ($user) {
+                            $ownerQ
+                                ->where(function ($createdQ) use ($user) {
+                                    $createdQ->whereNotNull('created_by')
+                                            ->where('created_by', (int) $user->id);
+                                })
+                                ->orWhereHas('assignments', function ($a) use ($user) {
+                                    $a->where('user_id', $user->id)
+                                    ->where('role', 'sales')
+                                    ->whereNull('removed_at');
+                                })
+                                ->orWhereHas('lead', function ($l) use ($user) {
+                                    $l->where('sales_rep_id', $user->id);
+                                });
+                        });
+                    });
+                }
 
             // ✅ Logistics
-            } elseif (
+            elseif (
                 str_contains($dept, 'logistics') ||
                 str_contains($dept, 'inventory') ||
                 str_contains($email, 'logistic')
@@ -335,13 +335,7 @@ public function index(Request $request): JsonResponse
             str_contains($dept, 'logistics') ||
             str_contains($dept, 'inventory') ||
             str_contains($email, 'logistic')
-        ) {
-            if (!in_array($project->status, self::LOGISTICS_PHASES)) {
-                return response()->json([
-                    'message' => 'Access denied for current project phase.'
-                ], 403);
-            }
-        }
+        ) 
 
         // ✅ Accounting
         if (
