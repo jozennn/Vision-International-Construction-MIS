@@ -23,7 +23,8 @@ export const WAITING_MSG = {
   'Request Final Billing':                       { dept: 'Accounting',              msg: 'process the Final Billing' },
 };
 
-// locked: true = a head approved this phase; nobody can go back past it
+// locked: true  = a head approved this phase; nobody can go back past it
+// headOnly: true = phase has no UI component; only admins/managers/dept_heads see an advance button
 export const PHASE_ORDER = [
   { status: 'Floor Plan',                                owner: 'sales'       },
   { status: 'Measurement based on Plan',                 owner: 'engineering' },
@@ -35,8 +36,8 @@ export const PHASE_ORDER = [
   { status: 'Initial Site Inspection',                   owner: 'engineering' },
   { status: 'Checking of Delivery of Materials',         owner: 'engineering' },
   { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true },
-  { status: 'Bidding of Project',                        owner: 'management'  },
-  { status: 'Awarding of Project',                       owner: 'management'  },
+  { status: 'Bidding of Project',                        owner: 'management', headOnly: true },
+  { status: 'Awarding of Project',                       owner: 'management', headOnly: true },
   { status: 'Contract Signing for Installer',            owner: 'engineering' },
   { status: 'Deployment and Orientation of Installers',  owner: 'engineering' },
   { status: 'Site Inspection & Project Monitoring',      owner: 'engineering' },
@@ -51,11 +52,13 @@ export const PHASE_ORDER = [
   { status: 'Archived',                                  owner: 'all'         },
 ];
 
-// ── Phases that have NO component — always render WaitingView + advance button ─
-// Add any phase here that has no document template / UI yet.
+// Phases that have NO component — always render WaitingView + advance button
+// headOnly phases (Bidding, Awarding) are also included here so PhaseMaterials
+// never renders for them, and only dept heads / admins see the advance button.
 export const WAITING_ONLY_PHASES = new Set([
   'P.O & Work Order',
   'Pending Work Order Verification',
+  'Bidding of Project',
   'Awarding of Project',
   'Contract Signing for Installer',
   'Pending QA Verification',
@@ -84,7 +87,7 @@ export const PHASE_COMPONENT_MAP = {
   'Initial Site Inspection':                   'PhaseSiteInspection',
   'Checking of Delivery of Materials':         'PhaseMaterials',
   'Pending DR Verification':                   'PhaseMaterials',
-  'Bidding of Project':                        'PhaseMaterials',
+  // 'Bidding of Project' intentionally removed — headOnly, renders WaitingView only
   'Deployment and Orientation of Installers':  'PhaseMobilization',
   'Site Inspection & Project Monitoring':      'PhaseCommandCenter',
   'Request Materials Needed':                  'PhaseCommandCenter',
