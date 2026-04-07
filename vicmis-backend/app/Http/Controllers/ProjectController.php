@@ -284,79 +284,85 @@ public function index(Request $request): JsonResponse
     // =========================================================================
 
     public function show(Request $request, $id): JsonResponse
-{
-    $user = $request->user();
-    if (!$user) {
-        return response()->json(['message' => 'Not Authenticated'], 401);
-    }
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Not Authenticated'], 401);
+        }
 
-    $project = Project::with(self::EAGER)->find($id);
-    if (!$project) {
-        return response()->json(['message' => 'Project not found'], 404);
-    }
+        $project = Project::with(self::EAGER)->find($id);
+        if (!$project) {
+            return response()->json(['message' => 'Project not found'], 404);
+        }
 
-    $dept  = strtolower($user->dept ?? $user->department ?? '');
-    $role  = strtolower($user->role ?? '');
-    $email = strtolower($user->email ?? '');
+        $dept  = strtolower($user->dept ?? $user->department ?? '');
+        $role  = strtolower($user->role ?? '');
+        $email = strtolower($user->email ?? '');
 
-    $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
-        || str_contains($dept, 'management')
-        || str_contains($email, 'ops')
-        || str_contains($email, 'admin');
+        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
+            || str_contains($dept, 'management')
+            || str_contains($email, 'ops')
+            || str_contains($email, 'admin');
 
-    if (!$isGlobal) {
+        if (!$isGlobal) {
 
-        // ✅ Sales ownership
-        if (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
-            $ownsProject =
-                (!empty($project->created_by) && (int)$project->created_by === (int)$user->id)
-                || $project->assignments()
-                    ->where('user_id', $user->id)
-                    ->where('role', 'sales')
-                    ->whereNull('removed_at')
-                    ->exists()
-                || optional($project->lead)->sales_rep_id == $user->id;
+            // ✅ Sales
+            if (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
+                $ownsProject =
+                    (!empty($project->created_by) && (int)$project->created_by === (int)$user->id)
+                    || $project->assignments()
+                        ->where('user_id', $user->id)
+                        ->where('role', 'sales')
+                        ->whereNull('removed_at')
+                        ->exists()
+                    || optional($project->lead)->sales_rep_id == $user->id;
 
-            if (!$ownsProject) {
-                return response()->json([
-                    'message' => 'You do not own this project.'
-                ], 403);
+                if (!$ownsProject) {
+                    return response()->json([
+                        'message' => 'You do not own this project.'
+                    ], 403);
+                }
             }
 
-            if (!in_array($project->status, self::SALES_PHASES)) {
-                return response()->json([
-                    'message' => 'Access denied for current project phase.'
-                ], 403);
+            // ✅ Engineering
+            if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
+
+                // dept head can always view
+                if ($role !== 'dept_head') {
+                    $assigned = $project->assignments()
+                        ->where('user_id', $user->id)
+                        ->whereIn('role', ['lead_engineer', 'support_engineer'])
+                        ->whereNull('removed_at')
+                        ->exists();
+
+                    if (!$assigned) {
+                        return response()->json([
+                            'message' => 'You are not assigned to this engineering project.'
+                        ], 403);
+                    }
+                }
+            }
+
+            // ✅ Accounting
+            if (
+                str_contains($dept, 'accounting') ||
+                str_contains($dept, 'finance') ||
+                str_contains($dept, 'procurement') ||
+                str_contains($role, 'accounting') ||
+                str_contains($email, 'accounting')
+            ) {
+                if (!in_array($project->status, self::ACCOUNTING_PHASES)) {
+                    return response()->json([
+                        'message' => 'Access denied for current project phase.'
+                    ], 403);
+                }
             }
         }
 
-        // ✅ Logistics
-        if (
-            str_contains($dept, 'logistics') ||
-            str_contains($dept, 'inventory') ||
-            str_contains($email, 'logistic')
-        ) 
-
-        // ✅ Accounting
-        if (
-            str_contains($dept, 'accounting') ||
-            str_contains($dept, 'finance') ||
-            str_contains($dept, 'procurement') ||
-            str_contains($role, 'accounting') ||
-            str_contains($email, 'accounting')
-        ) {
-            if (!in_array($project->status, self::ACCOUNTING_PHASES)) {
-                return response()->json([
-                    'message' => 'Access denied for current project phase.'
-                ], 403);
-            }
-        }
+        return response()->json([
+            'project' => $this->formatProject($project)
+        ]);
     }
-
-    return response()->json([
-        'project' => $this->formatProject($project)
-    ]);
-}
 
     // =========================================================================
     // 5. CREATE PROJECT

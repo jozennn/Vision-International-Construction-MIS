@@ -236,6 +236,24 @@ class EngineeringController extends Controller
     // ─── Assign Task ───────────────────────────────────────────────────────
     public function assignTask(Request $request)
     {
+        $user = Auth::user();
+
+        $dept = strtolower($user->dept ?? $user->department ?? '');
+        $role = strtolower($user->role ?? '');
+
+        // ✅ Only engineering head / admin / manager can assign
+        $canAssign =
+            $role === 'dept_head'
+            || $role === 'admin'
+            || $role === 'manager'
+            || str_contains($dept, 'engineering');
+
+        if (!$canAssign) {
+            return response()->json([
+                'message' => 'This action is unauthorized.'
+            ], 403);
+        }
+
         $validated = $request->validate([
             'project_id'     => 'required|exists:projects,id',
             'engineer_ids'   => 'required|array|min:1|max:10',
@@ -245,14 +263,13 @@ class EngineeringController extends Controller
 
         $teamSize         = count($validated['engineer_ids']);
         $baseInstructions = "TEAM SIZE: {$teamSize} Engineer(s) Dispatched\n\n" . $validated['instructions'];
-        $assignedBy       = Auth::id();
+        $assignedBy       = $user->id;
 
         DB::transaction(function () use ($validated, $baseInstructions, $assignedBy) {
             foreach ($validated['engineer_ids'] as $index => $engId) {
                 $roleTitle    = $index === 0 ? '👑 LEAD ENGINEER' : '🛠️ SUPPORT STAFF';
                 $assignedRole = $index === 0 ? 'lead_engineer' : 'support_engineer';
 
-                // ── Legacy table (keeps engineering dashboard working) ─────
                 DB::table('engineering_tasks')->insert([
                     'project_id'   => $validated['project_id'],
                     'assigned_to'  => $engId,
@@ -262,7 +279,6 @@ class EngineeringController extends Controller
                     'updated_at'   => now(),
                 ]);
 
-                // ── Normalized table (keeps ProjectController filter working)
                 ProjectAssignment::firstOrCreate(
                     [
                         'project_id' => $validated['project_id'],
