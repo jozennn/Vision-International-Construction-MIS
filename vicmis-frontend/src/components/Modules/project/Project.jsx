@@ -3,7 +3,7 @@ import api from '@/api/axios';
 import ProjectManagement from './tab/ProjectManagement.jsx';
 
 // Config
-import { canAccessProject, getPhaseAccess, getPreviousPhase } from './projectConfig.js';
+import { canAccessProject, getPhaseAccess, getPreviousPhase, WAITING_ONLY_PHASES } from './projectConfig.js';
 
 // Hooks
 import { useProjectActions } from './hooks/useProjectActions.js';
@@ -31,8 +31,6 @@ import PhaseCompleted      from './phases/PhaseCompleted.jsx';
 
 import './css/Project.css';
 
-// ── user comes from App.jsx via props (React state restored from cookie/session)
-// ── Never read from sessionStorage — it's empty after a page refresh
 const Project = ({ user, projects, setProjects }) => {
   const userDept = (user?.dept || user?.department || '').toLowerCase();
 
@@ -44,8 +42,6 @@ const Project = ({ user, projects, setProjects }) => {
   const isLogistics  = userDept.includes('logistics')  || userDept.includes('inventory');
   const isAccounting = userDept.includes('accounting') || userDept.includes('finance');
   const isOpsAss     = userDept.includes('management') || user?.role === 'admin' || user?.role === 'manager';
-
-  // Any dept_head (sales, engineering, logistics, accounting, etc.) sees ALL projects
   const isDeptHeadAny = user?.role === 'dept_head';
 
   const roles = { isSales, isSalesHead, isEng, isEngHead, isLogistics, isAccounting, isOpsAss, isDeptHeadAny };
@@ -148,21 +144,22 @@ const Project = ({ user, projects, setProjects }) => {
 
   // ── Render document link helper ───────────────────────────────────────────
   const renderDocumentLink = (label, filePath) => {
-    if (!filePath) return null;
-    return (
-      <div className="pm-doc-link no-print">
-        <span className="pm-doc-label">📄 {label}</span>
-        <a
-          href={`/storage/${filePath}`}
-          target="_blank"
-          rel="noreferrer"
-          className="pm-doc-btn"
-        >
-          View Document
-        </a>
-      </div>
-    );
-  };
+  if (!filePath) return null;
+
+  return (
+    <div className="pm-doc-link no-print">
+      <span className="pm-doc-label">📄 {label}</span>
+      <a
+        href={`/storage/${filePath}`}
+        target="_blank"
+        rel="noreferrer"
+        className="pm-doc-btn"
+      >
+        View Document
+      </a>
+    </div>
+  );
+};
 
   // ── HOME VIEW ─────────────────────────────────────────────────────────────
   if (currentView === 'home') {
@@ -190,7 +187,6 @@ const Project = ({ user, projects, setProjects }) => {
   const previousPhase = phaseAccess === 'active' ? getPreviousPhase(status, roles) : null;
   const latestLog     = cc.dailyLogsHistory[0] || null;
 
-  // Shared props passed to every phase component
   const sharedPhaseProps = {
     project:            selectedProject,
     onAdvance:          actions.advanceStatus,
@@ -199,6 +195,10 @@ const Project = ({ user, projects, setProjects }) => {
     renderDocumentLink,
     ...roles,
   };
+
+  // ── KEY FIX: check if this phase is waiting-only BEFORE checking phaseAccess
+  // This prevents the real component from ever rendering for no-template phases.
+  const isWaitingOnlyPhase = WAITING_ONLY_PHASES.has(status);
 
   return (
     <div className="pm-container">
@@ -221,7 +221,7 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && (
+          {previousPhase && !isWaitingOnlyPhase && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
@@ -242,11 +242,27 @@ const Project = ({ user, projects, setProjects }) => {
       {/* ── Phase Container ── */}
       <div className="pm-phase-container">
 
-        {phaseAccess === 'waiting' && (
-          <WaitingView status={status} project={selectedProject} />
+        {/* ── GATE 1: Waiting-only phases — no real component exists yet ── */}
+        {isWaitingOnlyPhase && (
+          <WaitingView
+            status={status}
+            project={selectedProject}
+            user={user}
+            onAdvance={actions.advanceStatus}
+          />
         )}
 
-        {phaseAccess === 'active' && (
+        {/* ── GATE 2: Normal phases — check access then render component ── */}
+        {!isWaitingOnlyPhase && phaseAccess === 'waiting' && (
+          <WaitingView
+            status={status}
+            project={selectedProject}
+            user={user}
+            onAdvance={actions.advanceStatus}
+          />
+        )}
+
+        {!isWaitingOnlyPhase && phaseAccess === 'active' && (
           <>
             {status === 'Floor Plan' && (
               <PhaseFloorPlan {...sharedPhaseProps} />
@@ -280,7 +296,6 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseBOQReview {...sharedPhaseProps} boqData={tracking.boqData} />
             )}
 
-            {/* Purchase Order only — P.O & Work Order and Pending Work Order Verification removed (no template yet) */}
             {status === 'Purchase Order' && (
               <PhasePOWorkOrder {...sharedPhaseProps} />
             )}
@@ -289,12 +304,10 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseSiteInspection {...sharedPhaseProps} />
             )}
 
-            {/* Awarding of Project removed (no template yet) */}
             {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project'].includes(status) && (
               <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} />
             )}
 
-            {/* Contract Signing for Installer removed (no template yet) */}
             {status === 'Deployment and Orientation of Installers' && (
               <PhaseMobilization {...sharedPhaseProps} />
             )}
@@ -312,8 +325,6 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />
             )}
 
-            {/* Pending QA Verification, Final Site Inspection with the Client,
-                Signing of COC, and Request Final Billing removed (no template yet) */}
             {status === 'Site Inspection & Quality Checking' && (
               <PhaseQAHandover {...sharedPhaseProps} />
             )}
@@ -323,6 +334,7 @@ const Project = ({ user, projects, setProjects }) => {
             )}
           </>
         )}
+
       </div>
     </div>
   );
