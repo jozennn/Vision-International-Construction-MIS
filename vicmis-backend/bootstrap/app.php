@@ -5,6 +5,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,10 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-        // FIX 1: Enable Sanctum stateful (session/cookie) auth for all API routes.
-        // This registers EnsureFrontendRequestsAreStateful so that Auth::login()
-        // in verify2FA() persists to the session and auth:sanctum can read it back.
-        // "Session store not set on request" means this was missing or not activating.
+        // Sanctum stateful auth for all API routes
         $middleware->statefulApi();
 
         // CSRF: API routes use XSRF-TOKEN header — skip blade CSRF checks
@@ -26,30 +25,57 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
         ]);
 
-        // CORS must run early so preflight OPTIONS requests are handled correctly
+        // CORS must run early so preflight OPTIONS requests are handled
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
 
-        // Custom origin check prepended to the api group
+        // Origin check — blocks curl/PowerShell replay attacks
         $middleware->prependToGroup('api', \App\Http\Middleware\VerifyRequestOrigin::class);
 
-         // Layer 2: Absolute session timeout — forces re-login after MAX_SESSION_HOURS
-        // regardless of activity. Prevents sessions from living forever via keep-alive.
+        // Absolute session timeout + fingerprint check on every request
         $middleware->appendToGroup('api', \App\Http\Middleware\AbsoluteSessionTimeout::class);
 
-        // FIX 2: Route [login] not defined — this app is API-only with no named
-        // web routes, so calling route('login') throws. Return null for ALL requests
-        // so the AuthenticationException handler below always fires instead.
+        // No named web routes — always return null so JSON 401 fires
         $middleware->redirectGuestsTo(function (Request $request) {
             return null;
         });
 
-        // Trust all proxies — required when behind nginx/load balancer on production
+        // Trust all proxies — required when behind nginx/load balancer
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Always return JSON 401 for unauthenticated requests (web or API).
-        // Safe to do globally since there are no web/blade views in this app.
+        // Always return JSON 401 for unauthenticated requests
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         });
-    })->create();
+    })
+    ->booted(function () {
+        // ── Rate Limiters ─────────────────────────────────────────────────
+        //
+        // api-reads  — generous limit for GET requests (dashboards, lists)
+        // api-writes — strict limit for mutating requests (POST/PUT/DELETE)
+        //
+        // Both limits are per authenticated user ID, falling back to IP for
+        // unauthenticated requests. This means one user hammering the API
+        // doesn't affect other users.
+
+        RateLimiter::for('api-reads', function (Request $request) {
+            return Limit::perMinute(120)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'message' => 'Too many requests. Please slow down.',
+                    ], 429);
+                });
+        });
+
+        RateLimiter::for('api-writes', function (Request $request) {
+            return Limit::perMinute(30)
+                ->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'message' => 'Too many write requests. Please slow down.',
+                    ], 429);
+                });
+        });
+    })
+    ->create();
