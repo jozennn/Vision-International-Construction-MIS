@@ -2,28 +2,112 @@ import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
 import './css/Customer.css';
 
-const Customer = ({ user }) => {
-  const [isModalOpen, setIsModalOpen]     = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isTrashOpen, setIsTrashOpen]     = useState(false);
-  const [isViewOnly, setIsViewOnly]       = useState(false);
-  const [selectedLead, setSelectedLead]   = useState(null);
+// ── Pipeline stages definition ────────────────────────────────────────────────
+const PIPELINE_STAGES = [
+  { key: 'To be Contacted',            label: 'To Be Contacted',   color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8', border: '#e2e8f0' },
+  { key: 'Contacted',                  label: 'Contacted',          color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6', border: '#bfdbfe' },
+  { key: 'For Presentation',           label: 'For Presentation',   color: '#d97706', bg: '#fffbeb', dot: '#f59e0b', border: '#fde68a' },
+  { key: 'Ready for Creating Project', label: 'Ready for Project',  color: '#059669', bg: '#ecfdf5', dot: '#10b981', border: '#6ee7b7' },
+];
 
-  const [leads, setLeads]             = useState([]);
+const getStage = (status) =>
+  PIPELINE_STAGES.find(s => s.key === status) || PIPELINE_STAGES[0];
+
+const getStageIndex = (status) =>
+  PIPELINE_STAGES.findIndex(s => s.key === status);
+
+// ── Pipeline Progress Bar ─────────────────────────────────────────────────────
+const PipelineProgress = ({ status }) => {
+  const idx = getStageIndex(status);
+  const pct = idx < 0 ? 100 : (idx / (PIPELINE_STAGES.length - 1)) * 100;
+
+  return (
+    <div className="pipeline-progress-wrap">
+      <div className="pipeline-progress-track">
+        <div className="pipeline-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="pipeline-progress-dots">
+        {PIPELINE_STAGES.map((s, i) => (
+          <div
+            key={s.key}
+            className={`pipeline-dot ${i <= idx ? 'active' : ''}`}
+            title={s.label}
+            style={{ '--dot-color': s.dot }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Kanban Card ───────────────────────────────────────────────────────────────
+const KanbanCard = ({ lead, onClick, onCreateProject, userRole }) => (
+  <div className="kanban-card" onClick={() => onClick(lead)}>
+    <div className="kanban-card-top">
+      <span className="lead-id">#{lead.id}</span>
+      <span className="kanban-card-date">
+        {lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''}
+      </span>
+    </div>
+    <div className="kanban-card-client">{lead.client_name}</div>
+    <div className="kanban-card-project">{lead.project_name}</div>
+    <div className="kanban-card-location">📍 {lead.location}</div>
+
+    {lead.status === 'Ready for Creating Project' && userRole !== 'manager' && (
+      <button
+        className="btn-create-project kanban-create-btn"
+        onClick={(e) => { e.stopPropagation(); onCreateProject(e, lead); }}
+      >
+        Create Project
+      </button>
+    )}
+  </div>
+);
+
+// ── Kanban Column ─────────────────────────────────────────────────────────────
+const KanbanColumn = ({ stage, leads, onClick, onCreateProject, userRole }) => (
+  <div className="kanban-column" style={{ '--col-dot': stage.dot, '--col-border': stage.border, '--col-bg': stage.bg }}>
+    <div className="kanban-col-header">
+      <div className="kanban-col-dot" />
+      <span className="kanban-col-label">{stage.label}</span>
+      <span className="kanban-col-count">{leads.length}</span>
+    </div>
+    <div className="kanban-col-body">
+      {leads.length === 0 ? (
+        <div className="kanban-col-empty">No leads here</div>
+      ) : (
+        leads.map(lead => (
+          <KanbanCard
+            key={lead.id}
+            lead={lead}
+            onClick={onClick}
+            onCreateProject={onCreateProject}
+            userRole={userRole}
+          />
+        ))
+      )}
+    </div>
+  </div>
+);
+
+// ── Main Component ────────────────────────────────────────────────────────────
+const Customer = ({ user }) => {
+  const [isModalOpen, setIsModalOpen]       = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen]   = useState(false);
+  const [isTrashOpen, setIsTrashOpen]       = useState(false);
+  const [isViewOnly, setIsViewOnly]         = useState(false);
+  const [selectedLead, setSelectedLead]     = useState(null);
+  const [viewMode, setViewMode]             = useState('grid'); // 'grid' | 'kanban'
+
+  const [leads, setLeads]               = useState([]);
   const [trashedLeads, setTrashedLeads] = useState([]);
-  const [isLoading, setIsLoading]     = useState(true);
+  const [isLoading, setIsLoading]       = useState(true);
 
   const [formData, setFormData] = useState({
-    clientName: '',
-    projectName: '',
-    location: '',
-    contactNo: '',
-    notes: '',
-    status: 'To be Contacted',
-    salesRep: user?.name || ''
+    clientName: '', projectName: '', location: '', contactNo: '',
+    notes: '', status: 'To be Contacted', salesRep: user?.name || ''
   });
 
-  // Hide hamburger when any modal is open
   useEffect(() => {
     if (isModalOpen || isHistoryOpen || isTrashOpen) {
       document.body.classList.add('hide-hamburger');
@@ -33,7 +117,6 @@ const Customer = ({ user }) => {
     return () => document.body.classList.remove('hide-hamburger');
   }, [isModalOpen, isHistoryOpen, isTrashOpen]);
 
-  // Sync form data with selected lead
   useEffect(() => {
     if (selectedLead) {
       setFormData({
@@ -91,6 +174,12 @@ const Customer = ({ user }) => {
     setIsViewOnly(false);
   };
 
+  const handleCardClick = (lead) => {
+    setSelectedLead(lead);
+    setIsViewOnly(user?.role === 'manager');
+    setIsModalOpen(true);
+  };
+
   const handleViewHistoryDetails = (proj) => {
     setSelectedLead(proj);
     setIsViewOnly(true);
@@ -135,7 +224,6 @@ const Customer = ({ user }) => {
       setLeads(prev => prev.filter(l => l.id !== selectedLead.id));
       handleCloseModal();
     } catch (err) {
-      console.error('Delete error:', err);
       alert('Delete failed.');
     }
   };
@@ -179,7 +267,6 @@ const Customer = ({ user }) => {
       alert('Project created!');
       fetchLeads();
     } catch (err) {
-      console.error('Project error:', err);
       alert('Failed to create project.');
     }
   };
@@ -194,6 +281,36 @@ const Customer = ({ user }) => {
       <div className="customer-header">
         <h1>Client Management</h1>
         <div className="header-actions">
+
+          {/* View Toggle */}
+          <div className="view-toggle">
+            <button
+              className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid View"
+            >
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+                <rect x="8.5" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+                <rect x="1" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+                <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1" fill="currentColor"/>
+              </svg>
+              Grid
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+              onClick={() => setViewMode('kanban')}
+              title="Kanban View"
+            >
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <rect x="1" y="1" width="3.5" height="13" rx="1" fill="currentColor"/>
+                <rect x="5.75" y="1" width="3.5" height="9" rx="1" fill="currentColor"/>
+                <rect x="10.5" y="1" width="3.5" height="11" rx="1" fill="currentColor"/>
+              </svg>
+              Kanban
+            </button>
+          </div>
+
           {user?.role !== 'manager' && (
             <>
               <button
@@ -236,61 +353,104 @@ const Customer = ({ user }) => {
             <span className="stat-chip-label">Trashed</span>
           </div>
         </div>
-      </div>
-
-      {/* ── LEAD GRID ── */}
-      <div className="lead-grid">
-        {isLoading ? (
-          <div className="spinner-container">
-            <div className="loading-circle" />
-          </div>
-        ) : activeLeads.length === 0 ? (
-          <div className="no-leads-container">
-            <div className="no-leads-icon">📋</div>
-            <h3>No Active Leads</h3>
-            <p>Your pipeline is clear. Start by adding a new lead.</p>
-          </div>
-        ) : (
-          activeLeads.map((lead) => (
-            <div
-              key={lead.id}
-              className="lead-card"
-              onClick={() => {
-                setSelectedLead(lead);
-                setIsViewOnly(user?.role === 'manager');
-                setIsModalOpen(true);
-              }}
-            >
-              <div className="lead-card-header">
-                <span className={`status-badge ${lead.status.replace(/\s+/g, '-').toLowerCase()}`}>
-                  {lead.status}
-                </span>
-                <span className="lead-id">#{lead.id}</span>
-              </div>
-
-              <div className="lead-body">
-                <h3>{lead.client_name}</h3>
-                <p>{lead.project_name}</p>
-                <small>📍 {lead.location}</small>
-              </div>
-
-              <div className="lead-card-footer">
-                <div className="lead-click-hint">
-                  Click to View{user?.role !== 'manager' ? ' / Edit' : ''}
-                </div>
-                {lead.status === 'Ready for Creating Project' && user?.role !== 'manager' && (
-                  <button
-                    className="btn-create-project"
-                    onClick={(e) => handleCreateProject(e, lead)}
-                  >
-                    Create Project
-                  </button>
-                )}
+        {/* Pipeline stage mini-counts */}
+        {PIPELINE_STAGES.map(stage => {
+          const count = activeLeads.filter(l => l.status === stage.key).length;
+          return (
+            <div className="stat-chip stage-chip" key={stage.key} style={{ '--stage-dot': stage.dot }}>
+              <div className="stage-chip-dot" />
+              <div className="stat-chip-info">
+                <span className="stat-chip-value">{count}</span>
+                <span className="stat-chip-label">{stage.label}</span>
               </div>
             </div>
-          ))
-        )}
+          );
+        })}
       </div>
+
+      {/* ── LOADING ── */}
+      {isLoading && (
+        <div className="spinner-container">
+          <div className="loading-circle" />
+        </div>
+      )}
+
+      {/* ── GRID VIEW ── */}
+      {!isLoading && viewMode === 'grid' && (
+        <div className="lead-grid">
+          {activeLeads.length === 0 ? (
+            <div className="no-leads-container">
+              <div className="no-leads-icon">📋</div>
+              <h3>No Active Leads</h3>
+              <p>Your pipeline is clear. Start by adding a new lead.</p>
+            </div>
+          ) : (
+            activeLeads.map((lead) => (
+              <div
+                key={lead.id}
+                className="lead-card"
+                onClick={() => handleCardClick(lead)}
+              >
+                <div className="lead-card-header">
+                  <span className={`status-badge ${lead.status.replace(/\s+/g, '-').toLowerCase()}`}>
+                    {lead.status}
+                  </span>
+                  <span className="lead-id">#{lead.id}</span>
+                </div>
+
+                <div className="lead-body">
+                  <h3>{lead.client_name}</h3>
+                  <p>{lead.project_name}</p>
+                  <small>📍 {lead.location}</small>
+                </div>
+
+                {/* Pipeline Progress Bar */}
+                <div style={{ padding: '0 18px' }}>
+                  <PipelineProgress status={lead.status} />
+                </div>
+
+                <div className="lead-card-footer">
+                  <div className="lead-click-hint">
+                    Click to View{user?.role !== 'manager' ? ' / Edit' : ''}
+                  </div>
+                  {lead.status === 'Ready for Creating Project' && user?.role !== 'manager' && (
+                    <button
+                      className="btn-create-project"
+                      onClick={(e) => handleCreateProject(e, lead)}
+                    >
+                      Create Project
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── KANBAN VIEW ── */}
+      {!isLoading && viewMode === 'kanban' && (
+        <div className="kanban-board">
+          {activeLeads.length === 0 ? (
+            <div className="no-leads-container" style={{ width: '100%' }}>
+              <div className="no-leads-icon">📋</div>
+              <h3>No Active Leads</h3>
+              <p>Your pipeline is clear. Start by adding a new lead.</p>
+            </div>
+          ) : (
+            PIPELINE_STAGES.map(stage => (
+              <KanbanColumn
+                key={stage.key}
+                stage={stage}
+                leads={activeLeads.filter(l => l.status === stage.key)}
+                onClick={handleCardClick}
+                onCreateProject={handleCreateProject}
+                userRole={user?.role}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════
           MAIN MODAL — Add / Edit / View
@@ -301,11 +461,16 @@ const Customer = ({ user }) => {
             <div className="modal-header-compact">
               <h2>
                 {isViewOnly
-                  ? '📄 Project Details'
+                  ? '📄 Lead Details'
                   : selectedLead
                     ? '✏️ Update Lead'
                     : '+ New Lead Entry'}
               </h2>
+              {selectedLead && (
+                <div className="modal-pipeline-progress">
+                  <PipelineProgress status={selectedLead.status} />
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="lead-form-compact">

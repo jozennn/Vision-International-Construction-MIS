@@ -666,6 +666,326 @@
 }
 
 /* ============================================================
+   VIEW TOGGLE — Grid / Kanban switcher
+   ============================================================ */
+
+.view-toggle {
+  display: flex;
+  background: rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.55);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: 0.02em;
+}
+
+.view-toggle-btn:hover {
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.07);
+}
+
+.view-toggle-btn.active {
+  background: var(--vision-white);
+  color: var(--vision-charcoal);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+
+/* ============================================================
+   PIPELINE PROGRESS BAR — on grid cards & modal
+   ============================================================ */
+.pipeline-progress-wrap {
+  margin: 6px 0 8px;
+}
+
+.pipeline-progress-track {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.pipeline-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+  border-radius: 99px;
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pipeline-progress-dots {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  padding: 0 1px;
+}
+
+.pipeline-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: background 0.3s, transform 0.3s;
+  cursor: default;
+}
+
+.pipeline-dot.active {
+  background: var(--dot-color, #3b82f6);
+  transform: scale(1.2);
+}
+
+/* Progress inside modal header */
+.modal-pipeline-progress {
+  margin-top: 12px;
+  padding: 0 2px;
+}
+
+.modal-pipeline-progress .pipeline-progress-track {
+  height: 5px;
+  background: rgba(255,255,255,0.15);
+}
+
+.modal-pipeline-progress .pipeline-progress-fill {
+  background: linear-gradient(90deg, #60a5fa 0%, #34d399 100%);
+}
+
+.modal-pipeline-progress .pipeline-dot {
+  background: rgba(255,255,255,0.25);
+}
+
+.modal-pipeline-progress .pipeline-dot.active {
+  background: white;
+}
+
+/* ============================================================
+   STAGE CHIPS — extra stat chips for pipeline breakdown
+   ============================================================ */
+.stage-chip {
+  position: relative;
+  overflow: hidden;
+}
+
+.stage-chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--stage-dot, #94a3b8);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   KANBAN BOARD
+   ============================================================ */
+.kanban-board {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 20px;
+  animation: fadeIn 0.3s ease;
+  min-height: 400px;
+}
+
+.kanban-board::-webkit-scrollbar { height: 5px; }
+.kanban-board::-webkit-scrollbar-track { background: transparent; }
+.kanban-board::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+
+/* ── Kanban Column ── */
+.kanban-column {
+  flex: 1 1 240px;
+  min-width: 230px;
+  max-width: 300px;
+  background: var(--col-bg, #f1f5f9);
+  border: 1.5px solid var(--col-border, #e2e8f0);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: var(--transition);
+}
+
+.kanban-col-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px;
+  border-bottom: 1.5px solid var(--col-border, #e2e8f0);
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(4px);
+}
+
+.kanban-col-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--col-dot, #94a3b8);
+  flex-shrink: 0;
+}
+
+.kanban-col-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--vision-charcoal);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex: 1;
+}
+
+.kanban-col-count {
+  background: var(--col-dot, #94a3b8);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 20px;
+  min-width: 20px;
+  text-align: center;
+  font-family: 'Syne', sans-serif;
+}
+
+.kanban-col-body {
+  padding: 10px;
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.kanban-col-empty {
+  text-align: center;
+  padding: 28px 12px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-style: italic;
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+/* ── Kanban Card ── */
+.kanban-card {
+  background: var(--vision-white);
+  border: 1px solid var(--vision-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-xs);
+  position: relative;
+  overflow: hidden;
+}
+
+.kanban-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--col-dot, #94a3b8);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
+}
+
+.kanban-card:hover::before {
+  opacity: 1;
+}
+
+.kanban-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.kanban-card-date {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.kanban-card-client {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--vision-charcoal);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.kanban-card-project {
+  font-size: 0.8rem;
+  color: var(--vision-blue);
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+.kanban-card-location {
+  font-size: 0.73rem;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.kanban-create-btn {
+  margin-top: 10px;
+  width: 100%;
+  text-align: center;
+  font-size: 0.73rem !important;
+  padding: 6px 10px !important;
+}
+
+/* ============================================================
+   RESPONSIVE — Kanban on mobile
+   ============================================================ */
+@media screen and (max-width: 768px) {
+  .kanban-board {
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  .kanban-column {
+    max-width: 100%;
+    min-width: 0;
+    flex: none;
+    width: 100%;
+  }
+
+  .view-toggle-btn span {
+    display: none;
+  }
+
+  .stats-bar {
+    flex-wrap: wrap;
+  }
+
+  .stage-chip {
+    display: none;
+  }
+}
+
+
+/* ============================================================
    KEYFRAMES
    ============================================================ */
 @keyframes spin {
