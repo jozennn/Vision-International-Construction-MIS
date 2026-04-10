@@ -141,151 +141,136 @@ const SuperAdminDashboard = ({ user }) => {
       </div>
 
       {/* ─── MAIN GRID ─── */}
-      {/* ─── SUPERADMIN ESSENTIAL GRID ─── */}
       <div className="sa-main-grid">
 
-        {/* USER OVERVIEW */}
+        {/* 1. DEPARTMENT WORKLOAD RADAR */}
         <div className="sa-panel">
           <div className="sa-panel-header">
             <div className="sa-panel-header-text">
-              <h2>👥 User Management Summary</h2>
-              <p>Overview of active company accounts</p>
+              <h2>📊 Department Workload</h2>
+              <p>Where are active projects currently sitting?</p>
             </div>
           </div>
-
           <div className="sa-bottleneck-list">
-            <div className="sa-dept-row">
-              <div className="sa-dept-info">
-                <span className="sa-dept-name">Total Active Users</span>
-                <span className="sa-dept-count">47 Users</span>
-              </div>
-              <div className="sa-progress-bar">
-                <div
-                  className="sa-progress-fill"
-                  style={{ width: '94%', backgroundColor: '#497B97' }}
-                />
-              </div>
-            </div>
 
             <div className="sa-dept-row">
               <div className="sa-dept-info">
-                <span className="sa-dept-name">Department Heads</span>
-                <span className="sa-dept-count">6 Accounts</span>
+                <span className="sa-dept-name">Sales Department</span>
+                <span className="sa-dept-count">{stats?.bottlenecks?.sales ?? 0} Projects</span>
               </div>
               <div className="sa-progress-bar">
-                <div
-                  className="sa-progress-fill"
-                  style={{ width: '60%', backgroundColor: '#d97706' }}
-                />
+                <div className="sa-progress-fill" style={{ width: `${Math.min(((stats?.bottlenecks?.sales ?? 0) / (stats?.active_projects || 1)) * 100, 100)}%`, backgroundColor: '#497B97' }} />
               </div>
             </div>
 
             <div className="sa-dept-row">
               <div className="sa-dept-info">
-                <span className="sa-dept-name">Staff Accounts</span>
-                <span className="sa-dept-count">41 Accounts</span>
+                <span className="sa-dept-name">Engineering & Operations</span>
+                <span className="sa-dept-count">{stats?.bottlenecks?.engineering ?? 0} Projects</span>
               </div>
               <div className="sa-progress-bar">
-                <div
-                  className="sa-progress-fill"
-                  style={{ width: '82%', backgroundColor: '#10b981' }}
-                />
+                <div className="sa-progress-fill" style={{ width: `${Math.min(((stats?.bottlenecks?.engineering ?? 0) / (stats?.active_projects || 1)) * 100, 100)}%`, backgroundColor: '#d97706' }} />
               </div>
             </div>
+
+            <div className="sa-dept-row">
+              <div className="sa-dept-info">
+                <span className="sa-dept-name">Logistics & Inventory</span>
+                <span className="sa-dept-count">{stats?.bottlenecks?.logistics ?? 0} Projects</span>
+              </div>
+              <div className="sa-progress-bar">
+                <div className="sa-progress-fill" style={{ width: `${Math.min(((stats?.bottlenecks?.logistics ?? 0) / (stats?.active_projects || 1)) * 100, 100)}%`, backgroundColor: '#10b981' }} />
+              </div>
+            </div>
+
+            <div className="sa-dept-row">
+              <div className="sa-dept-info">
+                <span className="sa-dept-name">Accounting & Finance</span>
+                <span className="sa-dept-count">{stats?.bottlenecks?.accounting ?? 0} Projects</span>
+              </div>
+              <div className="sa-progress-bar">
+                <div className="sa-progress-fill" style={{ width: `${Math.min(((stats?.bottlenecks?.accounting ?? 0) / (stats?.active_projects || 1)) * 100, 100)}%`, backgroundColor: '#C20100' }} />
+              </div>
+            </div>
+
           </div>
         </div>
 
-        {/* BACKUP HISTORY */}
+        {/* 2. SYSTEM HEALTH GRAPH */}
         <div className="sa-panel">
           <div className="sa-panel-header">
             <div className="sa-panel-header-text">
-              <h2>🗄 Backup History</h2>
-              <p>Latest SQL exports created</p>
+              <h2>📈 Company Health Funnel</h2>
+              <p>Visual breakdown of overall system volume</p>
             </div>
           </div>
-
-          <div className="sa-activity-feed">
-            {[
-              'vision_export_2026-04-06_104454.sql',
-              'vision_export_2026-04-06_081216.sql',
-              'vision_export_2026-04-06_030307.sql',
-              'vision_export_2026-04-02_035156.sql'
-            ].map((file, i) => (
-              <div key={i} className="sa-feed-item">
-                <div className="sa-feed-content">
-                  <p className="sa-feed-desc"><strong>{file}</strong></p>
-                  <span className="sa-feed-time">Success · Manual Backup</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ACTIVITY TRACKER */}
-        <div className="sa-panel">
-          <div className="sa-panel-header">
-            <div className="sa-panel-header-text">
-              <h2>⚡ Recent Activities</h2>
-              <p>Latest user actions in the system</p>
-            </div>
-          </div>
-
-          <div className="sa-activity-feed">
-            {[
-              'Justine updated Sales Employee account',
-              'Justine updated Sales Head account',
-              'Justine updated Logistics Employee account',
-              'Justine updated Logistics Head account'
-            ].map((act, i) => (
-              <div key={i} className="sa-feed-item">
-                <div className="sa-feed-content">
-                  <p className="sa-feed-desc"><strong>Justine</strong> {act}</p>
-                  <span className="sa-feed-time">Users · 08:39 PM</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SYSTEM DIAGNOSTICS */}
-        <div className="sa-panel">
-          <div className="sa-panel-header">
-            <div className="sa-panel-header-text">
-              <h2>🛠 System Diagnostics</h2>
-              <p>System health and log status</p>
-            </div>
-          </div>
-
+          
           <div className="sa-bar-chart">
             <div className="sa-bar-col">
-              <div className="sa-bar-fill" style={{ height: '100%', backgroundColor: '#64748b' }}>
-                <span className="sa-bar-val">100</span>
+              {/* 👇 Powered by the new dynamic math! */}
+              <div className="sa-bar-fill" style={{ height: `${Math.max(5, (totalLeads / maxGraphValue) * 100)}%`, backgroundColor: '#64748b' }}>
+                <span className="sa-bar-val">{totalLeads}</span>
               </div>
-              <span className="sa-bar-label">All Logs</span>
+              <span className="sa-bar-label">Total<br/>Leads</span>
             </div>
 
             <div className="sa-bar-col">
-              <div className="sa-bar-fill" style={{ height: '25%', backgroundColor: '#ef4444' }}>
-                <span className="sa-bar-val">1</span>
+              <div className="sa-bar-fill" style={{ height: `${Math.max(5, (activeLeads / maxGraphValue) * 100)}%`, backgroundColor: '#10b981' }}>
+                <span className="sa-bar-val">{activeLeads}</span>
               </div>
-              <span className="sa-bar-label">Errors</span>
+              <span className="sa-bar-label">Active<br/>Leads</span>
             </div>
 
             <div className="sa-bar-col">
-              <div className="sa-bar-fill" style={{ height: '10%', backgroundColor: '#f59e0b' }}>
-                <span className="sa-bar-val">0</span>
+              <div className="sa-bar-fill" style={{ height: `${Math.max(5, (activeProjects / maxGraphValue) * 100)}%`, backgroundColor: '#3b82f6' }}>
+                <span className="sa-bar-val">{activeProjects}</span>
               </div>
-              <span className="sa-bar-label">Warnings</span>
+              <span className="sa-bar-label">Active<br/>Projects</span>
             </div>
 
             <div className="sa-bar-col">
-              <div className="sa-bar-fill" style={{ height: '15%', backgroundColor: '#3b82f6' }}>
-                <span className="sa-bar-val">0</span>
+              <div className="sa-bar-fill" style={{ height: `${Math.max(5, (trashedLeads / maxGraphValue) * 100)}%`, backgroundColor: '#ef4444' }}>
+                <span className="sa-bar-val">{trashedLeads}</span>
               </div>
-              <span className="sa-bar-label">Info</span>
+              <span className="sa-bar-label">Trashed<br/>Leads</span>
             </div>
           </div>
         </div>
+
+        {/* 3. LIVE SYSTEM FEED */}
+        <div className="sa-panel sa-feed-panel">
+          <div className="sa-panel-header">
+            <div className="sa-panel-header-text">
+              <h2>⚡ Live System Feed</h2>
+              <p>Most recent actions across the company</p>
+            </div>
+          </div>
+          <div className="sa-activity-feed">
+            {!stats?.recent_activities?.length ? (
+              <p className="sa-no-data">No recent activity.</p>
+            ) : (
+              stats.recent_activities.map((act, index) => (
+                <div key={index} className="sa-feed-item">
+                  <div className="sa-feed-icon"><Activity size={13} /></div>
+                  <div className="sa-feed-content">
+                    <p className="sa-feed-desc">
+                      <strong>{act.user_name}</strong> {act.description.toLowerCase()}
+                    </p>
+                    <span className="sa-feed-time">
+                      {new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {act.module}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="sa-panel-footer">
+            <button className="sa-btn-link">
+              View Full Audit Log <ArrowRight size={13} />
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
