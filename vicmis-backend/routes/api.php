@@ -184,12 +184,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     Route::put('/leads/{id}',          [LeadController::class, 'update']);
     Route::patch('/leads/{id}/status', [LeadController::class, 'update']);
     Route::delete('/leads/{id}',       [LeadController::class, 'destroy']);
+    Route::put('/leads/{id}/restore',  [LeadController::class, 'restore']);
+    Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
 
-    // Leads — destructive (admin/manager only)
-    Route::middleware('can:manager-action')->group(function () {
-        Route::put('/leads/{id}/restore',  [LeadController::class, 'restore']);
-        Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
-    });
 
     // --- EMPLOYEES (write) ---
     Route::middleware('can:manager-action')->group(function () {
