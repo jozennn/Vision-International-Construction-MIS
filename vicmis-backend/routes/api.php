@@ -37,7 +37,32 @@ Route::middleware('throttle:10,1')->group(function () {
 Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- USER & AUTH ---
-    Route::get('/user', fn(Request $request) => $request->user());
+    Route::get('/user', function (Request $request) {
+    $user = $request->user();
+    $dept = strtolower($user->department ?? '');
+
+        if (in_array($user->role, ['super_admin', 'admin', 'manager'])) {
+            $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Accounting', 'Setting', 'Human Resource', 'Customer'];
+        } else {
+            $permissions = match(true) {
+                $dept === 'engineering'                                                  => ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'],
+                $dept === 'hr'                                                           => ['Dashboard', 'Human Resource', 'Documents', 'Setting'],
+                $dept === 'sales'                                                        => ['Dashboard', 'Customer', 'Project', 'Documents', 'Inventory'],
+                in_array($dept, ['inventory', 'logistics'])                              => ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'],
+                str_contains($dept, 'accounting') || str_contains($dept, 'procurement') => ['Dashboard', 'Documents', 'Setting', 'Accounting'],
+                default                                                                  => ['Dashboard'],
+            };
+        }
+
+        return [
+            'id'          => $user->id,
+            'name'        => $user->name,
+            'email'       => $user->email,
+            'role'        => $user->role,
+            'department'  => $user->department,
+            'permissions' => $permissions,
+        ];
+    });
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // --- NOTIFICATIONS ---
