@@ -11,6 +11,22 @@ use Illuminate\Support\Facades\Log;
 class LeadController extends Controller
 {
     /**
+     * Allowed roles with full visibility/access.
+     */
+    private function isPrivileged(string $role): bool
+    {
+        return in_array(strtolower(trim($role)), ['admin', 'super_admin', 'manager', 'dept_head']);
+    }
+
+    /**
+     * Get the authenticated user's normalized role.
+     */
+    private function getUserRole(): string
+    {
+        return strtolower(trim(Auth::user()->role ?? ''));
+    }
+
+    /**
      * Display a listing of the leads (Active only).
      */
     public function index(Request $request)
@@ -19,8 +35,7 @@ class LeadController extends Controller
 
         $query = Lead::with('salesRep');
 
-        // 👇 UPDATED: Added manager to the VIP visibility list
-        if (!in_array($user->role, ['admin', 'super_admin', 'manager', 'dept_head'])) {
+        if (!$this->isPrivileged($user->role ?? '')) {
             $query->where('sales_rep_id', $user->id);
         }
 
@@ -33,12 +48,10 @@ class LeadController extends Controller
     public function trashed(Request $request)
     {
         $user = $request->user();
-        
-        // Fetch only soft-deleted records
+
         $query = Lead::onlyTrashed()->with('salesRep');
 
-        // 👇 UPDATED: Added manager to the VIP visibility list
-        if (!in_array($user->role, ['admin', 'super_admin', 'manager', 'dept_head'])) {
+        if (!$this->isPrivileged($user->role ?? '')) {
             $query->where('sales_rep_id', $user->id);
         }
 
@@ -72,11 +85,10 @@ class LeadController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $lead = Lead::findOrFail($id);
-        $userRole = Auth::user()->role;
+        $lead     = Lead::findOrFail($id);
+        $userRole = $this->getUserRole();
 
-        // 👇 UPDATED: Added manager to the VIP visibility list
-        if (!in_array($userRole, ['admin', 'super_admin', 'manager', 'dept_head']) && $lead->sales_rep_id !== Auth::id()) {
+        if (!$this->isPrivileged($userRole) && $lead->sales_rep_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -100,15 +112,13 @@ class LeadController extends Controller
     public function destroy($id)
     {
         try {
-            $lead = Lead::findOrFail($id);
-            $userRole = Auth::user()->role;
+            $lead     = Lead::findOrFail($id);
+            $userRole = $this->getUserRole();
 
-            // 👇 UPDATED: Added manager to the VIP visibility list
-            if (!in_array($userRole, ['admin', 'super_admin', 'manager', 'dept_head']) && $lead->sales_rep_id !== Auth::id()) {
+            if (!$this->isPrivileged($userRole) && $lead->sales_rep_id !== Auth::id()) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // Soft delete the lead
             $lead->delete();
 
             return response()->json(['message' => 'Lead moved to trash'], 200);
@@ -125,18 +135,31 @@ class LeadController extends Controller
     public function restore($id)
     {
         try {
-            // Find specifically in the trash
             $lead = Lead::onlyTrashed()->findOrFail($id);
-            $userRole = Auth::user()->role;
 
-            // 👇 UPDATED: Added manager to the VIP visibility list
-            if (!in_array($userRole, ['admin', 'super_admin', 'manager', 'dept_head']) && $lead->sales_rep_id !== Auth::id()) {
-                return response()->json(['message' => 'Unauthorized'], 403);
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+
+            $userRole = $this->getUserRole();
+
+            if (!$this->isPrivileged($userRole) && $lead->sales_rep_id !== $user->id) {
+                return response()->json([
+                    'message' => 'Unauthorized',
+                    'debug'   => [
+                        'user_id'      => $user->id,
+                        'user_role'    => $userRole,
+                        'sales_rep_id' => $lead->sales_rep_id,
+                    ]
+                ], 403);
             }
 
             $lead->restore();
 
             return response()->json(['message' => 'Lead restored successfully'], 200);
+
         } catch (\Exception $e) {
             Log::error("Failed to restore lead ID {$id}: " . $e->getMessage());
             return response()->json(['error' => 'Restore failed.'], 500);
@@ -149,12 +172,24 @@ class LeadController extends Controller
     public function forceDelete($id)
     {
         try {
-            $lead = Lead::onlyTrashed()->findOrFail($id);
-            $userRole = Auth::user()->role;
+            $lead     = Lead::onlyTrashed()->findOrFail($id);
+            $user     = Auth::user();
 
-            // 👇 UPDATED: Added manager to the VIP visibility list
-            if (!in_array($userRole, ['admin', 'super_admin', 'manager', 'dept_head']) && $lead->sales_rep_id !== Auth::id()) {
-                return response()->json(['message' => 'Unauthorized'], 403);
+            if (!$user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+
+            $userRole = $this->getUserRole();
+
+            if (!$this->isPrivileged($userRole) && $lead->sales_rep_id !== $user->id) {
+                return response()->json([
+                    'message' => 'Unauthorized',
+                    'debug'   => [
+                        'user_id'      => $user->id,
+                        'user_role'    => $userRole,
+                        'sales_rep_id' => $lead->sales_rep_id,
+                    ]
+                ], 403);
             }
 
             // 1. Delete associated projects permanently
@@ -170,11 +205,13 @@ class LeadController extends Controller
             return response()->json(['error' => 'Permanent delete failed.'], 500);
         }
     }
-     public function show($id)
+
+    /**
+     * Show a single lead (including soft-deleted).
+     */
+    public function show($id)
     {
-    $lead = \App\Models\Lead::withTrashed()->findOrFail($id);
-    return response()->json($lead);
+        $lead = Lead::withTrashed()->findOrFail($id);
+        return response()->json($lead);
     }
-
-
 }
