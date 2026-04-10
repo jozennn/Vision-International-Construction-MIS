@@ -19,88 +19,39 @@ import AdminDashboard from './components/Dashboard/Admin/AdminDashboard.jsx';
 import './App.css';
 import { Toaster } from 'react-hot-toast';
 
-// ── Helper: read a cookie value by name ──────────────────────────────────────
-const getCookie = (name) =>
-  document.cookie
-    .split('; ')
-    .find(row => row.startsWith(name + '='))
-    ?.split('=')[1] ?? null;
-
 const App = () => {
-  // null      = not yet checked (show loading spinner)
-  // false     = checked, not authenticated (show login)
-  // {...}     = checked, authenticated (show app)
-  //
-  // KEY CHANGE: We use `false` (not null) to represent "logged out after
-  // checking" so we can distinguish it from `null` = "not yet checked".
   const [user, setUser]                   = useState(null);
   const [authReady, setAuthReady]         = useState(false);
-
   const [activeItem, setActiveItem]       = useState('Dashboard');
   const [activeSubItem, setActiveSubItem] = useState(null);
   const [projects, setProjects]           = useState([]);
 
-  // ── Session restore on every page load / refresh ──────────────────────────
-  //
-  // Boot flow (revised):
-  //
-  //   1. Suppress the axios interceptor's auto-redirect so it doesn't race
-  //      ahead and send the user to /login during our own boot sequence.
-  //
-  //   2. Always init CSRF first (required for POST /refresh to work).
-  //
-  //   3. Try GET /api/user — if the Laravel session is still alive, this
-  //      returns the user immediately. Done.
-  //
-  //   4. If that 401s, try POST /api/refresh regardless of has_session.
-  //      WHY: has_session is a same-site Strict cookie. Browsers sometimes
-  //      don't send it on the very first navigation request after a tab
-  //      restore, making getCookie() return null even when the refresh_token
-  //      HttpOnly cookie is perfectly valid. Skipping refresh based on
-  //      has_session was the root cause of the kick-on-refresh bug.
-  //
-  //   5. If refresh succeeds, set user from the response. Done.
-  //
-  //   6. If both fail, user stays null → login screen shown.
-  //
-  //   7. Re-enable interceptor redirects in the finally block.
-  //
   useEffect(() => {
     const restoreSession = async () => {
-      // Step 1 — suppress interceptor redirects during boot
       setSuppressRedirect(true);
 
       try {
-        // Step 2 — always init CSRF before any mutating request
         await initCsrf();
 
         try {
-          // Step 3 — try existing Laravel session first (cheapest check)
           const res = await api.get('/user');
           setUser(res.data);
-          return; // session alive, we're done
+          return;
         } catch {
-          // Session expired or missing — fall through to refresh attempt
+          // Session expired — fall through to refresh
         }
 
         try {
-          // Step 4 — attempt silent token refresh
-          // We do NOT check has_session here. The HttpOnly refresh_token
-          // cookie is sent automatically by the browser regardless of whether
-          // has_session is readable via JS. This is the key fix.
-          await initCsrf(); // re-fetch CSRF — may have expired with the session
+          await initCsrf();
           const res = await api.post('/refresh');
           setUser(res.data.user);
         } catch {
-          // Both session and refresh token exhausted — show login
           setUser(null);
         }
 
       } catch {
-        // initCsrf() itself failed (network down, server unreachable)
         setUser(null);
       } finally {
-        // Step 7 — always re-enable redirects and unblock the UI
         setSuppressRedirect(false);
         setAuthReady(true);
       }
@@ -109,7 +60,6 @@ const App = () => {
     restoreSession();
   }, []);
 
-  // ── Access control ────────────────────────────────────────────────────────
   const checkAccess = useCallback((moduleName) => {
     if (!user) return false;
     if (moduleName === 'Setting' && user.role !== 'super_admin') return false;
@@ -117,13 +67,11 @@ const App = () => {
     return user.permissions?.includes(moduleName) || false;
   }, [user]);
 
-  // ── Login success ──────────────────────────────────────────────────────────
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     setActiveItem('Dashboard');
   };
 
-  // ── Logout ─────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
       await api.post('/logout');
@@ -136,7 +84,6 @@ const App = () => {
     }
   };
 
-  // ── Dashboard router ───────────────────────────────────────────────────────
   const renderDashboard = () => {
     const dept         = user.department?.toLowerCase();
     const isManagement = ['admin', 'super_admin', 'manager', 'dept_head'].includes(user.role);
@@ -173,7 +120,6 @@ const App = () => {
     );
   };
 
-  // ── Module router ──────────────────────────────────────────────────────────
   const renderContent = () => {
     if (!user) return null;
     if (activeItem === 'Dashboard') return renderDashboard();
@@ -215,7 +161,6 @@ const App = () => {
     }
   };
 
-  // ── Reset password page ────────────────────────────────────────────────────
   if (window.location.pathname === '/reset-password') {
     return (
       <div className="app-container bg-gray-50">
@@ -225,10 +170,6 @@ const App = () => {
     );
   }
 
-  // ── Loading spinner ────────────────────────────────────────────────────────
-  // Shown while verifying auth state on page load.
-  // Now always shown on refresh (no has_session skip) — but only for the
-  // brief moment it takes for /api/user or /api/refresh to respond.
   if (!authReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -240,10 +181,8 @@ const App = () => {
     );
   }
 
-  // ── Login screen ───────────────────────────────────────────────────────────
   if (!user) return <Login onEnterSystem={handleLoginSuccess} />;
 
-  // ── Main app ───────────────────────────────────────────────────────────────
   return (
     <div className="app-container flex h-screen w-full overflow-hidden bg-gray-50">
       <Toaster
