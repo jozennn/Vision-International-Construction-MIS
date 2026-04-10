@@ -194,13 +194,12 @@ class AuthController extends Controller
                 true,   // Secure — HTTPS only
                 true,   // HttpOnly — invisible to JavaScript
                 false,
-                'Strict'
+                'Lax'   // FIX: was 'Strict' — Strict blocks cookies on page reload
             );
 
             // has_session — NOT HttpOnly, readable by JS as a boot hint.
             // Must use the SAME lifetime as refresh_token so it doesn't
-            // expire before the refresh token does (was the root cause of
-            // the kick-on-refresh bug).
+            // expire before the refresh token does.
             $response->cookie(
                 'has_session',
                 '1',
@@ -210,7 +209,7 @@ class AuthController extends Controller
                 true,   // Secure — HTTPS only
                 false,  // NOT HttpOnly — must be readable by JS
                 false,
-                'Strict'
+                'Lax'   // FIX: was 'Strict' — Strict blocks cookies on page reload
             );
 
             Log::info('User logged in', [
@@ -251,8 +250,8 @@ class AuthController extends Controller
             if (!$refreshToken) {
                 return response()
                     ->json(['message' => 'Refresh token invalid or expired.'], 401)
-                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')
-                    ->cookie('has_session',   '', -1, '/', config('session.domain'), true, false, false, 'Strict');
+                    ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Lax')
+                    ->cookie('has_session',   '', -1, '/', config('session.domain'), true, false, false, 'Lax');
             }
 
             $user = User::find($refreshToken->user_id);
@@ -320,7 +319,7 @@ class AuthController extends Controller
                 true,
                 true,   // HttpOnly
                 false,
-                'Strict'
+                'Lax'   // FIX: was 'Strict' — Strict blocks cookies on page reload
             )
             ->cookie(
                 'has_session',
@@ -331,7 +330,7 @@ class AuthController extends Controller
                 true,
                 false,  // NOT HttpOnly
                 false,
-                'Strict'
+                'Lax'   // FIX: was lowercase 'lax' — must be capital 'Lax'
             );
 
         } catch (\Throwable $e) {
@@ -364,6 +363,8 @@ class AuthController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
+            // Logout cookies can stay Strict — user is intentionally leaving,
+            // no need for cross-site leniency on the clearing cookies.
             return response()
                 ->json(['message' => 'Successfully logged out.'])
                 ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')
