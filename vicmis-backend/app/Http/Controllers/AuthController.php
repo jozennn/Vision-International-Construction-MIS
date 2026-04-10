@@ -19,8 +19,8 @@ class AuthController extends Controller
 {
     private const MAX_ATTEMPTS    = 5;
     private const LOCKOUT_MINUTES = 15;
-    private const REFRESH_DAYS    = 30;   // Refresh token lifetime (all users)
-    private const SESSION_MINUTES = 480;  // 8 hours — covers a full workday
+    private const REFRESH_DAYS    = 30;   // Refresh token lifetime (30 days)
+    private const SESSION_MINUTES = 720;  // 12 hours — covers extended workdays
 
     /*
     |--------------------------------------------------------------------------
@@ -58,7 +58,6 @@ class AuthController extends Controller
 
             Cache::forget($key);
 
-            // Store code as string to preserve leading zeros (e.g. "012345")
             $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
             $user->update([
@@ -70,8 +69,6 @@ class AuthController extends Controller
 
             Log::info('2FA code sent', ['user_id' => $user->id]);
 
-            // Stash remember_me for 5 min so verify2FA can read it after the
-            // user submits their OTP (the original request is gone by then)
             Cache::put(
                 'remember_me:' . $user->email,
                 (bool) $request->input('remember_me', false),
@@ -91,14 +88,8 @@ class AuthController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Verify 2FA — Step 2: validate code, start session, always issue refresh token
+    | Verify 2FA — Step 2: validate code, start session, issue refresh token
     |--------------------------------------------------------------------------
-    |
-    | Every successful login now receives a refresh token regardless of whether
-    | Remember Me was checked. This ensures employees are never locked out mid-
-    | workday simply because their 8-hour session expired. Remember Me is kept
-    | for logging and UX purposes but no longer gates the refresh token.
-    |
     */
     public function verify2FA(Request $request)
     {
@@ -137,47 +128,38 @@ class AuthController extends Controller
                 return response()->json(['message' => 'Invalid or expired verification code.'], 422);
             }
 
-            // Success — clear counters and 2FA fields
             Cache::forget($key2fa);
             $user->update(['two_factor_code' => null, 'two_factor_expires_at' => null]);
 
             $permissions = $this->resolvePermissions($user);
             $rememberMe  = Cache::pull('remember_me:' . $user->email, false);
 
-            // Use 'web' guard explicitly — the default sanctum guard resolves to
-            // RequestGuard (stateless) and won't write to the session
             Auth::guard('web')->login($user, $rememberMe);
             $request->session()->regenerate();
 
-            // All sessions get the full 30-day cookie lifetime so the refresh
-            // token can silently restore them. The 8-hour SESSION_MINUTES ceiling
-            // is enforced server-side by AbsoluteSessionTimeout middleware.
+            // ── Cookie lifetime ──────────────────────────────────────────────
+            // Both cookies use the full 30-day refresh token lifetime so that
+            // has_session stays alive as long as refresh_token does.
+            // The 12-hour session ceiling is enforced server-side by
+            // AbsoluteSessionTimeout middleware, NOT by the cookie lifetime.
             $cookieLifetime = self::REFRESH_DAYS * 24 * 60; // minutes
 
             $sessionId = $request->session()->getId();
 
-            // Session fingerprint — VerifyRequestOrigin checks this on every request.
-            // If the cookie is copied to a different device/IP, the fingerprint
-            // won't match and the session is killed server-side immediately.
             Cache::put(
                 'session_fp:' . $sessionId,
                 hash('sha256', $request->ip() . '|' . $request->userAgent()),
                 now()->addMinutes($cookieLifetime)
             );
 
-            // Absolute login timestamp — AbsoluteSessionTimeout middleware uses this
-            // to enforce a hard 8-hour ceiling regardless of activity
+            // Store login time for AbsoluteSessionTimeout middleware
             $request->session()->put('login_time', now()->timestamp);
             $request->session()->put('remember_me', $rememberMe);
 
-            // ── Always issue a refresh token ─────────────────────────────────
-            // Every login gets a refresh token so the session can be silently
-            // restored after it expires without forcing a re-login. The raw
-            // token never touches the DB — only its SHA-256 hash is stored.
+            // ── Issue refresh token ──────────────────────────────────────────
             $rawToken    = Str::random(64);
             $hashedToken = hash('sha256', $rawToken);
 
-            // Revoke any existing tokens for this user on this device
             RefreshToken::where('user_id', $user->id)
                 ->where('user_agent', substr($request->userAgent() ?? '', 0, 255))
                 ->delete();
@@ -202,8 +184,7 @@ class AuthController extends Controller
                 'remember_me' => $rememberMe,
             ]);
 
-            // refresh_token — HttpOnly, invisible to JS, sent automatically on
-            // every request. Backend rotates it on each use (see refresh()).
+            // refresh_token — HttpOnly, invisible to JS, sent automatically
             $response->cookie(
                 'refresh_token',
                 $rawToken,
@@ -216,9 +197,10 @@ class AuthController extends Controller
                 'Strict'
             );
 
-            // has_session — NOT HttpOnly so JS can read it on boot to decide
-            // whether to attempt GET /api/user or skip straight to login.
-            // Contains no sensitive data — just a presence signal.
+            // has_session — NOT HttpOnly, readable by JS as a boot hint.
+            // Must use the SAME lifetime as refresh_token so it doesn't
+            // expire before the refresh token does (was the root cause of
+            // the kick-on-refresh bug).
             $response->cookie(
                 'has_session',
                 '1',
@@ -267,7 +249,6 @@ class AuthController extends Controller
                 ->first();
 
             if (!$refreshToken) {
-                // Token not found or expired — clear both stale cookies
                 return response()
                     ->json(['message' => 'Refresh token invalid or expired.'], 401)
                     ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')
@@ -282,9 +263,6 @@ class AuthController extends Controller
             }
 
             // ── Token Rotation ───────────────────────────────────────────────
-            // Delete the used token immediately and issue a brand-new one.
-            // If an attacker steals an old token and tries to use it after the
-            // legitimate user has already rotated it, it won't exist in the DB.
             $refreshToken->delete();
 
             $newRawToken    = Str::random(64);
@@ -311,6 +289,7 @@ class AuthController extends Controller
                 now()->addMinutes($cookieLifetime)
             );
 
+            // Reset the 12-hour absolute session clock on each refresh
             $request->session()->put('login_time', now()->timestamp);
             $request->session()->put('remember_me', true);
 
@@ -374,10 +353,8 @@ class AuthController extends Controller
 
             Log::info('User logged out', ['user_id' => $userId]);
 
-            // Clean up session fingerprint from cache
             Cache::forget('session_fp:' . $sessionId);
 
-            // Revoke refresh token for this device if one exists
             $rawToken = $request->cookie('refresh_token');
             if ($rawToken) {
                 RefreshToken::where('token', hash('sha256', $rawToken))->delete();
@@ -387,7 +364,6 @@ class AuthController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            // Expire both cookies on the client immediately
             return response()
                 ->json(['message' => 'Successfully logged out.'])
                 ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')

@@ -20,8 +20,6 @@ import './App.css';
 import { Toaster } from 'react-hot-toast';
 
 // ── Helper: read a cookie value by name ──────────────────────────────────────
-// Used to check the has_session indicator before firing any API calls.
-// has_session is NOT HttpOnly so this is safe to read from JS.
 const getCookie = (name) =>
   document.cookie
     .split('; ')
@@ -30,8 +28,11 @@ const getCookie = (name) =>
 
 const App = () => {
   // null      = not yet checked (show loading spinner)
-  // null+ready = checked, not authenticated (show login)
+  // false     = checked, not authenticated (show login)
   // {...}     = checked, authenticated (show app)
+  //
+  // KEY CHANGE: We use `false` (not null) to represent "logged out after
+  // checking" so we can distinguish it from `null` = "not yet checked".
   const [user, setUser]                   = useState(null);
   const [authReady, setAuthReady]         = useState(false);
 
@@ -39,69 +40,67 @@ const App = () => {
   const [activeSubItem, setActiveSubItem] = useState(null);
   const [projects, setProjects]           = useState([]);
 
-  // ── Session restore on every page load / refresh ──────────────────────
-  // Boot flow:
+  // ── Session restore on every page load / refresh ──────────────────────────
   //
-  //   1. Read the has_session cookie (readable by JS, set by the server on
-  //      login/refresh, cleared on logout). Contains no sensitive data —
-  //      just a '1' flag that tells us whether to bother calling the API.
+  // Boot flow (revised):
   //
-  //   2. If has_session is absent → no session or refresh token exists.
-  //      Skip all API calls and show the login screen immediately.
-  //      Zero 401s fired, zero console noise.
+  //   1. Suppress the axios interceptor's auto-redirect so it doesn't race
+  //      ahead and send the user to /login during our own boot sequence.
   //
-  //   3. If has_session is present → a session or refresh token cookie exists.
-  //      suppressRedirect is set to true so the axios interceptor does NOT
-  //      auto-redirect to /login during this sequence — App.jsx handles
-  //      the outcome itself once all attempts are exhausted.
+  //   2. Always init CSRF first (required for POST /refresh to work).
   //
-  //      a. Call GET /api/user.
-  //         - 200 → session still alive, set user, done.
-  //         - 401 → session expired, fall through to step b.
+  //   3. Try GET /api/user — if the Laravel session is still alive, this
+  //      returns the user immediately. Done.
   //
-  //      b. Re-init CSRF and call POST /api/refresh explicitly.
-  //         - 200 → refresh token valid, new session issued, set user, done.
-  //         - 401 → no valid refresh token either, clear user → login screen.
+  //   4. If that 401s, try POST /api/refresh regardless of has_session.
+  //      WHY: has_session is a same-site Strict cookie. Browsers sometimes
+  //      don't send it on the very first navigation request after a tab
+  //      restore, making getCookie() return null even when the refresh_token
+  //      HttpOnly cookie is perfectly valid. Skipping refresh based on
+  //      has_session was the root cause of the kick-on-refresh bug.
   //
-  //   4. suppressRedirect is always re-enabled in the finally block so
-  //      normal post-boot 401s (e.g. token revoked mid-session) still
-  //      redirect to /login correctly.
+  //   5. If refresh succeeds, set user from the response. Done.
+  //
+  //   6. If both fail, user stays null → login screen shown.
+  //
+  //   7. Re-enable interceptor redirects in the finally block.
+  //
   useEffect(() => {
     const restoreSession = async () => {
-      // Step 1 — check indicator cookie before touching the network
-      const hasSession = getCookie('has_session');
-
-      if (!hasSession) {
-        // No session exists — skip API calls entirely, go straight to login
-        setUser(null);
-        setAuthReady(true);
-        return;
-      }
-
-      // Step 2 — suppress interceptor redirects during the boot sequence
+      // Step 1 — suppress interceptor redirects during boot
       setSuppressRedirect(true);
 
       try {
+        // Step 2 — always init CSRF before any mutating request
         await initCsrf();
 
         try {
-          // Step 3a — try the existing Laravel session first
+          // Step 3 — try existing Laravel session first (cheapest check)
           const res = await api.get('/user');
           setUser(res.data);
+          return; // session alive, we're done
         } catch {
-          // Step 3b — session expired, attempt silent refresh explicitly
-          try {
-            await initCsrf(); // re-fetch CSRF — it may have expired too
-            const res = await api.post('/refresh');
-            setUser(res.data.user);
-          } catch {
-            // Both session and refresh token failed — user must log in again
-            setUser(null);
-          }
+          // Session expired or missing — fall through to refresh attempt
         }
 
+        try {
+          // Step 4 — attempt silent token refresh
+          // We do NOT check has_session here. The HttpOnly refresh_token
+          // cookie is sent automatically by the browser regardless of whether
+          // has_session is readable via JS. This is the key fix.
+          await initCsrf(); // re-fetch CSRF — may have expired with the session
+          const res = await api.post('/refresh');
+          setUser(res.data.user);
+        } catch {
+          // Both session and refresh token exhausted — show login
+          setUser(null);
+        }
+
+      } catch {
+        // initCsrf() itself failed (network down, server unreachable)
+        setUser(null);
       } finally {
-        // Step 4 — always re-enable redirects and unblock the UI
+        // Step 7 — always re-enable redirects and unblock the UI
         setSuppressRedirect(false);
         setAuthReady(true);
       }
@@ -110,7 +109,7 @@ const App = () => {
     restoreSession();
   }, []);
 
-  // ── Access control ────────────────────────────────────────────────────
+  // ── Access control ────────────────────────────────────────────────────────
   const checkAccess = useCallback((moduleName) => {
     if (!user) return false;
     if (moduleName === 'Setting' && user.role !== 'super_admin') return false;
@@ -118,20 +117,15 @@ const App = () => {
     return user.permissions?.includes(moduleName) || false;
   }, [user]);
 
-  // ── Login success ─────────────────────────────────────────────────────
-  // User data comes directly from the /verify-2fa response body.
-  // The server sets has_session, laravel_session, and optionally
-  // refresh_token cookies — nothing is stored in JS storage.
+  // ── Login success ──────────────────────────────────────────────────────────
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     setActiveItem('Dashboard');
   };
 
-  // ── Logout ────────────────────────────────────────────────────────────
+  // ── Logout ─────────────────────────────────────────────────────────────────
   const handleLogout = async () => {
     try {
-      // Server invalidates session + revokes refresh token +
-      // expires both refresh_token and has_session cookies
       await api.post('/logout');
     } catch {
       // Even if the backend call fails, clear local state
@@ -142,7 +136,7 @@ const App = () => {
     }
   };
 
-  // ── Dashboard router ──────────────────────────────────────────────────
+  // ── Dashboard router ───────────────────────────────────────────────────────
   const renderDashboard = () => {
     const dept         = user.department?.toLowerCase();
     const isManagement = ['admin', 'super_admin', 'manager', 'dept_head'].includes(user.role);
@@ -179,7 +173,7 @@ const App = () => {
     );
   };
 
-  // ── Module router ─────────────────────────────────────────────────────
+  // ── Module router ──────────────────────────────────────────────────────────
   const renderContent = () => {
     if (!user) return null;
     if (activeItem === 'Dashboard') return renderDashboard();
@@ -221,7 +215,7 @@ const App = () => {
     }
   };
 
-  // ── Reset password page ───────────────────────────────────────────────
+  // ── Reset password page ────────────────────────────────────────────────────
   if (window.location.pathname === '/reset-password') {
     return (
       <div className="app-container bg-gray-50">
@@ -231,26 +225,25 @@ const App = () => {
     );
   }
 
-  // ── Loading spinner ───────────────────────────────────────────────────
+  // ── Loading spinner ────────────────────────────────────────────────────────
   // Shown while verifying auth state on page load.
-  // Only appears when has_session is present and we're waiting on /api/user
-  // or /api/refresh. When has_session is absent, authReady is set
-  // immediately and the spinner never shows.
+  // Now always shown on refresh (no has_session skip) — but only for the
+  // brief moment it takes for /api/user or /api/refresh to respond.
   if (!authReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-red-700 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">Loading...</p>
+          <p className="text-gray-500 text-sm">Restoring session...</p>
         </div>
       </div>
     );
   }
 
-  // ── Login screen ──────────────────────────────────────────────────────
+  // ── Login screen ───────────────────────────────────────────────────────────
   if (!user) return <Login onEnterSystem={handleLoginSuccess} />;
 
-  // ── Main app ──────────────────────────────────────────────────────────
+  // ── Main app ───────────────────────────────────────────────────────────────
   return (
     <div className="app-container flex h-screen w-full overflow-hidden bg-gray-50">
       <Toaster
