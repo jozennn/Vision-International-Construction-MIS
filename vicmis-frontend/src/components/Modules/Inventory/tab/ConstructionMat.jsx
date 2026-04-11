@@ -148,9 +148,10 @@ const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageCha
 
 // ─── Reorder Confirmation Modal ───────────────────────────────────────────────
 const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
-  const [notes, setNotes] = useState('');
-  const isNoStock  = item?.availability === 'NO STOCK';
-  const urgencyCls = isNoStock ? 'reorder-urgent' : 'reorder-low';
+  const [notes, setNotes]               = useState('');
+  const [quantityNeeded, setQuantityNeeded] = useState('');
+  const isNoStock    = item?.availability === 'NO STOCK';
+  const urgencyCls   = isNoStock ? 'reorder-urgent' : 'reorder-low';
   const urgencyLabel = isNoStock ? 'No Stock — Urgent' : 'Low Stock';
 
   return (
@@ -171,12 +172,20 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
           <button className="wh-modal-close reorder-close" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {/* Product summary card */}
+        {/* Product identity block */}
         <div className="reorder-product-card">
-          <div className="reorder-product-main">
-            <span className="reorder-category-badge">{item.product_category}</span>
-            <span className="reorder-code">{item.product_code}</span>
+          <div className="reorder-product-identity">
+            <div className="reorder-identity-row">
+              <span className="reorder-identity-label">Category</span>
+              <span className="reorder-category-badge">{item.product_category}</span>
+            </div>
+            <div className="reorder-identity-row">
+              <span className="reorder-identity-label">Item Code</span>
+              <span className="reorder-code">{item.product_code}</span>
+            </div>
           </div>
+
+          {/* Stats row */}
           <div className="reorder-product-stats">
             <div className="reorder-stat">
               <span className="reorder-stat-label">Current Stock</span>
@@ -199,18 +208,40 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
           </div>
         </div>
 
-        {/* Notes */}
-        <div className="reorder-notes-wrap">
-          <label className="reorder-notes-label">
-            Notes for Procurement <span className="reorder-optional">(optional)</span>
-          </label>
-          <textarea
-            className="reorder-notes-input"
-            rows={3}
-            placeholder="e.g. Need at least 50 rolls before end of month, preferred supplier: ABC Corp…"
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-          />
+        {/* Fields */}
+        <div className="reorder-fields-wrap">
+          {/* Quantity needed */}
+          <div className="reorder-field-group">
+            <label className="reorder-notes-label">
+              Quantity Needed <span className="reorder-required">*</span>
+            </label>
+            <div className="reorder-qty-wrap">
+              <input
+                type="number"
+                min="1"
+                required
+                className="reorder-qty-input"
+                placeholder="0"
+                value={quantityNeeded}
+                onChange={e => setQuantityNeeded(e.target.value)}
+              />
+              <span className="reorder-qty-unit">{item.unit}</span>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="reorder-field-group">
+            <label className="reorder-notes-label">
+              Notes for Procurement <span className="reorder-optional">(optional)</span>
+            </label>
+            <textarea
+              className="reorder-notes-input"
+              rows={3}
+              placeholder="e.g. Needed before end of month, preferred supplier: ABC Corp…"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* Footer */}
@@ -221,8 +252,8 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
           <button
             type="button"
             className={`reorder-confirm-btn ${urgencyCls}`}
-            onClick={() => onConfirm(notes)}
-            disabled={loading}
+            onClick={() => onConfirm({ notes, quantity_needed: quantityNeeded })}
+            disabled={loading || !quantityNeeded}
           >
             {loading
               ? <><Loader2 size={15} className="wh-spinner" /> Sending…</>
@@ -427,7 +458,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const closeReorderModal = () => { setReorderTarget(null); setReorderLoading(false); };
 
   // ── Reorder: confirm and POST ──────────────────────────────────────────────
-  const handleReorderConfirm = async (notes) => {
+  const handleReorderConfirm = async ({ notes, quantity_needed }) => {
     if (!reorderTarget) return;
     setReorderLoading(true);
     try {
@@ -438,6 +469,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         current_stock:          reorderTarget.current_stock,
         unit:                   reorderTarget.unit,
         availability:           reorderTarget.availability,
+        quantity_needed:        parseInt(quantity_needed, 10) || null,
         notes:                  notes || null,
       });
       closeReorderModal();

@@ -689,7 +689,7 @@ const AccountingDashboard = ({ user }) => {
               )
             )}
 
-            {/* ── NEW: Reorders tab ── */}
+            {/* ── Reorders tab ── */}
             {activeTab === 'reorders' && (
               reorders.length === 0 ? (
                 <div className="ac-empty">
@@ -699,27 +699,50 @@ const AccountingDashboard = ({ user }) => {
               ) : (
                 <div className="ac-feed">
                   {reorders.map((req) => {
-                    const isBusy = reorderActionLoading[req.id];
+                    const isBusy    = reorderActionLoading[req.id];
+                    const isOrdered = req.status === 'ordered';
+                    const statusCls = req.status === 'pending' ? 'reorder-pending'
+                                    : req.status === 'acknowledged' ? 'reorder-ack'
+                                    : 'reorder-ordered';
+                    const statusLabel = req.status === 'pending'      ? 'Pending'
+                                      : req.status === 'acknowledged' ? 'Acknowledged'
+                                      : 'Ordered';
                     return (
-                      <div key={req.id} className="ac-feed-item ac-reorder-feed-item">
-                        <div className={`ac-feed-icon ${req.status === 'pending' ? 'icon-warn' : 'icon-blue'}`}>
+                      <div key={req.id} className={`ac-feed-item ac-reorder-feed-item ${isOrdered ? 'reorder-done' : ''}`}>
+                        <div className={`ac-feed-icon ${req.status === 'pending' ? 'icon-warn' : req.status === 'acknowledged' ? 'icon-blue' : 'icon-green'}`}>
                           <Package size={13} />
                         </div>
                         <div className="ac-feed-body">
-                          <p className="ac-feed-title">{req.product_code}</p>
+
+                          {/* Category + status badge on same row */}
                           <div className="ac-feed-meta-row">
-                            <p className="ac-feed-sub">{req.product_category}</p>
-                            <span className={`ac-purpose-tag ${
-                              req.status === 'pending'   ? 'reorder-pending' :
-                              req.status === 'acknowledged' ? 'reorder-ack' : 'reorder-ordered'
-                            }`}>
-                              {req.status === 'pending'      ? 'Pending' :
-                               req.status === 'acknowledged' ? 'Acknowledged' : 'Ordered'}
-                            </span>
+                            <span className="ac-reorder-category">{req.product_category}</span>
+                            <span className={`ac-purpose-tag ${statusCls}`}>{statusLabel}</span>
                           </div>
-                          {req.notes && <p className="ac-feed-sub" style={{ marginTop: 3 }}>{req.notes}</p>}
-                          {/* Action buttons — only shown while actionable */}
-                          {req.status !== 'ordered' && (
+
+                          {/* Item code — prominent */}
+                          <p className="ac-feed-title" style={{ marginTop: 2 }}>{req.product_code}</p>
+
+                          {/* Quantity needed row */}
+                          {req.quantity_needed && (
+                            <div className="ac-reorder-qty-row">
+                              <span className="ac-reorder-qty-label">Qty Needed:</span>
+                              <span className="ac-reorder-qty-value">
+                                {req.quantity_needed} <em>{req.unit}</em>
+                              </span>
+                              <span className="ac-reorder-stock-hint">
+                                (stock: {req.current_stock} {req.unit})
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {req.notes && (
+                            <p className="ac-reorder-notes-text">"{req.notes}"</p>
+                          )}
+
+                          {/* Action buttons */}
+                          {!isOrdered && (
                             <div className="ac-reorder-actions">
                               {req.status === 'pending' && (
                                 <button

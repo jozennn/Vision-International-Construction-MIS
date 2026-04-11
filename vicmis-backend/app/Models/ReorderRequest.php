@@ -8,6 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class ReorderRequest extends Model {
     protected $fillable = [
         'warehouse_inventory_id', 'product_category', 'product_code',
-        'current_stock', 'unit', 'availability', 'status', 'notes',
+        'current_stock', 'unit', 'availability', 'status', 'quantity_needed', 'notes',
     ];
 }

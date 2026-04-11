@@ -606,6 +606,75 @@
   background: var(--brand-red-dk);
   border-color: var(--brand-red-dk);
 }
+ 
+/* ── Reorder feed item enhancements ──────────────────────── */
+.ac-reorder-category {
+  font-size: .63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+}
+ 
+.ac-reorder-qty-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+.ac-reorder-qty-label {
+  font-size: .66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-light);
+}
+.ac-reorder-qty-value {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--text-pri);
+}
+.ac-reorder-qty-value em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: .72rem;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.ac-reorder-stock-hint {
+  font-size: .66rem;
+  color: var(--text-light);
+}
+ 
+.ac-reorder-notes-text {
+  font-size: .71rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.4;
+  border-left: 2px solid var(--border-md);
+  padding-left: 6px;
+}
+ 
+/* Ordered state — dimmed row */
+.reorder-done {
+  opacity: .6;
+}
+ 
+/* Green icon for ordered status */
+.icon-green {
+  background: rgba(5, 150, 105, .1);
+  color: #065F46;
+}
+ 
+/* Ordered status badge */
+.reorder-ordered {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
 
 
 /* ══════════════════════════════════════════════════════════════

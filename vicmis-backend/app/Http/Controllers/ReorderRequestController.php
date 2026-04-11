@@ -25,6 +25,7 @@ class ReorderRequestController extends Controller
             'current_stock'          => 'required|integer',
             'unit'                   => 'required|string',
             'availability'           => 'required|string',
+            'quantity_needed' => 'nullable|integer|min:1',
             'notes'                  => 'nullable|string',
         ]);
 
