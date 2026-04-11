@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use Illuminate\Http\{Request, JsonResponse};
 use App\Models\ReorderRequest;
 
 class ReorderRequestController extends Controller
@@ -19,7 +19,7 @@ class ReorderRequestController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'warehouse_inventory_id' => 'required|exists:warehouse_inventories,id',
+            'warehouse_inventory_id' => 'required|exists:warehouse_inventory,id',
             'product_category'       => 'required|string',
             'product_code'           => 'required|string',
             'current_stock'          => 'required|integer',

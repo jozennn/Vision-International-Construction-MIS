@@ -14,6 +14,7 @@ use App\Http\Controllers\{
     LogisticsController,
     AdminUserController,
     DatabaseBackupController, 
+    ReorderRequestController,   
 };
 
 /*
@@ -204,11 +205,11 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::post('/logistics',                 [LogisticsController::class, 'store']);
         Route::patch('/logistics/{id}/delivered', [LogisticsController::class, 'markDelivered']);
         Route::delete('/logistics/{id}',          [LogisticsController::class, 'destroy']);
+
+        Route::get('/reorder-requests',               [ReorderRequestController::class, 'index']);
+        Route::post('/reorder-requests',              [ReorderRequestController::class, 'store']);
+        Route::patch('/reorder-requests/{id}/status', [ReorderRequestController::class, 'updateStatus']);
     });
-    
-    Route::get('/inventory/reorder-requests',              [ReorderRequestController::class, 'index']);
-    Route::post('/inventory/reorder-requests',             [ReorderRequestController::class, 'store']);
-    Route::patch('/inventory/reorder-requests/{id}/status',[ReorderRequestController::class, 'updateStatus']);
 
     // --- WAREHOUSE INVENTORY (write) ---
     Route::prefix('warehouse-inventory')->group(function () {
