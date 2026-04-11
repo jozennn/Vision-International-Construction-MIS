@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('reorder_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('warehouse_inventory_id')->constrained()->onDelete('cascade');
+            $table->foreignId('warehouse_inventory_id')->constrained('warehouse_inventory')->onDelete('cascade');
             $table->string('product_category');
             $table->string('product_code');
             $table->integer('current_stock');
