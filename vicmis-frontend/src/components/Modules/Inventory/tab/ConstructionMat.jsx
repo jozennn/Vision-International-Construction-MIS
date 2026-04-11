@@ -50,17 +50,19 @@ const AvailPreview = ({ stock }) => {
 };
 
 // ─── Stock Health Summary Bar ─────────────────────────────────────────────────
-const StockSummaryBar = ({ items }) => {
-  const onStock  = items.filter(i => i.availability === 'ON STOCK').length;
-  const lowStock = items.filter(i => i.availability === 'LOW STOCK').length;
-  const noStock  = items.filter(i => i.availability === 'NO STOCK').length;
+// Receives pre-computed global counts so it always reflects the full
+// warehouse regardless of which page / filter the user is on.
+const StockSummaryBar = ({ counts, loading }) => {
+  const { onStock = 0, lowStock = 0, noStock = 0 } = counts;
 
   return (
     <div className="wh-summary-bar">
       <div className="wh-summary-card wh-summary-on">
         <span className="wh-summary-dot" />
         <div>
-          <span className="wh-summary-count">{onStock}</span>
+          <span className="wh-summary-count">
+            {loading ? <Loader2 size={16} className="wh-spinner" /> : onStock}
+          </span>
           <span className="wh-summary-label">On Stock</span>
         </div>
       </div>
@@ -68,7 +70,9 @@ const StockSummaryBar = ({ items }) => {
       <div className="wh-summary-card wh-summary-low">
         <span className="wh-summary-dot" />
         <div>
-          <span className="wh-summary-count">{lowStock}</span>
+          <span className="wh-summary-count">
+            {loading ? <Loader2 size={16} className="wh-spinner" /> : lowStock}
+          </span>
           <span className="wh-summary-label">Low Stock</span>
         </div>
       </div>
@@ -76,7 +80,9 @@ const StockSummaryBar = ({ items }) => {
       <div className="wh-summary-card wh-summary-no">
         <span className="wh-summary-dot" />
         <div>
-          <span className="wh-summary-count">{noStock}</span>
+          <span className="wh-summary-count">
+            {loading ? <Loader2 size={16} className="wh-spinner" /> : noStock}
+          </span>
           <span className="wh-summary-label">No Stock</span>
         </div>
       </div>
@@ -165,6 +171,10 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [to, setTo]                           = useState(0);
   const [perPage, setPerPage]                 = useState(10);
 
+  // ── Global stock counts — independent of pagination and active filters ─────
+  const [stockCounts, setStockCounts]         = useState({ onStock: 0, lowStock: 0, noStock: 0 });
+  const [countsLoading, setCountsLoading]     = useState(true);
+
   const [isModalOpen, setIsModalOpen]         = useState(false);
   const [isEditing, setIsEditing]             = useState(false);
   const [isNewArrival, setIsNewArrival]       = useState(false);
@@ -181,7 +191,30 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }).catch(console.error);
   }, []);
 
-  // ── Fetch items ────────────────────────────────────────────────────────────
+  // ── Fetch global stock counts ──────────────────────────────────────────────
+  // Fetches ALL records with no type/category/search filters so the summary
+  // bar always shows true warehouse-wide totals no matter what the user has
+  // filtered or which page they are on.
+  const fetchStockCounts = useCallback(async () => {
+    setCountsLoading(true);
+    try {
+      const res = await warehouseInventoryService.getAll({ per_page: 9999, page: 1 });
+      const all = res.data.data || [];
+      setStockCounts({
+        onStock:  all.filter(i => i.availability === 'ON STOCK').length,
+        lowStock: all.filter(i => i.availability === 'LOW STOCK').length,
+        noStock:  all.filter(i => i.availability === 'NO STOCK').length,
+      });
+    } catch (err) {
+      console.error('Failed to load stock counts:', err);
+    } finally {
+      setCountsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchStockCounts(); }, [fetchStockCounts]);
+
+  // ── Fetch paginated table items (respects active filters) ──────────────────
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -262,7 +295,9 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       if (isEditing) await warehouseInventoryService.update(currentId, payload);
       else           await warehouseInventoryService.create(payload);
       closeModal();
+      // Refresh both the table AND the global counts after any save
       fetchItems();
+      fetchStockCounts();
     } catch (err) {
       alert('Failed to save. Please check all fields.');
     } finally {
@@ -278,6 +313,8 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       await warehouseInventoryService.remove(id);
       if (items.length === 1 && currentPage > 1) setCurrentPage(p => p - 1);
       else fetchItems();
+      // Refresh global counts after delete
+      fetchStockCounts();
     } catch {
       alert('Failed to delete.');
     } finally {
@@ -342,10 +379,8 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         </div>
       </div>
 
-      {/* Stock Health Summary Bar */}
-      {!loading && items.length > 0 && (
-        <StockSummaryBar items={items} />
-      )}
+      {/* Stock Health Summary Bar — always shows global warehouse-wide totals */}
+      <StockSummaryBar counts={stockCounts} loading={countsLoading} />
 
       {/* Table */}
       <div className="wh-table-wrap">
