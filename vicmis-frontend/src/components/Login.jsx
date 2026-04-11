@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
 import './Login.css';
 
-const MAX_ATTEMPTS = 3;
 const LOCKOUT_MINS = 15;
 const LOCKOUT_MS   = LOCKOUT_MINS * 60 * 1000;
-const OTP_SECONDS  = 300; // 5 minutes — matches backend addMinutes(5)
+const OTP_SECONDS  = 300;
+const LS_KEY       = 'vicmis_lockout_until'; // localStorage key
 
 const Login = ({ onEnterSystem }) => {
     const [email, setEmail]                 = useState('');
@@ -19,10 +19,22 @@ const Login = ({ onEnterSystem }) => {
     const [showPassword, setShowPassword]   = useState(false);
     const [rememberMe, setRememberMe]       = useState(false);
 
-    // Rate-limit state
-    const [attempts, setAttempts]           = useState(0);
     const [lockedUntil, setLockedUntil]     = useState(null);
     const [lockCountdown, setLockCountdown] = useState(0);
+
+    // ── Restore lockout from localStorage on page load ──────────────────
+    useEffect(() => {
+        const stored = localStorage.getItem(LS_KEY);
+        if (stored) {
+            const until = parseInt(stored, 10);
+            if (until > Date.now()) {
+                setLockedUntil(until);
+            } else {
+                // Lockout expired while away — clean up
+                localStorage.removeItem(LS_KEY);
+            }
+        }
+    }, []);
 
     // ── Lockout countdown tick ──────────────────────────────────────────
     useEffect(() => {
@@ -31,8 +43,8 @@ const Login = ({ onEnterSystem }) => {
             const remaining = Math.ceil((lockedUntil - Date.now()) / 1000);
             if (remaining <= 0) {
                 setLockedUntil(null);
-                setAttempts(0);
                 setLockCountdown(0);
+                localStorage.removeItem(LS_KEY);
             } else {
                 setLockCountdown(remaining);
             }
@@ -71,6 +83,13 @@ const Login = ({ onEnterSystem }) => {
         return `${secs}s`;
     };
 
+    // ── Set lockout and persist to localStorage ─────────────────────────
+    const applyLockout = (remainingSeconds) => {
+        const until = Date.now() + (remainingSeconds * 1000);
+        setLockedUntil(until);
+        localStorage.setItem(LS_KEY, until.toString());
+    };
+
     // ── Phase 1: Initial Login ──────────────────────────────────────────
     const handleLogin = async (e) => {
         if (e) e.preventDefault();
@@ -78,11 +97,8 @@ const Login = ({ onEnterSystem }) => {
         setError('');
         setIsLoading(true);
         try {
-            // Pass remember_me so the backend knows whether to issue a
-            // refresh token after 2FA succeeds.
             const response = await api.post('/login', { email, password, remember_me: rememberMe });
             if (response.data.status === '2FA_REQUIRED') {
-                setAttempts(0);
                 setTimeout(() => {
                     setIsLoading(false);
                     setShow2FA(true);
@@ -93,20 +109,27 @@ const Login = ({ onEnterSystem }) => {
             setIsLoading(false);
             setEmail('');
             setPassword('');
+
             if (!err.response) {
                 setError('Connection Error. Please check your internet connection and try again.');
                 return;
             }
-            const newAttempts = attempts + 1;
-            setAttempts(newAttempts);
-            if (newAttempts >= MAX_ATTEMPTS) {
-                const until = new Date(Date.now() + LOCKOUT_MS);
-                setLockedUntil(until);
+
+            const status = err.response.status;
+            const data   = err.response.data;
+
+            // ── 429: Server-side lockout triggered ──────────────────────
+            // Backend returns remaining_seconds so we sync exactly with
+            // the server's cache TTL — survives page refresh via localStorage.
+            if (status === 429) {
+                const remaining = data.remaining_seconds ?? (LOCKOUT_MINS * 60);
+                applyLockout(remaining);
                 setError(`Too many failed attempts. Please try again after ${LOCKOUT_MINS} minutes.`);
-            } else {
-                const left = MAX_ATTEMPTS - newAttempts;
-                setError(`Wrong Email or Password. Please try again. (${left} attempt${left !== 1 ? 's' : ''} remaining)`);
+                return;
             }
+
+            // ── 401: Wrong credentials ──────────────────────────────────
+            setError('Wrong Email or Password. Please try again.');
         }
     };
 
@@ -119,26 +142,33 @@ const Login = ({ onEnterSystem }) => {
             const response = await api.post('/verify-2fa', { email, code: twoFactorCode });
             if (response.data.user) {
                 const { user } = response.data;
-
-                // Do NOT store user in sessionStorage or localStorage.
-                // The laravel_session cookie (HttpOnly) is the source of truth.
-                // On page reload, App.jsx calls GET /api/user to restore state.
-                // The refresh_token HttpOnly cookie handles session recovery
-                // transparently via the axios interceptor → POST /api/refresh.
-
                 setTimeout(() => {
                     setIsLoading(false);
-                    onEnterSystem(user); // hand off to React state only
+                    onEnterSystem(user);
                 }, 500);
             }
         } catch (err) {
             setIsLoading(false);
             setTwoFactorCode('');
+
             if (!err.response) {
                 setError('Connection Error. Please check your internet connection and try again.');
-            } else {
-                setError('Invalid or expired verification code. Please try again.');
+                return;
             }
+
+            const status = err.response.status;
+            const data   = err.response.data;
+
+            // ── 429: 2FA lockout ────────────────────────────────────────
+            if (status === 429) {
+                const remaining = data.remaining_seconds ?? (LOCKOUT_MINS * 60);
+                applyLockout(remaining);
+                setShow2FA(false);
+                setError(`Too many failed attempts. Please try again after ${LOCKOUT_MINS} minutes.`);
+                return;
+            }
+
+            setError('Invalid or expired verification code. Please try again.');
         }
     };
 
@@ -220,7 +250,6 @@ const Login = ({ onEnterSystem }) => {
                                 </div>
                             </div>
 
-                            {/* ── Remember Me ── */}
                             <div className="remember-me-row">
                                 <label className="remember-me-label">
                                     <input
@@ -270,7 +299,7 @@ const Login = ({ onEnterSystem }) => {
                         </div>
                     )}
 
-                    {/* Lockout banner */}
+                    {/* Lockout banner — shows even after refresh */}
                     {lockedUntil && (
                         <div className="lockout-banner">
                             🔒 Account temporarily locked. Try again in{' '}

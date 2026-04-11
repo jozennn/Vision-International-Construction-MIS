@@ -19,8 +19,29 @@ class AuthController extends Controller
 {
     private const MAX_ATTEMPTS    = 5;
     private const LOCKOUT_MINUTES = 15;
-    private const REFRESH_DAYS    = 30;   // Refresh token lifetime (30 days)
-    private const SESSION_MINUTES = 720;  // 12 hours — covers extended workdays
+    private const REFRESH_DAYS    = 30;
+    private const SESSION_MINUTES = 720;
+
+    /*
+    |--------------------------------------------------------------------------
+    | getRemainingSeconds — Redis TTL query
+    |--------------------------------------------------------------------------
+    | Now that CACHE_STORE=redis, we can query the exact remaining TTL on any
+    | cache key. This is used to return precise remaining_seconds to the
+    | frontend so the lockout countdown survives page refreshes perfectly.
+    |--------------------------------------------------------------------------
+    */
+    private function getRemainingSeconds(string $key): int
+    {
+        try {
+            $prefix = config('cache.prefix');
+            $ttl    = Cache::getStore()->connection()->ttl("{$prefix}:{$key}");
+            return max(0, (int) $ttl);
+        } catch (\Throwable $e) {
+            Log::warning('Redis TTL query failed, using fallback', ['key' => $key]);
+            return self::LOCKOUT_MINUTES * 60;
+        }
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -40,9 +61,14 @@ class AuthController extends Controller
 
         $attempts = Cache::get($key, 0);
         if ($attempts >= self::MAX_ATTEMPTS) {
+            // Redis TTL gives us exact seconds remaining — frontend countdown
+            // will sync perfectly with the server, even after page refresh.
+            $remainingSeconds = $this->getRemainingSeconds($key);
+
             Log::warning('Login lockout triggered', ['ip' => $ip, 'email' => $request->email]);
             return response()->json([
-                'message' => 'Too many login attempts. Please try again in ' . self::LOCKOUT_MINUTES . ' minutes.',
+                'message'           => 'Too many login attempts. Please try again in ' . self::LOCKOUT_MINUTES . ' minutes.',
+                'remaining_seconds' => $remainingSeconds,
             ], 429);
         }
 
@@ -103,9 +129,12 @@ class AuthController extends Controller
         $attempts = Cache::get($key2fa, 0);
 
         if ($attempts >= self::MAX_ATTEMPTS) {
+            $remainingSeconds = $this->getRemainingSeconds($key2fa);
+
             Log::warning('2FA lockout triggered', ['ip' => $ip, 'email' => $request->email]);
             return response()->json([
-                'message' => 'Too many attempts. Please try again in ' . self::LOCKOUT_MINUTES . ' minutes.',
+                'message'           => 'Too many attempts. Please try again in ' . self::LOCKOUT_MINUTES . ' minutes.',
+                'remaining_seconds' => $remainingSeconds,
             ], 429);
         }
 
@@ -137,14 +166,8 @@ class AuthController extends Controller
             Auth::guard('web')->login($user, $rememberMe);
             $request->session()->regenerate();
 
-            // ── Cookie lifetime ──────────────────────────────────────────────
-            // Both cookies use the full 30-day refresh token lifetime so that
-            // has_session stays alive as long as refresh_token does.
-            // The 12-hour session ceiling is enforced server-side by
-            // AbsoluteSessionTimeout middleware, NOT by the cookie lifetime.
-            $cookieLifetime = self::REFRESH_DAYS * 24 * 60; // minutes
-
-            $sessionId = $request->session()->getId();
+            $cookieLifetime = self::REFRESH_DAYS * 24 * 60;
+            $sessionId      = $request->session()->getId();
 
             Cache::put(
                 'session_fp:' . $sessionId,
@@ -152,11 +175,9 @@ class AuthController extends Controller
                 now()->addMinutes($cookieLifetime)
             );
 
-            // Store login time for AbsoluteSessionTimeout middleware
             $request->session()->put('login_time', now()->timestamp);
             $request->session()->put('remember_me', $rememberMe);
 
-            // ── Issue refresh token ──────────────────────────────────────────
             $rawToken    = Str::random(64);
             $hashedToken = hash('sha256', $rawToken);
 
@@ -184,33 +205,8 @@ class AuthController extends Controller
                 'remember_me' => $rememberMe,
             ]);
 
-            // refresh_token — HttpOnly, invisible to JS, sent automatically
-            $response->cookie(
-                'refresh_token',
-                $rawToken,
-                $cookieLifetime,
-                '/',
-                config('session.domain'),
-                true,   // Secure — HTTPS only
-                true,   // HttpOnly — invisible to JavaScript
-                false,
-                'Lax'   // FIX: was 'Strict' — Strict blocks cookies on page reload
-            );
-
-            // has_session — NOT HttpOnly, readable by JS as a boot hint.
-            // Must use the SAME lifetime as refresh_token so it doesn't
-            // expire before the refresh token does.
-            $response->cookie(
-                'has_session',
-                '1',
-                $cookieLifetime,
-                '/',
-                config('session.domain'),
-                true,   // Secure — HTTPS only
-                false,  // NOT HttpOnly — must be readable by JS
-                false,
-                'Lax'   // FIX: was 'Strict' — Strict blocks cookies on page reload
-            );
+            $response->cookie('refresh_token', $rawToken, $cookieLifetime, '/', config('session.domain'), true, true,  false, 'Lax');
+            $response->cookie('has_session',   '1',       $cookieLifetime, '/', config('session.domain'), true, false, false, 'Lax');
 
             Log::info('User logged in', [
                 'user_id'     => $user->id,
@@ -261,12 +257,10 @@ class AuthController extends Controller
                 return response()->json(['message' => 'User not found.'], 401);
             }
 
-            // ── Token Rotation ───────────────────────────────────────────────
             $refreshToken->delete();
 
             $newRawToken    = Str::random(64);
             $newHashedToken = hash('sha256', $newRawToken);
-
             $cookieLifetime = self::REFRESH_DAYS * 24 * 60;
 
             RefreshToken::create([
@@ -288,7 +282,6 @@ class AuthController extends Controller
                 now()->addMinutes($cookieLifetime)
             );
 
-            // Reset the 12-hour absolute session clock on each refresh
             $request->session()->put('login_time', now()->timestamp);
             $request->session()->put('remember_me', true);
 
@@ -310,28 +303,8 @@ class AuthController extends Controller
                 ],
                 'remember_me' => true,
             ])
-            ->cookie(
-                'refresh_token',
-                $newRawToken,
-                $cookieLifetime,
-                '/',
-                config('session.domain'),
-                true,
-                true,   // HttpOnly
-                false,
-                'Lax'   // FIX: was 'Strict' — Strict blocks cookies on page reload
-            )
-            ->cookie(
-                'has_session',
-                '1',
-                $cookieLifetime,
-                '/',
-                config('session.domain'),
-                true,
-                false,  // NOT HttpOnly
-                false,
-                'Lax'   // FIX: was lowercase 'lax' — must be capital 'Lax'
-            );
+            ->cookie('refresh_token', $newRawToken, $cookieLifetime, '/', config('session.domain'), true, true,  false, 'Lax')
+            ->cookie('has_session',   '1',           $cookieLifetime, '/', config('session.domain'), true, false, false, 'Lax');
 
         } catch (\Throwable $e) {
             Log::error('Refresh error: ' . $e->getMessage());
@@ -363,8 +336,6 @@ class AuthController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            // Logout cookies can stay Strict — user is intentionally leaving,
-            // no need for cross-site leniency on the clearing cookies.
             return response()
                 ->json(['message' => 'Successfully logged out.'])
                 ->cookie('refresh_token', '', -1, '/', config('session.domain'), true, true,  false, 'Strict')
