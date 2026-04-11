@@ -823,6 +823,280 @@
   border-color: #EF4444;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   REORDER MODAL & TOAST — Append to Construction-1.css
+   ══════════════════════════════════════════════════════════════ */
+
+/* Slightly higher z-index so it layers above the main overlay */
+.reorder-overlay { z-index: 1100; }
+
+.reorder-modal {
+  max-width: 480px;
+  animation: wh-modal-in .2s cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Modal header variants ────────────────────────────────── */
+.reorder-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-radius: 12px 12px 0 0;
+}
+.reorder-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+}
+.reorder-icon-wrap {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* No-stock = deep red, Low-stock = amber */
+.reorder-urgent {
+  background: #7F1D1D;
+  border-bottom: 2px solid #EF4444;
+}
+.reorder-urgent .reorder-icon-wrap {
+  background: rgba(239,68,68,.25);
+  color: #FCA5A5;
+}
+.reorder-urgent .reorder-modal-title { color: #fff; }
+.reorder-urgent .reorder-modal-sub   { color: #FECACA; }
+
+.reorder-low {
+  background: #78350F;
+  border-bottom: 2px solid #F59E0B;
+}
+.reorder-low .reorder-icon-wrap {
+  background: rgba(245,158,11,.2);
+  color: #FDE68A;
+}
+.reorder-low .reorder-modal-title { color: #fff; }
+.reorder-low .reorder-modal-sub   { color: #FEF3C7; }
+
+.reorder-modal-title {
+  font-size: .95rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.reorder-modal-sub {
+  font-size: .71rem;
+  margin-top: 2px;
+  opacity: .85;
+}
+
+.reorder-close {
+  background: rgba(255,255,255,.12) !important;
+  border-color: rgba(255,255,255,.2) !important;
+}
+.reorder-close:hover { background: rgba(255,255,255,.22) !important; }
+
+/* ── Product summary card ─────────────────────────────────── */
+.reorder-product-card {
+  margin: 1rem 1.25rem .75rem;
+  background: #F9F7F5;
+  border: 1px solid #E0D9D4;
+  border-radius: 10px;
+  padding: .85rem 1rem;
+}
+.reorder-product-main {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+.reorder-category-badge {
+  background: #221F1F;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .18rem .55rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.reorder-code {
+  font-family: monospace;
+  font-size: .9rem;
+  font-weight: 700;
+  color: #221F1F;
+}
+
+.reorder-product-stats {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.reorder-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reorder-stat-label {
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #7A706C;
+}
+.reorder-stat-value {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #221F1F;
+}
+.reorder-stat-value em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: .75rem;
+  color: #7A706C;
+  margin-left: 2px;
+}
+.value-danger { color: #B91C1C; }
+.value-warn   { color: #92400E; }
+
+.reorder-stat-divider {
+  width: 1px;
+  height: 30px;
+  background: #DDD5CF;
+  flex-shrink: 0;
+}
+
+.reorder-priority {
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .18rem .5rem;
+  border-radius: 20px;
+}
+.reorder-priority.reorder-urgent {
+  background: #FEF2F2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+.reorder-priority.reorder-low {
+  background: #FFFBEB;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+/* ── Notes field ──────────────────────────────────────────── */
+.reorder-notes-wrap {
+  padding: 0 1.25rem .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+.reorder-notes-label {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #7A706C;
+}
+.reorder-optional {
+  font-weight: 400;
+  text-transform: none;
+  font-size: .68rem;
+  color: #A89E9A;
+  margin-left: 4px;
+}
+.reorder-notes-input {
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  color: #221F1F;
+  background: #F4F2F0;
+  border: 1px solid #E0D9D4;
+  border-radius: 8px;
+  padding: .55rem .75rem;
+  resize: vertical;
+  width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+.reorder-notes-input:focus {
+  outline: none;
+  border-color: #497B97;
+  box-shadow: 0 0 0 3px rgba(73,123,151,.12);
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.reorder-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
+  padding: .85rem 1.25rem;
+  border-top: 1px solid #EDE9E6;
+}
+
+.reorder-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: .55rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+}
+.reorder-confirm-btn:active  { transform: scale(.97); }
+.reorder-confirm-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+.reorder-confirm-btn.reorder-urgent {
+  background: #C20100;
+  color: #fff;
+}
+.reorder-confirm-btn.reorder-urgent:hover:not(:disabled) { filter: brightness(1.12); }
+
+.reorder-confirm-btn.reorder-low {
+  background: #D97706;
+  color: #fff;
+}
+.reorder-confirm-btn.reorder-low:hover:not(:disabled) { filter: brightness(1.1); }
+
+/* ── Success Toast ────────────────────────────────────────── */
+.reorder-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  background: #065F46;
+  color: #fff;
+  border: 1px solid #A7F3D0;
+  border-radius: 10px;
+  padding: .7rem 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .82rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  animation: toast-in .25s cubic-bezier(.22,1,.36,1);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reorder-toast-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  margin-left: 4px;
+  transition: color .12s;
+}
+.reorder-toast-close:hover { color: #fff; }
+
 /* ── Summary bar responsive ───────────────────────────────── */
 @media (max-width: 768px) {
   .wh-summary-bar {

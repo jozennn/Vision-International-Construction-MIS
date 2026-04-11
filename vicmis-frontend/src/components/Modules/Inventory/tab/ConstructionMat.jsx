@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Loader2, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, PackageCheck, Pencil, Trash2 } from 'lucide-react';
+import { X, Loader2, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, PackageCheck, Pencil, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import warehouseInventoryService from '@/api/warehouseInventoryService';
 import '../css/Construction-1.css';
 
@@ -50,11 +50,8 @@ const AvailPreview = ({ stock }) => {
 };
 
 // ─── Stock Health Summary Bar ─────────────────────────────────────────────────
-// Receives pre-computed global counts so it always reflects the full
-// warehouse regardless of which page / filter the user is on.
 const StockSummaryBar = ({ counts, loading }) => {
   const { onStock = 0, lowStock = 0, noStock = 0 } = counts;
-
   return (
     <div className="wh-summary-bar">
       <div className="wh-summary-card wh-summary-on">
@@ -149,6 +146,110 @@ const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageCha
   );
 };
 
+// ─── Reorder Confirmation Modal ───────────────────────────────────────────────
+const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
+  const [notes, setNotes] = useState('');
+  const isNoStock  = item?.availability === 'NO STOCK';
+  const urgencyCls = isNoStock ? 'reorder-urgent' : 'reorder-low';
+  const urgencyLabel = isNoStock ? 'No Stock — Urgent' : 'Low Stock';
+
+  return (
+    <div className="wh-overlay reorder-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="wh-modal reorder-modal">
+
+        {/* Header */}
+        <div className={`reorder-modal-header ${urgencyCls}`}>
+          <div className="reorder-modal-header-left">
+            <div className="reorder-icon-wrap">
+              <RotateCcw size={20} />
+            </div>
+            <div>
+              <h2 className="reorder-modal-title">Request Reorder</h2>
+              <p className="reorder-modal-sub">This will notify Procurement to action this item.</p>
+            </div>
+          </div>
+          <button className="wh-modal-close reorder-close" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        {/* Product summary card */}
+        <div className="reorder-product-card">
+          <div className="reorder-product-main">
+            <span className="reorder-category-badge">{item.product_category}</span>
+            <span className="reorder-code">{item.product_code}</span>
+          </div>
+          <div className="reorder-product-stats">
+            <div className="reorder-stat">
+              <span className="reorder-stat-label">Current Stock</span>
+              <span className={`reorder-stat-value ${isNoStock ? 'value-danger' : 'value-warn'}`}>
+                {item.current_stock} <em>{item.unit}</em>
+              </span>
+            </div>
+            <div className="reorder-stat-divider" />
+            <div className="reorder-stat">
+              <span className="reorder-stat-label">Status</span>
+              <span className={`wh-avail ${AVAILABILITY_COLORS[item.availability] || 'avail-no'}`} style={{ fontSize: '.72rem' }}>
+                {item.availability}
+              </span>
+            </div>
+            <div className="reorder-stat-divider" />
+            <div className="reorder-stat">
+              <span className="reorder-stat-label">Priority</span>
+              <span className={`reorder-priority ${urgencyCls}`}>{urgencyLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className="reorder-notes-wrap">
+          <label className="reorder-notes-label">
+            Notes for Procurement <span className="reorder-optional">(optional)</span>
+          </label>
+          <textarea
+            className="reorder-notes-input"
+            rows={3}
+            placeholder="e.g. Need at least 50 rolls before end of month, preferred supplier: ABC Corp…"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="reorder-modal-footer">
+          <button type="button" className="wh-btn-cancel" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={`reorder-confirm-btn ${urgencyCls}`}
+            onClick={() => onConfirm(notes)}
+            disabled={loading}
+          >
+            {loading
+              ? <><Loader2 size={15} className="wh-spinner" /> Sending…</>
+              : <><RotateCcw size={15} /> Send Reorder Request</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Reorder Success Toast ────────────────────────────────────────────────────
+const ReorderToast = ({ message, onDismiss }) => {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className="reorder-toast">
+      <PackageCheck size={16} />
+      <span>{message}</span>
+      <button className="reorder-toast-close" onClick={onDismiss}><X size={13} /></button>
+    </div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [items, setItems]                     = useState([]);
@@ -171,7 +272,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [to, setTo]                           = useState(0);
   const [perPage, setPerPage]                 = useState(10);
 
-  // ── Global stock counts — independent of pagination and active filters ─────
   const [stockCounts, setStockCounts]         = useState({ onStock: 0, lowStock: 0, noStock: 0 });
   const [countsLoading, setCountsLoading]     = useState(true);
 
@@ -181,6 +281,11 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [currentId, setCurrentId]             = useState(null);
   const [formData, setFormData]               = useState({ ...EMPTY_FORM });
   const [customCode, setCustomCode]           = useState(false);
+
+  // ── Reorder modal state ────────────────────────────────────────────────────
+  const [reorderTarget, setReorderTarget]     = useState(null);   // item being reordered
+  const [reorderLoading, setReorderLoading]   = useState(false);
+  const [reorderToast, setReorderToast]       = useState(null);   // success message
 
   // ── Load meta ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -192,9 +297,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   }, []);
 
   // ── Fetch global stock counts ──────────────────────────────────────────────
-  // Fetches ALL records with no type/category/search filters so the summary
-  // bar always shows true warehouse-wide totals no matter what the user has
-  // filtered or which page they are on.
   const fetchStockCounts = useCallback(async () => {
     setCountsLoading(true);
     try {
@@ -214,7 +316,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
   useEffect(() => { fetchStockCounts(); }, [fetchStockCounts]);
 
-  // ── Fetch paginated table items (respects active filters) ──────────────────
+  // ── Fetch paginated table items ────────────────────────────────────────────
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -295,7 +397,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       if (isEditing) await warehouseInventoryService.update(currentId, payload);
       else           await warehouseInventoryService.create(payload);
       closeModal();
-      // Refresh both the table AND the global counts after any save
       fetchItems();
       fetchStockCounts();
     } catch (err) {
@@ -313,7 +414,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       await warehouseInventoryService.remove(id);
       if (items.length === 1 && currentPage > 1) setCurrentPage(p => p - 1);
       else fetchItems();
-      // Refresh global counts after delete
       fetchStockCounts();
     } catch {
       alert('Failed to delete.');
@@ -322,21 +422,31 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
-  // ── Reorder ────────────────────────────────────────────────────────────────
-  const handleReorder = async (item) => {
-    if (!window.confirm(`Submit reorder request for ${item.product_category} (${item.product_code})?`)) return;
+  // ── Reorder: open modal ────────────────────────────────────────────────────
+  const openReorderModal = (item) => setReorderTarget(item);
+  const closeReorderModal = () => { setReorderTarget(null); setReorderLoading(false); };
+
+  // ── Reorder: confirm and POST ──────────────────────────────────────────────
+  const handleReorderConfirm = async (notes) => {
+    if (!reorderTarget) return;
+    setReorderLoading(true);
     try {
       await warehouseInventoryService.requestReorder({
-        warehouse_inventory_id: item.id,
-        product_category:       item.product_category,
-        product_code:           item.product_code,
-        current_stock:          item.current_stock,
-        unit:                   item.unit,
-        availability:           item.availability,
+        warehouse_inventory_id: reorderTarget.id,
+        product_category:       reorderTarget.product_category,
+        product_code:           reorderTarget.product_code,
+        current_stock:          reorderTarget.current_stock,
+        unit:                   reorderTarget.unit,
+        availability:           reorderTarget.availability,
+        notes:                  notes || null,
       });
-      alert('✓ Reorder request sent to Procurement!');
-    } catch {
-      alert('Failed to send reorder request.');
+      closeReorderModal();
+      setReorderToast(`Reorder request sent for ${reorderTarget.product_code}!`);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to send reorder request. Please try again.';
+      alert(msg);
+    } finally {
+      setReorderLoading(false);
     }
   };
 
@@ -348,6 +458,11 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
   return (
     <div className="wh-container">
+
+      {/* Success Toast */}
+      {reorderToast && (
+        <ReorderToast message={reorderToast} onDismiss={() => setReorderToast(null)} />
+      )}
 
       {/* Top Bar */}
       <div className="wh-topbar">
@@ -388,7 +503,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         </div>
       </div>
 
-      {/* Stock Health Summary Bar — always shows global warehouse-wide totals */}
       <StockSummaryBar counts={stockCounts} loading={countsLoading} />
 
       {/* Table */}
@@ -440,7 +554,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                     {(item.availability === 'LOW STOCK' || item.availability === 'NO STOCK') && (
                       <button
                         className="wh-reorder-btn"
-                        onClick={() => handleReorder(item)}
+                        onClick={() => openReorderModal(item)}
                         title="Request Reorder"
                       >
                         Reorder
@@ -466,7 +580,17 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Reorder Confirmation Modal */}
+      {reorderTarget && (
+        <ReorderModal
+          item={reorderTarget}
+          onConfirm={handleReorderConfirm}
+          onClose={closeReorderModal}
+          loading={reorderLoading}
+        />
+      )}
+
+      {/* Add / Edit Modal */}
       {isModalOpen && (
         <div className="wh-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
           <div className="wh-modal">
@@ -531,7 +655,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                 <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
               </div>
 
-              {/* Current Stock with live availability preview */}
               <div className="wh-form-row wh-form-row-3">
                 <div className="wh-form-group">
                   <div className="wh-label-row">
