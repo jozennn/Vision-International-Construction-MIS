@@ -707,6 +707,140 @@
   user-select: none;
 }
 
+/* ── Stock Health Summary Bar ─────────────────────────────── */
+.wh-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 1rem 1.75rem 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 0.75rem 1.25rem;
+  overflow: hidden;
+}
+
+.wh-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+}
+
+.wh-summary-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.wh-summary-card > div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.wh-summary-count {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.wh-summary-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.wh-summary-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  margin: 0 0.75rem;
+  flex-shrink: 0;
+}
+
+.wh-summary-on  .wh-summary-dot { background: #10B981; }
+.wh-summary-low .wh-summary-dot { background: #F59E0B; }
+.wh-summary-no  .wh-summary-dot { background: #EF4444; }
+
+.wh-summary-on  .wh-summary-count { color: #065F46; }
+.wh-summary-low .wh-summary-count { color: #92400E; }
+.wh-summary-no  .wh-summary-count { color: #991B1B; }
+
+/* ── Row highlights ───────────────────────────────────────── */
+.wh-row-low-stock {
+  background: #FFFCF0 !important;
+}
+.wh-row-low-stock:hover {
+  background: #FFF8E1 !important;
+}
+
+.wh-row-no-stock {
+  background: #FFF8F8 !important;
+}
+.wh-row-no-stock:hover {
+  background: #FEF2F2 !important;
+}
+
+/* ── Reorder button ───────────────────────────────────────── */
+.wh-reorder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.22rem 0.65rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #92400E;
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.wh-reorder-btn:hover {
+  background: #F59E0B;
+  color: #fff;
+  border-color: #F59E0B;
+}
+
+/* No-stock reorder gets a red tone instead */
+.wh-row-no-stock .wh-reorder-btn {
+  color: #991B1B;
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+.wh-row-no-stock .wh-reorder-btn:hover {
+  background: #EF4444;
+  color: #fff;
+  border-color: #EF4444;
+}
+
+/* ── Summary bar responsive ───────────────────────────────── */
+@media (max-width: 768px) {
+  .wh-summary-bar {
+    margin: 0.75rem 1rem 0;
+    padding: 0.6rem 1rem;
+  }
+  .wh-summary-count { font-size: 1.1rem; }
+}
+
+@media (max-width: 480px) {
+  .wh-summary-bar {
+    margin: 0.5rem 0 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════ */

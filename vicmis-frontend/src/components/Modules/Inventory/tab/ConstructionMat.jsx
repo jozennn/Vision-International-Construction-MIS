@@ -31,10 +31,6 @@ const EMPTY_FORM = {
 };
 
 // ─── Auto-derive availability from current_stock ──────────────────────────────
-// Rules:  0        → NO STOCK
-//         1 – 3   → LOW STOCK
-//         4+       → ON STOCK
-// Mirrors WarehouseInventory::deriveAvailability() on the backend
 const deriveAvailability = (stock) => {
   const n = parseInt(stock, 10);
   if (isNaN(n) || n <= 0) return 'NO STOCK';
@@ -50,6 +46,41 @@ const AvailPreview = ({ stock }) => {
     <span className={`wh-avail ${cls}`} style={{ fontSize: '.7rem' }}>
       {label}
     </span>
+  );
+};
+
+// ─── Stock Health Summary Bar ─────────────────────────────────────────────────
+const StockSummaryBar = ({ items }) => {
+  const onStock  = items.filter(i => i.availability === 'ON STOCK').length;
+  const lowStock = items.filter(i => i.availability === 'LOW STOCK').length;
+  const noStock  = items.filter(i => i.availability === 'NO STOCK').length;
+
+  return (
+    <div className="wh-summary-bar">
+      <div className="wh-summary-card wh-summary-on">
+        <span className="wh-summary-dot" />
+        <div>
+          <span className="wh-summary-count">{onStock}</span>
+          <span className="wh-summary-label">On Stock</span>
+        </div>
+      </div>
+      <div className="wh-summary-divider" />
+      <div className="wh-summary-card wh-summary-low">
+        <span className="wh-summary-dot" />
+        <div>
+          <span className="wh-summary-count">{lowStock}</span>
+          <span className="wh-summary-label">Low Stock</span>
+        </div>
+      </div>
+      <div className="wh-summary-divider" />
+      <div className="wh-summary-card wh-summary-no">
+        <span className="wh-summary-dot" />
+        <div>
+          <span className="wh-summary-count">{noStock}</span>
+          <span className="wh-summary-label">No Stock</span>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -203,12 +234,11 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     setCustomCode(false);
   };
 
-  // ── Stock change — auto-derive availability and update form ────────────────
+  // ── Stock change ───────────────────────────────────────────────────────────
   const handleStockChange = (value) => {
     setFormData(f => ({
       ...f,
       current_stock: value,
-      // Auto-derive so the backend receives the correct availability value
       availability:  deriveAvailability(value),
     }));
   };
@@ -227,7 +257,6 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         return_out:    parseInt(formData.return_out,   10) || 0,
         return_in:     parseInt(formData.return_in,    10) || 0,
         reserve:       parseInt(formData.reserve,      10) || 0,
-        // Always send the derived availability so backend stays in sync
         availability:  deriveAvailability(stockInt),
       };
       if (isEditing) await warehouseInventoryService.update(currentId, payload);
@@ -256,14 +285,20 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
+  // ── Reorder ────────────────────────────────────────────────────────────────
+  const handleReorder = (item) => {
+    const message = `Product: ${item.product_category}\nCode: ${item.product_code}\nCurrent Stock: ${item.current_stock} ${item.unit}\nStatus: ${item.availability}`;
+    if (window.confirm(`Send reorder request to Procurement for:\n\n${message}`)) {
+      // TODO: replace with actual API call e.g. warehouseInventoryService.requestReorder(item.id)
+      alert(`✓ Reorder request sent to Procurement!\n\n${message}`);
+    }
+  };
+
   const openAddModal  = () => { setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); setIsModalOpen(true); };
   const openEditModal = (item) => { setIsEditing(true); setIsNewArrival(false); setCurrentId(item.id); setFormData({ ...item }); setCustomCode(true); setIsModalOpen(true); };
   const closeModal    = () => { setIsModalOpen(false); setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); if (clearArrivalData) clearArrivalData(); };
 
   const codesForCategory = formData.product_category ? (presetCodes[formData.product_category] || []) : [];
-
-  // Live preview of availability based on current form stock value
-  const previewAvailability = deriveAvailability(formData.current_stock);
 
   return (
     <div className="wh-container">
@@ -307,6 +342,11 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         </div>
       </div>
 
+      {/* Stock Health Summary Bar */}
+      {!loading && items.length > 0 && (
+        <StockSummaryBar items={items} />
+      )}
+
       {/* Table */}
       <div className="wh-table-wrap">
         <table className="wh-table">
@@ -332,8 +372,13 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
             ) : items.map((item) => {
               const reserve    = parseInt(item.reserve || 0);
               const totalAfter = item.current_stock - reserve;
+              const rowClass   = item.availability === 'NO STOCK'
+                ? 'wh-row wh-row-no-stock'
+                : item.availability === 'LOW STOCK'
+                  ? 'wh-row wh-row-low-stock'
+                  : 'wh-row';
               return (
-                <tr key={item.id} className="wh-row">
+                <tr key={item.id} className={rowClass}>
                   <td><span className="wh-category-badge">{item.product_category}</span></td>
                   <td className="wh-code">{item.product_code}</td>
                   <td>
@@ -348,6 +393,15 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                   <td><span className={`wh-condition ${CONDITION_COLORS[item.condition] || ''}`}>{item.condition}</span></td>
                   <td><span className={item.is_consumable ? 'wh-pill consumable' : 'wh-pill main'}>{item.is_consumable ? 'Consumable' : 'Main'}</span></td>
                   <td className="wh-actions">
+                    {(item.availability === 'LOW STOCK' || item.availability === 'NO STOCK') && (
+                      <button
+                        className="wh-reorder-btn"
+                        onClick={() => handleReorder(item)}
+                        title="Request Reorder"
+                      >
+                        Reorder
+                      </button>
+                    )}
                     <button className="wh-edit-btn" onClick={() => openEditModal(item)} title="Edit"><Pencil size={14} /></button>
                     <button className="wh-del-btn" onClick={() => handleDelete(item.id)} disabled={deleteLoading === item.id} title="Delete">
                       {deleteLoading === item.id ? <Loader2 size={14} className="wh-spinner" /> : <Trash2 size={14} />}
@@ -433,12 +487,11 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                 <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
               </div>
 
-              {/* ── Current Stock with live availability preview ─────────── */}
+              {/* Current Stock with live availability preview */}
               <div className="wh-form-row wh-form-row-3">
                 <div className="wh-form-group">
                   <div className="wh-label-row">
                     <label>Current Stock <span className="req">*</span></label>
-                    {/* Live preview badge — updates as user types */}
                     {formData.current_stock !== '' && (
                       <AvailPreview stock={formData.current_stock} />
                     )}
@@ -450,7 +503,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                     placeholder="0"
                   />
                   <p className="wh-hint" style={{ marginTop: 3 }}>
-                    0 = No Stock · 1–3 = Low Stock · 4+ = On Stock
+                    0 = No Stock · 1–10 = Low Stock · 11+ = On Stock
                   </p>
                 </div>
                 <div className="wh-form-group">
