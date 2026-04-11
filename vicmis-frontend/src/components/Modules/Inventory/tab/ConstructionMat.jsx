@@ -323,11 +323,20 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   };
 
   // ── Reorder ────────────────────────────────────────────────────────────────
-  const handleReorder = (item) => {
-    const message = `Product: ${item.product_category}\nCode: ${item.product_code}\nCurrent Stock: ${item.current_stock} ${item.unit}\nStatus: ${item.availability}`;
-    if (window.confirm(`Send reorder request to Procurement for:\n\n${message}`)) {
-      // TODO: replace with actual API call e.g. warehouseInventoryService.requestReorder(item.id)
-      alert(`✓ Reorder request sent to Procurement!\n\n${message}`);
+  const handleReorder = async (item) => {
+    if (!window.confirm(`Submit reorder request for ${item.product_category} (${item.product_code})?`)) return;
+    try {
+      await warehouseInventoryService.requestReorder({
+        warehouse_inventory_id: item.id,
+        product_category:       item.product_category,
+        product_code:           item.product_code,
+        current_stock:          item.current_stock,
+        unit:                   item.unit,
+        availability:           item.availability,
+      });
+      alert('✓ Reorder request sent to Procurement!');
+    } catch {
+      alert('Failed to send reorder request.');
     }
   };
 

@@ -29,6 +29,8 @@ const warehouseInventoryService = {
   remove(id) {
     return axios.delete(`/warehouse-inventory/${id}`);
   },
+
+  requestReorder: (payload) => axios.post('/inventory/reorder-requests', payload),
 };
 
 export default warehouseInventoryService;

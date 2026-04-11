@@ -9,33 +9,33 @@ import './AccountingDashboard.css';
 
 // ─── Empty row templates ──────────────────────────────────────────────────────
 
-const EMPTY_ROW_RESERVE = {
-  project_name: '', product_category: '', product_code: '',
-  unit: '', quantity: '', coverage_sqm: '',
-  _catMode: 'pick', _codeMode: 'pick',
-};
-const EMPTY_ROW_STOCK = {
-  product_category: '', product_code: '',
-  unit: '', quantity: '',
-  _catMode: 'pick', _codeMode: 'pick',
-};
+  const EMPTY_ROW_RESERVE = {
+    project_name: '', product_category: '', product_code: '',
+    unit: '', quantity: '', coverage_sqm: '',
+    _catMode: 'pick', _codeMode: 'pick',
+  };
+  const EMPTY_ROW_STOCK = {
+    product_category: '', product_code: '',
+    unit: '', quantity: '',
+    _catMode: 'pick', _codeMode: 'pick',
+  };
 
-const buildEmptyForm = () => ({
-  origin_type:      'INTERNATIONAL',
-  shipment_purpose: 'RESERVE_FOR_PROJECT',
-  shipment_number:  '',
-  container_type:   '20 FOOTER',
-  projects:         [{ ...EMPTY_ROW_RESERVE }],
-  status:           'ONGOING PRODUCTION',
-  location:         '',
-  shipment_status:  'WAITING',
-});
+  const buildEmptyForm = () => ({
+    origin_type:      'INTERNATIONAL',
+    shipment_purpose: 'RESERVE_FOR_PROJECT',
+    shipment_number:  '',
+    container_type:   '20 FOOTER',
+    projects:         [{ ...EMPTY_ROW_RESERVE }],
+    status:           'ONGOING PRODUCTION',
+    location:         '',
+    shipment_status:  'WAITING',
+  });
 
-const STATUS_CLASS = {
-  ARRIVED:   'tag-arrived',
-  DEPARTURE: 'tag-departure',
-  WAITING:   'tag-waiting',
-};
+  const STATUS_CLASS = {
+    ARRIVED:   'tag-arrived',
+    DEPARTURE: 'tag-departure',
+    WAITING:   'tag-waiting',
+  };
 
 // ─── Shared smart category/code pickers ──────────────────────────────────────
 
@@ -315,14 +315,16 @@ const AccountingDashboard = ({ user }) => {
   const [shipments, setShipments]         = useState([]);
   const [deliveries, setDeliveries]       = useState([]);
   const [reports, setReports]             = useState([]);
+  const [reorders, setReorders]           = useState([]);                    // ← NEW
   const [loading, setLoading]             = useState(true);
   const [isRefreshing, setIsRefreshing]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [reorderActionLoading, setReorderActionLoading] = useState({});      // ← NEW  { [id]: true/false }
   const [form, setForm]                   = useState(buildEmptyForm());
   const [categories, setCategories]       = useState([]);
   const [codesByCategory, setCodesByCategory] = useState({});
   const [selectedReport, setSelectedReport]   = useState(null);
-  const [activeTab, setActiveTab]             = useState('activity'); // 'activity' | 'reports'
+  const [activeTab, setActiveTab]             = useState('activity'); // 'activity' | 'reports' | 'reorders'
 
   useEffect(() => {
     api.get('/inventory/shipments/meta').then(res => {
@@ -334,19 +336,36 @@ const AccountingDashboard = ({ user }) => {
   const fetchData = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);
-      const [delRes, shipRes, reportRes] = await Promise.all([
+      const [delRes, shipRes, reportRes, reorderRes] = await Promise.all([  // ← UPDATED
         api.get('/inventory/logistics'),
         api.get('/inventory/shipments'),
         api.get('/inventory/shipments/reports').catch(() => ({ data: [] })),
+        api.get('/inventory/reorder-requests').catch(() => ({ data: [] })),  // ← NEW
       ]);
       setDeliveries((delRes.data?.data || delRes.data || []).slice(0, 10));
       setShipments((shipRes.data || []).slice(0, 10));
       setReports(reportRes.data || []);
+      setReorders(reorderRes.data || []);                                     // ← NEW
     } catch (err) { console.error('Fetch error:', err); }
     finally { setLoading(false); setIsRefreshing(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Reorder status action ──────────────────────────────────────────────────
+  const handleReorderStatus = async (id, newStatus) => {               // ← NEW
+    setReorderActionLoading(prev => ({ ...prev, [id]: true }));
+    try {
+      await api.patch(`/inventory/reorder-requests/${id}/status`, { status: newStatus });
+      setReorders(prev =>
+        prev.map(r => r.id === id ? { ...r, status: newStatus } : r)
+      );
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update reorder status.');
+    } finally {
+      setReorderActionLoading(prev => ({ ...prev, [id]: false }));
+    }
+  };
 
   // Called from IncomingShipment when a report is filed
   const handleReportFiled = (payload) => {
@@ -398,6 +417,7 @@ const AccountingDashboard = ({ user }) => {
   };
 
   const isReserve = form.shipment_purpose === 'RESERVE_FOR_PROJECT';
+  const pendingReorders = reorders.filter(r => r.status === 'pending');   // ← NEW
 
   return (
     <div className="ac-wrapper">
@@ -427,6 +447,16 @@ const AccountingDashboard = ({ user }) => {
           <div className="ac-stat ac-stat-warn" onClick={() => setActiveTab('reports')} style={{ cursor: 'pointer' }}>
             <div className="ac-stat-icon icon-warn"><AlertTriangle size={18} /></div>
             <div><p className="ac-stat-label">Reports Filed</p><p className="ac-stat-value">{reports.length}</p></div>
+          </div>
+        )}
+        {/* ── NEW: Reorder Requests stat card ── */}
+        {pendingReorders.length > 0 && (
+          <div className="ac-stat ac-stat-warn" onClick={() => setActiveTab('reorders')} style={{ cursor: 'pointer' }}>
+            <div className="ac-stat-icon icon-warn"><Package size={18} /></div>
+            <div>
+              <p className="ac-stat-label">Reorder Requests</p>
+              <p className="ac-stat-value">{pendingReorders.length}</p>
+            </div>
           </div>
         )}
       </div>
@@ -575,6 +605,14 @@ const AccountingDashboard = ({ user }) => {
                 <AlertTriangle size={14} /> Reports
                 {reports.length > 0 && <span className="ac-tab-badge">{reports.length}</span>}
               </button>
+              {/* ── NEW: Reorders tab ── */}
+              <button
+                className={`ac-tab-btn ${activeTab === 'reorders' ? 'active' : ''} ${pendingReorders.length > 0 ? 'has-alert' : ''}`}
+                onClick={() => setActiveTab('reorders')}
+              >
+                <RotateCcw size={14} /> Reorders
+                {pendingReorders.length > 0 && <span className="ac-tab-badge">{pendingReorders.length}</span>}
+              </button>
             </div>
 
             {/* Activity tab */}
@@ -647,6 +685,66 @@ const AccountingDashboard = ({ user }) => {
                       <span className="ac-view-report">View →</span>
                     </button>
                   ))}
+                </div>
+              )
+            )}
+
+            {/* ── NEW: Reorders tab ── */}
+            {activeTab === 'reorders' && (
+              reorders.length === 0 ? (
+                <div className="ac-empty">
+                  <Package size={28} style={{ color: '#C8BDB8', display: 'block', margin: '0 auto 8px' }} />
+                  No reorder requests yet.
+                </div>
+              ) : (
+                <div className="ac-feed">
+                  {reorders.map((req) => {
+                    const isBusy = reorderActionLoading[req.id];
+                    return (
+                      <div key={req.id} className="ac-feed-item ac-reorder-feed-item">
+                        <div className={`ac-feed-icon ${req.status === 'pending' ? 'icon-warn' : 'icon-blue'}`}>
+                          <Package size={13} />
+                        </div>
+                        <div className="ac-feed-body">
+                          <p className="ac-feed-title">{req.product_code}</p>
+                          <div className="ac-feed-meta-row">
+                            <p className="ac-feed-sub">{req.product_category}</p>
+                            <span className={`ac-purpose-tag ${
+                              req.status === 'pending'   ? 'reorder-pending' :
+                              req.status === 'acknowledged' ? 'reorder-ack' : 'reorder-ordered'
+                            }`}>
+                              {req.status === 'pending'      ? 'Pending' :
+                               req.status === 'acknowledged' ? 'Acknowledged' : 'Ordered'}
+                            </span>
+                          </div>
+                          {req.notes && <p className="ac-feed-sub" style={{ marginTop: 3 }}>{req.notes}</p>}
+                          {/* Action buttons — only shown while actionable */}
+                          {req.status !== 'ordered' && (
+                            <div className="ac-reorder-actions">
+                              {req.status === 'pending' && (
+                                <button
+                                  className="ac-reorder-btn ac-reorder-btn-ack"
+                                  disabled={isBusy}
+                                  onClick={() => handleReorderStatus(req.id, 'acknowledged')}
+                                >
+                                  {isBusy ? <Loader2 size={11} className="ac-spinner" /> : null}
+                                  Acknowledge
+                                </button>
+                              )}
+                              <button
+                                className="ac-reorder-btn ac-reorder-btn-order"
+                                disabled={isBusy}
+                                onClick={() => handleReorderStatus(req.id, 'ordered')}
+                              >
+                                {isBusy ? <Loader2 size={11} className="ac-spinner" /> : null}
+                                Mark as Ordered
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )
             )}

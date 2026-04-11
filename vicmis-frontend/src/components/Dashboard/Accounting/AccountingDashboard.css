@@ -537,6 +537,76 @@
   border: 1px solid rgba(73,123,151,.2);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   REORDER REQUESTS — Append to AccountingDashboard.css
+   ══════════════════════════════════════════════════════════════ */
+ 
+/* Feed item hover tint */
+.ac-reorder-feed-item:hover { background: #F0F7FF; }
+ 
+/* Status badge variants for reorder */
+.reorder-pending {
+  background: rgba(245,158,11,.1);
+  color: #92400E;
+  border: 1px solid rgba(245,158,11,.25);
+}
+.reorder-ack {
+  background: rgba(73,123,151,.1);
+  color: #2d5f78;
+  border: 1px solid rgba(73,123,151,.2);
+}
+.reorder-ordered {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+ 
+/* Action button row */
+.ac-reorder-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+ 
+.ac-reorder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: .28rem .65rem;
+  border-radius: var(--r-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .7rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background .13s, color .13s, border-color .13s;
+}
+.ac-reorder-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+ 
+.ac-reorder-btn-ack {
+  background: rgba(73,123,151,.1);
+  color: #2d5f78;
+  border-color: rgba(73,123,151,.25);
+}
+.ac-reorder-btn-ack:hover:not(:disabled) {
+  background: rgba(73,123,151,.2);
+  border-color: var(--brand-blue);
+}
+ 
+.ac-reorder-btn-order {
+  background: var(--brand-red);
+  color: #fff;
+  border-color: var(--brand-red);
+}
+.ac-reorder-btn-order:hover:not(:disabled) {
+  background: var(--brand-red-dk);
+  border-color: var(--brand-red-dk);
+}
+
 
 /* ══════════════════════════════════════════════════════════════
    ACCOUNTING DASHBOARD — Additional CSS (append to AccountingDashboard.css)
