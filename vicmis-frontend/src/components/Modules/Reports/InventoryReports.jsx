@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/api/axios';
-import './css/InventoryReports.css';
+import './InventoryReports.css';
 
 const fmt         = (n) => new Intl.NumberFormat('en-PH').format(n ?? 0);
 const fmtDate     = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
@@ -279,18 +279,35 @@ export const StockMovement = () => {
       const from  = new Date(dateFrom);
       const to    = new Date(dateTo); to.setHours(23, 59, 59);
       const map   = {};
-      ships.filter(s => { const d = new Date(s.created_at); return d >= from && d <= to; })
+
+      // IN = shipments that have ARRIVED (received stock)
+      // Date filter uses date_delivered if present, else created_at
+      ships
+        .filter(s => {
+          if (s.shipment_status !== 'ARRIVED') return false;
+          const d = new Date(s.date_delivered || s.created_at);
+          return d >= from && d <= to;
+        })
         .forEach(s => (s.projects || []).forEach(p => {
           const k = `${p.product_category || '?'}::${p.product_code || '?'}`;
           if (!map[k]) map[k] = { cat: p.product_category || '?', code: p.product_code || '?', unit: p.unit || '', in: 0, out: 0 };
           map[k].in += parseInt(p.quantity || 0);
         }));
-      logs.filter(l => { const d = new Date(l.date_of_delivery || l.created_at); return d >= from && d <= to; })
+
+      // OUT = deliveries that have been marked as Delivered
+      // Date filter uses date_delivered (actual delivery date)
+      logs
+        .filter(l => {
+          if (l.status !== 'Delivered') return false;
+          const d = new Date(l.date_delivered || l.date_of_delivery || l.created_at);
+          return d >= from && d <= to;
+        })
         .forEach(l => {
           const k = `${l.product_category || '?'}::${l.product_code || '?'}`;
           if (!map[k]) map[k] = { cat: l.product_category || '?', code: l.product_code || '?', unit: 'pcs', in: 0, out: 0 };
           map[k].out += parseInt(l.quantity || 0);
         });
+
       setAllData(Object.values(map).sort((a, b) => a.cat.localeCompare(b.cat)));
       setPage(1);
     }).finally(() => setLoading(false));
@@ -304,28 +321,33 @@ export const StockMovement = () => {
   const pageData   = allData.slice((page - 1) * perPage, page * perPage);
 
   const handlePrint = () => {
-    const chips = `<div class="summary"><div class="chip"><div class="chip-val">${allData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">In (Shipments)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Out (Deliveries)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div>`;
+    const chips = `<div class="summary"><div class="chip"><div class="chip-val">${allData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">Stock IN (Arrived)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Stock OUT (Delivered)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div>`;
     const rows = allData.map(d => `<tr><td><strong>${d.cat}</strong></td><td>${d.code}</td><td>${d.unit}</td><td style="text-align:center;color:#065f46;font-weight:700">${fmt(d.in)}</td><td style="text-align:center;color:#991b1b;font-weight:700">${fmt(d.out)}</td><td style="text-align:center;font-weight:800;color:${d.in - d.out >= 0 ? '#065f46' : '#991b1b'}">${d.in - d.out >= 0 ? '+' : ''}${fmt(d.in - d.out)}</td></tr>`).join('');
     openPrintWindow(`Stock Movement (${fmtDate(dateFrom)}—${fmtDate(dateTo)})`,
-      `${chips}<div class="sec">Shipments IN vs Deliveries OUT per Product</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>In (Shipments)</th><th>Out (Deliveries)</th><th>Net</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>`);
+      `${chips}<div class="sec">Stock IN = Received Shipments · Stock OUT = Delivered Dispatches</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>Stock IN (Arrived)</th><th>Stock OUT (Delivered)</th><th>Net</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>`);
   };
 
   return (
     <div className="rpt-card">
-      <SectionHeader title="Stock Movement Summary" subtitle="Cross-module: incoming shipments (IN) vs delivery dispatches (OUT) per product" onPrint={handlePrint} loading={loading}>
+      <SectionHeader
+        title="Stock Movement Summary"
+        subtitle="Stock IN = shipments marked Arrived (received) · Stock OUT = deliveries marked Delivered"
+        onPrint={handlePrint}
+        loading={loading}
+      >
         <DateFilter from={dateFrom} to={dateTo} onFrom={setDateFrom} onTo={setDateTo} onApply={fetchData} />
       </SectionHeader>
       <SummaryRow chips={[
-        { value: loading ? '…' : allData.length,  label: 'Products',        color: '#497B97' },
-        { value: loading ? '…' : fmt(tIn),        label: 'In (Shipments)',  color: '#16a34a' },
-        { value: loading ? '…' : fmt(tOut),       label: 'Out (Deliveries)',color: '#C20100' },
-        { value: loading ? '…' : fmt(tIn - tOut), label: 'Net Movement',    color: '#6366f1' },
+        { value: loading ? '…' : allData.length,  label: 'Products',              color: '#497B97' },
+        { value: loading ? '…' : fmt(tIn),        label: 'Stock IN (Arrived)',    color: '#16a34a' },
+        { value: loading ? '…' : fmt(tOut),       label: 'Stock OUT (Delivered)', color: '#C20100' },
+        { value: loading ? '…' : fmt(tIn - tOut), label: 'Net Movement',          color: '#6366f1' },
       ]} />
-      {loading ? <Spinner /> : allData.length === 0 ? <Empty /> : (
+      {loading ? <Spinner /> : allData.length === 0 ? <Empty msg="No stock movement found for the selected period." /> : (
         <>
           <div className="rpt-table-wrap">
             <table className="rpt-table">
-              <thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>In (Shipments)</th><th>Out (Deliveries)</th><th>Net Movement</th></tr></thead>
+              <thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>Stock IN (Arrived)</th><th>Stock OUT (Delivered)</th><th>Net Movement</th></tr></thead>
               <tbody>
                 {pageData.map((d, i) => (
                   <tr key={i}>
@@ -370,8 +392,18 @@ export const ExportAllInventoryReports = () => {
       const logs   = Array.isArray(lgRes.data) ? lgRes.data : lgRes.data?.data ?? [];
       const from   = new Date(dateFrom);
       const to     = new Date(dateTo); to.setHours(23, 59, 59);
-      const fShips = ships.filter(s => { const d = new Date(s.created_at); return d >= from && d <= to; });
-      const fLogs  = logs.filter(l  => { const d = new Date(l.date_of_delivery || l.created_at); return d >= from && d <= to; });
+      // IN: only ARRIVED shipments, date filtered by date_delivered or created_at
+      const fShips = ships.filter(s => {
+        if (s.shipment_status !== 'ARRIVED') return false;
+        const d = new Date(s.date_delivered || s.created_at);
+        return d >= from && d <= to;
+      });
+      // OUT: only Delivered logistics, date filtered by date_delivered
+      const fLogs  = logs.filter(l => {
+        if (l.status !== 'Delivered') return false;
+        const d = new Date(l.date_delivered || l.date_of_delivery || l.created_at);
+        return d >= from && d <= to;
+      });
       const movMap = {};
       fShips.forEach(s => (s.projects || []).forEach(p => {
         const k = `${p.product_category || '?'}::${p.product_code || '?'}`;
@@ -394,7 +426,7 @@ export const ExportAllInventoryReports = () => {
       }).join('');
       const movRows = movData.map(d => `<tr><td><strong>${d.cat}</strong></td><td>${d.code}</td><td>${d.unit}</td><td style="text-align:center;color:#065f46;font-weight:700">${fmt(d.in)}</td><td style="text-align:center;color:#991b1b;font-weight:700">${fmt(d.out)}</td><td style="text-align:center;font-weight:800;color:${d.in - d.out >= 0 ? '#065f46' : '#991b1b'}">${d.in - d.out >= 0 ? '+' : ''}${fmt(d.in - d.out)}</td></tr>`).join('');
       const win = window.open('', '_blank', 'width=1100,height=820');
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VICMIS — Complete Inventory Report</title><style>${PRINT_CSS}</style></head><body>${printHeader('Complete Inventory Report')}<div class="cover"><h1>📦 Complete Inventory Report</h1><p>Vision International Construction OPC · VICMIS</p><p>All Inventory Sub-Reports Combined</p><div class="period">Period: ${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</div></div><div style="margin-bottom:24px"><div class="toc-item"><div class="tnum">1</div><span class="tl">Monthly Ending Inventory</span><span class="ts">${allInv.length} items · ${fmtCurrency(totalVal)}</span></div><div class="toc-item"><div class="tnum">2</div><span class="tl">Low Stock / Reorder Report</span><span class="ts">${needReorder.length} items need reorder</span></div><div class="toc-item"><div class="tnum">3</div><span class="tl">Stock Movement Summary</span><span class="ts">${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</span></div></div><div class="summary"><div class="chip"><div class="chip-val">${allInv.length}</div><div class="chip-label">Total Items</div></div><div class="chip green"><div class="chip-val">${onStock}</div><div class="chip-label">On Stock</div></div><div class="chip orange"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip green"><div class="chip-val">${fmtCurrency(totalVal)}</div><div class="chip-label">Stock Value</div></div></div><div class="sec">1 · Monthly Ending Inventory (${allInv.length} items)</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Stock</th><th>Unit</th><th>Reserve</th><th>Available</th><th>Condition</th><th>Status</th><th>Notes</th></tr></thead><tbody>${buildInventoryRows(allInv) || '<tr><td colspan="9" style="text-align:center;padding:16px;color:#94a3b8">No items.</td></tr>'}</tbody></table><div class="sec pb">2 · Low Stock / Reorder Report (${needReorder.length} items)</div><div class="summary"><div class="chip orange"><div class="chip-val">${needReorder.length}</div><div class="chip-label">Need Reorder</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div></div><table><thead><tr><th>Category</th><th>Product Code</th><th>Current Stock</th><th>Unit</th><th>Condition</th><th>Notes</th><th>Status</th></tr></thead><tbody>${reorderRows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">All items sufficiently stocked.</td></tr>'}</tbody></table><div class="sec pb">3 · Stock Movement Summary (${fmtDate(dateFrom)} — ${fmtDate(dateTo)})</div><div class="summary"><div class="chip"><div class="chip-val">${movData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">In (Shipments)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Out (Deliveries)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div><table><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>In (Shipments)</th><th>Out (Deliveries)</th><th>Net</th></tr></thead><tbody>${movRows || '<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>${printFooter('Complete Inventory Report')}<script>window.onload=()=>window.print()<\/script></body></html>`);
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VICMIS — Complete Inventory Report</title><style>${PRINT_CSS}</style></head><body>${printHeader('Complete Inventory Report')}<div class="cover"><h1>📦 Complete Inventory Report</h1><p>Vision International Construction OPC · VICMIS</p><p>All Inventory Sub-Reports Combined</p><div class="period">Period: ${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</div></div><div style="margin-bottom:24px"><div class="toc-item"><div class="tnum">1</div><span class="tl">Monthly Ending Inventory</span><span class="ts">${allInv.length} items · ${fmtCurrency(totalVal)}</span></div><div class="toc-item"><div class="tnum">2</div><span class="tl">Low Stock / Reorder Report</span><span class="ts">${needReorder.length} items need reorder</span></div><div class="toc-item"><div class="tnum">3</div><span class="tl">Stock Movement Summary</span><span class="ts">${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</span></div></div><div class="summary"><div class="chip"><div class="chip-val">${allInv.length}</div><div class="chip-label">Total Items</div></div><div class="chip green"><div class="chip-val">${onStock}</div><div class="chip-label">On Stock</div></div><div class="chip orange"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip green"><div class="chip-val">${fmtCurrency(totalVal)}</div><div class="chip-label">Stock Value</div></div></div><div class="sec">1 · Monthly Ending Inventory (${allInv.length} items)</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Stock</th><th>Unit</th><th>Reserve</th><th>Available</th><th>Condition</th><th>Status</th><th>Notes</th></tr></thead><tbody>${buildInventoryRows(allInv) || '<tr><td colspan="9" style="text-align:center;padding:16px;color:#94a3b8">No items.</td></tr>'}</tbody></table><div class="sec pb">2 · Low Stock / Reorder Report (${needReorder.length} items)</div><div class="summary"><div class="chip orange"><div class="chip-val">${needReorder.length}</div><div class="chip-label">Need Reorder</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div></div><table><thead><tr><th>Category</th><th>Product Code</th><th>Current Stock</th><th>Unit</th><th>Condition</th><th>Notes</th><th>Status</th></tr></thead><tbody>${reorderRows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">All items sufficiently stocked.</td></tr>'}</tbody></table><div class="sec pb">3 · Stock Movement Summary (${fmtDate(dateFrom)} — ${fmtDate(dateTo)})</div><div class="summary"><div class="chip"><div class="chip-val">${movData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">Stock IN (Arrived)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Stock OUT (Delivered)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div><table><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>Stock IN (Arrived)</th><th>Stock OUT (Delivered)</th><th>Net</th></tr></thead><tbody>${movRows || '<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>${printFooter('Complete Inventory Report')}<script>window.onload=()=>window.print()<\/script></body></html>`);
       win.document.close();
     } catch (err) {
       console.error(err);
