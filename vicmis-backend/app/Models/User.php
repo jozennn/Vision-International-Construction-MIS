@@ -70,6 +70,7 @@ class User extends Authenticatable
         if (str_contains($dept, 'sales')) {
             $permissions[] = 'Customer';
             $permissions[] = 'Reports';
+            $permissions[] = 'Project'; // Sales also need Project access to view assigned projects
         }
 
         // Engineering → Project + Reports
