@@ -149,7 +149,6 @@ const App = () => {
             setActiveSubItem={setActiveSubItem}
           />
         );
-
       case 'Reports':
         return (
           <Reports
@@ -209,6 +208,7 @@ const App = () => {
         activeSubItem={activeSubItem}
         setActiveSubItem={setActiveSubItem}
         checkAccess={checkAccess}
+        user={user}
       />
 
       <main className="content-area flex-1 h-full overflow-y-auto">

@@ -3,7 +3,7 @@ import VicmisLogo from '../assets/logo.png';
 import api from '../api/axios';
 import './Sidebar.css';
 
-const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubItem, setActiveSubItem }) => {
+const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubItem, setActiveSubItem, user }) => {
   const [isOpen, setIsOpen]               = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen]   = useState(false);
@@ -21,11 +21,45 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     { id: 'Delivery Materials',     label: 'Delivery Materials'     },
   ];
 
-  const reportsSubItems = [
-    { id: 'inventory-reports', label: '📦 Inventory Reports' },
-    { id: 'project-reports',   label: '📝 Project Reports'   },
-    { id: 'customer-reports',  label: '👤 Customer Reports'  },
-  ];
+  // ── Reports sub-items filtered by role / department ──────────────────────
+  const reportsSubItems = (() => {
+    const role = user?.role ?? '';
+    const dept = (user?.department ?? '').toLowerCase();
+
+    const all = [
+      { id: 'inventory-reports', label: '📦 Inventory Reports' },
+      { id: 'project-reports',   label: '📝 Project Reports'   },
+      { id: 'customer-reports',  label: '👤 Customer Reports'  },
+    ];
+
+    // Privileged roles see everything
+    if (['super_admin', 'admin', 'manager'].includes(role)) return all;
+
+    const allowed = new Set();
+
+    // Sales → Customer Reports
+    if (dept.includes('sales')) allowed.add('customer-reports');
+
+    // Engineering → Project Reports
+    if (dept.includes('engineering')) allowed.add('project-reports');
+
+    // Inventory / Logistics → Inventory Reports
+    if (dept.includes('inventory') || dept.includes('logistics')) allowed.add('inventory-reports');
+
+    // Accounting / Procurement → Inventory + Project Reports
+    if (dept.includes('accounting') || dept.includes('procurement')) {
+      allowed.add('inventory-reports');
+      allowed.add('project-reports');
+    }
+
+    // dept_head gets their department's reports + Project Reports
+    if (role === 'dept_head') {
+      allowed.add('project-reports');
+      // They already have their dept-specific ones from above
+    }
+
+    return all.filter(s => allowed.has(s.id));
+  })();
 
   const settingsSubItems = [
     { id: 'users',    label: 'User Management'    },
@@ -76,7 +110,8 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       setReportsOpen(true);
       setInventoryOpen(false);
       setSettingsOpen(false);
-      if (setActiveSubItem) setActiveSubItem('inventory-reports');
+      // Default to first allowed sub-item for this user
+      if (setActiveSubItem) setActiveSubItem(reportsSubItems[0]?.id ?? 'inventory-reports');
       setIsOpen(false);
       return;
     }
@@ -181,7 +216,7 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                       </ul>
                     )}
 
-                    {/* Reports sub-menu */}
+                    {/* Reports sub-menu — filtered by role/dept */}
                     {isReports && reportsOpen && isAllowed && (
                       <ul className="sidebar-submenu">
                         {reportsSubItems.map((sub) => (

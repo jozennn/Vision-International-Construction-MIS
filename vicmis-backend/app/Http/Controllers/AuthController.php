@@ -24,11 +24,67 @@ class AuthController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | getRemainingSeconds — Redis TTL query
+    | resolvePermissions — maps role + department to allowed modules
     |--------------------------------------------------------------------------
-    | Now that CACHE_STORE=redis, we can query the exact remaining TTL on any
-    | cache key. This is used to return precise remaining_seconds to the
-    | frontend so the lockout countdown survives page refreshes perfectly.
+    |
+    | Access matrix:
+    |   super_admin / admin / manager  →  ALL modules + Reports
+    |   Sales                          →  Customer, Reports
+    |   Engineering                    →  Project, Reports
+    |   Inventory / Logistics          →  Inventory, Reports
+    |   Accounting / Procurement       →  Project, Inventory, Reports
+    |   dept_head (any dept)           →  dept modules + Project + Reports
+    |
+    */
+    protected function resolvePermissions(User $user): array
+    {
+        $role = $user->role ?? '';
+        $dept = strtolower($user->department ?? '');
+
+        // Privileged roles: full access
+        if (in_array($role, ['super_admin', 'admin', 'manager'])) {
+            return ['Project', 'Customer', 'Inventory', 'Reports', 'Setting'];
+        }
+
+        $permissions = [];
+
+        // Sales → Customer + Reports
+        if (str_contains($dept, 'sales')) {
+            $permissions[] = 'Customer';
+            $permissions[] = 'Reports';
+        }
+
+        // Engineering → Project + Reports
+        if (str_contains($dept, 'engineering')) {
+            $permissions[] = 'Project';
+            $permissions[] = 'Reports';
+        }
+
+        // Inventory / Logistics → Inventory + Reports
+        if (str_contains($dept, 'inventory') || str_contains($dept, 'logistics')) {
+            $permissions[] = 'Inventory';
+            $permissions[] = 'Reports';
+        }
+
+        // Accounting / Procurement → Project + Inventory + Reports
+        if (str_contains($dept, 'accounting') || str_contains($dept, 'procurement')) {
+            $permissions[] = 'Project';
+            $permissions[] = 'Inventory';
+            $permissions[] = 'Reports';
+        }
+
+        // dept_head: their department modules (added above) + Project + Reports
+        if ($role === 'dept_head') {
+            $permissions[] = 'Project';
+            $permissions[] = 'Reports';
+        }
+
+        return array_values(array_unique($permissions));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | getRemainingSeconds — Redis TTL query
     |--------------------------------------------------------------------------
     */
     private function getRemainingSeconds(string $key): int
@@ -61,8 +117,6 @@ class AuthController extends Controller
 
         $attempts = Cache::get($key, 0);
         if ($attempts >= self::MAX_ATTEMPTS) {
-            // Redis TTL gives us exact seconds remaining — frontend countdown
-            // will sync perfectly with the server, even after page refresh.
             $remainingSeconds = $this->getRemainingSeconds($key);
 
             Log::warning('Login lockout triggered', ['ip' => $ip, 'email' => $request->email]);
@@ -382,28 +436,5 @@ class AuthController extends Controller
             Log::error('Password reset error: ' . $e->getMessage());
             return response()->json(['message' => 'An unexpected error occurred. Please try again.'], 500);
         }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Helpers
-    |--------------------------------------------------------------------------
-    */
-    private function resolvePermissions(User $user): array
-    {
-        $dept = strtolower($user->department ?? '');
-
-        if (in_array($user->role, ['super_admin', 'admin', 'manager'])) {
-            return ['Dashboard', 'Project', 'Documents', 'Inventory', 'Accounting', 'Setting', 'Human Resource', 'Customer'];
-        }
-
-        return match(true) {
-            $dept === 'engineering'                                                  => ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'],
-            $dept === 'hr'                                                           => ['Dashboard', 'Human Resource', 'Documents', 'Setting'],
-            $dept === 'sales'                                                        => ['Dashboard', 'Customer', 'Project', 'Documents', 'Inventory'],
-            in_array($dept, ['inventory', 'logistics'])                              => ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'],
-            str_contains($dept, 'accounting') || str_contains($dept, 'procurement') => ['Dashboard', 'Documents', 'Setting', 'Accounting'],
-            default                                                                  => ['Dashboard'],
-        };
     }
 }
