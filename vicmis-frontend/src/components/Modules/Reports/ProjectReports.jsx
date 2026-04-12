@@ -3,7 +3,6 @@ import api from '@/api/axios';
 import './Reports.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmt     = (n) => new Intl.NumberFormat('en-PH').format(n ?? 0);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
 // ── Print helper ──────────────────────────────────────────────────────────────
@@ -105,8 +104,8 @@ const Spinner = () => (
 );
 
 const BADGE = {
-  blue:    'rpt-badge rpt-badge-blue',
-  low:     'rpt-badge rpt-badge-low',
+  blue: 'rpt-badge rpt-badge-blue',
+  low:  'rpt-badge rpt-badge-low',
 };
 
 // ── Project Status ────────────────────────────────────────────────────────────
@@ -131,18 +130,28 @@ export const ProjectStatus = () => {
       ${Object.entries(byStatus).map(([s, c]) => `<div class="chip"><div class="chip-val">${c}</div><div class="chip-label">${s}</div></div>`).join('')}
     </div>`;
     const rows = data.map(p => `<tr>
-      <td><strong>${p.project_name || p.name || '—'}</strong></td><td>${p.client_name || '—'}</td>
-      <td>${p.location || '—'}</td><td><span class="badge badge-blue">${p.status || '—'}</span></td>
-      <td>${fmtDate(p.created_at)}</td><td>${p.project_type || '—'}</td></tr>`).join('');
+      <td><strong>${p.project_name || p.name || '—'}</strong></td>
+      <td>${p.client_name || '—'}</td>
+      <td>${p.location || '—'}</td>
+      <td><span class="badge badge-blue">${p.status || '—'}</span></td>
+      <td>${fmtDate(p.created_at)}</td>
+      <td>${p.project_type || '—'}</td></tr>`).join('');
     printReport('Project Status Summary',
-      `<div class="sec">All Projects</div><table><thead><tr>
-        <th>Project Name</th><th>Client</th><th>Location</th><th>Status</th><th>Date Started</th><th>Type</th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No projects found.</td></tr>'}</tbody></table>`, chips);
+      `<div class="sec">All Projects</div>
+       <table><thead><tr>
+         <th>Project Name</th><th>Client</th><th>Location</th><th>Status</th><th>Date Started</th><th>Type</th>
+       </tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No projects found.</td></tr>'}</tbody></table>`,
+      chips);
   };
 
   return (
     <div className="rpt-card">
-      <SectionHeader title="Project Status Summary" subtitle="Overview of all projects and their current construction stage" onPrint={handlePrint} loading={loading} />
+      <SectionHeader
+        title="Project Status Summary"
+        subtitle="Overview of all projects and their current construction stage"
+        onPrint={handlePrint}
+        loading={loading}
+      />
       <SummaryRow chips={[
         { value: data.length, label: 'Total Projects', color: '#497B97' },
         ...Object.entries(byStatus).map(([s, c]) => ({ value: c, label: s, color: '#6366f1' })),
@@ -150,7 +159,9 @@ export const ProjectStatus = () => {
       {loading ? <Spinner /> : data.length === 0 ? <Empty /> : (
         <div className="rpt-table-wrap">
           <table className="rpt-table">
-            <thead><tr><th>Project Name</th><th>Client</th><th>Location</th><th>Status</th><th>Date Started</th><th>Type</th></tr></thead>
+            <thead><tr>
+              <th>Project Name</th><th>Client</th><th>Location</th><th>Status</th><th>Date Started</th><th>Type</th>
+            </tr></thead>
             <tbody>
               {data.map((p, i) => (
                 <tr key={i}>
@@ -189,24 +200,34 @@ export const MaterialRequests = () => {
     const rows = data.map(m => `<tr>
       <td><strong>${m.material_name || m.item_name || '—'}</strong></td>
       <td>${m.project?.project_name || m.project_name || '—'}</td>
-      <td style="text-align:center">${m.quantity ?? '—'}</td><td>${m.unit || '—'}</td>
+      <td style="text-align:center">${m.quantity ?? '—'}</td>
+      <td>${m.unit || '—'}</td>
       <td><span class="badge badge-yellow">${m.status || 'Pending'}</span></td>
       <td>${fmtDate(m.created_at)}</td>
       <td style="color:#64748b">${m.notes || '—'}</td></tr>`).join('');
     printReport('Material Request Report',
-      `<div class="sec">Pending Material Requests</div><table><thead><tr>
-        <th>Material</th><th>Project</th><th>Qty</th><th>Unit</th><th>Status</th><th>Requested</th><th>Notes</th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No pending material requests.</td></tr>'}</tbody></table>`, chips);
+      `<div class="sec">Pending Material Requests</div>
+       <table><thead><tr>
+         <th>Material</th><th>Project</th><th>Qty</th><th>Unit</th><th>Status</th><th>Requested</th><th>Notes</th>
+       </tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No pending material requests.</td></tr>'}</tbody></table>`,
+      chips);
   };
 
   return (
     <div className="rpt-card">
-      <SectionHeader title="Material Request Report" subtitle="Pending material requests across all active construction projects" onPrint={handlePrint} loading={loading} />
+      <SectionHeader
+        title="Material Request Report"
+        subtitle="Pending material requests across all active construction projects"
+        onPrint={handlePrint}
+        loading={loading}
+      />
       <SummaryRow chips={[{ value: data.length, label: 'Pending Requests', color: '#f59e0b' }]} />
       {loading ? <Spinner /> : data.length === 0 ? <Empty msg="No pending material requests." /> : (
         <div className="rpt-table-wrap">
           <table className="rpt-table">
-            <thead><tr><th>Material</th><th>Project</th><th>Qty</th><th>Unit</th><th>Status</th><th>Requested</th><th>Notes</th></tr></thead>
+            <thead><tr>
+              <th>Material</th><th>Project</th><th>Qty</th><th>Unit</th><th>Status</th><th>Requested</th><th>Notes</th>
+            </tr></thead>
             <tbody>
               {data.map((m, i) => (
                 <tr key={i}>

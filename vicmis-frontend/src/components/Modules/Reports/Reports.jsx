@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import './Reports.css';
 
 // ── Import report components from their dedicated files ───────────────────────
-import { EndingInventory, LowStock, StockMovement }           from './InventoryReports';
-import { ProjectStatus, MaterialRequests }                     from './ProjectReports';
-import { LeadConversion, ConvertedProjects, CustomerActivity } from './CustomerReports';
+import { EndingInventory, LowStock, StockMovement }           from './InventoryReports.jsx';
+import { ProjectStatus, MaterialRequests }                     from './ProjectReports.jsx';
+import { LeadConversion, ConvertedProjects, CustomerActivity } from './CustomerReports.jsx';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION CONFIG — maps sidebar sub-items to tab groups and components

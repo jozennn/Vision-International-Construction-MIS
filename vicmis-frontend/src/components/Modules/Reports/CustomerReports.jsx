@@ -134,7 +134,10 @@ export const LeadConversion = ({ user }) => {
   const byStage   = PIPELINE_STAGES.map(s => ({ ...s, count: leads.filter(l => l.status === s.key).length }));
 
   const handlePrint = () => {
-    const statusColors = { 'To be Contacted': '#64748b', 'Contacted': '#2563eb', 'For Presentation': '#d97706', 'Ready for Creating Project': '#059669', 'Project Created': '#7c3aed' };
+    const statusColors = {
+      'To be Contacted': '#64748b', 'Contacted': '#2563eb',
+      'For Presentation': '#d97706', 'Ready for Creating Project': '#059669', 'Project Created': '#7c3aed',
+    };
     const chips = `<div class="summary">
       <div class="chip blue"><div class="chip-val">${leads.length}</div><div class="chip-label">Total Leads</div></div>
       <div class="chip green"><div class="chip-val">${converted.length}</div><div class="chip-label">Converted</div></div>
@@ -142,21 +145,28 @@ export const LeadConversion = ({ user }) => {
       ${byStage.map(s => `<div class="chip"><div class="chip-val">${s.count}</div><div class="chip-label">${s.label}</div></div>`).join('')}
     </div>`;
     const rows = leads.map(l => `<tr>
-      <td>#${l.id}</td><td><strong>${l.client_name || '—'}</strong></td><td>${l.project_name || '—'}</td>
-      <td>${l.location || '—'}</td>
+      <td>#${l.id}</td><td><strong>${l.client_name || '—'}</strong></td>
+      <td>${l.project_name || '—'}</td><td>${l.location || '—'}</td>
       <td><span style="color:${statusColors[l.status] || '#64748b'};font-weight:700;font-size:10px">${l.status || '—'}</span></td>
       <td>${l.contact_no || '—'}</td>
       <td>${l.sales_rep?.name || user?.name || '—'}</td>
       <td>${fmtDate(l.created_at)}</td></tr>`).join('');
     printReport('Lead Conversion Report',
-      `<div class="sec">All Leads — Active Pipeline</div><table><thead><tr>
-        <th>ID</th><th>Client</th><th>Project</th><th>Location</th><th>Status</th><th>Contact No.</th><th>Sales Rep</th><th>Date Added</th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#94a3b8">No leads found.</td></tr>'}</tbody></table>`, chips);
+      `<div class="sec">All Leads — Active Pipeline</div>
+       <table><thead><tr>
+         <th>ID</th><th>Client</th><th>Project</th><th>Location</th><th>Status</th><th>Contact No.</th><th>Sales Rep</th><th>Date Added</th>
+       </tr></thead><tbody>${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#94a3b8">No leads found.</td></tr>'}</tbody></table>`,
+      chips);
   };
 
   return (
     <div className="rpt-card">
-      <SectionHeader title="Lead Conversion Report" subtitle="Full sales pipeline — from initial lead to converted project" onPrint={handlePrint} loading={loading} />
+      <SectionHeader
+        title="Lead Conversion Report"
+        subtitle="Full sales pipeline — from initial lead to converted project"
+        onPrint={handlePrint}
+        loading={loading}
+      />
       <SummaryRow chips={[
         { value: leads.length,     label: 'Total Leads', color: '#497B97' },
         { value: converted.length, label: 'Converted',   color: '#16a34a' },
@@ -166,7 +176,10 @@ export const LeadConversion = ({ user }) => {
       {loading ? <Spinner /> : leads.length === 0 ? <Empty /> : (
         <div className="rpt-table-wrap">
           <table className="rpt-table">
-            <thead><tr><th>ID</th><th>Client</th><th>Project</th><th>Location</th><th>Status</th><th>Contact No.</th><th>Sales Rep</th><th>Date Added</th></tr></thead>
+            <thead><tr>
+              <th>ID</th><th>Client</th><th>Project</th><th>Location</th>
+              <th>Status</th><th>Contact No.</th><th>Sales Rep</th><th>Date Added</th>
+            </tr></thead>
             <tbody>
               {leads.map((l, i) => {
                 const isConv = (l.status || '').toLowerCase().includes('created');
@@ -217,28 +230,37 @@ export const ConvertedProjects = ({ user }) => {
     </div>`;
     const rows = leads.map(l => {
       const proj = projects[l.id];
-      const ps   = proj ? proj.status || 'Ongoing' : '—';
       return `<tr>
-        <td>#${l.id}</td><td><strong>${l.client_name || '—'}</strong></td><td>${l.project_name || '—'}</td>
-        <td>${l.location || '—'}</td>
-        <td><span style="background:#eff6ff;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700">${ps}</span></td>
+        <td>#${l.id}</td><td><strong>${l.client_name || '—'}</strong></td>
+        <td>${l.project_name || '—'}</td><td>${l.location || '—'}</td>
+        <td><span style="background:#eff6ff;color:#1e40af;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700">${proj ? proj.status || 'Ongoing' : '—'}</span></td>
         <td>${l.sales_rep?.name || user?.name || '—'}</td>
         <td>${fmtDate(proj?.created_at || l.created_at)}</td></tr>`;
     }).join('');
     printReport('Converted Projects Report',
-      `<div class="sec">Leads Converted to Projects</div><table><thead><tr>
-        <th>ID</th><th>Client</th><th>Project Name</th><th>Location</th><th>Project Stage</th><th>Sales Rep</th><th>Date Created</th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No converted projects found.</td></tr>'}</tbody></table>`, chips);
+      `<div class="sec">Leads Converted to Projects</div>
+       <table><thead><tr>
+         <th>ID</th><th>Client</th><th>Project Name</th><th>Location</th><th>Project Stage</th><th>Sales Rep</th><th>Date Created</th>
+       </tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No converted projects found.</td></tr>'}</tbody></table>`,
+      chips);
   };
 
   return (
     <div className="rpt-card">
-      <SectionHeader title="Converted Projects Report" subtitle="Leads successfully converted to active construction projects" onPrint={handlePrint} loading={loading} />
+      <SectionHeader
+        title="Converted Projects Report"
+        subtitle="Leads successfully converted to active construction projects"
+        onPrint={handlePrint}
+        loading={loading}
+      />
       <SummaryRow chips={[{ value: leads.length, label: 'Converted Projects', color: '#16a34a' }]} />
       {loading ? <Spinner /> : leads.length === 0 ? <Empty msg="No converted projects yet." /> : (
         <div className="rpt-table-wrap">
           <table className="rpt-table">
-            <thead><tr><th>ID</th><th>Client</th><th>Project Name</th><th>Location</th><th>Project Stage</th><th>Sales Rep</th><th>Date Created</th></tr></thead>
+            <thead><tr>
+              <th>ID</th><th>Client</th><th>Project Name</th><th>Location</th>
+              <th>Project Stage</th><th>Sales Rep</th><th>Date Created</th>
+            </tr></thead>
             <tbody>
               {leads.map((l, i) => {
                 const proj = projects[l.id];
@@ -291,14 +313,21 @@ export const CustomerActivity = ({ user }) => {
       <td>${l.sales_rep?.name || user?.name || '—'}</td>
       <td>${fmtDate(l.updated_at || l.created_at)}</td></tr>`).join('');
     printReport('Customer Activity Summary',
-      `<div class="sec">All Client Interactions</div><table><thead><tr>
-        <th>Client</th><th>Project</th><th>Contact</th><th>Location</th><th>Status</th><th>Sales Rep</th><th>Last Updated</th>
-      </tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No records found.</td></tr>'}</tbody></table>`, chips);
+      `<div class="sec">All Client Interactions</div>
+       <table><thead><tr>
+         <th>Client</th><th>Project</th><th>Contact</th><th>Location</th><th>Status</th><th>Sales Rep</th><th>Last Updated</th>
+       </tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8">No records found.</td></tr>'}</tbody></table>`,
+      chips);
   };
 
   return (
     <div className="rpt-card">
-      <SectionHeader title="Customer Activity Summary" subtitle="All client interactions including active leads and archived records" onPrint={handlePrint} loading={loading} />
+      <SectionHeader
+        title="Customer Activity Summary"
+        subtitle="All client interactions including active leads and archived records"
+        onPrint={handlePrint}
+        loading={loading}
+      />
       <SummaryRow chips={[
         { value: leads.filter(l => !l.is_trashed).length, label: 'Active',  color: '#16a34a' },
         { value: leads.filter(l =>  l.is_trashed).length, label: 'Trashed', color: '#C20100' },
@@ -307,7 +336,9 @@ export const CustomerActivity = ({ user }) => {
       {loading ? <Spinner /> : leads.length === 0 ? <Empty /> : (
         <div className="rpt-table-wrap">
           <table className="rpt-table">
-            <thead><tr><th>Client</th><th>Project</th><th>Contact</th><th>Location</th><th>Status</th><th>Sales Rep</th><th>Last Updated</th></tr></thead>
+            <thead><tr>
+              <th>Client</th><th>Project</th><th>Contact</th><th>Location</th><th>Status</th><th>Sales Rep</th><th>Last Updated</th>
+            </tr></thead>
             <tbody>
               {leads.map((l, i) => (
                 <tr key={i} style={{ opacity: l.is_trashed ? 0.65 : 1 }}>
