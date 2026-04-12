@@ -1,22 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import VicmisLogo from '../assets/logo.png'; 
+import VicmisLogo from '../assets/logo.png';
 import api from '../api/axios';
 import './Sidebar.css';
 
 const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubItem, setActiveSubItem }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen]               = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen]   = useState(false);
+  const [reportsOpen, setReportsOpen]     = useState(false);
 
   useEffect(() => {
     setInventoryOpen(activeItem === 'Inventory');
     setSettingsOpen(activeItem === 'Setting');
+    setReportsOpen(activeItem === 'Reports');
   }, [activeItem]);
 
   const inventorySubItems = [
     { id: 'Construction Materials', label: 'Construction Materials' },
     { id: 'Incoming Shipment',      label: 'Incoming Shipment'      },
     { id: 'Delivery Materials',     label: 'Delivery Materials'     },
+  ];
+
+  const reportsSubItems = [
+    { id: 'inventory-reports', label: '📦 Inventory Reports' },
+    { id: 'project-reports',   label: '📝 Project Reports'   },
+    { id: 'customer-reports',  label: '👤 Customer Reports'  },
   ];
 
   const settingsSubItems = [
@@ -31,20 +39,21 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     { name: 'Project',   icon: '📝' },
     { name: 'Inventory', icon: '📦', hasDropdown: true },
     { name: 'Customer',  icon: '👤' },
+    { name: 'Reports',   icon: '📊', hasDropdown: true },
     { name: 'Setting',   icon: '⚙️', hasDropdown: true },
   ];
 
   const handleLogout = async () => {
     try {
-      await api.post('/logout'); 
+      await api.post('/logout');
     } catch (error) {
       console.error('Logout API call failed', error);
     } finally {
-      sessionStorage.clear(); 
+      sessionStorage.clear();
       if (setUser) {
         setUser(null);
       } else {
-        window.location.href = '/'; 
+        window.location.href = '/';
       }
     }
   };
@@ -56,9 +65,18 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       setActiveItem('Inventory');
       setInventoryOpen(true);
       setSettingsOpen(false);
-      if (!activeSubItem && setActiveSubItem) {
-        setActiveSubItem('Construction Materials');
-      }
+      setReportsOpen(false);
+      if (!activeSubItem && setActiveSubItem) setActiveSubItem('Construction Materials');
+      setIsOpen(false);
+      return;
+    }
+
+    if (name === 'Reports') {
+      setActiveItem('Reports');
+      setReportsOpen(true);
+      setInventoryOpen(false);
+      setSettingsOpen(false);
+      if (setActiveSubItem) setActiveSubItem('inventory-reports');
       setIsOpen(false);
       return;
     }
@@ -67,6 +85,7 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       setActiveItem('Setting');
       setSettingsOpen(true);
       setInventoryOpen(false);
+      setReportsOpen(false);
       if (setActiveSubItem) setActiveSubItem('users');
       setIsOpen(false);
       return;
@@ -75,12 +94,19 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     setActiveItem(name);
     setInventoryOpen(false);
     setSettingsOpen(false);
+    setReportsOpen(false);
     if (setActiveSubItem) setActiveSubItem(null);
     setIsOpen(false);
   };
 
   const handleInventorySubItemClick = (subId) => {
     setActiveItem('Inventory');
+    if (setActiveSubItem) setActiveSubItem(subId);
+    setIsOpen(false);
+  };
+
+  const handleReportsSubItemClick = (subId) => {
+    setActiveItem('Reports');
     if (setActiveSubItem) setActiveSubItem(subId);
     setIsOpen(false);
   };
@@ -98,16 +124,15 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       {!isOpen && (
         <button className="hamburger-btn" onClick={toggleSidebar}>☰</button>
       )}
-
       {isOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
 
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-top">
           <div className="sidebar-logo-container">
-            <img src={VicmisLogo} alt="VICMIS Logo" className="sidebar-logo-img"/>
+            <img src={VicmisLogo} alt="VICMIS Logo" className="sidebar-logo-img" />
             <span className="sidebar-logo-text">VICMIS</span>
           </div>
-          
+
           <nav className="sidebar-nav-menu">
             <ul>
               {menuItems.map((item) => {
@@ -115,10 +140,17 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                   ? true
                   : (checkAccess ? checkAccess(item.name) : true);
 
-                const isActive = item.name === activeItem;
+                const isActive    = item.name === activeItem;
                 const isInventory = item.name === 'Inventory';
                 const isSetting   = item.name === 'Setting';
-                const chevronOpen = isInventory ? inventoryOpen : isSetting ? settingsOpen : false;
+                const isReports   = item.name === 'Reports';
+                const chevronOpen = isInventory
+                  ? inventoryOpen
+                  : isSetting
+                    ? settingsOpen
+                    : isReports
+                      ? reportsOpen
+                      : false;
 
                 return (
                   <React.Fragment key={item.name}>
@@ -130,9 +162,7 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                       <span className="sidebar-item-name">{item.name}</span>
                       {!isAllowed && <span className="sidebar-lock-icon">🔒</span>}
                       {item.hasDropdown && isAllowed && (
-                        <span className={`sidebar-chevron ${chevronOpen ? 'open' : ''}`}>
-                          ›
-                        </span>
+                        <span className={`sidebar-chevron ${chevronOpen ? 'open' : ''}`}>›</span>
                       )}
                     </li>
 
@@ -144,6 +174,21 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                             key={sub.id}
                             className={`sidebar-submenu-item ${activeSubItem === sub.id ? 'active' : ''}`}
                             onClick={() => handleInventorySubItemClick(sub.id)}
+                          >
+                            {sub.label}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Reports sub-menu */}
+                    {isReports && reportsOpen && isAllowed && (
+                      <ul className="sidebar-submenu">
+                        {reportsSubItems.map((sub) => (
+                          <li
+                            key={sub.id}
+                            className={`sidebar-submenu-item ${activeSubItem === sub.id ? 'active' : ''}`}
+                            onClick={() => handleReportsSubItemClick(sub.id)}
                           >
                             {sub.label}
                           </li>

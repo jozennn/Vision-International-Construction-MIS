@@ -13,6 +13,7 @@ import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDas
 import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx';
 import Customer from './components/Modules/customer/Customer.jsx';
 import Inventory from './components/Modules/Inventory/Inventory.jsx';
+import Reports from './components/Modules/Reports/Reports.jsx';
 import Login from './components/Login.jsx';
 import ResetPassword from './components/ResetPassword.jsx';
 import AdminDashboard from './components/Dashboard/Admin/AdminDashboard.jsx';
@@ -146,6 +147,14 @@ const App = () => {
             user={user}
             activeSubItem={activeSubItem}
             setActiveSubItem={setActiveSubItem}
+          />
+        );
+
+      case 'Reports':
+        return (
+          <Reports
+            user={user}
+            activeSubItem={activeSubItem}
           />
         );
       case 'Setting':
