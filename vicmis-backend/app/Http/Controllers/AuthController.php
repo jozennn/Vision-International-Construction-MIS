@@ -24,62 +24,23 @@ class AuthController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | resolvePermissions — maps role + department to allowed modules
+    | userPayload — single source of truth for the user JSON shape
     |--------------------------------------------------------------------------
-    |
-    | Access matrix:
-    |   super_admin / admin / manager  →  ALL modules + Reports
-    |   Sales                          →  Customer, Reports
-    |   Engineering                    →  Project, Reports
-    |   Inventory / Logistics          →  Inventory, Reports
-    |   Accounting / Procurement       →  Project, Inventory, Reports
-    |   dept_head (any dept)           →  dept modules + Project + Reports
-    |
+    | Every endpoint (verify2FA, refresh, and the /user restore route) calls
+    | this helper so permissions are always recalculated fresh from the User
+    | model — no stale data after a page refresh.
+    |--------------------------------------------------------------------------
     */
-    protected function resolvePermissions(User $user): array
+    private function userPayload(User $user): array
     {
-        $role = $user->role ?? '';
-        $dept = strtolower($user->department ?? '');
-
-        // Privileged roles: full access
-        if (in_array($role, ['super_admin', 'admin', 'manager'])) {
-            return ['Project', 'Customer', 'Inventory', 'Reports', 'Setting'];
-        }
-
-        $permissions = [];
-
-        // Sales → Customer + Reports
-        if (str_contains($dept, 'sales')) {
-            $permissions[] = 'Customer';
-            $permissions[] = 'Reports';
-        }
-
-        // Engineering → Project + Reports
-        if (str_contains($dept, 'engineering')) {
-            $permissions[] = 'Project';
-            $permissions[] = 'Reports';
-        }
-
-        // Inventory / Logistics → Inventory + Reports
-        if (str_contains($dept, 'inventory') || str_contains($dept, 'logistics')) {
-            $permissions[] = 'Inventory';
-            $permissions[] = 'Reports';
-        }
-
-        // Accounting / Procurement → Project + Inventory + Reports
-        if (str_contains($dept, 'accounting') || str_contains($dept, 'procurement')) {
-            $permissions[] = 'Project';
-            $permissions[] = 'Inventory';
-            $permissions[] = 'Reports';
-        }
-
-        // dept_head: their department modules (added above) + Project + Reports
-        if ($role === 'dept_head') {
-            $permissions[] = 'Project';
-            $permissions[] = 'Reports';
-        }
-
-        return array_values(array_unique($permissions));
+        return [
+            'id'          => $user->id,
+            'name'        => $user->name,
+            'email'       => $user->email,
+            'role'        => $user->role,
+            'department'  => $user->department,
+            'permissions' => $user->resolvePermissions(),
+        ];
     }
 
     /*
@@ -118,7 +79,6 @@ class AuthController extends Controller
         $attempts = Cache::get($key, 0);
         if ($attempts >= self::MAX_ATTEMPTS) {
             $remainingSeconds = $this->getRemainingSeconds($key);
-
             Log::warning('Login lockout triggered', ['ip' => $ip, 'email' => $request->email]);
             return response()->json([
                 'message'           => 'Too many login attempts. Please try again in ' . self::LOCKOUT_MINUTES . ' minutes.',
@@ -184,7 +144,6 @@ class AuthController extends Controller
 
         if ($attempts >= self::MAX_ATTEMPTS) {
             $remainingSeconds = $this->getRemainingSeconds($key2fa);
-
             Log::warning('2FA lockout triggered', ['ip' => $ip, 'email' => $request->email]);
             return response()->json([
                 'message'           => 'Too many attempts. Please try again in ' . self::LOCKOUT_MINUTES . ' minutes.',
@@ -214,8 +173,7 @@ class AuthController extends Controller
             Cache::forget($key2fa);
             $user->update(['two_factor_code' => null, 'two_factor_expires_at' => null]);
 
-            $permissions = $this->resolvePermissions($user);
-            $rememberMe  = Cache::pull('remember_me:' . $user->email, false);
+            $rememberMe = Cache::pull('remember_me:' . $user->email, false);
 
             Auth::guard('web')->login($user, $rememberMe);
             $request->session()->regenerate();
@@ -248,14 +206,7 @@ class AuthController extends Controller
             ]);
 
             $response = response()->json([
-                'user' => [
-                    'id'          => $user->id,
-                    'name'        => $user->name,
-                    'email'       => $user->email,
-                    'role'        => $user->role,
-                    'department'  => $user->department,
-                    'permissions' => $permissions,
-                ],
+                'user'        => $this->userPayload($user),
                 'remember_me' => $rememberMe,
             ]);
 
@@ -339,22 +290,13 @@ class AuthController extends Controller
             $request->session()->put('login_time', now()->timestamp);
             $request->session()->put('remember_me', true);
 
-            $permissions = $this->resolvePermissions($user);
-
             Log::info('Session refreshed via refresh token', [
                 'user_id' => $user->id,
                 'ip'      => $request->ip(),
             ]);
 
             return response()->json([
-                'user' => [
-                    'id'          => $user->id,
-                    'name'        => $user->name,
-                    'email'       => $user->email,
-                    'role'        => $user->role,
-                    'department'  => $user->department,
-                    'permissions' => $permissions,
-                ],
+                'user'        => $this->userPayload($user),
                 'remember_me' => true,
             ])
             ->cookie('refresh_token', $newRawToken, $cookieLifetime, '/', config('session.domain'), true, true,  false, 'Lax')

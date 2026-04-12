@@ -25,8 +25,6 @@ use App\Http\Controllers\{
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/login',      [AuthController::class, 'login']);
     Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
-    // Public — called when session is dead but refresh_token cookie exists.
-    // Must be outside auth:sanctum otherwise it 401s before it can restore the session.
     Route::post('/refresh',    [AuthController::class, 'refresh']);
 });
 
@@ -39,30 +37,16 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- USER & AUTH ---
     Route::get('/user', function (Request $request) {
-    $user = $request->user();
-    $dept = strtolower($user->department ?? '');
+        $user = $request->user();
 
-        if (in_array($user->role, ['super_admin', 'admin', 'manager'])) {
-            $permissions = ['Dashboard', 'Project', 'Documents', 'Inventory', 'Accounting', 'Setting', 'Human Resource', 'Customer'];
-        } else {
-            $permissions = match(true) {
-                $dept === 'engineering'                                                  => ['Dashboard', 'Project', 'Documents', 'Inventory', 'Setting'],
-                $dept === 'hr'                                                           => ['Dashboard', 'Human Resource', 'Documents', 'Setting'],
-                $dept === 'sales'                                                        => ['Dashboard', 'Customer', 'Project', 'Documents', 'Inventory'],
-                in_array($dept, ['inventory', 'logistics'])                              => ['Dashboard', 'Inventory', 'Project', 'Documents', 'Setting'],
-                str_contains($dept, 'accounting') || str_contains($dept, 'procurement') => ['Dashboard', 'Documents', 'Setting', 'Accounting'],
-                default                                                                  => ['Dashboard'],
-            };
-        }
-
-        return [
+        return response()->json([
             'id'          => $user->id,
             'name'        => $user->name,
             'email'       => $user->email,
             'role'        => $user->role,
             'department'  => $user->department,
-            'permissions' => $permissions,
-        ];
+            'permissions' => $user->resolvePermissions(),
+        ]);
     });
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -103,8 +87,8 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- LEADS (read) ---
     Route::get('/leads',           [LeadController::class, 'index']);
-    Route::get('/leads/trashed',   [LeadController::class, 'trashed']);  // ← move UP before {id}
-    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);  // ← move UP before {id}
+    Route::get('/leads/trashed',   [LeadController::class, 'trashed']);
+    Route::get('/leads/trash/all', [LeadController::class, 'trashed']);
     Route::get('/leads/{id}',      [LeadController::class, 'show']);
 
     // --- INVENTORY (read) ---
@@ -187,7 +171,6 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     Route::delete('/leads/{id}',       [LeadController::class, 'destroy']);
     Route::put('/leads/{id}/restore',  [LeadController::class, 'restore']);
     Route::delete('/leads/{id}/force', [LeadController::class, 'forceDelete']);
-
 
     // --- EMPLOYEES (write) ---
     Route::middleware('can:manager-action')->group(function () {

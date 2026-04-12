@@ -34,16 +34,77 @@ class User extends Authenticatable
             'email_verified_at'     => 'datetime',
             'password'              => 'hashed',
             'two_factor_expires_at' => 'datetime',
-            // FIX: Cast as string so leading-zero codes like "012345"
-            // are never truncated to integers when read back from the DB.
             'two_factor_code'       => 'string',
         ];
     }
 
-    /**
-     * Helper to get the correct department table name.
-     * This makes it easy to query the split tables from anywhere.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | resolvePermissions — single source of truth for module access
+    |--------------------------------------------------------------------------
+    | Called by:
+    |   - GET /user          (session restore on page refresh)
+    |   - AuthController     (verify2FA + refresh via userPayload helper)
+    |
+    | Access matrix:
+    |   super_admin / admin / manager  →  all modules
+    |   Sales                          →  Customer, Reports
+    |   Engineering                    →  Project, Reports
+    |   Inventory / Logistics          →  Inventory, Reports
+    |   Accounting / Procurement       →  Project, Inventory, Reports
+    |   dept_head (any dept)           →  dept modules + Project + Reports
+    |--------------------------------------------------------------------------
+    */
+    public function resolvePermissions(): array
+    {
+        $role = $this->role ?? '';
+        $dept = strtolower($this->department ?? '');
+
+        if (in_array($role, ['super_admin', 'admin', 'manager'])) {
+            return ['Project', 'Customer', 'Inventory', 'Reports', 'Setting'];
+        }
+
+        $permissions = [];
+
+        // Sales → Customer + Reports
+        if (str_contains($dept, 'sales')) {
+            $permissions[] = 'Customer';
+            $permissions[] = 'Reports';
+        }
+
+        // Engineering → Project + Reports
+        if (str_contains($dept, 'engineering')) {
+            $permissions[] = 'Project';
+            $permissions[] = 'Reports';
+        }
+
+        // Inventory / Logistics → Inventory + Reports
+        if (str_contains($dept, 'inventory') || str_contains($dept, 'logistics')) {
+            $permissions[] = 'Inventory';
+            $permissions[] = 'Reports';
+        }
+
+        // Accounting / Procurement → Project + Inventory + Reports
+        if (str_contains($dept, 'accounting') || str_contains($dept, 'procurement')) {
+            $permissions[] = 'Project';
+            $permissions[] = 'Inventory';
+            $permissions[] = 'Reports';
+        }
+
+        // dept_head: dept modules already added above + Project + Reports
+        if ($role === 'dept_head') {
+            $permissions[] = 'Project';
+            $permissions[] = 'Reports';
+        }
+
+        return array_values(array_unique($permissions));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | getDepartmentTable
+    |--------------------------------------------------------------------------
+    */
     public function getDepartmentTable(): ?string
     {
         return match ($this->department) {
@@ -59,9 +120,11 @@ class User extends Authenticatable
         };
     }
 
-    /**
-     * Get the job-specific details (Position/Rate) from the dept table.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | getJobDetails
+    |--------------------------------------------------------------------------
+    */
     public function getJobDetails()
     {
         $table = $this->getDepartmentTable();
