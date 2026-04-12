@@ -14,7 +14,6 @@ const STATUS_CLASS = {
   WAITING:   'pill-waiting',
 };
 
-// ── Production status options (now a dropdown, not free text) ──
 const PROD_STATUS_OPTIONS = [
   'ONGOING PRODUCTION',
   'ON STOCK',
@@ -27,17 +26,117 @@ const PROD_STATUS_CLASS = {
   'ONGOING PRODUCTION': 'prod-ongoing',
 };
 
+// ─── Shipment Timeline Stepper ────────────────────────────────────────────────
+// Maps the three shipment_status values to a 4-step visual pipeline.
+// The current step and all prior steps are filled; future steps are hollow.
+const TIMELINE_STEPS = [
+  { key: 'ORDERED',   label: 'Ordered'   },
+  { key: 'WAITING',   label: 'In Prod.'  },
+  { key: 'DEPARTURE', label: 'In Transit'},
+  { key: 'ARRIVED',   label: 'Arrived'   },
+];
+
+// Map shipment_status → which step index is active (0-based)
+const statusToStep = (status) => {
+  if (status === 'ARRIVED')   return 3;
+  if (status === 'DEPARTURE') return 2;
+  if (status === 'WAITING')   return 1;
+  return 0;
+};
+
+const ShipmentTimeline = ({ shipment }) => {
+  const activeStep = statusToStep(shipment.shipment_status);
+
+  return (
+    <div className="is-timeline">
+      {TIMELINE_STEPS.map((step, idx) => {
+        const isDone    = idx < activeStep;
+        const isCurrent = idx === activeStep;
+        return (
+          <React.Fragment key={step.key}>
+            <div className={`is-timeline-step ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}`}>
+              <div className="is-timeline-dot">
+                {isDone ? <CheckCircle size={12} /> : <span>{idx + 1}</span>}
+              </div>
+              <span className="is-timeline-label">{step.label}</span>
+            </div>
+            {idx < TIMELINE_STEPS.length - 1 && (
+              <div className={`is-timeline-line ${isDone ? 'done' : ''}`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
+// ─── Arrival Status Badge ─────────────────────────────────────────────────────
+// Compares tentative_arrival (date string) against:
+//   - date_delivered / shipment_status=ARRIVED → actual date
+//   - today → if not yet arrived
+// Returns a coloured badge: On Time · Delayed X days · Overdue X days
+const ArrivalBadge = ({ shipment }) => {
+  if (!shipment.tentative_arrival) return <span className="is-tba">TBA</span>;
+
+  const tentative = new Date(shipment.tentative_arrival);
+  const today     = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const isArrived   = shipment.shipment_status === 'ARRIVED';
+  // Use date_delivered if available, otherwise today for in-progress shipments
+  const compareDate = isArrived && shipment.date_delivered
+    ? new Date(shipment.date_delivered)
+    : today;
+
+  const diffMs   = compareDate - tentative;
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  // Formatted tentative date always shown
+  const formattedTentative = tentative.toLocaleDateString('en-PH', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+
+  if (isArrived && diffDays <= 0) {
+    return (
+      <div className="is-arrival-wrap">
+        <span className="is-date-badge">{formattedTentative}</span>
+        <span className="is-arrival-tag arrival-ontime">On Time</span>
+      </div>
+    );
+  }
+
+  if (isArrived && diffDays > 0) {
+    return (
+      <div className="is-arrival-wrap">
+        <span className="is-date-badge">{formattedTentative}</span>
+        <span className="is-arrival-tag arrival-delayed">Delayed {diffDays}d</span>
+      </div>
+    );
+  }
+
+  // Not yet arrived
+  if (diffDays > 0) {
+    // Past tentative date but not yet arrived → overdue
+    return (
+      <div className="is-arrival-wrap">
+        <span className="is-date-badge">{formattedTentative}</span>
+        <span className="is-arrival-tag arrival-overdue">Overdue {diffDays}d</span>
+      </div>
+    );
+  }
+
+  // Still upcoming
+  return <span className="is-date-badge">{formattedTentative}</span>;
+};
+
 // ─── Received Stock Panel ─────────────────────────────────────────────────────
 const ReceivedStockPanel = ({ shipments, onClose, onAddToInventory, onReportReturn }) => {
-  // Only show ARRIVED shipments not yet in inventory
   const arrived = shipments.filter(s => s.shipment_status === 'ARRIVED' && !s.added_to_inventory);
-  // Auto-select the first one
   const [selectedShipment, setSelectedShipment] = useState(arrived[0] || null);
 
   return (
     <div className="is-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="is-modal is-modal-received">
-        {/* Header */}
         <div className="is-modal-header is-received-header">
           <div className="is-received-header-left">
             <div className="is-received-header-icon">
@@ -54,21 +153,19 @@ const ReceivedStockPanel = ({ shipments, onClose, onAddToInventory, onReportRetu
         </div>
 
         <div className="is-received-layout">
-          {/* ── Left list ── */}
           <div className="is-received-list">
             {arrived.length === 0 ? (
               <div className="is-received-empty">
                 <PackageCheck size={28} />
                 <p>No received shipments pending.</p>
               </div>
-            ) : arrived.map((s, idx) => (
+            ) : arrived.map((s) => (
               <button
                 key={s.id}
                 className={`is-received-item ${selectedShipment?.id === s.id ? 'active' : ''}`}
                 onClick={() => setSelectedShipment(s)}
               >
                 <div className="is-received-item-inner">
-                  {/* Actual DB shipment number shown smaller below */}
                   <span className="is-received-code">{s.shipment_number}</span>
                   <span className={`is-received-purpose ${s.shipment_purpose === 'NEW_STOCK' ? 'purpose-stock' : 'purpose-reserve'}`}>
                     {s.shipment_purpose === 'NEW_STOCK'
@@ -81,7 +178,6 @@ const ReceivedStockPanel = ({ shipments, onClose, onAddToInventory, onReportRetu
             ))}
           </div>
 
-          {/* ── Right detail ── */}
           <div className="is-received-detail">
             {!selectedShipment ? (
               <div className="is-received-placeholder">
@@ -108,7 +204,6 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
 
   return (
     <div className="is-detail-wrap">
-      {/* Meta */}
       <div className="is-detail-meta">
         <div className="is-detail-meta-item">
           <span className="is-detail-label">SHIPMENT NO.</span>
@@ -136,7 +231,6 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
         </div>
       </div>
 
-      {/* Table */}
       <div className="is-detail-table-wrap">
         <table className="is-mini-table">
           <thead>
@@ -177,17 +271,15 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
         </table>
       </div>
 
-      {/* Info note */}
       <div className="is-detail-note">
         <Info size={13} />
         <span>
           {isReserve
-            ? 'Reserved quantities will be added to Current Stock and marked under Reserve. Click the reserve number in inventory to see project allocation.'
+            ? 'Reserved quantities will be added to Current Stock and marked under Reserve.'
             : 'All quantities will be added directly to Current Stock in the warehouse inventory.'}
         </span>
       </div>
 
-      {/* Actions */}
       <div className="is-detail-actions">
         <button className="is-action-report" onClick={() => onReportReturn(shipment)}>
           <AlertTriangle size={14} /> Report / Return
@@ -231,7 +323,7 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
         </div>
 
         <div className="is-modal-body" style={{ padding: '1rem 1.2rem' }}>
-          <p className="is-report-hint">Check the items you want to report or return. Fill in the issue and condition for each.</p>
+          <p className="is-report-hint">Check the items you want to report or return.</p>
           <div className="is-report-items">
             {reports.map((row, i) => (
               <div key={i} className={`is-report-item ${row.selected ? 'selected' : ''}`}>
@@ -371,7 +463,7 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
   };
 
   const isReserveShipment = (s) => !s?.shipment_purpose || s?.shipment_purpose === 'RESERVE_FOR_PROJECT';
-  const arrivedPending = shipments.filter(s => s.shipment_status === 'ARRIVED' && !s.added_to_inventory);
+  const arrivedPending    = shipments.filter(s => s.shipment_status === 'ARRIVED' && !s.added_to_inventory);
 
   return (
     <div className="is-wrapper">
@@ -411,15 +503,16 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
               <th>Production Status</th>
               <th>Location</th>
               <th>Tentative Arrival</th>
+              <th>Progress</th>
               <th>Shipment Status</th>
               <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="10" className="is-loading-cell"><Loader2 size={18} className="is-spinner" /> Loading shipments…</td></tr>
+              <tr><td colSpan="11" className="is-loading-cell"><Loader2 size={18} className="is-spinner" /> Loading shipments…</td></tr>
             ) : shipments.length === 0 ? (
-              <tr><td colSpan="10" className="is-empty-cell">No shipments found.</td></tr>
+              <tr><td colSpan="11" className="is-empty-cell">No shipments found.</td></tr>
             ) : shipments.map(s => (
               <tr key={s.id} className={`is-row ${s.added_to_inventory ? 'is-row-done' : ''}`}>
                 <td className="is-shipno">
@@ -446,9 +539,13 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                   <span className={`is-prod-tag ${PROD_STATUS_CLASS[s.status] || 'prod-ongoing'}`}>{s.status}</span>
                 </td>
                 <td className="is-location">{s.location || '—'}</td>
-                <td>
-                  {s.tentative_arrival ? <span className="is-date-badge">{s.tentative_arrival}</span> : <span className="is-tba">TBA</span>}
-                </td>
+
+                {/* ── Arrival badge (new) ── */}
+                <td><ArrivalBadge shipment={s} /></td>
+
+                {/* ── Timeline stepper (new) ── */}
+                <td className="is-timeline-cell"><ShipmentTimeline shipment={s} /></td>
+
                 <td>
                   <span className={`is-pill ${STATUS_CLASS[s.shipment_status] || 'pill-waiting'}`}>{s.shipment_status}</span>
                 </td>
@@ -533,7 +630,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
         </div>
       )}
 
-      {/* ── Logistics Update Modal — Production Progress is now a SELECT ── */}
       {isEditModalOpen && selectedShipment && (
         <div className="is-overlay" onClick={e => e.target === e.currentTarget && setIsEditModalOpen(false)}>
           <div className="is-modal">
@@ -563,8 +659,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                   <input type="date" className="is-input" value={selectedShipment.tentative_arrival || ''}
                     onChange={e => setSelectedShipment({ ...selectedShipment, tentative_arrival: e.target.value })} />
                 </div>
-
-                {/* FIXED: Was a free-text input, now a dropdown */}
                 <div className="is-field">
                   <label>Production Progress</label>
                   <div className="is-select-wrap">
@@ -578,7 +672,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                     <ChevronDown size={13} className="is-select-icon" />
                   </div>
                 </div>
-
                 <div className="is-field">
                   <label>Current Location</label>
                   <input type="text" className="is-input" placeholder="Port / Warehouse"

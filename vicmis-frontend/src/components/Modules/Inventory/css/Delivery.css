@@ -421,6 +421,52 @@
 .dl-btn-save:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
 
+.dl-counter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: .3rem .85rem;
+  flex-shrink: 0;
+}
+.dl-counter-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 .4rem;
+}
+.dl-counter-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%; flex-shrink: 0;
+}
+.dl-counter-transit .dl-counter-dot { background: #3B82F6; }
+.dl-counter-delivered .dl-counter-dot { background: #10B981; }
+.dl-counter-value {
+  font-size: .9rem; font-weight: 700;
+  color: var(--text-pri);
+}
+.dl-counter-label {
+  font-size: .7rem; font-weight: 500;
+  color: var(--text-muted); white-space: nowrap;
+}
+.dl-counter-divider {
+  width: 1px; height: 24px;
+  background: var(--border);
+  margin: 0 .4rem;
+}
+
+/* ── Map pin link ── */
+.dl-map-pin {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: .65rem;
+  color: var(--brand-blue);
+  text-decoration: none;
+  opacity: .7;
+  transition: opacity .12s;
+}
+.dl-map-pin:hover { opacity: 1; }
+
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════ */

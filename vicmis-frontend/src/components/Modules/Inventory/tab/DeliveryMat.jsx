@@ -26,6 +26,25 @@ const STATUS_CLASS = {
   'In Transit': 'pill-transit',
 };
 
+// ─── Delivery Counter Bar ─────────────────────────────────────────────────────
+// Shows live In Transit / Delivered counts across ALL deliveries (no filter).
+// Fetches once on mount and refreshes whenever the parent calls fetchDeliveries.
+const DeliveryCounterBar = ({ inTransit, delivered }) => (
+  <div className="dl-counter-bar">
+    <div className="dl-counter-item dl-counter-transit">
+      <span className="dl-counter-dot" />
+      <span className="dl-counter-value">{inTransit}</span>
+      <span className="dl-counter-label">In Transit</span>
+    </div>
+    <div className="dl-counter-divider" />
+    <div className="dl-counter-item dl-counter-delivered">
+      <span className="dl-counter-dot" />
+      <span className="dl-counter-value">{delivered}</span>
+      <span className="dl-counter-label">Delivered</span>
+    </div>
+  </div>
+);
+
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
 const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageChange, onPerPageChange }) => {
@@ -95,6 +114,9 @@ const DeliveryMat = ({ onBack }) => {
   const [markLoading, setMarkLoading]   = useState(null);
   const [saveLoading, setSaveLoading]   = useState(false);
 
+  // ── Global delivery counts (ignores active filters) ─────────────────────────
+  const [globalCounts, setGlobalCounts] = useState({ inTransit: 0, delivered: 0 });
+
   // Meta for product dropdowns
   const [categories, setCategories]     = useState([]);
   const [products, setProducts]         = useState({});
@@ -124,7 +146,7 @@ const DeliveryMat = ({ onBack }) => {
   const [showModal, setShowModal]       = useState(false);
   const [formData, setFormData]         = useState({ ...EMPTY_FORM });
 
-  // ─── Load meta (categories + products) ──────────────────────────────────────
+  // ─── Load meta ───────────────────────────────────────────────────────────────
   useEffect(() => {
     api.get('/inventory/logistics/meta')
       .then(res => {
@@ -134,9 +156,7 @@ const DeliveryMat = ({ onBack }) => {
       .catch(console.error);
   }, []);
 
-  // ─── Load projects for dropdown ──────────────────────────────────────────────
-  // Fetches from GET /api/projects — same endpoint used by Project.jsx.
-  // We only need id + project_name for the dropdown.
+  // ─── Load projects ────────────────────────────────────────────────────────────
   useEffect(() => {
     setProjectsLoading(true);
     api.get('/projects')
@@ -149,7 +169,24 @@ const DeliveryMat = ({ onBack }) => {
       .finally(() => setProjectsLoading(false));
   }, []);
 
-  // ─── Fetch deliveries ────────────────────────────────────────────────────────
+  // ─── Fetch global counts (all records, no filters) ───────────────────────────
+  // Runs independently so the counter bar never changes when the user filters.
+  const fetchGlobalCounts = useCallback(async () => {
+    try {
+      const res = await api.get('/inventory/logistics', { params: { per_page: 9999, page: 1 } });
+      const all = res.data.data || [];
+      setGlobalCounts({
+        inTransit: all.filter(d => d.status === 'In Transit').length,
+        delivered: all.filter(d => d.status === 'Delivered').length,
+      });
+    } catch (err) {
+      console.error('Failed to load delivery counts:', err);
+    }
+  }, []);
+
+  useEffect(() => { fetchGlobalCounts(); }, [fetchGlobalCounts]);
+
+  // ─── Fetch paginated deliveries (respects active filters) ────────────────────
   const fetchDeliveries = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
@@ -200,14 +237,12 @@ const DeliveryMat = ({ onBack }) => {
     }));
   };
 
-  // ─── Project selection → auto-fill destination from project location ──────────
+  // ─── Project selection ────────────────────────────────────────────────────────
   const handleProjectChange = (projectName) => {
-    // Find the selected project to optionally auto-fill destination
     const proj = projects.find(p => p.project_name === projectName);
     setFormData(f => ({
       ...f,
       project_name: projectName,
-      // Auto-fill destination with project location if destination is still empty
       destination: f.destination || proj?.location || '',
     }));
   };
@@ -226,6 +261,7 @@ const DeliveryMat = ({ onBack }) => {
       setCodesForCat([]);
       setLowStockWarn(false);
       fetchDeliveries(true);
+      fetchGlobalCounts();
     } catch (err) {
       alert(`Dispatch failed: ${err.response?.data?.message || 'Unknown error'}`);
     } finally {
@@ -240,6 +276,7 @@ const DeliveryMat = ({ onBack }) => {
     try {
       await api.patch(`/inventory/logistics/${id}/delivered`);
       fetchDeliveries(true);
+      fetchGlobalCounts();
     } catch {
       alert('Failed to update status.');
     } finally {
@@ -269,7 +306,7 @@ const DeliveryMat = ({ onBack }) => {
         <div className="dl-topbar-right">
           <button
             className={`dl-refresh-btn ${isRefreshing ? 'spinning' : ''}`}
-            onClick={() => fetchDeliveries(true)}
+            onClick={() => { fetchDeliveries(true); fetchGlobalCounts(); }}
             title="Refresh"
           >
             <RefreshCw size={15} />
@@ -313,6 +350,12 @@ const DeliveryMat = ({ onBack }) => {
             </button>
           ))}
         </div>
+
+        {/* ── Delivery counter (always shows global totals) ── */}
+        <DeliveryCounterBar
+          inTransit={globalCounts.inTransit}
+          delivered={globalCounts.delivered}
+        />
 
         <div className="dl-search-wrap">
           <Search size={14} className="dl-search-icon" />
@@ -370,7 +413,21 @@ const DeliveryMat = ({ onBack }) => {
                 </td>
                 <td className="dl-project">{d.project_name}</td>
                 <td className="dl-driver">{d.driver_name}</td>
-                <td className="dl-dest">{d.destination}</td>
+                <td className="dl-dest">
+                  {d.destination}
+                  {/* ── Map pin link ── */}
+                  {d.destination && (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.destination)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="dl-map-pin"
+                      title="Open in Google Maps"
+                    >
+                      ↗
+                    </a>
+                  )}
+                </td>
                 <td className="text-right dl-qty">{d.quantity ?? '—'}</td>
                 <td className="dl-date">{d.date_of_delivery}</td>
                 <td className="dl-date">
@@ -428,7 +485,6 @@ const DeliveryMat = ({ onBack }) => {
 
             <form onSubmit={handleSchedule} className="dl-form">
 
-              {/* Trucking service */}
               <div className="dl-form-group">
                 <label>Trucking Service <span className="dl-req">*</span></label>
                 <input
@@ -440,7 +496,6 @@ const DeliveryMat = ({ onBack }) => {
                 />
               </div>
 
-              {/* Product category + code */}
               <div className="dl-form-row">
                 <div className="dl-form-group">
                   <label>Product Category <span className="dl-req">*</span></label>
@@ -492,7 +547,6 @@ const DeliveryMat = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Type indicator */}
               {formData.product_code && (
                 <div className="dl-type-indicator">
                   <span className="dl-type-label">Type:</span>
@@ -502,7 +556,6 @@ const DeliveryMat = ({ onBack }) => {
                 </div>
               )}
 
-              {/* Quantity + Project Name (dropdown from DB) */}
               <div className="dl-form-row">
                 <div className="dl-form-group">
                   <label>Quantity <span className="dl-req">*</span></label>
@@ -538,7 +591,6 @@ const DeliveryMat = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Driver + Destination */}
               <div className="dl-form-row">
                 <div className="dl-form-group">
                   <label>Driver Name <span className="dl-req">*</span></label>
@@ -560,7 +612,6 @@ const DeliveryMat = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Date of Delivery */}
               <div className="dl-form-group">
                 <label>Date of Delivery <span className="dl-req">*</span></label>
                 <input
