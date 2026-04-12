@@ -17,8 +17,7 @@ import RejectModal   from './components/RejectModal.jsx';
 
 // Phase components
 import PhaseFloorPlan      from './phases/PhaseFloorPlan.jsx';
-import PhaseBoqPlan        from './phases/PhaseBoqPlan.jsx';
-import PhaseBoqActual      from './phases/PhaseBoqActual.jsx';
+import PhaseBoq            from './phases/PhaseBoq.jsx';          // ← replaces PhaseBoqPlan + PhaseBoqActual
 import PhaseBOQReview      from './phases/PhaseBOQReview.jsx';
 import PhasePOWorkOrder    from './phases/PhasePOWorkOrder.jsx';
 import PhaseSiteInspection from './phases/PhaseSiteInspection.jsx';
@@ -30,6 +29,7 @@ import PhaseQAHandover     from './phases/PhaseQAHandover.jsx';
 import PhaseCompleted      from './phases/PhaseCompleted.jsx';
 
 import './css/Project.css';
+import './css/PhaseBoq.css';                                       // ← add this
 
 const Project = ({ user, projects, setProjects }) => {
   const userDept = (user?.dept || user?.department || '').toLowerCase();
@@ -144,22 +144,21 @@ const Project = ({ user, projects, setProjects }) => {
 
   // ── Render document link helper ───────────────────────────────────────────
   const renderDocumentLink = (label, filePath) => {
-  if (!filePath) return null;
-
-  return (
-    <div className="pm-doc-link no-print">
-      <span className="pm-doc-label">📄 {label}</span>
-      <a
-        href={`/storage/${filePath}`}
-        target="_blank"
-        rel="noreferrer"
-        className="pm-doc-btn"
-      >
-        View Document
-      </a>
-    </div>
-  );
-};
+    if (!filePath) return null;
+    return (
+      <div className="pm-doc-link no-print">
+        <span className="pm-doc-label">📄 {label}</span>
+        <a
+          href={`/storage/${filePath}`}
+          target="_blank"
+          rel="noreferrer"
+          className="pm-doc-btn"
+        >
+          View Document
+        </a>
+      </div>
+    );
+  };
 
   // ── HOME VIEW ─────────────────────────────────────────────────────────────
   if (currentView === 'home') {
@@ -196,8 +195,15 @@ const Project = ({ user, projects, setProjects }) => {
     ...roles,
   };
 
-  // ── KEY FIX: check if this phase is waiting-only BEFORE checking phaseAccess
-  // This prevents the real component from ever rendering for no-template phases.
+  // Shared BOQ tracking props — passed to PhaseBoq only
+  const boqTrackingProps = {
+    boqData:         tracking.boqData,
+    setBoqData:      tracking.setBoqData,
+    addBoqRow:       tracking.addBoqRow,
+    removeBoqRow:    tracking.removeBoqRow,
+    handleBoqChange: tracking.handleBoqChange,
+  };
+
   const isWaitingOnlyPhase = WAITING_ONLY_PHASES.has(status);
 
   return (
@@ -242,7 +248,7 @@ const Project = ({ user, projects, setProjects }) => {
       {/* ── Phase Container ── */}
       <div className="pm-phase-container">
 
-        {/* ── GATE 1: Waiting-only phases — no real component exists yet ── */}
+        {/* ── GATE 1: Waiting-only phases ── */}
         {isWaitingOnlyPhase && (
           <WaitingView
             status={status}
@@ -252,7 +258,7 @@ const Project = ({ user, projects, setProjects }) => {
           />
         )}
 
-        {/* ── GATE 2: Normal phases — check access then render component ── */}
+        {/* ── GATE 2: Normal phases ── */}
         {!isWaitingOnlyPhase && phaseAccess === 'waiting' && (
           <WaitingView
             status={status}
@@ -268,26 +274,23 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseFloorPlan {...sharedPhaseProps} />
             )}
 
+            {/* ── Both BOQ phases now use one component, driven by the `phase` prop ── */}
             {status === 'Measurement based on Plan' && (
-              <PhaseBoqPlan
+              <PhaseBoq
                 {...sharedPhaseProps}
-                boqData={tracking.boqData}
-                setBoqData={tracking.setBoqData}
-                addBoqRow={tracking.addBoqRow}
-                removeBoqRow={tracking.removeBoqRow}
-                handleBoqChange={tracking.handleBoqChange}
+                {...boqTrackingProps}
+                phase="plan"
                 onSubmitPlan={submitPlanPhase}
+                onSubmitActual={submitActualPhase}
               />
             )}
 
             {status === 'Actual Measurement' && (
-              <PhaseBoqActual
+              <PhaseBoq
                 {...sharedPhaseProps}
-                boqData={tracking.boqData}
-                setBoqData={tracking.setBoqData}
-                addBoqRow={tracking.addBoqRow}
-                removeBoqRow={tracking.removeBoqRow}
-                handleBoqChange={tracking.handleBoqChange}
+                {...boqTrackingProps}
+                phase="actual"
+                onSubmitPlan={submitPlanPhase}
                 onSubmitActual={submitActualPhase}
               />
             )}

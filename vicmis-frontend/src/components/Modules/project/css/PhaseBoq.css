@@ -1,0 +1,374 @@
+/* ============================================================
+   PhaseBoq.css — Unified Plan + Actual BOQ phase styles
+   + boq-print.css — Print / PDF export styles
+   Import this once in your app: import '../css/PhaseBoq.css';
+   ============================================================ */
+
+/* ── Root wrapper ── */
+.boq-phase-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Phase divider ── */
+.boq-phase-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 18px;
+}
+
+.boq-phase-divider::before,
+.boq-phase-divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--pm-border-soft, #e5e7eb);
+}
+
+.boq-phase-divider-label {
+  font-family: var(--pm-font, 'DM Sans', sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pm-text-muted, #9ca3af);
+  white-space: nowrap;
+  padding: 4px 12px;
+  border: 1.5px solid var(--pm-border-soft, #e5e7eb);
+  border-radius: 20px;
+  background: var(--pm-bg, #fff);
+}
+
+/* ── Measurement card ── */
+.boq-meas-card {
+  margin-bottom: 16px !important;
+}
+
+.boq-meas-label {
+  margin-bottom: 8px !important;
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+.boq-meas-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--pm-text-muted, #9ca3af);
+}
+
+.boq-meas-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.boq-sqm-input {
+  margin: 0 !important;
+  width: 110px !important;
+  flex-shrink: 0;
+}
+
+.boq-meas-notes {
+  margin: 0 !important;
+  flex: 1;
+  min-width: 160px;
+  min-height: 56px;
+  resize: vertical;
+  font-size: 12px !important;
+}
+
+/* ── Measurements side-by-side row (actual phase) ── */
+.boq-measurements-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.boq-measurements-row .boq-meas-card {
+  flex: 1;
+  min-width: 240px;
+  margin: 0 !important;
+}
+
+/* ── Action row (submit + export) ── */
+.boq-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+/* ── Export PDF button ── */
+.boq-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  font-family: var(--pm-font, 'DM Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-text-dark, #221f1f);
+  background: #fff;
+  border: 1.5px solid var(--pm-border-dark, #d1d5db);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  height: 42px; /* match PrimaryButton height visually */
+}
+
+.boq-export-btn:hover {
+  background: #f9fafb;
+  border-color: var(--pm-blue, #497B97);
+  color: var(--pm-blue, #497B97);
+}
+
+.boq-export-btn svg {
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   RESPONSIVE — tablet ≤ 768px
+   ============================================================ */
+@media (max-width: 768px) {
+  .boq-measurements-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .boq-measurements-row .boq-meas-card {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .boq-action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .boq-action-row .pm-btn,
+  .boq-export-btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — mobile ≤ 480px
+   ============================================================ */
+@media (max-width: 480px) {
+  .boq-meas-row {
+    flex-direction: column;
+  }
+
+  .boq-sqm-input {
+    width: 100% !important;
+  }
+
+  .boq-meas-notes {
+    width: 100%;
+  }
+
+  .boq-phase-divider {
+    margin: 20px 0 14px;
+  }
+}
+
+/* ============================================================
+   PRINT / PDF EXPORT
+   @media print hides the app and shows only .boq-print-area
+   ============================================================ */
+
+/* Hide print area from screen */
+.boq-print-area {
+  display: none;
+}
+
+@media print {
+  /* Hide everything on screen */
+  body > *,
+  #root > *,
+  .boq-phase-root > *:not(.boq-print-area) {
+    display: none !important;
+  }
+
+  /* Show only the print area */
+  .boq-print-area {
+    display: block !important;
+    font-family: 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11pt;
+    color: #000;
+    padding: 24px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Print header */
+  .boq-print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid #C20100;
+    padding-bottom: 14px;
+    margin-bottom: 20px;
+  }
+
+  .boq-print-title {
+    font-size: 22pt;
+    font-weight: 900;
+    margin: 0 0 4px;
+    color: #221f1f;
+  }
+
+  .boq-print-sub {
+    font-size: 13pt;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .boq-print-meta {
+    font-size: 10pt;
+    text-align: right;
+    color: #374151;
+    line-height: 1.7;
+  }
+
+  .boq-print-meta span {
+    font-weight: 700;
+    margin-right: 4px;
+  }
+
+  /* Measurements block */
+  .boq-print-measurements {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+  }
+
+  .boq-print-meas-col {
+    flex: 1;
+  }
+
+  .boq-print-meas-col strong {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .boq-print-sqm {
+    font-size: 16pt;
+    font-weight: 900;
+    color: #221f1f;
+    margin-bottom: 4px;
+  }
+
+  .boq-print-meas-col p {
+    font-size: 9pt;
+    color: #374151;
+    margin: 0;
+  }
+
+  /* BOQ sections */
+  .boq-print-section {
+    margin-bottom: 24px;
+    page-break-inside: avoid;
+  }
+
+  .boq-print-section-title {
+    font-size: 11pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #221f1f;
+    border-bottom: 2px solid #221f1f;
+    padding-bottom: 6px;
+    margin: 0 0 10px;
+  }
+
+  /* Print table */
+  .boq-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+
+  .boq-print-table thead tr {
+    background: #221f1f;
+  }
+
+  .boq-print-table thead th {
+    color: #fff;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    letter-spacing: 0.05em;
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .boq-print-table thead th:nth-child(3),
+  .boq-print-table thead th:nth-child(4),
+  .boq-print-table thead th:nth-child(5),
+  .boq-print-table thead th:nth-child(6) {
+    text-align: right;
+  }
+
+  .boq-print-table tbody tr {
+    border-bottom: 0.5pt solid #e5e7eb;
+  }
+
+  .boq-print-table tbody tr:nth-child(even) {
+    background: #fafafa;
+  }
+
+  .boq-print-table tbody td {
+    padding: 7px 10px;
+    font-size: 10pt;
+    color: #111;
+  }
+
+  .boq-print-table tfoot tr {
+    background: #221f1f;
+    border-top: 2pt solid #C20100;
+  }
+
+  .boq-print-table tfoot td {
+    color: #fff !important;
+    font-weight: 700;
+    font-size: 11pt;
+    padding: 9px 10px;
+  }
+
+  /* Footer */
+  .boq-print-footer {
+    margin-top: 32px;
+    border-top: 0.5pt solid #d1d5db;
+    padding-top: 8px;
+    font-size: 8pt;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 landscape;
+    margin: 15mm 12mm;
+  }
+}
