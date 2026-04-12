@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './Reports.css';
+import './css/Reports.css';
 
 import { EndingInventory, LowStock, StockMovement, ExportAllInventoryReports } from './InventoryReports.jsx';
 import { ProjectStatus, MaterialRequests }                                       from './ProjectReports.jsx';

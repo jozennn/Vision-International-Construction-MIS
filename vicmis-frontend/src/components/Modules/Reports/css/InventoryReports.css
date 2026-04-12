@@ -1,0 +1,77 @@
+/* ═══════════════════════════════════════════════════════════
+   VICMIS — InventoryReports.css
+   Scoped to inventory sub-report components only.
+   Shared/base styles live in Reports.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Origin tags (International / Local) ─────────────────── */
+.rpt-origin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: .03em;
+}
+
+.rpt-origin-tag.rpt-intl {
+  background: rgba(99,102,241,.1);
+  color: #4338ca;
+  border: 1px solid rgba(99,102,241,.25);
+}
+
+.rpt-origin-tag.rpt-local {
+  background: rgba(73,123,151,.1);
+  color: var(--vision-blue);
+  border: 1px solid rgba(73,123,151,.25);
+}
+
+/* ── Stock value color helpers ────────────────────────────── */
+.inv-val-danger { color: #991b1b; font-weight: 700; }
+.inv-val-warn   { color: #92400e; font-weight: 700; }
+.inv-val-ok     { color: #065f46; font-weight: 700; }
+
+/* ── Net movement cell ────────────────────────────────────── */
+.inv-net-positive { color: #065f46; font-weight: 800; }
+.inv-net-negative { color: #991b1b; font-weight: 800; }
+
+/* ── Stock movement empty period message ──────────────────── */
+.inv-empty-period {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-light);
+  font-size: 0.82rem;
+}
+
+/* ── Shipment status overrides ────────────────────────────── */
+.inv-shipment-arrived  { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.inv-shipment-transit  { background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
+.inv-shipment-waiting  { background: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
+
+/* ── Delivery type pills ──────────────────────────────────── */
+.inv-type-consumable {
+  background: #FFFBEB;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.inv-type-main {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* ── Low-stock row highlight ──────────────────────────────── */
+.rpt-table tbody tr.inv-row-nostock td { background: #fff5f5 !important; }
+.rpt-table tbody tr.inv-row-low    td  { background: #fffdf0 !important; }

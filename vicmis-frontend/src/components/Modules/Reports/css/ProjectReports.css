@@ -1,0 +1,82 @@
+/* ═══════════════════════════════════════════════════════════
+   VICMIS — ProjectReports.css
+   Scoped to project sub-report components only.
+   Shared/base styles live in Reports.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Project type badge ───────────────────────────────────── */
+.proj-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--r-sm);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  background: rgba(99,102,241,.08);
+  color: #4338ca;
+  border: 1px solid rgba(99,102,241,.2);
+}
+
+/* ── Status pill variants for projects ────────────────────── */
+.proj-status-ongoing    { background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
+.proj-status-completed  { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.proj-status-onhold     { background: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
+.proj-status-cancelled  { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+/* ── Material request urgency indicator ───────────────────── */
+.proj-mat-pending {
+  background: #FFFBEB;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.proj-mat-approved {
+  background: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* ── Summary count highlight ──────────────────────────────── */
+.proj-count-large {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--vision-black);
+  line-height: 1;
+}
+
+/* ── By-status breakdown row ──────────────────────────────── */
+.proj-status-breakdown {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0.6rem 1.5rem;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+}
+
+.proj-status-breakdown-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.proj-status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

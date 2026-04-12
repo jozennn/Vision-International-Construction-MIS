@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/api/axios';
-import './Reports.css';
+import './css/InventoryReports.css';
 
 const fmt         = (n) => new Intl.NumberFormat('en-PH').format(n ?? 0);
 const fmtDate     = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';

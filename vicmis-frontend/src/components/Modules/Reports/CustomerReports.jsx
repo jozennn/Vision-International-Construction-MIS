@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import './Reports.css';
+import './css/CustomerReports.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';

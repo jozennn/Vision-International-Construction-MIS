@@ -1,0 +1,93 @@
+/* ═══════════════════════════════════════════════════════════
+   VICMIS — CustomerReports.css
+   Scoped to customer/lead sub-report components only.
+   Shared/base styles live in Reports.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Pipeline stage colors ────────────────────────────────── */
+.cust-stage-contacted    { color: #2563eb; font-weight: 700; }
+.cust-stage-presentation { color: #d97706; font-weight: 700; }
+.cust-stage-ready        { color: #059669; font-weight: 700; }
+.cust-stage-created      { color: #7c3aed; font-weight: 700; }
+.cust-stage-new          { color: #64748b; font-weight: 700; }
+
+/* ── Pipeline funnel mini-bar ─────────────────────────────── */
+.cust-pipeline-bar {
+  display: flex;
+  gap: 2px;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.cust-pipeline-bar-seg {
+  flex: 1;
+  height: 100%;
+  border-radius: 999px;
+  transition: flex .3s;
+}
+
+/* ── Win rate highlight ───────────────────────────────────── */
+.cust-win-rate {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #B45309;
+  line-height: 1;
+}
+.cust-win-rate-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-top: 4px;
+}
+
+/* ── Trashed row treatment ────────────────────────────────── */
+.rpt-table tbody tr.cust-row-trashed td {
+  opacity: 0.55;
+  text-decoration: line-through;
+  text-decoration-color: rgba(153,27,27,.3);
+}
+
+/* ── Converted badge ──────────────────────────────────────── */
+.cust-converted-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  background: rgba(124,58,237,.08);
+  color: #5b21b6;
+  border: 1px solid rgba(124,58,237,.2);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Stage badge pill ─────────────────────────────────────── */
+.cust-stage-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Contact number cell ──────────────────────────────────── */
+.cust-contact {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Lead ID cell ─────────────────────────────────────────── */
+.cust-lead-id {
+  font-size: 0.72rem;
+  color: var(--text-light);
+  font-weight: 600;
+}
