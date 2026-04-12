@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './Reports.css';
 
-// ── Import report components from their dedicated files ───────────────────────
-import { EndingInventory, LowStock, StockMovement }           from './InventoryReports.jsx';
-import { ProjectStatus, MaterialRequests }                     from './ProjectReports.jsx';
-import { LeadConversion, ConvertedProjects, CustomerActivity } from './CustomerReports.jsx';
+import { EndingInventory, LowStock, StockMovement, ExportAllInventoryReports } from './InventoryReports.jsx';
+import { ProjectStatus, MaterialRequests }                                       from './ProjectReports.jsx';
+import { LeadConversion, ConvertedProjects, CustomerActivity }                   from './CustomerReports.jsx';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION CONFIG — maps sidebar sub-items to tab groups and components
-// ═══════════════════════════════════════════════════════════════════════════════
 const SECTIONS = {
   'inventory-reports': {
     label: 'Inventory Reports', icon: '📦', color: '#497B97',
@@ -35,14 +31,11 @@ const SECTIONS = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN REPORTS SHELL
-// ═══════════════════════════════════════════════════════════════════════════════
 const Reports = ({ user, activeSubItem }) => {
-  const currentSection = SECTIONS[activeSubItem] || SECTIONS['inventory-reports'];
+  const currentSection  = SECTIONS[activeSubItem] || SECTIONS['inventory-reports'];
   const [activeReport, setActiveReport] = useState(currentSection.reports[0].id);
+  const isInventory = (activeSubItem || 'inventory-reports') === 'inventory-reports';
 
-  // Reset active tab whenever the section changes
   useEffect(() => {
     const sec = SECTIONS[activeSubItem] || SECTIONS['inventory-reports'];
     setActiveReport(sec.reports[0].id);
@@ -54,7 +47,7 @@ const Reports = ({ user, activeSubItem }) => {
   return (
     <div className="rpt-wrapper">
 
-      {/* ── Page Header ── */}
+      {/* Page Header */}
       <div className="rpt-page-header">
         <div className="rpt-page-header-left">
           <div className="rpt-page-icon" style={{ background: `${currentSection.color}22` }}>
@@ -66,17 +59,16 @@ const Reports = ({ user, activeSubItem }) => {
           </div>
         </div>
         <div className="rpt-page-right">
-          <div className="rpt-live-pill">
-            <span className="rpt-live-dot" />
-            Reports
-          </div>
+          {/* Export All button — only shown on Inventory Reports section */}
+          {isInventory && <ExportAllInventoryReports />}
+          <div className="rpt-live-pill"><span className="rpt-live-dot" />Reports</div>
           <span className="rpt-page-date">
             {new Date().toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
           </span>
         </div>
       </div>
 
-      {/* ── Report Tabs ── */}
+      {/* Tabs */}
       <div className="rpt-tabs-bar">
         {currentSection.reports.map(r => (
           <button
@@ -86,14 +78,12 @@ const Reports = ({ user, activeSubItem }) => {
             onClick={() => setActiveReport(r.id)}
           >
             {r.label}
-            {activeReport === r.id && (
-              <span className="rpt-tab-indicator" style={{ background: currentSection.color }} />
-            )}
+            {activeReport === r.id && <span className="rpt-tab-indicator" style={{ background: currentSection.color }} />}
           </button>
         ))}
       </div>
 
-      {/* ── Active Report ── */}
+      {/* Active Report */}
       <div className="rpt-content-area">
         <ReportComponent user={user} />
       </div>
