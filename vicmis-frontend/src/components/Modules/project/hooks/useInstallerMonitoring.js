@@ -114,6 +114,11 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     const autoSaveTimer = useRef(null);
     const isFirstLoad   = useRef(true);
 
+    // ── Dirty flag — true only when user actually edits the current date ──
+    // Prevents auto-save from firing just because we seeded a prefilled log
+    // when the user switched to a new date without typing anything.
+    const isDirty = useRef(false);
+
     // ── Fetch all saved logs ──────────────────────────────────────────────
     const fetchLogs = useCallback(async () => {
         if (!projectId) return;
@@ -153,21 +158,49 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         });
     }, [roster.length]);
 
-    // ── Current log ───────────────────────────────────────────────────────
-    // Priority:
-    //   1. Already-saved log for this date (from logsByDate)
-    //   2. Pre-filled from the most recent saved log (so engineers don't
-    //      re-type clientStart, clientEnd, totalArea, installers every day)
-    //   3. Fully blank if no logs exist yet
-    const currentLog = logsByDate[selectedDate] ?? (() => {
+    // ── Seed logsByDate when switching to an unsaved date ────────────────
+    // This is MEMORY ONLY — no API call here.
+    // It pre-fills fields from the most recent saved log so the user doesn't
+    // have to re-type clientStart, clientEnd, totalArea, and installer rows
+    // every single day.
+    // The dirty flag is intentionally NOT set here — auto-save will only
+    // fire once the user actually edits a field.
+    useEffect(() => {
+        // Already have a saved or previously seeded entry for this date — skip
+        if (logsByDate[selectedDate]) return;
+
         const latest = getLatestLog(logsByDate);
-        return latest
+        const seeded = latest
             ? buildPrefillLog(latest, selectedDate, roster)
             : buildBlankLog(roster, selectedDate);
-    })();
 
-    const setCurrentLog = (updated) =>
+        setLogsByDate(prev => {
+            // Guard: another render may have already set it
+            if (prev[selectedDate]) return prev;
+            return { ...prev, [selectedDate]: seeded };
+        });
+    }, [selectedDate, logsByDate, roster]);
+
+    // ── Reset dirty flag whenever the selected date changes ──────────────
+    // This ensures switching dates doesn't carry over the dirty state from
+    // a previous date's edits.
+    useEffect(() => {
+        isDirty.current = false;
+    }, [selectedDate]);
+
+    // ── Current log ───────────────────────────────────────────────────────
+    // Always read from logsByDate (seeded by the effect above if new date).
+    // Fallback to blank only as a safety net during the brief render cycle
+    // before the seed effect fires.
+    const currentLog = logsByDate[selectedDate] ?? buildBlankLog(roster, selectedDate);
+
+    // ── setCurrentLog marks the log as dirty ─────────────────────────────
+    // Any field edit (including row changes) goes through here, which sets
+    // isDirty = true and allows auto-save to proceed.
+    const setCurrentLog = (updated) => {
+        isDirty.current = true;
         setLogsByDate(prev => ({ ...prev, [selectedDate]: updated }));
+    };
 
     // ── Row helpers ───────────────────────────────────────────────────────
     const addRow = () =>
@@ -207,9 +240,13 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     }, []);
 
     // ── Debounced auto-save (1.5 s after last change) ─────────────────────
+    // Only fires when isDirty is true — i.e. the user actually typed or
+    // changed something on this date. Switching dates alone does NOT trigger
+    // this even though logsByDate changes (because isDirty gets reset above).
     useEffect(() => {
         if (isFirstLoad.current) return;
         if (!projectId) return;
+        if (!isDirty.current) return; // ← KEY GUARD: skip if nothing was edited
 
         if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
@@ -222,7 +259,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                     { headers: { 'Content-Type': 'multipart/form-data' } }
                 );
 
-                // Upsert allLogs in-memory
+                // Upsert allLogs in-memory so history list stays accurate
                 setAllLogs(prev => {
                     const existingIdx = prev.findIndex(l => l.log_date === currentLog.date);
                     const updated     = mapLocalToServerShape(
@@ -236,6 +273,10 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                     }
                     return [...prev, updated];
                 });
+
+                // Reset dirty after a successful auto-save so we don't
+                // re-fire the save unless the user edits again.
+                isDirty.current = false;
 
                 setSaveStatus('saved');
                 setTimeout(() => setSaveStatus(null), 3000);
@@ -265,6 +306,9 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                 fd,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
+
+            // Reset dirty after manual save too
+            isDirty.current = false;
 
             await fetchLogs();
             setSaveStatus('saved');
