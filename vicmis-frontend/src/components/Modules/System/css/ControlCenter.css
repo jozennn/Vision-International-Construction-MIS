@@ -290,7 +290,6 @@
   .vcc-card-icon-wrap { width: 40px; height: 40px; }
   .vcc-card-title  { font-size: 0.88rem; }
 }
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
 /* ── Root & Base ─────────────────────────────── */
 .vcc-root { font-family: 'DM Sans', sans-serif; color: #221F1F; min-height: 100%; background: #f8f9fb; padding: 0; }

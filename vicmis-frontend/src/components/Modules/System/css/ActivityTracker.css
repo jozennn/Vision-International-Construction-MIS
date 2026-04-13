@@ -109,8 +109,6 @@
   .at-timeline-desc { font-size: 0.8rem; }
 }
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
-
 /* ── FILTER BAR ──────────────────────────────── */
 .at-filter-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
 .at-search-wrap { position: relative; flex: 1; min-width: 200px; }
