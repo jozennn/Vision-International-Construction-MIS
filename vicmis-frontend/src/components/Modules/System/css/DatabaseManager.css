@@ -297,10 +297,10 @@
   .db-stat-val { font-size: 1.2rem; }
 
   /* ───────────────────────────────────────────────────────────
-     TABLE STACKING RESPONSIVENESS (Copied from ActivityTracker)
+     CRITICAL FIX: CARD STACKING WITH STRICT FLEX BOUNDS
      ─────────────────────────────────────────────────────────── */
   
-  /* Convert the table into block layout */
+  /* Convert the table entirely into a block layout */
   .db-table, .db-table tbody { 
     display: block; 
     width: 100%; 
@@ -315,12 +315,13 @@
   .db-table tr {
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Breathing room between data pieces */
+    gap: 8px;
     padding: 16px 0;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid #e8eaed;
+    min-width: 0; /* MAGIC BULLET: Forces flex container to allow shrinking below content size */
   }
 
-  /* Ensure cells stack vertically and break long text */
+  /* Ensure cells stack vertically */
   .db-table td {
     display: flex;
     flex-direction: column;
@@ -328,14 +329,17 @@
     padding: 0;
     border: none;
     width: 100%;
+    min-width: 0; /* MAGIC BULLET 2: Ensures the cell itself will shrink */
     box-sizing: border-box;
   }
 
   /* Force super-long .sql filenames to wrap onto the next line! */
   .db-td-mono {
+    width: 100%;
+    min-width: 0; /* Must apply here too */
+    white-space: normal;
     word-break: break-all;
     overflow-wrap: break-word;
-    white-space: normal;
   }
 
   /* Actions row spacing */
