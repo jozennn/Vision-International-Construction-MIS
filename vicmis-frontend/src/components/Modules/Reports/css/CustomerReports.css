@@ -91,3 +91,47 @@
   color: var(--text-light);
   font-weight: 600;
 }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  .cust-win-rate { font-size: 1.4rem; }
+}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
+  /* Shrink win-rate display to fit tighter cards */
+  .cust-win-rate       { font-size: 1.25rem; }
+  .cust-win-rate-label { font-size: 0.6rem; }
+
+  /* Give pipeline bar a bit more breathing room */
+  .cust-pipeline-bar { margin-top: 8px; height: 6px; }
+
+  /* Slightly larger tap target for stage pills */
+  .cust-stage-pill {
+    font-size: 0.68rem;
+    padding: 4px 10px;
+  }
+
+  /* Contact number: bump up slightly for readability */
+  .cust-contact { font-size: 0.78rem; }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  .cust-win-rate { font-size: 1.1rem; }
+
+  /* Converted tag and stage pill: easier to tap */
+  .cust-converted-tag,
+  .cust-stage-pill {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+  }
+
+  /* Lead ID is secondary info — keep it small but readable */
+  .cust-lead-id { font-size: 0.7rem; }
+
+  /* Pipeline bar taller on small screens for visibility */
+  .cust-pipeline-bar { height: 7px; }
+}
