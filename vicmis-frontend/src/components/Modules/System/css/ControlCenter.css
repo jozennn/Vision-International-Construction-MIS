@@ -255,12 +255,38 @@
 .vcc-empty p { font-size: 0.9rem; }
 
 /* ── RESPONSIVE ──────────────────────────────── */
+@media (max-width: 1024px) {
+  .vcc-module-grid  { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; padding: 24px 24px; }
+  .vcc-hero         { padding: 36px 24px 32px; }
+  .vcc-hero-emblem  { font-size: 5rem; right: 24px; }
+  .vcc-status-bar   { padding: 10px 24px; }
+  .vcc-footer-note  { padding: 0 24px 24px; }
+}
+
 @media (max-width: 768px) {
   .vcc-hero           { padding: 28px 20px; }
   .vcc-hero-title     { font-size: 1.7rem; }
   .vcc-hero-emblem    { display: none; }
-  .vcc-module-grid    { padding: 20px 16px; }
-  .vcc-status-bar     { padding: 10px 16px; }
+  .vcc-module-grid    { padding: 20px 16px; gap: 12px; }
+  .vcc-status-bar     { padding: 10px 16px; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .vcc-status-divider { display: none; }
   .vcc-module         { padding: 16px; }
   .vcc-module-header  { flex-direction: column; }
+  .vcc-footer-note    { padding: 0 16px 20px; }
+
+  /* Buttons go full-width in stacked module headers */
+  .vcc-module-header .vcc-btn-primary,
+  .vcc-module-header .vcc-btn-ghost { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .vcc-hero-title  { font-size: 1.4rem; }
+  .vcc-hero-sub    { font-size: 0.85rem; }
+  .vcc-hero-badge  { font-size: 0.68rem; }
+
+  /* Cards stack full-width and reduce padding */
+  .vcc-module-grid { grid-template-columns: 1fr; padding: 12px; }
+  .vcc-card        { padding: 16px 14px; }
+  .vcc-card-icon-wrap { width: 40px; height: 40px; }
+  .vcc-card-title  { font-size: 0.88rem; }
 }

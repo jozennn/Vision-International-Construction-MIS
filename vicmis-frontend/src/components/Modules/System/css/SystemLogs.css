@@ -96,3 +96,44 @@
   user-select: none; min-width: 36px;
 }
 .sl-term-empty { padding: 16px 8px; }
+
+/* ── RESPONSIVE ──────────────────────────────── */
+
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  .sl-log-stat-btn { padding: 10px 16px; min-width: 80px; }
+  .sl-stat-count   { font-size: 1.25rem; }
+}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
+  /* Stats bar wraps into a 2×N grid for compactness */
+  .sl-log-stats { gap: 8px; }
+  .sl-log-stat-btn { flex: 1 1 calc(50% - 4px); min-width: 0; padding: 10px 12px; }
+  .sl-stat-count   { font-size: 1.1rem; }
+  .sl-stat-label   { font-size: 0.68rem; }
+
+  /* Terminal: reduce height on mobile so it doesn't eat the whole screen */
+  .sl-terminal-body { height: 45vh; font-size: 0.75rem; padding: 12px; }
+
+  /* Log lines: tighten gap and allow word wrap */
+  .sl-log-line { gap: 8px; padding: 3px 0 3px 6px; }
+  .sl-log-num  { min-width: 28px; font-size: 0.72rem; }
+
+  /* Search input */
+  .sl-search-input { font-size: 0.82rem; }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  /* Stats become a single row of small pills */
+  .sl-log-stat-btn { flex: 1 1 calc(50% - 4px); padding: 8px 10px; }
+  .sl-stat-count   { font-size: 1rem; }
+
+  /* Terminal bar dots shrink slightly */
+  .sl-term-dot  { width: 10px; height: 10px; }
+  .sl-term-title { font-size: 0.72rem; }
+
+  /* Terminal body reduced further to avoid overflow */
+  .sl-terminal-body { height: 38vh; font-size: 0.72rem; }
+}

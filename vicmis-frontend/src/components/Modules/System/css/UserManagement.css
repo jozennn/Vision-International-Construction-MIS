@@ -182,7 +182,54 @@
 .um-pass-toggle:hover { color: #475569; }
 
 /* ── RESPONSIVE ──────────────────────────────── */
+
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  .um-table { font-size: 0.83rem; }
+  .um-table th,
+  .um-table td { padding: 10px 12px; }
+  .um-modal { max-width: 480px; }
+}
+
+/* Mobile (≤768px) */
 @media (max-width: 768px) {
-  .um-modal { max-width: 100%; }
+  .um-modal     { max-width: 100%; }
   .um-field.half { min-width: 100%; }
+
+  /* Table needs horizontal scroll on small screens */
+  .um-table { min-width: 520px; font-size: 0.8rem; }
+  .um-table th,
+  .um-table td { padding: 9px 10px; }
+
+  /* Action buttons stay side by side but reduce padding */
+  .um-btn-edit,
+  .um-btn-delete { padding: 5px 10px; font-size: 0.75rem; }
+
+  /* Dept card label padding */
+  .um-dept-label { padding: 12px 16px; }
+
+  /* Form padding reduction */
+  .um-form { padding: 16px; }
+  .um-form-row { flex-direction: column; }
+  .um-modal-head { padding: 16px 20px; }
+  .um-modal-foot { padding-top: 12px; flex-direction: column-reverse; }
+  .um-modal-foot > * { width: 100%; justify-content: center; }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  .um-table th,
+  .um-table td { padding: 8px; }
+
+  /* Role badge: smaller on very tight rows */
+  .um-role-badge { font-size: 0.68rem; padding: 2px 8px; }
+
+  /* Name + email stack readable */
+  .um-td-name  { font-size: 0.82rem; }
+  .um-td-email { font-size: 0.78rem; }
+
+  .um-modal-head h3 { font-size: 1rem; }
+
+  /* Dept count badge stays readable */
+  .um-dept-count { font-size: 0.7rem; }
 }

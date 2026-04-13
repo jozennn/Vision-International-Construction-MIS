@@ -273,3 +273,61 @@
   padding: 9px 0; font-size: 0.875rem; color: #475569;
 }
 .db-toggle-field { justify-content: flex-end; }
+
+/* ── RESPONSIVE ──────────────────────────────── */
+
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  .db-info-bar { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; padding: 14px 16px; }
+  .db-field.half { min-width: 140px; }
+  .db-schedule-card { padding: 14px 16px; }
+}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
+  /* Tab nav: smaller text, allow horizontal scroll already enabled */
+  .db-tab { padding: 8px 14px; font-size: 0.82rem; }
+
+  /* Quick actions wrap and go full-width */
+  .db-quick-actions { flex-direction: column; }
+  .db-quick-actions > * { width: 100%; justify-content: center; }
+
+  /* Info bar becomes 2-column grid */
+  .db-info-bar { grid-template-columns: repeat(2, 1fr); }
+  .db-stat-val { font-size: 1.2rem; }
+
+  /* Table: allow horizontal scroll (already on .db-table-wrap if present) */
+  .db-table { font-size: 0.82rem; min-width: 480px; }
+  .db-table th,
+  .db-table td { padding: 9px 10px; }
+
+  /* Import card */
+  .db-import-card { padding: 16px; }
+  .db-file-drop   { padding: 24px 16px; }
+
+  /* Form rows stack vertically */
+  .db-form-row  { flex-direction: column; }
+  .db-field.half { min-width: 0; width: 100%; }
+
+  /* Schedule cards: stack content vertically */
+  .db-schedule-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .db-schedule-card-right { width: 100%; justify-content: flex-end; }
+
+  /* Form footer buttons go full-width */
+  .db-form-foot { flex-direction: column; }
+  .db-form-foot > * { width: 100%; justify-content: center; }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  /* Info bar becomes single column */
+  .db-info-bar { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+
+  .db-import-warning { flex-direction: column; gap: 8px; }
+  .db-warn-icon      { font-size: 1.2rem; }
+
+  .db-schedule-form { padding: 14px; }
+  .db-cron { font-size: 0.72rem; }
+
+  .db-btn-restore { font-size: 0.85rem; padding: 10px 16px; }
+}
