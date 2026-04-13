@@ -145,14 +145,21 @@ const Project = ({ user, projects, setProjects }) => {
   // ── Render document link helper ───────────────────────────────────────────
   const renderDocumentLink = (label, filePath) => {
     if (!filePath) return null;
+
+    const base = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') ?? '';
+    const fullUrl = filePath.startsWith('http')
+      ? filePath
+      : `${base}/storage/${filePath}`;
+
     return (
       <div className="pm-doc-link no-print">
         <span className="pm-doc-label">📄 {label}</span>
         <a
-          href={`/storage/${filePath}`}
+          href={fullUrl}
           target="_blank"
           rel="noreferrer"
           className="pm-doc-btn"
+          onClick={e => e.stopPropagation()}
         >
           View Document
         </a>
