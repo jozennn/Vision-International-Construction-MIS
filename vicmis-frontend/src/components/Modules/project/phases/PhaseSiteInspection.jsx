@@ -335,9 +335,6 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
 
         {/* Letterhead */}
         <div className="si-letterhead">
-          <div className="si-letterhead-logo">
-            <div className="si-logo-circle"><span>V</span></div>
-          </div>
           <div className="si-letterhead-text">
             <h1 className="si-company-name">VISION INTERNATIONAL CONSTRUCTION OPC</h1>
             <p className="si-company-tagline"><em>Your Vision, We Build!</em></p>
