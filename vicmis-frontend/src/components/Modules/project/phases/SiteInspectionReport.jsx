@@ -28,7 +28,7 @@ const SiteInspectionReport = ({ project, user }) => {
         selectedDate,
         setSelectedDate,
         currentReport,
-        allLogs,
+        availableDates,  // 👈 ADDED THIS
         loading,
         saving,
         saveStatus,
@@ -41,7 +41,6 @@ const SiteInspectionReport = ({ project, user }) => {
     } = useSiteInspectionReport(project?.id, project?.location, user?.id, project);
 
     const [photoFile, setPhotoFile] = useState(null);
-    const [showHistory, setShowHistory] = useState(false);
     const photoRef = useRef();
 
     const projectName = project?.project_name ?? '';
@@ -57,7 +56,7 @@ const SiteInspectionReport = ({ project, user }) => {
         month: 'short', day: 'numeric', year: 'numeric',
     });
 
-    const logExists = allLogs.some(l => l.inspection_date === selectedDate);
+    const hasExistingReport = availableDates.includes(selectedDate); // 👈 Check if report exists
 
     const handleSave = async () => {
         try {
@@ -72,12 +71,10 @@ const SiteInspectionReport = ({ project, user }) => {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Site Inspection Report');
         
-        // Brand Colors
         const NAVY = 'FF1A365D';
         const GOLD = 'FFD69E2E';
         const LGREEN = 'FFC6F6D5';
         const LRED = 'FFFED7D7';
-        const LBLUE = 'FFDBEAFE';
         const LGRAY = 'FFF3F4F6';
         const WHITE = 'FFFFFFFF';
         const DARK = 'FF1F2937';
@@ -95,14 +92,11 @@ const SiteInspectionReport = ({ project, user }) => {
         const bold = (sz = 11) => ({ bold: true, name: 'Calibri', size: sz });
         const norm = (sz = 10) => ({ bold: false, name: 'Calibri', size: sz });
         
-        ws.columns = [
-            { width: 28 },
-            { width: 55 },
-        ];
+        ws.columns = [{ width: 28 }, { width: 55 }];
         
         let r = 1;
         
-        // ── Header with Company Branding ───────────────────────────────────
+        // Header
         ws.mergeCells(`A${r}:B${r}`);
         const headerCell = ws.getCell(`A${r}`);
         headerCell.value = 'VISION INTERNATIONAL CONSTRUCTION OPC';
@@ -121,10 +115,9 @@ const SiteInspectionReport = ({ project, user }) => {
         subtitleCell.alignment = ctr;
         subtitleCell.border = allB;
         ws.getRow(r).height = 25;
-        r++;
-        r++;
+        r += 2;
         
-        // ── Project Information Section ────────────────────────────────────
+        // Project Info
         const infoRows = [
             ['Project Name:', projectName],
             ['Location:', location],
@@ -153,7 +146,7 @@ const SiteInspectionReport = ({ project, user }) => {
         });
         r++;
         
-        // ── Personnel Section ──────────────────────────────────────────────
+        // Personnel
         ws.getCell(`A${r}`).value = 'Prepared By:';
         ws.getCell(`A${r}`).font = bold(11);
         ws.getCell(`A${r}`).fill = fill(LGRAY);
@@ -178,10 +171,9 @@ const SiteInspectionReport = ({ project, user }) => {
         ws.getCell(`B${r}`).alignment = lft;
         ws.getCell(`B${r}`).border = allB;
         ws.getRow(r).height = 22;
-        r++;
-        r++;
+        r += 2;
         
-        // ── Observation Section ────────────────────────────────────────────
+        // Observation
         ws.mergeCells(`A${r}:B${r}`);
         const obsHeader = ws.getCell(`A${r}`);
         obsHeader.value = '📋 SITE OBSERVATION';
@@ -202,7 +194,7 @@ const SiteInspectionReport = ({ project, user }) => {
         r += 6;
         r++;
         
-        // ── Problems & Solutions Section ───────────────────────────────────
+        // Problems & Solutions
         if (currentReport.problems.length > 0) {
             ws.mergeCells(`A${r}:B${r}`);
             const psHeader = ws.getCell(`A${r}`);
@@ -215,10 +207,9 @@ const SiteInspectionReport = ({ project, user }) => {
             r++;
             
             currentReport.problems.forEach((p, idx) => {
-                // Problem row
                 ws.getCell(`A${r}`).value = `Problem ${idx + 1}:`;
                 ws.getCell(`A${r}`).font = bold(10);
-                ws.getCell(`A${r}`).fill = fill(LBLUE);
+                ws.getCell(`A${r}`).fill = fill('FFDBEAFE');
                 ws.getCell(`A${r}`).alignment = lft;
                 ws.getCell(`A${r}`).border = allB;
                 
@@ -229,7 +220,6 @@ const SiteInspectionReport = ({ project, user }) => {
                 ws.getRow(r).height = 20;
                 r++;
                 
-                // Solution row
                 ws.getCell(`A${r}`).value = `Solution ${idx + 1}:`;
                 ws.getCell(`A${r}`).font = bold(10);
                 ws.getCell(`A${r}`).fill = fill(LGREEN);
@@ -243,7 +233,6 @@ const SiteInspectionReport = ({ project, user }) => {
                 ws.getRow(r).height = 20;
                 r++;
                 
-                // Spacer
                 if (idx < currentReport.problems.length - 1) {
                     ws.getRow(r).height = 8;
                     r++;
@@ -262,7 +251,7 @@ const SiteInspectionReport = ({ project, user }) => {
         }
         r++;
         
-        // ── Signatures Section ─────────────────────────────────────────────
+        // Signatures
         ws.mergeCells(`A${r}:B${r}`);
         const sigHeader = ws.getCell(`A${r}`);
         sigHeader.value = 'SIGNATURES';
@@ -273,7 +262,6 @@ const SiteInspectionReport = ({ project, user }) => {
         ws.getRow(r).height = 22;
         r++;
         
-        // Prepared By signature line
         ws.getCell(`A${r}`).value = 'Prepared By:';
         ws.getCell(`A${r}`).font = norm(10);
         ws.getCell(`A${r}`).alignment = lft;
@@ -293,10 +281,8 @@ const SiteInspectionReport = ({ project, user }) => {
         ws.getCell(`B${r}`).alignment = ctr;
         ws.getCell(`B${r}`).border = allB;
         ws.getRow(r).height = 18;
-        r++;
-        r++;
+        r += 2;
         
-        // Checked By signature line
         ws.getCell(`A${r}`).value = 'Checked By:';
         ws.getCell(`A${r}`).font = norm(10);
         ws.getCell(`A${r}`).alignment = lft;
@@ -316,10 +302,9 @@ const SiteInspectionReport = ({ project, user }) => {
         ws.getCell(`B${r}`).alignment = ctr;
         ws.getCell(`B${r}`).border = allB;
         ws.getRow(r).height = 18;
-        r++;
-        r++;
+        r += 2;
         
-        // ── Footer ─────────────────────────────────────────────────────────
+        // Footer
         ws.mergeCells(`A${r}:B${r}`);
         const footerCell = ws.getCell(`A${r}`);
         footerCell.value = `Generated on ${new Date().toLocaleDateString('en-US', { 
@@ -365,8 +350,8 @@ const SiteInspectionReport = ({ project, user }) => {
                             className="pm-input"
                             style={{ width: '180px' }}
                         />
-                        <span className={`cc-date-status ${logExists ? 'exists' : 'new'}`}>
-                            {logExists ? '✅ Report exists' : '🆕 New report'}
+                        <span className={`cc-date-status ${hasExistingReport ? 'exists' : 'new'}`}>
+                            {hasExistingReport ? '✅ Report exists' : '🆕 New report'}
                         </span>
                         <SaveIndicator status={saveStatus} />
                     </div>
@@ -375,6 +360,27 @@ const SiteInspectionReport = ({ project, user }) => {
                     Showing report for {currentDateLabel}
                 </div>
             </div>
+
+            {/* 👇 ADDED: Available Dates Chips */}
+            {availableDates.length > 0 && (
+                <div className="cc-available-dates">
+                    <span className="cc-dates-label">📋 Saved reports:</span>
+                    <div className="cc-dates-chips">
+                        {availableDates.map(date => (
+                            <button
+                                key={date}
+                                className={`cc-date-chip ${date === selectedDate ? 'active' : ''}`}
+                                onClick={() => setSelectedDate(date)}
+                            >
+                                {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                })}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Form Meta */}
             <div className="cc-insp-form-row">
@@ -488,44 +494,6 @@ const SiteInspectionReport = ({ project, user }) => {
                     />
                 </label>
             </div>
-
-            {/* History */}
-            {allLogs.length > 0 && (
-                <div className="cc-history-section">
-                    <div className="cc-history-header" onClick={() => setShowHistory(!showHistory)}>
-                        <div>
-                            <span className="cc-history-title">📋 Inspection History</span>
-                            <span className="cc-history-count">{allLogs.length}</span>
-                        </div>
-                        <span className="cc-history-toggle">{showHistory ? '▼' : '▶'}</span>
-                    </div>
-                    {showHistory && (
-                        <div className="cc-history-list">
-                            {allLogs.sort((a, b) => b.inspection_date.localeCompare(a.inspection_date)).map(log => (
-                                <div 
-                                    key={log.id} 
-                                    className={`cc-history-item ${log.inspection_date === selectedDate ? 'active' : ''}`}
-                                    onClick={() => setSelectedDate(log.inspection_date)}
-                                >
-                                    <div>
-                                        <div className="cc-history-date">
-                                            {new Date(log.inspection_date + 'T00:00:00').toLocaleDateString('en-US', {
-                                                month: 'short', day: 'numeric', year: 'numeric'
-                                            })}
-                                        </div>
-                                        <div className="cc-history-meta">
-                                            {log.inspector_name || '—'} · {log.materials_scope?.substring(0, 30) || 'No observation'}...
-                                        </div>
-                                    </div>
-                                    <span className="cc-history-badge">
-                                        {log.inspection_date === selectedDate ? 'Current' : 'View'}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* Actions */}
             <div className="cc-action-row">

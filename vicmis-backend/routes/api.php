@@ -142,6 +142,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
 
     // Site Inspection
     Route::post('/projects/{id}/site-inspection', [ProjectController::class, 'submitSiteInspection']);
+    Route::get('/projects/{id}/site-inspection-by-date', [ProjectController::class, 'getSiteInspectionByDate']);
 
     // Mobilization
     Route::post('/projects/{id}/mobilization/contract', [ProjectController::class, 'saveMobilizationContract']);

@@ -520,6 +520,56 @@
     margin: 0.5rem 0;
 }
 
+/* Available Dates Chips */
+.cc-available-dates {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem 1.25rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+}
+
+.cc-dates-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+.cc-dates-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cc-date-chip {
+    padding: 0.25rem 0.75rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.cc-date-chip:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.cc-date-chip.active {
+    background: #1e3a8a;
+    border-color: #1e3a8a;
+    color: white;
+}
+
 .cc-cell-input:focus { border-color: var(--cc-blue); }
 .cc-group-input { font-weight: 700; text-transform: uppercase; background: transparent; border: none; }
 .cc-group-input:focus { border-bottom: 2px solid var(--cc-red); }
