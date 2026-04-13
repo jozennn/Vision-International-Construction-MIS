@@ -35,16 +35,6 @@ const Header = ({ user }) => {
   const openProfileModal = () => setIsProfileModalOpen(true);
   const closeProfileModal = () => setIsProfileModalOpen(false);
 
-  // 👇 UPDATED: Filter out unfinished modules AND restrict 'Setting'
-  const hiddenModules = ['Documents', 'Human Resource', 'Accounting'];
-  
-  // If they are not the Super Admin, hide the Settings module from their passport!
-  if (user?.role !== 'super_admin') {
-    hiddenModules.push('Setting', 'Settings'); 
-  }
-
-  const activePermissions = user?.permissions?.filter(mod => !hiddenModules.includes(mod)) || [];
-
   return (
     <div className="header-wrapper">
       <header className="main-header">
@@ -101,41 +91,39 @@ const Header = ({ user }) => {
           <div className="profile-modal-content">
             <button className="profile-close-btn" onClick={closeProfileModal}>✕</button>
             
-            <div className="profile-modal-grid">
-              
-              {/* LEFT COLUMN: IDENTITY */}
-              <div className="profile-identity-section">
-                <div className="profile-avatar-large-wrapper">
-                  <div 
-                    className="profile-avatar-large"
-                    style={{ 
-                      backgroundImage: profilePhoto ? `url(${profilePhoto})` : 'none',
-                    }}
-                  >
-                    {!profilePhoto && (user?.name?.charAt(0).toUpperCase() || 'U')}
-                    
-                    {/* CAMERA OVERLAY FOR UPLOAD */}
-                    <div className="avatar-upload-overlay" onClick={() => fileInputRef.current.click()}>
-                      <span>📷</span>
-                      <small>Change Photo</small>
-                    </div>
+            <div className="profile-identity-section">
+              <div className="profile-avatar-large-wrapper">
+                <div 
+                  className="profile-avatar-large"
+                  style={{ 
+                    backgroundImage: profilePhoto ? `url(${profilePhoto})` : 'none',
+                  }}
+                >
+                  {!profilePhoto && (user?.name?.charAt(0).toUpperCase() || 'U')}
+                  
+                  {/* CAMERA OVERLAY FOR UPLOAD */}
+                  <div className="avatar-upload-overlay" onClick={() => fileInputRef.current.click()}>
+                    <span>📷</span>
+                    <small>Change Photo</small>
                   </div>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handlePhotoChange} 
-                    accept="image/*" 
-                    style={{ display: 'none' }} 
-                  />
                 </div>
-                <h2 className="profile-name">{user?.name || 'Staff User'}</h2>
-                <p className="profile-email">{user?.email || 'No email provided'}</p>
-                <div className="profile-badges">
-                  <span className="profile-badge dept">{user?.department || 'Unassigned'}</span>
-                  <span className="profile-badge role">{user?.role ? user.role.replace('_', ' ').toUpperCase() : 'N/A'}</span>
-                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handlePhotoChange} 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                />
+              </div>
+
+              <h2 className="profile-name">{user?.name || 'Staff User'}</h2>
+              <p className="profile-email">{user?.email || 'No email provided'}</p>
+              <div className="profile-badges">
+                <span className="profile-badge dept">{user?.department || 'Unassigned'}</span>
+                <span className="profile-badge role">{user?.role ? user.role.replace('_', ' ').toUpperCase() : 'N/A'}</span>
               </div>
             </div>
+
           </div>
         </div>
       )}
