@@ -296,10 +296,40 @@
   .db-info-bar { grid-template-columns: repeat(2, 1fr); }
   .db-stat-val { font-size: 1.2rem; }
 
-  /* Table: allow horizontal scroll (already on .db-table-wrap if present) */
-  .db-table { font-size: 0.82rem; min-width: 480px; }
-  .db-table th,
-  .db-table td { padding: 9px 10px; }
+  /* FIX: Apply ActivityTracker stacking logic to the table */
+  .db-table, .db-table tbody { 
+    display: block; 
+    width: 100%; 
+  }
+  
+  /* Hide the table headers since we are stacking the layout */
+  .db-table thead { 
+    display: none; 
+  }
+
+  /* Make each row look like a timeline card */
+  .db-table tr {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Gives elements breathing room */
+    padding: 16px 0;
+    border-bottom: 1px solid #e8eaed;
+  }
+
+  /* Push each piece of data to its own line */
+  .db-table td {
+    display: flex;
+    padding: 0;
+    border-bottom: none;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Adjust spacing for the actions buttons */
+  .db-td-actions {
+    margin-top: 4px;
+  }
 
   /* Import card */
   .db-import-card { padding: 16px; }
@@ -328,6 +358,10 @@
 
   .db-schedule-form { padding: 14px; }
   .db-cron { font-size: 0.72rem; }
+
+  /* Reclaim space for action buttons on mobile */
+  .db-btn-download,
+  .db-btn-delete { padding: 6px 12px; font-size: 0.75rem; }
 
   .db-btn-restore { font-size: 0.85rem; padding: 10px 16px; }
 }
