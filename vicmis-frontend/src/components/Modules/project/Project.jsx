@@ -19,7 +19,6 @@ import RejectModal   from './components/RejectModal.jsx';
 import PhaseFloorPlan      from './phases/PhaseFloorPlan.jsx';
 import PhaseBoq            from './phases/PhaseBoq.jsx';          // ← replaces PhaseBoqPlan + PhaseBoqActual
 import PhaseBOQReview      from './phases/PhaseBOQReview.jsx';
-import PhasePOWorkOrder    from './phases/PhasePOWorkOrder.jsx';
 import PhaseSiteInspection from './phases/PhaseSiteInspection.jsx';
 import PhaseMaterials      from './phases/PhaseMaterials.jsx';
 import PhaseMobilization   from './phases/PhaseMobilization.jsx';
@@ -306,9 +305,6 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseBOQReview {...sharedPhaseProps} boqData={tracking.boqData} />
             )}
 
-            {status === 'Purchase Order' && (
-              <PhasePOWorkOrder {...sharedPhaseProps} />
-            )}
 
             {status === 'Initial Site Inspection' && (
               <PhaseSiteInspection {...sharedPhaseProps} />

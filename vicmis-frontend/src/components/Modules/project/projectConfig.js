@@ -11,7 +11,7 @@ export const WAITING_MSG = {
   'Pending DR Verification':                     { dept: 'Logistics',               msg: 'verify stock availability and the P.O / Proof of Payment' },
   'Bidding of Project':                          { dept: 'Management',              msg: 'complete the internal bidding documentation and contractor evaluation' },
   'Awarding of Project':                         { dept: 'Management',              msg: 'complete the internal bidding documentation and contractor evaluation' },
-  'Contract Signing for Installer':              { dept: 'Engineering',             msg: 'complete the Subcontractor Handover' },
+  'Contract Signing for Installer':              { dept: 'Management',              msg: 'complete the Subcontractor Handover' },
   'Deployment and Orientation of Installers':    { dept: 'Engineering',             msg: 'complete Site Mobilization' },
   'Site Inspection & Project Monitoring':        { dept: 'Engineering',             msg: 'complete active construction monitoring' },
   'Request Materials Needed':                    { dept: 'Logistics',               msg: 'dispatch the requested materials' },
@@ -24,7 +24,7 @@ export const WAITING_MSG = {
 };
 
 // locked: true  = a head approved this phase; nobody can go back past it
-// headOnly: true = phase has no UI component; only admins/managers/dept_heads see an advance button
+// headOnly: true = phase has no UI component; only management sees an advance button
 export const PHASE_ORDER = [
   { status: 'Floor Plan',                                owner: 'sales'       },
   { status: 'Measurement based on Plan',                 owner: 'engineering' },
@@ -38,7 +38,7 @@ export const PHASE_ORDER = [
   { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true },
   { status: 'Bidding of Project',                        owner: 'management', headOnly: true },
   { status: 'Awarding of Project',                       owner: 'management', headOnly: true },
-  { status: 'Contract Signing for Installer',            owner: 'engineering' },
+  { status: 'Contract Signing for Installer',            owner: 'management' },
   { status: 'Deployment and Orientation of Installers',  owner: 'engineering' },
   { status: 'Site Inspection & Project Monitoring',      owner: 'engineering' },
   { status: 'Request Materials Needed',                  owner: 'logistics'   },
@@ -52,10 +52,9 @@ export const PHASE_ORDER = [
   { status: 'Archived',                                  owner: 'all'         },
 ];
 
-// Phases that have NO component — always render WaitingView + advance button
-// headOnly phases (Bidding, Awarding) are also included here so PhaseMaterials
-// never renders for them, and only dept heads / admins see the advance button.
+// Phases that have NO component — always render WaitingView only
 export const WAITING_ONLY_PHASES = new Set([
+  'Purchase Order', 
   'P.O & Work Order',
   'Pending Work Order Verification',
   'Bidding of Project',
@@ -83,11 +82,9 @@ export const PHASE_COMPONENT_MAP = {
   'Measurement based on Plan':                 'PhaseBoqPlan',
   'Actual Measurement':                        'PhaseBoqActual',
   'Pending Head Review':                       'PhaseBOQReview',
-  'Purchase Order':                            'PhasePOWorkOrder',
   'Initial Site Inspection':                   'PhaseSiteInspection',
   'Checking of Delivery of Materials':         'PhaseMaterials',
   'Pending DR Verification':                   'PhaseMaterials',
-  // 'Bidding of Project' intentionally removed — headOnly, renders WaitingView only
   'Deployment and Orientation of Installers':  'PhaseMobilization',
   'Site Inspection & Project Monitoring':      'PhaseCommandCenter',
   'Request Materials Needed':                  'PhaseCommandCenter',
@@ -95,7 +92,6 @@ export const PHASE_COMPONENT_MAP = {
   'Site Inspection & Quality Checking':        'PhaseQAHandover',
   'Completed':                                 'PhaseCompleted',
   'Archived':                                  'PhaseCompleted',
-  // WAITING_ONLY_PHASES are intentionally absent here
 };
 
 export const getPreviousPhase = (currentStatus) => {
@@ -177,64 +173,48 @@ export const getPhaseAccess = (status, {
   return map[status] ? 'active' : 'waiting';
 };
 
-import { useState } from 'react';
-import api from '@/api/axios';
+// ── Phase-owner-aware advance permission ──────────────────────────────────────
+// Controls who sees the "Advance to X" button in WaitingView
+export const canAdvanceWaitingPhase = (status, user, userDept) => {
+  const dept  = (userDept ?? '').toLowerCase();
+  const role  = (user?.role ?? '').toLowerCase();
+  const email = (user?.email ?? '').toLowerCase();
 
-export const useProjectActions = (selectedProject, refreshProject) => {
-  const [goBackLoading, setGoBackLoading] = useState(false);
+  // Admins and managers can always advance
+  if (role === 'admin' || role === 'manager') return true;
 
-  const advanceStatus = async (nextStatus) => {
-    try {
-      await api.patch(`/projects/${selectedProject.id}/status`, { status: nextStatus });
-      await refreshProject();
-    } catch (err) {
-      alert(`Error updating status: ${err.response?.data?.message ?? err.message}`);
-    }
-  };
+  const phase = PHASE_ORDER.find(p => p.status === status);
+  if (!phase) return false;
 
-  const uploadAndAdvance = async (nextStatus, fileKey, uploadFile, awardDetails = {}) => {
-    if (!uploadFile && fileKey) return alert('Please select a file first to proceed!');
-    try {
-      const fd = new FormData();
-      fd.append('status', nextStatus);
-      if (fileKey) fd.append(fileKey, uploadFile);
-      fd.append('_method', 'PATCH');
-      if (awardDetails.name)   fd.append('subcontractor_name', awardDetails.name);
-      if (awardDetails.amount) fd.append('contract_amount',    awardDetails.amount);
-      await api.post(`/projects/${selectedProject.id}/status`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      await refreshProject();
-    } catch (err) {
-      alert(`Upload Failed: ${err.response?.data?.message ?? err.message}`);
-    }
-  };
+  switch (phase.owner) {
+    case 'sales':
+      return dept.includes('sales') || email.includes('sales');
 
-  const executeRejection = async (rejectTargetPhase, rejectionReason) => {
-    if (!rejectionReason.trim()) return alert('Please provide a specific reason for rejection.');
-    try {
-      await api.patch(`/projects/${selectedProject.id}/status`, {
-        status:          rejectTargetPhase,
-        rejection_notes: rejectionReason,
-      });
-      await refreshProject();
-    } catch (err) {
-      alert(`Failed to reject project: ${err.response?.data?.message ?? err.message}`);
-    }
-  };
+    case 'sales_head':
+      return (dept.includes('sales') || email.includes('sales')) && role === 'dept_head';
 
-  const handleGoBackPhase = async (targetPhase) => {
-    if (!window.confirm(`Go back to "${targetPhase}"?\n\nThis will reopen that phase for editing.`)) return;
-    setGoBackLoading(true);
-    try {
-      await api.patch(`/projects/${selectedProject.id}/status`, { status: targetPhase, go_back: true });
-      await refreshProject();
-    } catch (err) {
-      alert(`Failed to go back: ${err.response?.data?.message ?? err.message}`);
-    } finally {
-      setGoBackLoading(false);
-    }
-  };
+    case 'engineering':
+      return dept.includes('engineering') || email.includes('eng');
 
-  return { advanceStatus, uploadAndAdvance, executeRejection, handleGoBackPhase, goBackLoading };
+    case 'eng_head':
+      return (dept.includes('engineering') || email.includes('eng')) && role === 'dept_head';
+
+    case 'logistics':
+      return dept.includes('logistics') || dept.includes('inventory') || email.includes('logistic');
+
+    case 'accounting':
+      return dept.includes('accounting') || dept.includes('finance') || email.includes('accounting');
+
+    case 'management':
+      // Only actual management dept — NOT dept_heads from other departments
+      return dept.includes('management')
+        || email.includes('ops')
+        || email.includes('admin');
+
+    case 'all':
+      return true;
+
+    default:
+      return false;
+  }
 };

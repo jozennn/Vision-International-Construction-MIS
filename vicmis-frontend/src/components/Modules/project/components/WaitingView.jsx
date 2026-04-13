@@ -1,26 +1,16 @@
 import React, { useState } from 'react';
-import { WAITING_MSG, PHASE_ORDER, WAITING_ONLY_PHASES } from '../projectConfig.js';
+import { WAITING_MSG, PHASE_ORDER, WAITING_ONLY_PHASES, canAdvanceWaitingPhase } from '../projectConfig.js';
 
 const WaitingView = ({ status, project, user, onAdvance }) => {
   const info = WAITING_MSG[status] || { dept: 'Another department', msg: 'complete their phase' };
   const [loading, setLoading] = useState(false);
 
-  // ── Who can advance a waiting-only / head-only phase ──────────────────────
-  const role  = (user?.role  ?? '').toLowerCase();
-  const email = (user?.email ?? '').toLowerCase();
-  const canAdvance =
-    role === 'admin'     ||
-    role === 'manager'   ||
-    role === 'dept_head' ||
-    email.includes('ops') ||
-    email.includes('admin');
+  const userDept = (user?.dept || user?.department || '').toLowerCase();
 
-  // Resolve current phase config
-  const currentPhase = PHASE_ORDER.find(p => p.status === status);
+  // ── Phase-owner-aware: only the correct dept sees the advance button ──────
+  const canAdvance = canAdvanceWaitingPhase(status, user, userDept);
 
-  // Show advance button on:
-  //   1. Phases with no real component (WAITING_ONLY_PHASES), OR
-  //   2. Phases flagged headOnly (e.g. Bidding, Awarding) — management-gated
+  const currentPhase  = PHASE_ORDER.find(p => p.status === status);
   const isWaitingOnly = WAITING_ONLY_PHASES.has(status);
   const isHeadOnly    = currentPhase?.headOnly === true;
   const showAdvanceBtn = (isWaitingOnly || isHeadOnly) && canAdvance;
@@ -61,7 +51,7 @@ const WaitingView = ({ status, project, user, onAdvance }) => {
           The project summary is shown below for your reference.
         </p>
 
-        {/* ── Advance button: only for heads on waiting-only / headOnly phases ── */}
+        {/* Only shown to the dept that owns this phase */}
         {showAdvanceBtn && nextStatus && (
           <button
             className="pm-advance-btn"
