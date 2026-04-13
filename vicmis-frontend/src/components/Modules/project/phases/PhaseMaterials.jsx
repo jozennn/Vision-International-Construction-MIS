@@ -52,7 +52,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     try {
       setUploading(true);
       const fd = new FormData();
-      fd.append('status', project.status); // Keep same status, just upload file
+      fd.append('status', project.status);
       fd.append(fileKey, file);
       fd.append('_method', 'PATCH');
       
@@ -139,14 +139,10 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   setDrFile(file);
                   resetOthers('dr');
                   if (file) {
-                    console.log('DR upload starting...');
-                    console.log('refreshProject exists:', typeof refreshProject);
                     const success = await uploadFileImmediately(file, 'delivery_receipt_document');
-                    console.log('DR upload success:', success);
                     if (success) {
                       setDrUploaded(true);
                       await refreshProject?.();
-                      console.log('project.delivery_receipt_document after refresh:', project.delivery_receipt_document);
                     }
                   }
                 }}
@@ -253,14 +249,10 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   setBiddingFile(file);
                   resetOthers('bidding');
                   if (file) {
-                    console.log('Bidding upload starting...');
-                    console.log('refreshProject exists:', typeof refreshProject);
                     const success = await uploadFileImmediately(file, 'bidding_document');
-                    console.log('Bidding upload success:', success);
                     if (success) {
                       setBiddingUploaded(true);
                       await refreshProject?.();
-                      console.log('project.bidding_document after refresh:', project.bidding_document);
                     }
                   }
                 }}
@@ -311,8 +303,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                 <div className="pm-award-section-label">
                   <span className="pm-award-step-dot pm-dot-red" /> Award Summary
                 </div>
-                
-                {/* Show indicator if data was previously saved */}
+
                 {(project.subcontractor_name || project.contract_amount || project.subcontractor_agreement_document) && (
                   <div style={{ 
                     padding: '0.5rem', 
@@ -392,14 +383,10 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                           setAwardFile(file);
                           resetOthers('award');
                           if (file) {
-                            console.log('Award upload starting...');
-                            console.log('refreshProject exists:', typeof refreshProject);
                             const success = await uploadFileImmediately(file, 'subcontractor_agreement_document');
-                            console.log('Award upload success:', success);
                             if (success) {
                               setAwardUploaded(true);
                               await refreshProject?.();
-                              console.log('project.subcontractor_agreement_document after refresh:', project.subcontractor_agreement_document);
                             }
                           }
                         }}
