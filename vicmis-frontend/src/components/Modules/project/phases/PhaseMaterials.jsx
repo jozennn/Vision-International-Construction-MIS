@@ -11,20 +11,16 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     amount: project.contract_amount || ''
   });
 
-  const [drFile, setDrFile] = useState(null);
   const [biddingFile, setBiddingFile] = useState(null);
   const [awardFile, setAwardFile] = useState(null);
   
-  const [uploadingDr, setUploadingDr] = useState(false);
   const [uploadingBidding, setUploadingBidding] = useState(false);
   const [uploadingAward, setUploadingAward] = useState(false);
 
   // Local upload success flags — so button enables immediately after upload
-  const [drUploaded, setDrUploaded] = useState(false);
   const [biddingUploaded, setBiddingUploaded] = useState(false);
   const [awardUploaded, setAwardUploaded] = useState(false);
 
-  const drInputRef = useRef();
   const biddingInputRef = useRef();
   const awardInputRef = useRef();
 
@@ -45,7 +41,6 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     if (!file) return false;
 
     const setUploading = 
-      fileKey === 'delivery_receipt_document' ? setUploadingDr :
       fileKey === 'bidding_document' ? setUploadingBidding :
       setUploadingAward;
 
@@ -76,10 +71,6 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     awardDetails.amount.trim() !== '';
 
   const resetOthers = (except) => {
-    if (except !== 'dr') {
-      if (drInputRef.current) drInputRef.current.value = '';
-      setDrFile(null);
-    }
     if (except !== 'bidding') {
       if (biddingInputRef.current) biddingInputRef.current.value = '';
       setBiddingFile(null);
@@ -117,44 +108,9 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   onAdd={() => {}} onRemove={() => {}} onChange={() => {}} />
             </div>
 
-            <div className="pm-card-cream">
-              <h4 className="pm-title-lg">Upload P.O / Proof of Payment</h4>
-
-              {(project.delivery_receipt_document || drUploaded) && (
-                <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#E8F5E9', borderLeft: '3px solid #4CAF50' }}>
-                  <strong style={{ color: '#2E7D32' }}>✅ File uploaded:</strong>
-                  {project.delivery_receipt_document
-                    ? renderDocumentLink('P.O / Proof of Payment', project.delivery_receipt_document)
-                    : <span style={{ marginLeft: '0.5rem', color: '#2E7D32' }}>File uploaded successfully</span>
-                  }
-                </div>
-              )}
-
-              <input
-                type="file"
-                ref={drInputRef}
-                accept="image/*,.pdf"
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  setDrFile(file);
-                  resetOthers('dr');
-                  if (file) {
-                    const success = await uploadFileImmediately(file, 'delivery_receipt_document');
-                    if (success) {
-                      setDrUploaded(true);
-                      await refreshProject?.();
-                    }
-                  }
-                }}
-                className="pm-file-input"
-                disabled={uploadingDr}
-              />
-
-              {uploadingDr && <p style={{ color: '#F59E0B', margin: '0.5rem 0' }}>⏳ Uploading file...</p>}
-
+            <div style={{ marginTop: '2rem' }}>
               <PrimaryButton
                 variant="red"
-                disabled={!project.delivery_receipt_document && !drUploaded}
                 onClick={() => onAdvance('Pending DR Verification')}
               >
                 Submit for DR Verification
@@ -176,11 +132,6 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
           </div>
 
           <div className="pm-card-body">
-            <div className="pm-card-gray">
-              <h4 className="pm-title-md">Uploaded P.O / Proof of Payment</h4>
-              {renderDocumentLink('Purchase Order / Proof of Payment', project.delivery_receipt_document)}
-            </div>
-
             <div className="pm-card-gray" style={{ minWidth: 0, overflow: 'hidden' }}>
               <h4 className="pm-title-md">Final BOQ — Stock Cross-Reference</h4>
               <BoqTable type="finalBOQ" boqData={boqData} readOnly={true}
@@ -230,37 +181,42 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
             <div className="pm-card-cream">
               <h4 className="pm-title-lg">Upload Winning Subcontractor Bid</h4>
 
-              {(project.bidding_document || biddingUploaded) && (
+              {(project.bidding_document || biddingUploaded) ? (
                 <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#E8F5E9', borderLeft: '3px solid #4CAF50' }}>
                   <strong style={{ color: '#2E7D32' }}>✅ File uploaded:</strong>
-                  {project.bidding_document
-                    ? renderDocumentLink('Winning Bid', project.bidding_document)
-                    : <span style={{ marginLeft: '0.5rem', color: '#2E7D32' }}>File uploaded successfully</span>
-                  }
+                  {project.bidding_document ? (
+                    <div style={{ marginTop: '8px' }}>
+                      {renderDocumentLink('Winning Bid', project.bidding_document)}
+                    </div>
+                  ) : (
+                    <span style={{ marginLeft: '0.5rem', color: '#2E7D32' }}>File uploaded successfully</span>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <input
+                    type="file"
+                    ref={biddingInputRef}
+                    accept="image/*,.pdf"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      setBiddingFile(file);
+                      resetOthers('bidding');
+                      if (file) {
+                        const success = await uploadFileImmediately(file, 'bidding_document');
+                        if (success) {
+                          setBiddingUploaded(true);
+                          await refreshProject?.();
+                        }
+                      }
+                    }}
+                    className="pm-file-input"
+                    disabled={uploadingBidding}
+                  />
+
+                  {uploadingBidding && <p style={{ color: '#F59E0B', margin: '0.5rem 0' }}>⏳ Uploading file...</p>}
+                </>
               )}
-
-              <input
-                type="file"
-                ref={biddingInputRef}
-                accept="image/*,.pdf"
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  setBiddingFile(file);
-                  resetOthers('bidding');
-                  if (file) {
-                    const success = await uploadFileImmediately(file, 'bidding_document');
-                    if (success) {
-                      setBiddingUploaded(true);
-                      await refreshProject?.();
-                    }
-                  }
-                }}
-                className="pm-file-input"
-                disabled={uploadingBidding}
-              />
-
-              {uploadingBidding && <p style={{ color: '#F59E0B', margin: '0.5rem 0' }}>⏳ Uploading file...</p>}
 
               <PrimaryButton
                 variant="red"
@@ -295,7 +251,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   <span className="pm-award-step-dot pm-dot-blue" /> Approved Bid
                 </div>
                 <div className="pm-award-doc-block">
-                  {renderDocumentLink('Winning Subcontractor Quote', project.bidding_document)}
+                  {project.bidding_document && renderDocumentLink('Winning Subcontractor Quote', project.bidding_document)}
                 </div>
               </div>
 
@@ -398,10 +354,11 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
 
                   {(project.subcontractor_agreement_document || awardUploaded) && (
                     <div style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-                      {project.subcontractor_agreement_document
-                        ? renderDocumentLink('Current Agreement', project.subcontractor_agreement_document)
-                        : <span style={{ color: '#2E7D32' }}>✅ Agreement uploaded successfully</span>
-                      }
+                      {project.subcontractor_agreement_document ? (
+                        renderDocumentLink('Current Agreement', project.subcontractor_agreement_document)
+                      ) : (
+                        <span style={{ color: '#2E7D32' }}>✅ Agreement uploaded successfully</span>
+                      )}
                     </div>
                   )}
 
