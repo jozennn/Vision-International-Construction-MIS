@@ -310,7 +310,7 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseSiteInspection {...sharedPhaseProps} />
             )}
 
-            {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project'].includes(status) && (
+            {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project', 'Awarding of Project'].includes(status) && (
               <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} refreshProject={refreshProject}/>
             )}
 
