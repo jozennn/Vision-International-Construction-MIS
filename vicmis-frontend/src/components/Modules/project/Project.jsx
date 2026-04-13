@@ -14,6 +14,7 @@ import { useTracking }       from './hooks/useTracking.js';
 import PersonnelBar  from './components/PersonnelBar.jsx';
 import WaitingView   from './components/WaitingView.jsx';
 import RejectModal   from './components/RejectModal.jsx';
+import PrimaryButton from '../components/PrimaryButton.jsx';
 
 // Phase components
 import PhaseFloorPlan      from './phases/PhaseFloorPlan.jsx';
@@ -151,18 +152,13 @@ const Project = ({ user, projects, setProjects }) => {
       : `${base}/storage/${filePath}`;
 
     return (
-      <div className="pm-doc-link no-print">
-        <span className="pm-doc-label">📄 {label}</span>
-        <a
-          href={fullUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="pm-doc-btn"
-          onClick={e => e.stopPropagation()}
-        >
-          View Document
-        </a>
-      </div>
+      <PrimaryButton
+        variant="navy"
+        onClick={() => window.open(fullUrl, '_blank')}
+      >
+        <span style={{ marginRight: '6px' }}>📄</span>
+        View {label}
+      </PrimaryButton>
     );
   };
 
