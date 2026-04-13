@@ -14,7 +14,7 @@ import { useTracking }       from './hooks/useTracking.js';
 import PersonnelBar  from './components/PersonnelBar.jsx';
 import WaitingView   from './components/WaitingView.jsx';
 import RejectModal   from './components/RejectModal.jsx';
-import PrimaryButton from '../components/PrimaryButton.jsx';
+import PrimaryButton from './components/PrimaryButton.jsx';
 
 // Phase components
 import PhaseFloorPlan      from './phases/PhaseFloorPlan.jsx';
