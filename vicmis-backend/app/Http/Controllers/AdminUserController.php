@@ -18,7 +18,8 @@ class AdminUserController extends Controller
 
     public function index(Request $request)
     {
-        if ($request->user()->role !== 'super_admin') {
+        // SECURITY: Check if user exists before checking role
+        if (!$request->user() || $request->user()->role !== 'super_admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -27,16 +28,17 @@ class AdminUserController extends Controller
 
     public function store(Request $request)
     {
-        if ($request->user()->role !== 'super_admin') {
+        if (!$request->user() || $request->user()->role !== 'super_admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        // SECURITY: Added max lengths to prevent database truncation attacks
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
-            'email'      => 'required|email|unique:users,email',
-            'password'   => 'required|string|min:6',
-            'role'       => 'required|string',
-            'department' => 'required|string',
+            'email'      => 'required|email|max:255|unique:users,email',
+            'password'   => 'required|string|min:6|max:255',
+            'role'       => 'required|string|max:50',
+            'department' => 'required|string|max:100',
         ]);
 
         $user = User::create([
@@ -49,10 +51,16 @@ class AdminUserController extends Controller
         ]);
 
         // Generate password reset token and reset link
-        $token        = Password::broker()->createToken($user);
+        $token       = Password::broker()->createToken($user);
         $frontendUrl = env('FRONTEND_URL', 'https://visionintlconstopc.com');
         $resetLink   = rtrim($frontendUrl, '/') . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
-        
+
+        // SECURITY: Sanitize all variables going into the raw HTML string to prevent Email XSS attacks
+        $safeName     = e($user->name);
+        $safeEmail    = e($user->email);
+        $safePassword = e($validated['password']);
+        $safeLink     = e($resetLink);
+
         $htmlEmail = "
         <div style='font-family: Arial, sans-serif; background-color: #f4f5f7; padding: 40px 20px;'>
             <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);'>
@@ -61,15 +69,15 @@ class AdminUserController extends Controller
                     <p style='color: #ffcccc; margin: 5px 0 0 0; font-style: italic; font-size: 14px;'>You Envision, We build!</p>
                 </div>
                 <div style='padding: 40px 30px; color: #334155; line-height: 1.6;'>
-                    <h2 style='margin-top: 0; color: #1e293b; font-size: 20px;'>Welcome to Vision Family, {$user->name}!</h2>
+                    <h2 style='margin-top: 0; color: #1e293b; font-size: 20px;'>Welcome to Vision Family, {$safeName}!</h2>
                     <p>An account has been successfully created for you on the Vision Management Information System by the Super Admin.</p>
                     <div style='background-color: #f8fafc; border-left: 4px solid #A91D22; padding: 15px 20px; margin: 25px 0;'>
-                        <p style='margin: 0; font-size: 14px; color: #64748b;'><strong>EMAIL / USERNAME:</strong><br>{$user->email}</p>
-                        <p style='margin: 10px 0 0 0; font-size: 14px; color: #64748b;'><strong>TEMPORARY PASSWORD:</strong><br><span style='font-family: monospace; font-size: 16px; color: #1e293b;'>{$validated['password']}</span></p>
+                        <p style='margin: 0; font-size: 14px; color: #64748b;'><strong>EMAIL / USERNAME:</strong><br>{$safeEmail}</p>
+                        <p style='margin: 10px 0 0 0; font-size: 14px; color: #64748b;'><strong>TEMPORARY PASSWORD:</strong><br><span style='font-family: monospace; font-size: 16px; color: #1e293b;'>{$safePassword}</span></p>
                     </div>
                     <p>For your security, please click the button below to change your password. This link expires in 24 hours.</p>
                     <div style='text-align: center; margin: 35px 0 20px 0;'>
-                        <a href='{$resetLink}' style='background-color: #A91D22; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; text-transform: uppercase; font-size: 14px;'>Reset Password</a>
+                        <a href='{$safeLink}' style='background-color: #A91D22; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; text-transform: uppercase; font-size: 14px;'>Reset Password</a>
                     </div>
                 </div>
                 <div style='background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;'>
@@ -101,7 +109,7 @@ class AdminUserController extends Controller
 
     public function update(Request $request, $id)
     {
-        if ($request->user()->role !== 'super_admin') {
+        if (!$request->user() || $request->user()->role !== 'super_admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -109,10 +117,10 @@ class AdminUserController extends Controller
 
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
-            'email'      => 'required|email|unique:users,email,' . $id,
-            'role'       => 'required|string',
-            'department' => 'required|string',
-            'password'   => 'nullable|string|min:6',
+            'email'      => 'required|email|max:255|unique:users,email,' . $id,
+            'role'       => 'required|string|max:50',
+            'department' => 'required|string|max:100',
+            'password'   => 'nullable|string|min:6|max:255',
         ]);
 
         $targetUser->name       = $validated['name'];
@@ -138,7 +146,7 @@ class AdminUserController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        if ($request->user()->role !== 'super_admin') {
+        if (!$request->user() || $request->user()->role !== 'super_admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -167,7 +175,7 @@ class AdminUserController extends Controller
 
     public function getSystemLogs(Request $request)
     {
-        if ($request->user()->role !== 'super_admin') {
+        if (!$request->user() || $request->user()->role !== 'super_admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -175,6 +183,13 @@ class AdminUserController extends Controller
 
         if (!file_exists($logPath)) {
             return response()->json(['logs' => ['No error logs found. System is running perfectly!']]);
+        }
+
+        // SECURITY: Prevent RAM exhaustion (DoS attack) if the log file grows massive over time
+        $maxSizeBytes = 10 * 1024 * 1024; // 10 MB Limit
+        clearstatcache();
+        if (filesize($logPath) > $maxSizeBytes) {
+            return response()->json(['logs' => ['ERROR: Log file is too large (>10MB) to safely display in the browser. Please access it via SSH or clear the log.']]);
         }
 
         $logs       = file($logPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -189,7 +204,7 @@ class AdminUserController extends Controller
 
     public function getActivities(Request $request)
     {
-        if ($request->user()->role !== 'super_admin') {
+        if (!$request->user() || $request->user()->role !== 'super_admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -204,7 +219,7 @@ class AdminUserController extends Controller
 
     public function getDashboardStats(Request $request)
     {
-        if (!in_array($request->user()->role, ['super_admin', 'admin', 'manager'])) {
+        if (!$request->user() || !in_array($request->user()->role, ['super_admin', 'admin', 'manager'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
