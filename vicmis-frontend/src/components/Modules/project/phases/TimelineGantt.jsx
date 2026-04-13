@@ -5,90 +5,270 @@ import { saveAs } from 'file-saver';
 import { useTimelineGantt, fmtDate, parseDate } from '../hooks/useTimelineGantt.js';
 import '../css/TimelineGantt.css';
 
+// ── Excel colour palette ──────────────────────────────────────────────────────
+const XL = {
+    NAVY:       'FF1A1A2E',
+    RED:        'FFCC2200',   // slightly softer red for print
+    GREEN:      'FF16A34A',
+    AMBER:      'FFFBBF24',
+    LGRAY:      'FFE8ECF0',
+    MGRAY:      'FFD1D5DB',
+    WHITE:      'FFFFFFFF',
+    BLACK:      'FF111111',
+    STRIPE:     'FFF8FAFC',   // alternating task row tint
+};
+
+const xlFill  = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+const xlBdr   = (style = 'thin', argb = 'FFB0B8C4') => ({ style, color: { argb } });
+const outerB  = { top: xlBdr('medium'), bottom: xlBdr('medium'), left: xlBdr('medium'), right: xlBdr('medium') };
+const innerB  = { top: xlBdr(), bottom: xlBdr(), left: xlBdr(), right: xlBdr() };
+const ctr     = { horizontal: 'center', vertical: 'middle', wrapText: true };
+const lft     = { horizontal: 'left',   vertical: 'middle', wrapText: true };
+
+const hFont  = (size = 9, color = XL.WHITE) => ({ bold: true, size, name: 'Calibri', color: { argb: color } });
+const bFont  = (size = 9, color = XL.BLACK) => ({ bold: true, size, name: 'Calibri', color: { argb: color } });
+const rFont  = (size = 9, color = XL.BLACK) => ({ size, name: 'Calibri', color: { argb: color } });
+
+// ─────────────────────────────────────────────────────────────────────────────
 const TimelineGantt = ({ project, trackingData }) => {
     const {
         tasks, ganttDates,
         projectStart, projectEnd, projectDuration,
-        saving, saveSuccess, error,
+        saving, saveSuccess, autoSaved, error,
         addTask, addGroup, removeTask, updateTask, toggleActual,
         saveTimeline,
     } = useTimelineGantt(project?.id, trackingData);
 
+    // ── Excel Export ─────────────────────────────────────────────────────────
     const exportExcel = async () => {
         const wb = new ExcelJS.Workbook();
-        const ws = wb.addWorksheet('Timeline');
-        const NAVY = 'FF1A1A2E', RED = 'FFFF1817', GREEN = 'FF16A34A', LGRAY = 'FFF1F5F9';
-        const thin = { style: 'thin', color: { argb: 'FF000000' } };
-        const allB = { top: thin, bottom: thin, left: thin, right: thin };
-        const fill = (c) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } });
-        const ctr  = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        const lft  = { horizontal: 'left',   vertical: 'middle', wrapText: true };
+        wb.creator  = 'Project Timeline App';
+        wb.created  = new Date();
+
+        const ws = wb.addWorksheet('Gantt Timeline', {
+            pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1 },
+            views: [{ showGridLines: false }],   // cleaner look — no default gridlines
+        });
+
+        // ── Column widths ────────────────────────────────────────────────
+        const INFO_COLS  = 6;   // Task | Start | End | Duration | Unit | %
+        const DATE_W     = 5.2; // each date column
         ws.columns = [
-            { width: 30 }, { width: 12 }, { width: 12 }, { width: 10 }, { width: 8 }, { width: 8 },
-            ...ganttDates.map(() => ({ width: 4 })),
+            { width: 32 },  // Task name
+            { width: 13 },  // Start
+            { width: 13 },  // End
+            { width: 10 },  // Duration
+            { width: 8  },  // Unit
+            { width: 10 },  // % Complete
+            ...ganttDates.map(() => ({ width: DATE_W })),
         ];
+
         let r = 1;
-        ['PROJECT NAME','PROJECT DURATION','PROJECT START DATE','PROJECT END DATE','DATE AS OF',''].forEach((h,ci)=>{
-            const c=ws.getCell(r,ci+1); c.value=h; c.font={bold:true,size:9,name:'Arial',color:{argb:'FFFFFFFF'}};
-            c.fill=fill(NAVY); c.alignment=ctr; c.border=allB;
+
+        // ── Row 1: Section title banner ──────────────────────────────────
+        ws.mergeCells(r, 1, r, INFO_COLS + ganttDates.length);
+        const titleCell = ws.getCell(r, 1);
+        titleCell.value     = '📋  PROJECT GANTT TIMELINE';
+        titleCell.font      = { bold: true, size: 14, name: 'Calibri', color: { argb: XL.WHITE } };
+        titleCell.fill      = xlFill(XL.NAVY);
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.getRow(r).height = 30;
+        r++;
+
+        // ── Row 2–3: Project info header (labels) ────────────────────────
+        const INFO_HEADERS = ['PROJECT NAME', 'DURATION (days)', 'START DATE', 'END DATE', 'DATE AS OF', ''];
+        INFO_HEADERS.forEach((h, ci) => {
+            const c = ws.getCell(r, ci + 1);
+            c.value     = h;
+            c.font      = hFont(8);
+            c.fill      = xlFill('FF2D3A4E');
+            c.alignment = ctr;
+            c.border    = innerB;
         });
-        ws.getRow(r).height=24; r++;
-        [project.project_name,`${projectDuration}`,projectStart??'',projectEnd??'',new Date().toLocaleDateString('en-US'),''].forEach((v,ci)=>{
-            const c=ws.getCell(r,ci+1); c.value=v; c.font={bold:true,size:10,name:'Arial'}; c.alignment=ctr; c.border=allB;
+        // Merge remaining columns into last info cell for the date-as-of label
+        ws.getRow(r).height = 18;
+        r++;
+
+        // Row 3: values
+        const infoValues = [
+            project.project_name,
+            projectDuration ? `${projectDuration} days` : '—',
+            projectStart ?? '—',
+            projectEnd   ?? '—',
+            new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            '',
+        ];
+        infoValues.forEach((v, ci) => {
+            const c = ws.getCell(r, ci + 1);
+            c.value     = v;
+            c.font      = bFont(10, ci === 0 ? XL.NAVY : XL.BLACK);
+            c.fill      = xlFill('FFF0F4F8');
+            c.alignment = ci === 0 ? lft : ctr;
+            c.border    = innerB;
         });
-        ws.getRow(r).height=20; r+=2;
-        ['TASK NAME','START DATE','END DATE','DURATION*','UNIT','PERCENT\nCOMPLETE'].forEach((h,ci)=>{
-            const c=ws.getCell(r,ci+1); c.value=h; c.font={bold:true,size:9,name:'Arial',color:{argb:'FFFFFFFF'}};
-            c.fill=fill(NAVY); c.alignment=ctr; c.border=allB;
+        ws.getRow(r).height = 22;
+        r += 2;   // blank spacer
+
+        // ── Gantt column-header row ──────────────────────────────────────
+        const COL_HEADERS = ['TASK NAME', 'START DATE', 'END DATE', 'DURATION', 'UNIT', '% DONE'];
+        COL_HEADERS.forEach((h, ci) => {
+            const c = ws.getCell(r, ci + 1);
+            c.value     = h;
+            c.font      = hFont(9);
+            c.fill      = xlFill(XL.NAVY);
+            c.alignment = ctr;
+            c.border    = innerB;
         });
-        ganttDates.forEach((d,di)=>{
-            const c=ws.getCell(r,7+di); c.value=fmtDate(d); c.font={bold:true,size:7,name:'Arial',color:{argb:'FFFFFFFF'}};
-            c.fill=fill(NAVY); c.alignment=ctr; c.border=allB;
+        ganttDates.forEach((d, di) => {
+            const c = ws.getCell(r, INFO_COLS + 1 + di);
+            // Show month label only when it changes (first occurrence of month)
+            const prev = ganttDates[di - 1];
+            const showMonth = !prev || prev.getMonth() !== d.getMonth();
+            c.value     = showMonth
+                ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : d.getDate();
+            c.font      = hFont(7);
+            c.fill      = xlFill(XL.NAVY);
+            c.alignment = { ...ctr, textRotation: 90 };
+            c.border    = innerB;
         });
-        ws.getRow(r).height=22; r++;
-        tasks.forEach(t=>{
-            if(t.type==='group'){
-                for(let ci=1;ci<=6+ganttDates.length;ci++){
-                    const c=ws.getCell(r,ci); if(ci===1)c.value=t.name;
-                    c.font={bold:true,size:10,name:'Arial'}; c.fill=fill(LGRAY); c.border=allB; c.alignment=ci===1?lft:ctr;
+        ws.getRow(r).height = 48;   // rotated text needs height
+        r++;
+
+        // ── Task rows ────────────────────────────────────────────────────
+        let taskIndex = 0;
+        tasks.forEach(t => {
+            if (t.type === 'group') {
+                // Section / group header
+                const total = INFO_COLS + ganttDates.length;
+                for (let ci = 1; ci <= total; ci++) {
+                    const c = ws.getCell(r, ci);
+                    if (ci === 1) c.value = `▸  ${t.name.toUpperCase()}`;
+                    c.font      = bFont(10, XL.NAVY);
+                    c.fill      = xlFill(XL.LGRAY);
+                    c.alignment = ci === 1 ? lft : ctr;
+                    c.border    = innerB;
                 }
-                ws.getRow(r).height=18; r++;
-            }else{
-                [t.name,t.start,t.end,t.duration??'',t.unit,`${t.percent??0}%`].forEach((v,ci)=>{
-                    const c=ws.getCell(r,ci+1); c.value=v; c.font={name:'Arial',size:9}; c.border=allB; c.alignment=ci===0?lft:ctr;
+                ws.getRow(r).height = 20;
+                r++;
+            } else {
+                const isEven  = taskIndex % 2 === 0;
+                const rowFill = isEven ? XL.WHITE : XL.STRIPE;
+                taskIndex++;
+
+                const ts = parseDate(t.start);
+                const te = parseDate(t.end);
+
+                // ── TARGET row ──
+                const taskValues = [
+                    t.name,
+                    t.start || '—',
+                    t.end   || '—',
+                    t.duration > 0 ? t.duration : '—',
+                    t.unit || 'DAYS',
+                    t.percent != null ? `${t.percent}%` : '0%',
+                ];
+                taskValues.forEach((v, ci) => {
+                    const c = ws.getCell(r, ci + 1);
+                    c.value     = v;
+                    c.font      = ci === 0 ? rFont(9) : rFont(9);
+                    c.fill      = xlFill(rowFill);
+                    c.alignment = ci === 0 ? lft : ctr;
+                    c.border    = innerB;
                 });
-                const ts=parseDate(t.start),te=parseDate(t.end);
-                ganttDates.forEach((d,di)=>{
-                    const c=ws.getCell(r,7+di); const inR=ts&&te&&d>=ts&&d<=te;
-                    c.value=inR?'TARGET':''; c.font={bold:true,size:6,name:'Arial',color:{argb:'FFFFFFFF'}};
-                    c.fill=inR?fill(RED):{type:'pattern',pattern:'none'}; c.alignment=ctr; c.border=allB;
+
+                // Target Gantt bars
+                ganttDates.forEach((d, di) => {
+                    const c    = ws.getCell(r, INFO_COLS + 1 + di);
+                    const inR  = ts && te && d >= ts && d <= te;
+                    if (inR) {
+                        const isStart = d.toDateString() === ts.toDateString();
+                        const isEnd   = d.toDateString() === te.toDateString();
+                        c.fill = xlFill(XL.RED);
+                        // Add start/end markers as text for clarity
+                        c.value = isStart ? '◀' : isEnd ? '▶' : '';
+                        c.font  = { size: 7, name: 'Calibri', color: { argb: XL.WHITE } };
+                    } else {
+                        c.fill = xlFill(rowFill);
+                    }
+                    c.alignment = ctr;
+                    c.border    = innerB;
                 });
-                ws.getRow(r).height=16; r++;
-                for(let ci=1;ci<=6;ci++){ws.getCell(r,ci).border=allB;}
-                ganttDates.forEach((d,di)=>{
-                    const dStr=d.toISOString().split('T')[0]; const c=ws.getCell(r,7+di); const done=t.actualDates?.[dStr];
-                    c.value=done?'ACTUAL':''; c.font={bold:true,size:6,name:'Arial',color:{argb:'FFFFFFFF'}};
-                    c.fill=done?fill(GREEN):{type:'pattern',pattern:'none'}; c.alignment=ctr; c.border=allB;
+
+                // Small label in col 1 area (TARGET tag)
+                ws.getCell(r, 1).value = t.name;
+                ws.getRow(r).height = 16;
+                r++;
+
+                // ── ACTUAL row ──
+                // Cols 1–6 blank but styled
+                for (let ci = 1; ci <= INFO_COLS; ci++) {
+                    const c = ws.getCell(r, ci);
+                    if (ci === 1) {
+                        c.value = '  ↳ Actual';
+                        c.font  = { italic: true, size: 8, name: 'Calibri', color: { argb: 'FF6B7280' } };
+                    }
+                    c.fill      = xlFill(rowFill);
+                    c.alignment = lft;
+                    c.border    = innerB;
+                }
+                // Actual Gantt bars
+                ganttDates.forEach((d, di) => {
+                    const dStr = d.toISOString().split('T')[0];
+                    const c    = ws.getCell(r, INFO_COLS + 1 + di);
+                    const done = t.actualDates?.[dStr];
+                    c.fill      = done ? xlFill(XL.GREEN) : xlFill(rowFill);
+                    c.value     = done ? '✓' : '';
+                    c.font      = done ? { bold: true, size: 7, name: 'Calibri', color: { argb: XL.WHITE } } : rFont(7);
+                    c.alignment = ctr;
+                    c.border    = innerB;
                 });
-                ws.getRow(r).height=16; r++;
+                ws.getRow(r).height = 14;
+                r++;
             }
         });
-        r++; ws.getCell(r,1).value='PROJECT DURATION'; ws.getCell(r,2).value=projectDuration;
-        [1,2].forEach(ci=>{
-            ws.getCell(r,ci).font={bold:true,size:10,name:'Arial',color:{argb:'FFFFFFFF'}};
-            ws.getCell(r,ci).fill=fill(NAVY); ws.getCell(r,ci).border=allB; ws.getCell(r,ci).alignment=ctr;
+
+        // ── Legend row ───────────────────────────────────────────────────
+        r++;
+        const legendItems = [
+            { label: '■  Target',   fill: XL.RED   },
+            { label: '■  Actual',   fill: XL.GREEN },
+            { label: '■  Section',  fill: XL.LGRAY, fontColor: XL.NAVY },
+        ];
+        legendItems.forEach((item, i) => {
+            const c = ws.getCell(r, i + 1);
+            c.value     = item.label;
+            c.font      = bFont(9, item.fontColor ?? XL.WHITE);
+            c.fill      = xlFill(item.fill);
+            c.alignment = ctr;
+            c.border    = innerB;
         });
-        ws.getRow(r).height=20;
-        const buf=await wb.xlsx.writeBuffer();
-        saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`${project.project_name}_Timeline.xlsx`);
+        ws.getRow(r).height = 18;
+
+        // ── Footer row ───────────────────────────────────────────────────
+        r += 2;
+        ws.mergeCells(r, 1, r, 4);
+        const footer = ws.getCell(r, 1);
+        footer.value     = `Generated on ${new Date().toLocaleString('en-US')}  •  Project Duration: ${projectDuration} working days`;
+        footer.font      = { italic: true, size: 8, name: 'Calibri', color: { argb: 'FF9CA3AF' } };
+        footer.alignment = lft;
+        ws.getRow(r).height = 16;
+
+        // ── Write & download ─────────────────────────────────────────────
+        const buf = await wb.xlsx.writeBuffer();
+        saveAs(
+            new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `${project.project_name}_Gantt_${new Date().toISOString().slice(0,10)}.xlsx`,
+        );
     };
 
+    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div className="tg-section">
             {error       && <div className="tg-error">⚠️ {error}</div>}
-            {saveSuccess && <div className="tg-success">✅ Timeline saved successfully!</div>}
+            {saveSuccess && <div className="tg-success">✅ Timeline saved!</div>}
 
-            {/* Summary — 2×2 mobile, 4-col tablet+ via CSS */}
+            {/* Summary */}
             <div className="tg-summary">
                 <div className="tg-summary-card card-project">
                     <span className="tg-summary-label">Project</span>
@@ -118,8 +298,11 @@ const TimelineGantt = ({ project, trackingData }) => {
             <div className="tg-toolbar">
                 <button className="tg-btn tg-btn-success" onClick={exportExcel}>⬇️ Download Gantt</button>
                 <button className="tg-btn tg-btn-navy" onClick={saveTimeline} disabled={saving}>
-                    {saving ? 'Saving...' : '💾 Save'}
+                    {saving ? 'Saving…' : '💾 Save'}
                 </button>
+                {/* Autosave status badge */}
+                {saving    && <span className="tg-autosave-badge saving">⏳ Auto-saving…</span>}
+                {autoSaved && <span className="tg-autosave-badge saved">✅ Auto-saved</span>}
             </div>
 
             {/* Task Table */}
@@ -157,7 +340,7 @@ const TimelineGantt = ({ project, trackingData }) => {
                                     <td colSpan={6} className="td-left">
                                         <input type="text" value={t.name}
                                             onChange={e => updateTask(t.id, 'name', e.target.value)}
-                                            className="tg-input group-input" placeholder="Section name..." />
+                                            className="tg-input group-input" placeholder="Section name…" />
                                     </td>
                                     <td><button className="tg-remove-btn" onClick={() => removeTask(t.id)}>✕</button></td>
                                 </tr>
@@ -166,7 +349,7 @@ const TimelineGantt = ({ project, trackingData }) => {
                                     <td className="td-left">
                                         <input type="text" value={t.name}
                                             onChange={e => updateTask(t.id, 'name', e.target.value)}
-                                            className="tg-input" placeholder="Task..." />
+                                            className="tg-input" placeholder="Task…" />
                                     </td>
                                     <td>
                                         <input type="date" value={t.start}

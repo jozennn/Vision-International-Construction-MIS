@@ -2,8 +2,12 @@
 //
 // Manages all API calls for the Timeline + Gantt tab.
 // Consumed by TimelineGantt.jsx.
+//
+// CHANGES:
+//  • Debounced autosave — saves 1.5 s after the last task edit (skip on first hydration).
+//  • Improved Excel export helpers (consumed by TimelineGantt.jsx).
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '@/api/axios';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -56,33 +60,31 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
     const [installerCount, setInstallerCount] = useState(0);
     const [saving,         setSaving]         = useState(false);
     const [saveSuccess,    setSaveSuccess]    = useState(false);
+    const [autoSaved,      setAutoSaved]      = useState(false);   // ← NEW: autosave indicator
     const [loading,        setLoading]        = useState(false);
     const [error,          setError]          = useState(null);
-    // Guards against tab-switch remounts overwriting unsaved edits
     const [hydrated,       setHydrated]       = useState(false);
 
+    // Refs used by the debounce logic
+    const debounceTimer   = useRef(null);
+    const isFirstRender   = useRef(true);   // skip autosave on initial hydration
+    const latestTasks     = useRef(tasks);
+    const latestInstaller = useRef(installerCount);
+
+    // Keep refs in sync so the debounced callback always has fresh values
+    useEffect(() => { latestTasks.current     = tasks; },          [tasks]);
+    useEffect(() => { latestInstaller.current = installerCount; }, [installerCount]);
+
     // ── Hydrate from existing tracking data (only once per projectId) ─────
-    //
-    // KEY FIX: The old code depended on `initialTrackingData` so it re-ran
-    // every time the parent re-rendered (e.g. on tab switch), silently
-    // resetting tasks to the last-saved value and discarding unsaved edits.
-    //
-    // Now we use a `hydrated` flag so hydration only happens once.
-    // If initialTrackingData isn't available we fetch from the server instead.
     useEffect(() => {
-        if (hydrated) return; // already loaded — don't overwrite live edits
+        if (hydrated) return;
 
         if (initialTrackingData) {
             const raw = safeParse(initialTrackingData);
-            if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) {
-                setTasks(raw.tasks);
-            }
-            if (raw?.installer_count) {
-                setInstallerCount(raw.installer_count);
-            }
+            if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) setTasks(raw.tasks);
+            if (raw?.installer_count) setInstallerCount(raw.installer_count);
             setHydrated(true);
         } else if (projectId) {
-            // No prop data available — fetch directly from server
             (async () => {
                 setLoading(true);
                 setError(null);
@@ -100,22 +102,55 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
                 }
             })();
         }
-    // Intentionally only re-run when projectId changes (new project opened).
-    // Excluding initialTrackingData & hydrated prevents the reset-on-tab-switch bug.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId]);
+
+    // ── Debounced autosave ────────────────────────────────────────────────
+    // Fires 1.5 s after the last change to `tasks` or `installerCount`.
+    // Skipped on the very first render / hydration to avoid a redundant save.
+    useEffect(() => {
+        if (!hydrated) return;           // don't autosave before data is loaded
+        if (!projectId) return;
+
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;                      // skip the hydration-triggered effect
+        }
+
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(async () => {
+            setSaving(true);
+            setAutoSaved(false);
+            try {
+                await api.patch(`/projects/${projectId}/tracking/timeline`, {
+                    timeline_tracking: JSON.stringify({
+                        tasks:           latestTasks.current,
+                        installer_count: latestInstaller.current,
+                    }),
+                });
+                setAutoSaved(true);
+                setTimeout(() => setAutoSaved(false), 2500);
+            } catch (e) {
+                // Silent failure for autosave — user can still manually save
+                console.warn('Autosave failed:', e.response?.data?.message ?? e.message);
+            } finally {
+                setSaving(false);
+            }
+        }, 1500);   // ← debounce delay (ms)
+
+        return () => clearTimeout(debounceTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tasks, installerCount]);
 
     // ── Task CRUD ────────────────────────────────────────────────────────
     const addTask  = () => setTasks(p => [...p, emptyTask(Date.now())]);
     const addGroup = () => setTasks(p => [...p, emptyGroup(Date.now())]);
-
     const removeTask = (id) => setTasks(p => p.filter(t => t.id !== id));
 
     const updateTask = (id, field, value) =>
         setTasks(p => p.map(t => {
             if (t.id !== id) return t;
             const updated = { ...t, [field]: value };
-            // Auto-calc duration when start or end changes
             if (field === 'start' || field === 'end') {
                 const s = parseDate(field === 'start' ? value : t.start);
                 const e = parseDate(field === 'end'   ? value : t.end);
@@ -124,7 +159,6 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
             return updated;
         }));
 
-    // Toggle an actual date on/off for a task
     const toggleActual = (taskId, dateStr) =>
         setTasks(p => p.map(t => {
             if (t.id !== taskId) return t;
@@ -146,7 +180,6 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
 
     const projectDuration = workingDays(parseDate(projectStart), parseDate(projectEnd));
 
-    // ── Gantt date columns (union of all task date ranges + 3 day buffer) ─
     const ganttDates = (() => {
         const allDates = [];
         realTasks.forEach(t => {
@@ -161,10 +194,10 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         return dateRange(min, max);
     })();
 
-    // ── Save to backend ──────────────────────────────────────────────────
-    // PATCH /api/projects/{id}/tracking/timeline
+    // ── Manual save ──────────────────────────────────────────────────────
     const saveTimeline = async () => {
         if (!projectId) return;
+        clearTimeout(debounceTimer.current);   // cancel any pending autosave
         setSaving(true);
         setSaveSuccess(false);
         setError(null);
@@ -177,7 +210,6 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
             };
             const res = await api.patch(`/projects/${projectId}/tracking/timeline`, payload);
             setSaveSuccess(true);
-            // Clear the success indicator after 3 seconds
             setTimeout(() => setSaveSuccess(false), 3000);
             return res.data;
         } catch (e) {
@@ -208,7 +240,6 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
     }, [projectId]);
 
     return {
-        // State
         tasks,
         installerCount,
         ganttDates,
@@ -218,16 +249,14 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         loading,
         saving,
         saveSuccess,
+        autoSaved,       // ← NEW: show "Auto-saved" badge in UI
         error,
-        // Setters
         setInstallerCount,
-        // Task helpers
         addTask,
         addGroup,
         removeTask,
         updateTask,
         toggleActual,
-        // Actions
         saveTimeline,
         fetchTimeline,
     };
