@@ -5,17 +5,36 @@ import { saveAs } from 'file-saver';
 import {
     useMaterialsMonitoring,
     totalDelivered,
-    getRunningTotal,
     getRemainingInventory,
 } from '../hooks/useMaterialsMonitoring.js';
 import '../css/MonitoringComponents.css';
 
+// Save Indicator Component
+const SaveIndicator = ({ status }) => {
+    if (!status) return null;
+    const styles = {
+        saving: { color: '#6b7280', fontSize: '0.75rem' },
+        saved:  { color: '#16a34a', fontSize: '0.75rem' },
+        error:  { color: '#dc2626', fontSize: '0.75rem' },
+    };
+    const labels = { saving: '● Saving…', saved: '✓ Auto-saved', error: '✗ Auto-save failed' };
+    return <span style={styles[status]}>{labels[status]}</span>;
+};
+
 const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
     const {
-        items, currentDate, saving, saveSuccess, error,
+        items,
+        currentDate,
+        saving,
+        saveStatus,
+        saveSuccess,
+        error,
         setCurrentDate,
-        addItem, removeItem, updateItem,
-        updateDelivery, updateConsumed,
+        addItem,
+        removeItem,
+        updateItem,
+        updateDelivery,
+        updateInstalled,
         saveMaterials,
     } = useMaterialsMonitoring(
         project?.id,
@@ -46,6 +65,14 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         month: 'short', day: 'numeric', year: 'numeric',
     });
 
+    // Get previous date's remaining inventory for initial display
+    const getStartingInventory = (item) => {
+        const dates = Object.keys(item.dailyConsumed || {}).sort();
+        const prevDate = dates.filter(d => d < currentDate).pop();
+        if (!prevDate) return totalDelivered(item);
+        return getRemainingInventory(item, prevDate);
+    };
+
     const exportExcel = async () => {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Materials Monitoring');
@@ -58,7 +85,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         const bold = { bold: true,  name: 'Arial', size: 10 };
         const norm = { bold: false, name: 'Arial', size: 10 };
         ws.columns = [
-            {width:20},{width:18},{width:10},{width:10},{width:10},
+            {width:20},{width:18},{width:12},{width:12},{width:12},
             {width:12},{width:16},{width:16},
         ];
         let r = 1;
@@ -81,11 +108,11 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         });
         ws.getRow(r).height=22; r++;
         items.forEach(item=>{
-            const delivered=totalDelivered(item);
-            const lastDel=item.deliveries?.[item.deliveries.length-1]??{};
-            const consumed=item.dailyConsumed?.[currentDate]??0;
-            const remaining=getRemainingInventory(item,currentDate);
-            [item.name,item.description,lastDel.date??'',lastDel.qty??0,delivered,consumed,remaining,item.remarks??''].forEach((v,ci)=>{
+            const delivered = totalDelivered(item);
+            const lastDel = item.deliveries?.[item.deliveries.length-1] ?? {};
+            const installed = item.installed?.[currentDate] ?? 0;
+            const remaining = getRemainingInventory(item, currentDate);
+            [item.name,item.description,lastDel.date??'',lastDel.qty??0,delivered,installed,remaining,item.remarks??''].forEach((v,ci)=>{
                 const c=ws.getCell(r,ci+1); c.value=v; c.font=norm; c.border=allB; c.alignment=ci<2?lft:ctr;
             });
             ws.getRow(r).height=18; r++;
@@ -110,6 +137,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                     ))}
                 </div>
                 <div className="mon-header-actions">
+                    <SaveIndicator status={saveStatus} />
                     <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
                     <button className="mon-btn mon-btn-navy" onClick={saveMaterials} disabled={saving}>
                         {saving ? 'Saving…' : '💾 Save'}
@@ -133,13 +161,13 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                 {/* Date selector */}
                 <div className="mon-mat-toolbar">
                     <div className="mon-date-row">
-                        <span className="mon-field-label">Date</span>
+                        <span className="mon-field-label">📅 Date</span>
                         <input type="date" value={currentDate}
                             onChange={e => setCurrentDate(e.target.value)}
                             className="mon-date-input" />
                     </div>
                     <div className="mon-date-hint">
-                        Showing consumed data for {currentDateLabel}. Switch date to view another day.
+                        Showing data for {currentDateLabel}. Switch date to view another day.
                     </div>
                 </div>
 
@@ -153,37 +181,32 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                         <table className="mon-table">
                             <thead>
                                 <tr>
-                                    <th rowSpan={2} className="th-left" style={{ minWidth: 120 }}>NAME</th>
-                                    <th rowSpan={2} style={{ minWidth: 110 }}>DESCRIPTION</th>
-                                    <th colSpan={3}>DELIVERY</th>
-                                    <th rowSpan={2} style={{ minWidth: 70 }}>INSTALLED</th>
-                                    <th rowSpan={2} style={{ minWidth: 110 }}>REMAINING<br/>INVENTORY</th>
-                                    <th rowSpan={2} style={{ minWidth: 100 }}>REMARKS</th>
-                                    <th colSpan={2} className="th-date-group">{currentDateLabel}</th>
-                                    <th rowSpan={2} style={{ width: 36 }}></th>
-                                </tr>
-                                <tr className="thead-sub">
-                                    <th>DATE</th>
+                                    <th className="th-left" style={{ minWidth: 140 }}>NAME</th>
+                                    <th style={{ minWidth: 120 }}>DESCRIPTION</th>
+                                    <th>DELIVERY DATE</th>
                                     <th>QTY</th>
                                     <th>TOTAL</th>
-                                    <th className="th-date-group">CONSUMED</th>
-                                    <th className="th-date-group">REMAINING</th>
+                                    <th style={{ minWidth: 90 }}>INSTALLED</th>
+                                    <th style={{ minWidth: 110 }}>REMAINING<br/>INVENTORY</th>
+                                    <th style={{ minWidth: 100 }}>REMARKS</th>
+                                    <th style={{ width: 36 }}></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {items.length === 0 && (
                                     <tr>
-                                        <td colSpan={11} style={{ padding: 20, textAlign: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12 }}>
+                                        <td colSpan={9} style={{ padding: 20, textAlign: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12 }}>
                                             No items yet. Items from the approved BOQ appear here automatically.
                                         </td>
                                     </tr>
                                 )}
                                 {items.map(item => {
-                                    const delivered          = totalDelivered(item);
-                                    const lastDel            = item.deliveries?.[item.deliveries.length - 1] ?? {};
-                                    const fromBoq            = Boolean(item.boqKey);
-                                    const consumedToday      = item.dailyConsumed?.[currentDate] ?? '';
+                                    const delivered = totalDelivered(item);
+                                    const lastDel = item.deliveries?.[item.deliveries.length - 1] ?? {};
+                                    const fromBoq = Boolean(item.boqKey);
+                                    const installedToday = item.installed?.[currentDate] ?? 0;
                                     const remainingInventory = getRemainingInventory(item, currentDate);
+                                    const startingInventory = getStartingInventory(item);
 
                                     return (
                                         <tr key={item.id} className={fromBoq ? 'mon-row-boq' : ''}>
@@ -211,24 +234,22 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                                     className="mon-cell-input input-num" min="0" />
                                             </td>
                                             <td className="td-bold">{delivered}</td>
-                                            <td className="td-bold td-blue">{consumedToday || 0}</td>
-                                            <td className={`td-bold ${remainingInventory <= 0 ? 'td-red' : 'td-green'}`}>
+                                            <td>
+                                                <input type="number"
+                                                    value={installedToday}
+                                                    onChange={e => updateInstalled(item.id, e.target.value)}
+                                                    className="mon-cell-input input-num"
+                                                    style={{ background: '#f0f9ff' }}
+                                                    placeholder="0" min="0"
+                                                    max={startingInventory} />
+                                            </td>
+                                            <td className={`td-bold ${remainingInventory <= 0 ? 'td-red' : remainingInventory < 10 ? 'td-orange' : 'td-green'}`}>
                                                 {remainingInventory}
                                             </td>
                                             <td>
                                                 <input type="text" value={item.remarks ?? ''}
                                                     onChange={e => updateItem(item.id, 'remarks', e.target.value)}
                                                     className="mon-cell-input input-wide" placeholder="Notes" />
-                                            </td>
-                                            <td className="td-consumed">
-                                                <input type="number"
-                                                    value={consumedToday}
-                                                    onChange={e => updateConsumed(item.id, currentDate, e.target.value)}
-                                                    className="mon-cell-input input-num input-red"
-                                                    placeholder="0" min="0" />
-                                            </td>
-                                            <td className={`td-bold ${remainingInventory <= 0 ? 'td-red' : ''}`}>
-                                                {remainingInventory}
                                             </td>
                                             <td>
                                                 <button className="mon-remove-btn" onClick={() => removeItem(item.id)}>✕</button>
@@ -238,6 +259,9 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+                    <div className="mon-table-footer-hint">
+                        <span>💡 Installed quantity reduces remaining inventory. Remaining carries over to next date.</span>
                     </div>
                 </div>
             </div>

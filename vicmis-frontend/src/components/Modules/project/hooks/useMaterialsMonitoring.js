@@ -6,7 +6,6 @@ import api from '@/api/axios';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split('T')[0];
 
-/** Strip time portion from any ISO date string → 'yyyy-MM-dd' */
 const toDateOnly = (val) => {
     if (!val) return '';
     if (typeof val === 'string') return val.split('T')[0].slice(0, 10);
@@ -26,6 +25,14 @@ export const getRunningTotal = (item, upToDate) => {
 export const getRemainingInventory = (item, upToDate) =>
     totalDelivered(item) - getRunningTotal(item, upToDate);
 
+// Get remaining inventory from previous date
+const getPreviousRemaining = (item, currentDate) => {
+    const dates = Object.keys(item.dailyConsumed || {}).sort();
+    const prevDate = dates.filter(d => d < currentDate).pop();
+    if (!prevDate) return totalDelivered(item);
+    return getRemainingInventory(item, prevDate);
+};
+
 const emptyItem = (id, overrides = {}) => ({
     id,
     name:          '',
@@ -34,6 +41,7 @@ const emptyItem = (id, overrides = {}) => ({
     deliveries:    [{ date: today(), qty: 0 }],
     remarks:       '',
     dailyConsumed: {},
+    installed:     {},
     ...overrides,
 });
 
@@ -47,13 +55,10 @@ const safeParse = (raw) => {
 const hasData = (item) => {
     const hasDelivery = (item.deliveries ?? []).some(d => Number(d.qty) > 0);
     const hasConsumed = Object.values(item.dailyConsumed ?? {}).some(v => Number(v) > 0);
-    return hasDelivery || hasConsumed;
+    const hasInstalled = Object.values(item.installed ?? {}).some(v => Number(v) > 0);
+    return hasDelivery || hasConsumed || hasInstalled;
 };
 
-/**
- * Sanitize all date strings in a saved item to plain 'yyyy-MM-dd'.
- * Fixes the React controlled-input warning when server returns ISO timestamps.
- */
 const sanitizeItemDates = (item) => ({
     ...item,
     deliveries: (item.deliveries ?? []).map(d => ({
@@ -64,11 +69,7 @@ const sanitizeItemDates = (item) => ({
 
 /**
  * Merge saved items with BOQ rows.
- * BOQ rows that already exist (matched by boqKey/product_code) are preserved
- * with their existing delivery/consumed data.
- * BOQ rows not yet in items are added as empty entries with BOQ metadata.
- * Manual items (no boqKey) are always kept.
- * Orphaned BOQ items (removed from BOQ but have recorded data) are kept too.
+ * Initial delivery qty is set to BOQ required quantity.
  */
 const mergeBoqIntoItems = (existingItems, boqData) => {
     const boqRows = Object.values(boqData ?? {})
@@ -77,28 +78,42 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
 
     if (boqRows.length === 0) return existingItems;
 
-    const byBoqKey      = {};
+    const byBoqKey = {};
     existingItems.forEach(item => { if (item.boqKey) byBoqKey[item.boqKey] = item; });
 
     const activeBoqKeys = new Set(boqRows.map(r => r.product_code));
-    const manualItems   = existingItems.filter(item => !item.boqKey);
+    const manualItems = existingItems.filter(item => !item.boqKey);
 
     const boqItems = boqRows.map(row => {
         const key = row.product_code;
+        const boqQty = parseFloat(row.qty) || 0;
+        
         if (byBoqKey[key]) {
-            // Preserve existing data, just refresh unit in case BOQ changed
-            return { ...byBoqKey[key], unit: byBoqKey[key].unit || row.unit || 'pcs' };
+            // Preserve existing data, update BOQ quantity if changed
+            const existing = byBoqKey[key];
+            return {
+                ...existing,
+                name: row.description || key,
+                description: row.description || '',
+                unit: row.unit || 'pcs',
+                boqQty: boqQty,
+                // Update first delivery qty to BOQ qty if no deliveries recorded yet
+                deliveries: existing.deliveries?.length > 0 && existing.deliveries[0].qty > 0 
+                    ? existing.deliveries 
+                    : [{ date: today(), qty: boqQty }],
+            };
         }
-        // New BOQ item not yet in saved materials
+        // New BOQ item - set initial delivery to BOQ quantity
         return emptyItem(Date.now() + Math.random(), {
-            boqKey:      key,
-            name:        row.description || key,
+            boqKey: key,
+            name: row.description || key,
             description: row.description || '',
-            unit:        row.unit || 'pcs',
+            unit: row.unit || 'pcs',
+            boqQty: boqQty,
+            deliveries: [{ date: today(), qty: boqQty }],
         });
     });
 
-    // Keep orphaned BOQ items that have real data even if removed from BOQ
     const orphanedItems = existingItems.filter(
         item => item.boqKey && !activeBoqKeys.has(item.boqKey) && hasData(item)
     );
@@ -110,54 +125,69 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
 export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, boqData = null) => {
 
     const hydrated = useRef(false);
+    const isFirstLoad = useRef(true);
+    const autoSaveTimer = useRef(null);
+    const isDirty = useRef(false);
 
-    const [items,       setItems]       = useState([]);
+    const [items, setItems] = useState([]);
     const [currentDate, setCurrentDate] = useState(today());
-    const [saving,      setSaving]      = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState(null);
     const [saveSuccess, setSaveSuccess] = useState(false);
-    const [loading,     setLoading]     = useState(false);
-    const [error,       setError]       = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    // ── Seed items whenever projectId changes ─────────────────────────────
-    // FIX: hydrated.current is reset to false here so switching between
-    // projects always re-seeds from the new project's data instead of
-    // keeping stale items from the previous project.
+    // ── Seed items when projectId changes ─────────────────────────────────────
     useEffect(() => {
         hydrated.current = false;
 
-        const parsed    = safeParse(initialMaterialItems);
+        const parsed = safeParse(initialMaterialItems);
         const sanitized = parsed ? parsed.map(sanitizeItemDates) : null;
 
         if (boqData) {
-            // Merge saved items with approved BOQ rows
             const base = (sanitized && sanitized.length > 0) ? sanitized : [];
             setItems(mergeBoqIntoItems(base, boqData));
         } else if (sanitized && sanitized.length > 0) {
             setItems(sanitized);
         } else {
-            // No saved data and no BOQ — clear stale items from previous project
             setItems([]);
         }
 
         hydrated.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        setTimeout(() => { isFirstLoad.current = false; }, 300);
     }, [projectId]);
 
-    // ── Re-merge when BOQ data changes (e.g. BOQ gets approved mid-session) ─
+    // ── Re-merge when BOQ data changes ────────────────────────────────────────
     useEffect(() => {
         if (!hydrated.current || !boqData) return;
         setItems(prev => mergeBoqIntoItems(prev, boqData));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [JSON.stringify(boqData)]);
 
-    // ── Item CRUD ─────────────────────────────────────────────────────────
-    const addItem    = () => setItems(p => [...p, emptyItem(Date.now())]);
-    const removeItem = (id) => setItems(p => p.filter(i => i.id !== id));
+    // ── Reset dirty flag when date changes ────────────────────────────────────
+    useEffect(() => {
+        isDirty.current = false;
+    }, [currentDate]);
 
-    const updateItem = (id, field, value) =>
+    // ── Item CRUD (marks dirty) ───────────────────────────────────────────────
+    const markDirty = () => { isDirty.current = true; };
+
+    const addItem = () => {
+        markDirty();
+        setItems(p => [...p, emptyItem(Date.now())]);
+    };
+
+    const removeItem = (id) => {
+        markDirty();
+        setItems(p => p.filter(i => i.id !== id));
+    };
+
+    const updateItem = (id, field, value) => {
+        markDirty();
         setItems(p => p.map(i => i.id === id ? { ...i, [field]: value } : i));
+    };
 
-    const updateDelivery = (itemId, dIdx, field, value) =>
+    const updateDelivery = (itemId, dIdx, field, value) => {
+        markDirty();
         setItems(p => p.map(i => {
             if (i.id !== itemId) return i;
             return {
@@ -169,22 +199,83 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
                 ),
             };
         }));
+    };
 
-    const addDelivery = (itemId) =>
+    // Update installed quantity for current date
+    const updateInstalled = (itemId, value) => {
+        markDirty();
+        const numValue = Number(value) || 0;
         setItems(p => p.map(i =>
             i.id === itemId
-                ? { ...i, deliveries: [...(i.deliveries ?? []), { date: today(), qty: 0 }] }
+                ? { 
+                    ...i, 
+                    installed: { 
+                        ...(i.installed ?? {}), 
+                        [currentDate]: numValue 
+                    } 
+                }
                 : i
         ));
+    };
 
-    const updateConsumed = (itemId, date, value) =>
+    // Update consumed (synced with installed)
+    const updateConsumed = (itemId, date, value) => {
+        markDirty();
+        const numValue = Number(value) || 0;
         setItems(p => p.map(i =>
             i.id === itemId
-                ? { ...i, dailyConsumed: { ...(i.dailyConsumed ?? {}), [date]: Number(value) || 0 } }
+                ? { 
+                    ...i, 
+                    dailyConsumed: { 
+                        ...(i.dailyConsumed ?? {}), 
+                        [date]: numValue 
+                    },
+                    installed: {
+                        ...(i.installed ?? {}),
+                        [date]: numValue
+                    }
+                }
                 : i
         ));
+    };
 
-    // ── Save ──────────────────────────────────────────────────────────────
+    // ── Auto-save (debounced) ─────────────────────────────────────────────────
+    const buildPayload = useCallback(() => ({
+        material_items: JSON.stringify(items),
+    }), [items]);
+
+    useEffect(() => {
+        if (isFirstLoad.current) return;
+        if (!projectId) return;
+        if (!isDirty.current) return;
+
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+        autoSaveTimer.current = setTimeout(async () => {
+            setSaveStatus('saving');
+            try {
+                await api.patch(
+                    `/projects/${projectId}/tracking/materials`,
+                    buildPayload()
+                );
+                isDirty.current = false;
+                setSaveStatus('saved');
+                setSaveSuccess(true);
+                setTimeout(() => {
+                    setSaveStatus(null);
+                    setSaveSuccess(false);
+                }, 3000);
+            } catch (e) {
+                console.error('[MaterialsMonitoring] auto-save failed:', e);
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus(null), 4000);
+            }
+        }, 1500);
+
+        return () => clearTimeout(autoSaveTimer.current);
+    }, [items, projectId, buildPayload]);
+
+    // ── Manual save ───────────────────────────────────────────────────────────
     const saveMaterials = async () => {
         if (!projectId) return;
         setSaving(true);
@@ -194,25 +285,31 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
             await api.patch(`/projects/${projectId}/tracking/materials`, {
                 material_items: JSON.stringify(items),
             });
+            isDirty.current = false;
             setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
+            setSaveStatus('saved');
+            setTimeout(() => {
+                setSaveSuccess(false);
+                setSaveStatus(null);
+            }, 3000);
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save materials.';
             setError(msg);
+            setSaveStatus('error');
             throw new Error(msg);
         } finally {
             setSaving(false);
         }
     };
 
-    // ── Fetch fresh from server ───────────────────────────────────────────
+    // ── Fetch from server ─────────────────────────────────────────────────────
     const fetchMaterials = useCallback(async () => {
         if (!projectId) return;
         setLoading(true);
         setError(null);
         try {
-            const res    = await api.get(`/projects/${projectId}`);
-            const mat    = res.data?.project?.material_items;
+            const res = await api.get(`/projects/${projectId}`);
+            const mat = res.data?.project?.material_items;
             const parsed = safeParse(mat);
             if (parsed && parsed.length > 0) {
                 const sanitized = parsed.map(sanitizeItemDates);
@@ -230,6 +327,7 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
         currentDate,
         loading,
         saving,
+        saveStatus,
         saveSuccess,
         error,
         setCurrentDate,
@@ -237,9 +335,10 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
         removeItem,
         updateItem,
         updateDelivery,
-        addDelivery,
+        updateInstalled,
         updateConsumed,
         saveMaterials,
         fetchMaterials,
+        markDirty,
     };
 };
