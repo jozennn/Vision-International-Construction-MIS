@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import './css/DatabaseManager.css'; // Make sure the path matches your project!
+import './css/DatabaseManager.css';
 
 const CRON_PRESETS = [
   { label: 'Every hour',        value: '0 * * * *'   },
@@ -236,13 +236,12 @@ const DatabaseManager = () => {
                   <tbody>
                     {backups.map(b => (
                       <tr key={b.id}>
-                        {/* data-label added to ALL td elements for mobile! */}
-                        <td className="db-td-mono" data-label="Filename">{b.filename}</td>
-                        <td data-label="Type"><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
-                        <td data-label="Size">{formatSize(b.size)}</td>
-                        <td data-label="Created" style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
-                        <td data-label="Status"><StatusBadge status={b.status} /></td>
-                        <td className="db-td-actions" data-label="Actions">
+                        <td className="db-td-mono">{b.filename}</td>
+                        <td><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
+                        <td>{formatSize(b.size)}</td>
+                        <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
+                        <td><StatusBadge status={b.status} /></td>
+                        <td className="db-td-actions">
                           <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
                             ⬇ Download
                           </button>
