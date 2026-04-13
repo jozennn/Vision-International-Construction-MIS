@@ -234,7 +234,7 @@ const DatabaseManager = () => {
                     <div className="vdb-term-line" key={b.id}>
                       <span className="line-num">{(idx + 1).toString().padStart(4, '0')}</span>
                       <div className="vdb-term-content">
-                        <span> {b.filename}</span>
+                        <span>> {b.filename}</span>
                         <div className="vdb-term-meta">
                           <span className="vdb-status-badge">{b.status}</span> | Type: {b.type} | Size: {formatSize(b.size)} | Date: {formatDate(b.created_at)}
                         </div>
