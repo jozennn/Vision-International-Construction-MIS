@@ -4,7 +4,7 @@ import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseMaterials.css';
 import api from '@/api/axios';
 
-const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOpsAss, onAdvance, onUploadAdvance, onReject, renderDocumentLink }) => {
+const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOpsAss, onAdvance, onUploadAdvance, onReject, renderDocumentLink, refreshProject}) => {
   // Initialize award details from saved project data
   const [awardDetails, setAwardDetails] = useState({
     name: project.subcontractor_name || '',
@@ -133,7 +133,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   if (file) {
                     await uploadFileImmediately(file, 'delivery_receipt_document');
                     // Refresh to show uploaded file
-                    window.location.reload();
+                    await refreshProject?.(); 
                   }
                 }}
                 className="pm-file-input"
@@ -237,7 +237,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   resetOthers('bidding');
                   if (file) {
                     await uploadFileImmediately(file, 'bidding_document');
-                    window.location.reload();
+                    await refreshProject?.(); 
                   }
                 }}
                 className="pm-file-input"
@@ -371,7 +371,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                           resetOthers('award');
                           if (file) {
                             await uploadFileImmediately(file, 'subcontractor_agreement_document');
-                            window.location.reload();
+                            await refreshProject?.(); 
                           }
                         }}
                         style={{ display: 'none' }}
