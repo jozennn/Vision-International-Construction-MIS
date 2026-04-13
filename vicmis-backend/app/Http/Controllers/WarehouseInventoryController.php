@@ -29,8 +29,8 @@ class WarehouseInventoryController extends Controller
         if ($request->filled('search')) {
             $s = $request->search;
             $query->where(fn($q) =>
-                $q->where('product_code',     'like', "%{$s}%")
-                  ->orWhere('product_category','like', "%{$s}%")
+                $q->where('product_code',      'like', "%{$s}%")
+                  ->orWhere('product_category', 'like', "%{$s}%")
             );
         }
 
@@ -46,6 +46,7 @@ class WarehouseInventoryController extends Controller
 
         $paginated->getCollection()->transform(function ($item) {
             $item->total_after_reserve = $item->total_after_reserve;
+            $item->total_stock_value   = $item->total_stock_value;
             return $item;
         });
 
@@ -69,6 +70,7 @@ class WarehouseInventoryController extends Controller
             'product_category' => 'required|string|max:150',
             'product_code'     => 'required|string|max:100',
             'unit'             => 'required|string|max:50',
+            'price_per_piece'  => 'nullable|numeric|min:0',
             'current_stock'    => 'required|integer|min:0',
             'delivery_in'      => 'nullable|integer|min:0',
             'delivery_out'     => 'nullable|integer|min:0',
@@ -88,8 +90,12 @@ class WarehouseInventoryController extends Controller
             $validated['is_consumable'] = true;
         }
 
+        // Default price to 0 if not provided
+        $validated['price_per_piece'] = $validated['price_per_piece'] ?? 0;
+
         $item = WarehouseInventory::create($validated);
         $item->total_after_reserve = $item->total_after_reserve;
+        $item->total_stock_value   = $item->total_stock_value;
 
         return response()->json(['data' => $item, 'message' => 'Product added successfully.'], 201);
     }
@@ -99,6 +105,7 @@ class WarehouseInventoryController extends Controller
     {
         $item = WarehouseInventory::findOrFail($id);
         $item->total_after_reserve = $item->total_after_reserve;
+        $item->total_stock_value   = $item->total_stock_value;
         return response()->json(['data' => $item]);
     }
 
@@ -111,6 +118,7 @@ class WarehouseInventoryController extends Controller
             'product_category' => 'sometimes|string|max:150',
             'product_code'     => 'sometimes|string|max:100',
             'unit'             => 'sometimes|string|max:50',
+            'price_per_piece'  => 'nullable|numeric|min:0',
             'current_stock'    => 'sometimes|integer|min:0',
             'delivery_in'      => 'nullable|integer|min:0',
             'delivery_out'     => 'nullable|integer|min:0',
@@ -130,6 +138,7 @@ class WarehouseInventoryController extends Controller
 
         $item->update($validated);
         $item->total_after_reserve = $item->total_after_reserve;
+        $item->total_stock_value   = $item->total_stock_value;
 
         return response()->json(['data' => $item, 'message' => 'Product updated successfully.']);
     }
@@ -152,8 +161,6 @@ class WarehouseInventoryController extends Controller
     }
 
     // ─── GET /api/inventory/alerts ────────────────────────────────────────────
-    // Called by InventoryEmployeeDashboard via setInterval polling.
-    // Derives counts from the existing `availability` column — no extra table needed.
     public function getAlerts(): JsonResponse
     {
         $noStock  = WarehouseInventory::where('availability', 'NO STOCK')->count();

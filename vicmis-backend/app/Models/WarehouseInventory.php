@@ -15,6 +15,7 @@ class WarehouseInventory extends Model
         'product_category',
         'product_code',
         'unit',
+        'price_per_piece',
         'current_stock',
         'reserve',
         'availability',
@@ -24,9 +25,10 @@ class WarehouseInventory extends Model
     ];
 
     protected $casts = [
-        'is_consumable'  => 'boolean',
-        'current_stock'  => 'integer',
-        'reserve'        => 'integer',
+        'is_consumable'   => 'boolean',
+        'current_stock'   => 'integer',
+        'reserve'         => 'integer',
+        'price_per_piece' => 'decimal:2',
     ];
 
     // ─── Computed Attributes ───────────────────────────────────────────────────
@@ -40,13 +42,21 @@ class WarehouseInventory extends Model
     }
 
     /**
+     * Total stock value = current_stock * price_per_piece
+     */
+    public function getTotalStockValueAttribute(): float
+    {
+        return $this->current_stock * (float) $this->price_per_piece;
+    }
+
+    /**
      * Automatically derive availability from current_stock.
-     * LOW STOCK threshold: 1–3 units.
+     * LOW STOCK threshold: 1–10 units.
      */
     public static function deriveAvailability(int $stock): string
     {
         if ($stock <= 0)  return 'NO STOCK';
-        if ($stock <= 10)  return 'LOW STOCK';
+        if ($stock <= 10) return 'LOW STOCK';
         return 'ON STOCK';
     }
 

@@ -19,6 +19,7 @@ const EMPTY_FORM = {
   product_category: '',
   product_code:     '',
   unit:             '',
+  price_per_piece:  '',
   current_stock:    '',
   delivery_in:      '',
   delivery_out:     '',
@@ -28,6 +29,19 @@ const EMPTY_FORM = {
   condition:        'Good',
   is_consumable:    false,
   notes:            '',
+};
+
+// ─── Formatters ───────────────────────────────────────────────────────────────
+const fmtPrice = (val) => {
+  const n = parseFloat(val);
+  if (!val || isNaN(n)) return '—';
+  return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const fmtValue = (val) => {
+  const n = parseFloat(val);
+  if (!val || isNaN(n) || n === 0) return '—';
+  return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 // ─── Auto-derive availability from current_stock ──────────────────────────────
@@ -148,7 +162,7 @@ const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageCha
 
 // ─── Reorder Confirmation Modal ───────────────────────────────────────────────
 const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
-  const [notes, setNotes]               = useState('');
+  const [notes, setNotes]                   = useState('');
   const [quantityNeeded, setQuantityNeeded] = useState('');
   const isNoStock    = item?.availability === 'NO STOCK';
   const urgencyCls   = isNoStock ? 'reorder-urgent' : 'reorder-low';
@@ -183,6 +197,12 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
               <span className="reorder-identity-label">Item Code</span>
               <span className="reorder-code">{item.product_code}</span>
             </div>
+            {item.price_per_piece > 0 && (
+              <div className="reorder-identity-row">
+                <span className="reorder-identity-label">Unit Price</span>
+                <span className="reorder-code">{fmtPrice(item.price_per_piece)}</span>
+              </div>
+            )}
           </div>
 
           {/* Stats row */}
@@ -210,7 +230,6 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
 
         {/* Fields */}
         <div className="reorder-fields-wrap">
-          {/* Quantity needed */}
           <div className="reorder-field-group">
             <label className="reorder-notes-label">
               Quantity Needed <span className="reorder-required">*</span>
@@ -227,9 +246,14 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
               />
               <span className="reorder-qty-unit">{item.unit}</span>
             </div>
+            {/* Estimated cost preview */}
+            {quantityNeeded > 0 && item.price_per_piece > 0 && (
+              <p className="wh-hint" style={{ marginTop: 6, color: '#059669', fontWeight: 600 }}>
+                Estimated cost: {fmtPrice(quantityNeeded * item.price_per_piece)}
+              </p>
+            )}
           </div>
 
-          {/* Notes */}
           <div className="reorder-field-group">
             <label className="reorder-notes-label">
               Notes for Procurement <span className="reorder-optional">(optional)</span>
@@ -313,10 +337,9 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [formData, setFormData]               = useState({ ...EMPTY_FORM });
   const [customCode, setCustomCode]           = useState(false);
 
-  // ── Reorder modal state ────────────────────────────────────────────────────
-  const [reorderTarget, setReorderTarget]     = useState(null);   // item being reordered
+  const [reorderTarget, setReorderTarget]     = useState(null);
   const [reorderLoading, setReorderLoading]   = useState(false);
-  const [reorderToast, setReorderToast]       = useState(null);   // success message
+  const [reorderToast, setReorderToast]       = useState(null);
 
   // ── Load meta ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -417,13 +440,14 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       const stockInt = parseInt(formData.current_stock, 10) || 0;
       const payload = {
         ...formData,
-        current_stock: stockInt,
-        delivery_in:   parseInt(formData.delivery_in,  10) || 0,
-        delivery_out:  parseInt(formData.delivery_out, 10) || 0,
-        return_out:    parseInt(formData.return_out,   10) || 0,
-        return_in:     parseInt(formData.return_in,    10) || 0,
-        reserve:       parseInt(formData.reserve,      10) || 0,
-        availability:  deriveAvailability(stockInt),
+        current_stock:   stockInt,
+        price_per_piece: parseFloat(formData.price_per_piece) || 0,
+        delivery_in:     parseInt(formData.delivery_in,  10) || 0,
+        delivery_out:    parseInt(formData.delivery_out, 10) || 0,
+        return_out:      parseInt(formData.return_out,   10) || 0,
+        return_in:       parseInt(formData.return_in,    10) || 0,
+        reserve:         parseInt(formData.reserve,      10) || 0,
+        availability:    deriveAvailability(stockInt),
       };
       if (isEditing) await warehouseInventoryService.update(currentId, payload);
       else           await warehouseInventoryService.create(payload);
@@ -453,11 +477,10 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
-  // ── Reorder: open modal ────────────────────────────────────────────────────
-  const openReorderModal = (item) => setReorderTarget(item);
+  // ── Reorder ────────────────────────────────────────────────────────────────
+  const openReorderModal  = (item) => setReorderTarget(item);
   const closeReorderModal = () => { setReorderTarget(null); setReorderLoading(false); };
 
-  // ── Reorder: confirm and POST ──────────────────────────────────────────────
   const handleReorderConfirm = async ({ notes, quantity_needed }) => {
     if (!reorderTarget) return;
     setReorderLoading(true);
@@ -483,7 +506,7 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   };
 
   const openAddModal  = () => { setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); setIsModalOpen(true); };
-  const openEditModal = (item) => { setIsEditing(true); setIsNewArrival(false); setCurrentId(item.id); setFormData({ ...item }); setCustomCode(true); setIsModalOpen(true); };
+  const openEditModal = (item) => { setIsEditing(true); setIsNewArrival(false); setCurrentId(item.id); setFormData({ ...item, price_per_piece: item.price_per_piece ?? '' }); setCustomCode(true); setIsModalOpen(true); };
   const closeModal    = () => { setIsModalOpen(false); setIsEditing(false); setIsNewArrival(false); setCurrentId(null); setFormData({ ...EMPTY_FORM }); setCustomCode(false); if (clearArrivalData) clearArrivalData(); };
 
   const codesForCategory = formData.product_category ? (presetCodes[formData.product_category] || []) : [];
@@ -547,8 +570,10 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
               <th>Availability</th>
               <th className="text-right">Current Stock</th>
               <th>Unit</th>
+              <th className="text-right">Price / Piece</th>
+              <th className="text-right">Total Value</th>
               <th className="text-right">Reserve</th>
-              <th className="text-right">Total After Reserve</th>
+              <th className="text-right">After Reserve</th>
               <th>Condition</th>
               <th>Type</th>
               <th className="text-center">Actions</th>
@@ -556,9 +581,9 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="10" className="wh-loading-cell"><Loader2 className="wh-spinner" size={20} /> Loading inventory…</td></tr>
+              <tr><td colSpan="12" className="wh-loading-cell"><Loader2 className="wh-spinner" size={20} /> Loading inventory…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan="10" className="wh-empty-cell">No products found.</td></tr>
+              <tr><td colSpan="12" className="wh-empty-cell">No products found.</td></tr>
             ) : items.map((item) => {
               const reserve    = parseInt(item.reserve || 0);
               const totalAfter = item.current_stock - reserve;
@@ -578,6 +603,8 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                   </td>
                   <td className="text-right wh-num">{item.current_stock}</td>
                   <td className="wh-unit">{item.unit}</td>
+                  <td className="text-right wh-num">{fmtPrice(item.price_per_piece)}</td>
+                  <td className="text-right wh-num wh-value">{fmtValue(item.total_stock_value)}</td>
                   <td className="text-right wh-num">{reserve > 0 ? reserve : '—'}</td>
                   <td className={`text-right wh-num wh-total ${totalAfter < 0 ? 'negative' : ''}`}>{totalAfter}</td>
                   <td><span className={`wh-condition ${CONDITION_COLORS[item.condition] || ''}`}>{item.condition}</span></td>
@@ -705,6 +732,31 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                     0 = No Stock · 1–10 = Low Stock · 11+ = On Stock
                   </p>
                 </div>
+
+                {/* ── Price per piece ── */}
+                <div className="wh-form-group">
+                  <label>Price per Piece <span className="wh-optional">(₱)</span></label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={formData.price_per_piece}
+                    onChange={e => setFormData(f => ({ ...f, price_per_piece: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                  {/* Live total value preview */}
+                  {formData.price_per_piece > 0 && formData.current_stock > 0 && (
+                    <p className="wh-hint" style={{ marginTop: 3, color: '#059669', fontWeight: 600 }}>
+                      Total value: {fmtPrice(parseFloat(formData.price_per_piece) * parseInt(formData.current_stock || 0))}
+                    </p>
+                  )}
+                </div>
+
+                <div className="wh-form-group">
+                  <label>Reserve</label>
+                  <input type="number" min="0" value={formData.reserve} onChange={e => setFormData(f => ({ ...f, reserve: e.target.value }))} placeholder="0" />
+                </div>
+              </div>
+
+              <div className="wh-form-row wh-form-row-3">
                 <div className="wh-form-group">
                   <label>Delivery In</label>
                   <input type="number" min="0" value={formData.delivery_in}  onChange={e => setFormData(f => ({ ...f, delivery_in:  e.target.value }))} placeholder="0" />
@@ -713,24 +765,17 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                   <label>Delivery Out</label>
                   <input type="number" min="0" value={formData.delivery_out} onChange={e => setFormData(f => ({ ...f, delivery_out: e.target.value }))} placeholder="0" />
                 </div>
-              </div>
-
-              <div className="wh-form-row wh-form-row-3">
                 <div className="wh-form-group">
                   <label>Return Out</label>
                   <input type="number" min="0" value={formData.return_out} onChange={e => setFormData(f => ({ ...f, return_out: e.target.value }))} placeholder="0" />
                 </div>
-                <div className="wh-form-group">
-                  <label>Return In</label>
-                  <input type="number" min="0" value={formData.return_in}  onChange={e => setFormData(f => ({ ...f, return_in:  e.target.value }))} placeholder="0" />
-                </div>
-                <div className="wh-form-group">
-                  <label>Reserve</label>
-                  <input type="number" min="0" value={formData.reserve}    onChange={e => setFormData(f => ({ ...f, reserve:    e.target.value }))} placeholder="0" />
-                </div>
               </div>
 
               <div className="wh-form-row">
+                <div className="wh-form-group">
+                  <label>Return In</label>
+                  <input type="number" min="0" value={formData.return_in} onChange={e => setFormData(f => ({ ...f, return_in: e.target.value }))} placeholder="0" />
+                </div>
                 <div className="wh-form-group">
                   <label>Condition</label>
                   <div className="wh-select-wrap">
@@ -740,16 +785,17 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                     <ChevronDown size={13} className="wh-select-icon" />
                   </div>
                 </div>
-                <div className="wh-form-group wh-checkbox-group">
-                  <label className="wh-checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_consumable}
-                      onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
-                    />
-                    <span>Mark as Consumable</span>
-                  </label>
-                </div>
+              </div>
+
+              <div className="wh-form-group wh-checkbox-group">
+                <label className="wh-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_consumable}
+                    onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
+                  />
+                  <span>Mark as Consumable</span>
+                </label>
               </div>
 
               <div className="wh-form-group">
