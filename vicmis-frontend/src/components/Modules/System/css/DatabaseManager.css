@@ -196,3 +196,24 @@
   .db-cron { font-size: 0.72rem; }
   .db-btn-restore { font-size: 0.85rem; padding: 10px 16px; }
 }
+/* ── DARK HERO BANNER MOBILE FIX ── */
+.vdb-hero {
+  padding: 20px 16px !important; /* Slightly tighter padding for mobile edges */
+  box-sizing: border-box !important; /* CRITICAL: Forces padding to stay INSIDE the screen width */
+  width: 100% !important;
+  overflow: hidden; /* Prevents anything from spilling horizontally */
+}
+
+.vdb-hero-title {
+  font-size: 1.25rem !important; /* Shrink title slightly to prevent wrapping */
+  flex-wrap: wrap; /* Allows the warning icon and text to wrap gracefully if needed */
+}
+
+.vdb-hero-sub {
+  font-size: 0.8rem !important; /* Better proportions for mobile */
+  line-height: 1.4;
+}
+
+.vdb-badge {
+  font-size: 0.6rem !important; /* Keep the badge from taking up too much room */
+}
