@@ -132,7 +132,6 @@ const PhaseCommandCenter = ({
   isLogistics,
   user,
 }) => {
-  // ── FIX: keep activeTab in a plain string state ──────────────────────────
   const [activeTab, setActiveTab] = useState('installers');
 
   const { status } = project;
@@ -151,6 +150,8 @@ const PhaseCommandCenter = ({
     handleIssueSubmit,
   } = cc;
 
+  // ── boqData is used both for the Material Requisition modal
+  // and passed down to MaterialsMonitoring so BOQ items auto-populate.
   const { boqData } = tracking;
 
   const timelineTrackingData = useMemo(() => {
@@ -167,7 +168,6 @@ const PhaseCommandCenter = ({
     return <LogisticsDispatch onAdvance={onAdvance} />;
   }
 
-  // ── FIX: renderActiveTab uses activeTab from closure — key= forces remount
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'installers':
@@ -198,6 +198,7 @@ const PhaseCommandCenter = ({
             project={project}
             user={user}
             trackingData={tracking}
+            boqData={boqData}   // ← FIX: pass boqData so approved BOQ items auto-populate
             onSave={() => {}}
           />
         );
@@ -279,7 +280,6 @@ const PhaseCommandCenter = ({
       )}
 
       <div className="pm-card">
-        {/* ── FIX: onClick directly sets state — no intermediate handler ── */}
         <div className="pm-tabs-wrapper">
           {TABS.map(({ key, label }) => (
             <button
@@ -293,7 +293,6 @@ const PhaseCommandCenter = ({
         </div>
 
         <div className="pm-cc-body">
-          {/* ── FIX: key=activeTab forces React to swap content on tab change ── */}
           <div key={activeTab} className="pm-animate-fadein">
             {renderActiveTab()}
           </div>

@@ -52,8 +52,7 @@ const hasData = (item) => {
 
 /**
  * Sanitize all date strings in a saved item to plain 'yyyy-MM-dd'.
- * Fixes the React error: "2026-03-16T00:00:00.000000Z" does not conform
- * to the required format "yyyy-MM-dd" for <input type="date">.
+ * Fixes the React controlled-input warning when server returns ISO timestamps.
  */
 const sanitizeItemDates = (item) => ({
     ...item,
@@ -63,6 +62,14 @@ const sanitizeItemDates = (item) => ({
     })),
 });
 
+/**
+ * Merge saved items with BOQ rows.
+ * BOQ rows that already exist (matched by boqKey/product_code) are preserved
+ * with their existing delivery/consumed data.
+ * BOQ rows not yet in items are added as empty entries with BOQ metadata.
+ * Manual items (no boqKey) are always kept.
+ * Orphaned BOQ items (removed from BOQ but have recorded data) are kept too.
+ */
 const mergeBoqIntoItems = (existingItems, boqData) => {
     const boqRows = Object.values(boqData ?? {})
         .flat()
@@ -79,8 +86,10 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
     const boqItems = boqRows.map(row => {
         const key = row.product_code;
         if (byBoqKey[key]) {
+            // Preserve existing data, just refresh unit in case BOQ changed
             return { ...byBoqKey[key], unit: byBoqKey[key].unit || row.unit || 'pcs' };
         }
+        // New BOQ item not yet in saved materials
         return emptyItem(Date.now() + Math.random(), {
             boqKey:      key,
             name:        row.description || key,
@@ -89,6 +98,7 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
         });
     });
 
+    // Keep orphaned BOQ items that have real data even if removed from BOQ
     const orphanedItems = existingItems.filter(
         item => item.boqKey && !activeBoqKeys.has(item.boqKey) && hasData(item)
     );
@@ -99,8 +109,6 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
 // ─────────────────────────────────────────────────────────────────────────────
 export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, boqData = null) => {
 
-    // ── IMPORTANT: ALL hooks must be declared unconditionally at the top ──
-    // useRef here alongside useState — never after a conditional or useEffect
     const hydrated = useRef(false);
 
     const [items,       setItems]       = useState([]);
@@ -110,25 +118,32 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
     const [loading,     setLoading]     = useState(false);
     const [error,       setError]       = useState(null);
 
-    // ── Seed items from saved DB data + BOQ (only once per project) ───────
+    // ── Seed items whenever projectId changes ─────────────────────────────
+    // FIX: hydrated.current is reset to false here so switching between
+    // projects always re-seeds from the new project's data instead of
+    // keeping stale items from the previous project.
     useEffect(() => {
-        if (hydrated.current) return;
+        hydrated.current = false;
 
         const parsed    = safeParse(initialMaterialItems);
         const sanitized = parsed ? parsed.map(sanitizeItemDates) : null;
 
         if (boqData) {
+            // Merge saved items with approved BOQ rows
             const base = (sanitized && sanitized.length > 0) ? sanitized : [];
             setItems(mergeBoqIntoItems(base, boqData));
         } else if (sanitized && sanitized.length > 0) {
             setItems(sanitized);
+        } else {
+            // No saved data and no BOQ — clear stale items from previous project
+            setItems([]);
         }
 
         hydrated.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId]);
 
-    // Re-merge when BOQ changes
+    // ── Re-merge when BOQ data changes (e.g. BOQ gets approved mid-session) ─
     useEffect(() => {
         if (!hydrated.current || !boqData) return;
         setItems(prev => mergeBoqIntoItems(prev, boqData));

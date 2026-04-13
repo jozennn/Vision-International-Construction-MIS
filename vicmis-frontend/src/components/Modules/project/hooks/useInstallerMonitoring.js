@@ -166,17 +166,54 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     // The dirty flag is intentionally NOT set here — auto-save will only
     // fire once the user actually edits a field.
     useEffect(() => {
-        // Already have a saved or previously seeded entry for this date — skip
-        if (logsByDate[selectedDate]) return;
+        // Check if the existing entry for this date actually has meaningful data.
+        // We can't just check if the key exists — the DB may have returned an
+        // empty/ghost record (all null fields) which mapServerLog turns into
+        // empty strings. In that case we still want to prefill from the latest log.
+        const existing = logsByDate[selectedDate];
+        const hasRealData = existing && (
+            existing.totalArea?.trim()   ||
+            existing.clientStart?.trim() ||
+            existing.clientEnd?.trim()   ||
+            existing.actualStart?.trim() ||
+            existing.rows?.some(r => r.name?.trim())
+        );
+        if (hasRealData) return;
 
-        const latest = getLatestLog(logsByDate);
-        const seeded = latest
-            ? buildPrefillLog(latest, selectedDate, roster)
+        // Find the most recent log that has actual data to prefill from.
+        // Skip the current selectedDate itself when looking for the latest.
+        const latestEntry = (() => {
+            const dates = Object.keys(logsByDate)
+                .filter(d => d !== selectedDate)
+                .sort((a, b) => b.localeCompare(a));
+
+            for (const d of dates) {
+                const l = logsByDate[d];
+                const hasData = l.totalArea?.trim()   ||
+                                l.clientStart?.trim() ||
+                                l.clientEnd?.trim()   ||
+                                l.actualStart?.trim() ||
+                                l.rows?.some(r => r.name?.trim());
+                if (hasData) return l;
+            }
+            return null;
+        })();
+
+        const seeded = latestEntry
+            ? buildPrefillLog(latestEntry, selectedDate, roster)
             : buildBlankLog(roster, selectedDate);
 
         setLogsByDate(prev => {
-            // Guard: another render may have already set it
-            if (prev[selectedDate]) return prev;
+            // Re-check inside setter to avoid race conditions between renders
+            const prevExisting = prev[selectedDate];
+            const prevHasData  = prevExisting && (
+                prevExisting.totalArea?.trim()   ||
+                prevExisting.clientStart?.trim() ||
+                prevExisting.clientEnd?.trim()   ||
+                prevExisting.actualStart?.trim() ||
+                prevExisting.rows?.some(r => r.name?.trim())
+            );
+            if (prevHasData) return prev;
             return { ...prev, [selectedDate]: seeded };
         });
     }, [selectedDate, logsByDate, roster]);
