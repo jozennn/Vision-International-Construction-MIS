@@ -1,22 +1,14 @@
 // src/hooks/useTimelineGantt.js
-//
-// Manages all API calls for the Timeline + Gantt tab.
-// Consumed by TimelineGantt.jsx.
-//
-// CHANGES:
-//  • Debounced autosave — saves 1.5 s after the last task edit (skip on first hydration).
-//  • Improved Excel export helpers (consumed by TimelineGantt.jsx).
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '@/api/axios';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-// Working days between two dates (Saturday = OT, Sunday excluded)
 export const workingDays = (start, end) => {
     if (!start || !end) return 0;
     let count = 0;
-    const cur = new Date(start);
+    const cur  = new Date(start);
     const last = new Date(end);
     while (cur <= last) {
         if (cur.getDay() !== 0) count++;
@@ -25,7 +17,6 @@ export const workingDays = (start, end) => {
     return count;
 };
 
-// Array of non-Sunday dates between two dates
 export const dateRange = (start, end) => {
     const dates = [];
     const cur   = new Date(start);
@@ -56,65 +47,87 @@ const safeParse = (raw) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export const useTimelineGantt = (projectId, initialTrackingData = null) => {
-    const [tasks,          setTasks]          = useState([]);
+    const [tasks,       setTasks]       = useState([]);
     const [installerCount, setInstallerCount] = useState(0);
-    const [saving,         setSaving]         = useState(false);
-    const [saveSuccess,    setSaveSuccess]    = useState(false);
-    const [autoSaved,      setAutoSaved]      = useState(false);   // ← NEW: autosave indicator
-    const [loading,        setLoading]        = useState(false);
-    const [error,          setError]          = useState(null);
-    const [hydrated,       setHydrated]       = useState(false);
+    const [saving,      setSaving]      = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [autoSaved,   setAutoSaved]   = useState(false);
+    const [loading,     setLoading]     = useState(false);
+    const [error,       setError]       = useState(null);
 
-    // Refs used by the debounce logic
-    const debounceTimer   = useRef(null);
-    const isFirstRender   = useRef(true);   // skip autosave on initial hydration
-    const latestTasks     = useRef(tasks);
+    const debounceTimer  = useRef(null);
+    const isFirstRender  = useRef(true);
+    const latestTasks    = useRef(tasks);
     const latestInstaller = useRef(installerCount);
 
-    // Keep refs in sync so the debounced callback always has fresh values
-    useEffect(() => { latestTasks.current     = tasks; },          [tasks]);
+    useEffect(() => { latestTasks.current     = tasks;         }, [tasks]);
     useEffect(() => { latestInstaller.current = installerCount; }, [installerCount]);
 
-    // ── Hydrate from existing tracking data (only once per projectId) ─────
-    useEffect(() => {
-        if (hydrated) return;
+    // ── Fetch from API — always called fresh when projectId is set ────────
+    // We do NOT rely on initialTrackingData alone because it may be stale
+    // (passed once from parent on mount). Instead we always fetch from the
+    // API so navigating away and back always restores the latest saved state.
+    const fetchTimeline = useCallback(async () => {
+        if (!projectId) return;
+        setLoading(true);
+        setError(null);
+        // Reset the autosave guard so the freshly loaded data doesn't
+        // immediately trigger a redundant save.
+        isFirstRender.current = true;
+        try {
+            const res = await api.get(`/projects/${projectId}`);
+            const mat = res.data?.project?.materials ?? res.data?.project;
+            const raw = safeParse(mat?.timeline_tracking);
 
+            if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) {
+                setTasks(raw.tasks);
+            } else {
+                // No saved tasks yet — start with empty slate
+                setTasks([]);
+            }
+
+            if (raw?.installer_count) setInstallerCount(raw.installer_count);
+        } catch (e) {
+            setError(e.response?.data?.message ?? 'Failed to fetch timeline.');
+        } finally {
+            setLoading(false);
+        }
+    }, [projectId]);
+
+    // ── Always fetch fresh when projectId changes ─────────────────────────
+    // This fixes the "navigate away and back shows blank" bug because the
+    // hook now re-fetches every time the component mounts with a projectId,
+    // rather than relying on a hydrated flag that never resets.
+    useEffect(() => {
+        if (!projectId) return;
+
+        // If parent passed fresh tracking data and it actually has tasks,
+        // use it immediately to avoid a flicker — but still fetch in the
+        // background to ensure we have the latest.
         if (initialTrackingData) {
             const raw = safeParse(initialTrackingData);
-            if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) setTasks(raw.tasks);
-            if (raw?.installer_count) setInstallerCount(raw.installer_count);
-            setHydrated(true);
-        } else if (projectId) {
-            (async () => {
-                setLoading(true);
-                setError(null);
-                try {
-                    const res = await api.get(`/projects/${projectId}`);
-                    const mat = res.data?.project?.materials ?? res.data?.project;
-                    const raw = safeParse(mat?.timeline_tracking);
-                    if (Array.isArray(raw?.tasks)) setTasks(raw.tasks);
-                    if (raw?.installer_count)      setInstallerCount(raw.installer_count);
-                } catch (e) {
-                    setError(e.response?.data?.message ?? 'Failed to fetch timeline.');
-                } finally {
-                    setLoading(false);
-                    setHydrated(true);
-                }
-            })();
+            if (Array.isArray(raw?.tasks) && raw.tasks.length > 0) {
+                isFirstRender.current = true; // prevent immediate autosave
+                setTasks(raw.tasks);
+                if (raw?.installer_count) setInstallerCount(raw.installer_count);
+            }
         }
+
+        // Always fetch fresh from API regardless
+        fetchTimeline();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId]);
 
     // ── Debounced autosave ────────────────────────────────────────────────
-    // Fires 1.5 s after the last change to `tasks` or `installerCount`.
-    // Skipped on the very first render / hydration to avoid a redundant save.
+    // Fires 1.5 s after the last change to tasks or installerCount.
+    // isFirstRender guard prevents saving on initial hydration.
     useEffect(() => {
-        if (!hydrated) return;           // don't autosave before data is loaded
         if (!projectId) return;
 
         if (isFirstRender.current) {
             isFirstRender.current = false;
-            return;                      // skip the hydration-triggered effect
+            return;
         }
 
         clearTimeout(debounceTimer.current);
@@ -131,20 +144,19 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
                 setAutoSaved(true);
                 setTimeout(() => setAutoSaved(false), 2500);
             } catch (e) {
-                // Silent failure for autosave — user can still manually save
                 console.warn('Autosave failed:', e.response?.data?.message ?? e.message);
             } finally {
                 setSaving(false);
             }
-        }, 1500);   // ← debounce delay (ms)
+        }, 1500);
 
         return () => clearTimeout(debounceTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tasks, installerCount]);
 
-    // ── Task CRUD ────────────────────────────────────────────────────────
-    const addTask  = () => setTasks(p => [...p, emptyTask(Date.now())]);
-    const addGroup = () => setTasks(p => [...p, emptyGroup(Date.now())]);
+    // ── Task CRUD ─────────────────────────────────────────────────────────
+    const addTask    = () => setTasks(p => [...p, emptyTask(Date.now())]);
+    const addGroup   = () => setTasks(p => [...p, emptyGroup(Date.now())]);
     const removeTask = (id) => setTasks(p => p.filter(t => t.id !== id));
 
     const updateTask = (id, field, value) =>
@@ -167,7 +179,7 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
             return { ...t, actualDates: ad };
         }));
 
-    // ── Derived project metrics ──────────────────────────────────────────
+    // ── Derived project metrics ───────────────────────────────────────────
     const realTasks = tasks.filter(t => t.type === 'task' && t.start && t.end);
 
     const projectStart = realTasks.length
@@ -194,10 +206,10 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         return dateRange(min, max);
     })();
 
-    // ── Manual save ──────────────────────────────────────────────────────
+    // ── Manual save ───────────────────────────────────────────────────────
     const saveTimeline = async () => {
         if (!projectId) return;
-        clearTimeout(debounceTimer.current);   // cancel any pending autosave
+        clearTimeout(debounceTimer.current);
         setSaving(true);
         setSaveSuccess(false);
         setError(null);
@@ -221,24 +233,6 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         }
     };
 
-    // ── Fetch fresh from backend (manual refresh) ────────────────────────
-    const fetchTimeline = useCallback(async () => {
-        if (!projectId) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const res  = await api.get(`/projects/${projectId}`);
-            const mat  = res.data?.project?.materials ?? res.data?.project;
-            const raw  = safeParse(mat?.timeline_tracking);
-            if (Array.isArray(raw?.tasks)) setTasks(raw.tasks);
-            if (raw?.installer_count)      setInstallerCount(raw.installer_count);
-        } catch (e) {
-            setError(e.response?.data?.message ?? 'Failed to fetch timeline.');
-        } finally {
-            setLoading(false);
-        }
-    }, [projectId]);
-
     return {
         tasks,
         installerCount,
@@ -249,7 +243,7 @@ export const useTimelineGantt = (projectId, initialTrackingData = null) => {
         loading,
         saving,
         saveSuccess,
-        autoSaved,       // ← NEW: show "Auto-saved" badge in UI
+        autoSaved,
         error,
         setInstallerCount,
         addTask,
