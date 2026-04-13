@@ -296,10 +296,12 @@
   .db-info-bar { grid-template-columns: repeat(2, 1fr); }
   .db-stat-val { font-size: 1.2rem; }
 
-  /* FIX: Apply ActivityTracker stacking logic to the table */
+  /* FIX: Stack the table rows into cards like ActivityTracker & UserManagement */
   .db-table, .db-table tbody { 
     display: block; 
     width: 100%; 
+    max-width: 100vw; 
+    box-sizing: border-box;
   }
   
   /* Hide the table headers since we are stacking the layout */
@@ -307,11 +309,11 @@
     display: none; 
   }
 
-  /* Make each row look like a timeline card */
+  /* Make each row look like a card */
   .db-table tr {
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Gives elements breathing room */
+    gap: 8px; /* Gives elements breathing room */
     padding: 16px 0;
     border-bottom: 1px solid #e8eaed;
   }
@@ -324,11 +326,18 @@
     align-items: center;
     width: 100%;
     box-sizing: border-box;
+    white-space: normal; /* Override any nowrap from upper breakpoints */
   }
 
-  /* Adjust spacing for the actions buttons */
+  /* FIX: Force those super long .sql filenames to wrap instead of breaking bounds */
+  .db-td-mono {
+    word-break: break-all;
+    overflow-wrap: break-word;
+  }
+
+  /* Give the action buttons a tiny bit of breathing room from the file details */
   .db-td-actions {
-    margin-top: 4px;
+    margin-top: 6px;
   }
 
   /* Import card */
