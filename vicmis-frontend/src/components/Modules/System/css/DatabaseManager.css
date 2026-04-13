@@ -285,7 +285,7 @@
 
 /* Mobile (≤768px) */
 @media (max-width: 768px) {
-  /* Tab nav: smaller text, allow horizontal scroll already enabled */
+  /* Tab nav */
   .db-tab { padding: 8px 14px; font-size: 0.82rem; }
 
   /* Quick actions wrap and go full-width */
@@ -296,49 +296,55 @@
   .db-info-bar { grid-template-columns: repeat(2, 1fr); }
   .db-stat-val { font-size: 1.2rem; }
 
-  /* FIX: Stack the table rows into cards like ActivityTracker & UserManagement */
+  /* ───────────────────────────────────────────────────────────
+     TABLE STACKING RESPONSIVENESS (Copied from ActivityTracker)
+     ─────────────────────────────────────────────────────────── */
+  
+  /* Convert the table into block layout */
   .db-table, .db-table tbody { 
     display: block; 
     width: 100%; 
-    max-width: 100vw; 
-    box-sizing: border-box;
   }
   
-  /* Hide the table headers since we are stacking the layout */
+  /* Hide the desktop headers completely */
   .db-table thead { 
     display: none; 
   }
 
-  /* Make each row look like a card */
+  /* Make each row look like an Activity Tracker card */
   .db-table tr {
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Gives elements breathing room */
+    gap: 8px; /* Breathing room between data pieces */
     padding: 16px 0;
-    border-bottom: 1px solid #e8eaed;
+    border-bottom: 1px solid #f1f5f9;
   }
 
-  /* Push each piece of data to its own line */
+  /* Ensure cells stack vertically and break long text */
   .db-table td {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     padding: 0;
-    border-bottom: none;
-    align-items: center;
+    border: none;
     width: 100%;
     box-sizing: border-box;
-    white-space: normal; /* Override any nowrap from upper breakpoints */
   }
 
-  /* FIX: Force those super long .sql filenames to wrap instead of breaking bounds */
+  /* Force super-long .sql filenames to wrap onto the next line! */
   .db-td-mono {
     word-break: break-all;
     overflow-wrap: break-word;
+    white-space: normal;
   }
 
-  /* Give the action buttons a tiny bit of breathing room from the file details */
+  /* Actions row spacing */
   .db-td-actions {
     margin-top: 6px;
+    flex-direction: row; /* Keep the buttons side-by-side */
   }
+
+  /* ─────────────────────────────────────────────────────────── */
 
   /* Import card */
   .db-import-card { padding: 16px; }
@@ -348,7 +354,7 @@
   .db-form-row  { flex-direction: column; }
   .db-field.half { min-width: 0; width: 100%; }
 
-  /* Schedule cards: stack content vertically */
+  /* Schedule cards stack content vertically */
   .db-schedule-card { flex-direction: column; align-items: flex-start; gap: 12px; }
   .db-schedule-card-right { width: 100%; justify-content: flex-end; }
 
@@ -368,7 +374,6 @@
   .db-schedule-form { padding: 14px; }
   .db-cron { font-size: 0.72rem; }
 
-  /* Reclaim space for action buttons on mobile */
   .db-btn-download,
   .db-btn-delete { padding: 6px 12px; font-size: 0.75rem; }
 
