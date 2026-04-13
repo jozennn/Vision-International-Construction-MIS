@@ -7,6 +7,18 @@ import '../css/MonitoringComponents.css';
 
 const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
 
+// ─── Save Indicator ───────────────────────────────────────────────────────────
+const SaveIndicator = ({ status }) => {
+    if (!status) return null;
+    const styles = {
+        saving: { color: '#6b7280', fontSize: '0.75rem' },
+        saved:  { color: '#16a34a', fontSize: '0.75rem' },
+        error:  { color: '#dc2626', fontSize: '0.75rem' },
+    };
+    const labels = { saving: '● Saving…', saved: '✓ Auto-saved', error: '✗ Auto-save failed' };
+    return <span style={styles[status]}>{labels[status]}</span>;
+};
+
 const InstallerMonitoring = ({ project, user }) => {
     const roster = resolveRoster(project);
 
@@ -14,7 +26,7 @@ const InstallerMonitoring = ({ project, user }) => {
         selectedDate, setSelectedDate,
         currentLog,   setCurrentLog,
         allLogs,
-        loading, saving, error,
+        loading, saving, saveStatus, error,
         addRow, removeRow, updateRow,
         saveLog,
     } = useInstallerMonitoring(project?.id, roster);
@@ -97,6 +109,8 @@ const InstallerMonitoring = ({ project, user }) => {
                     ))}
                 </div>
                 <div className="mon-header-actions">
+                    {/* Auto-save indicator sits next to the buttons */}
+                    <SaveIndicator status={saveStatus} />
                     <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
                     <button className="mon-btn mon-btn-navy" onClick={handleSave} disabled={saving}>
                         {saving ? 'Saving…' : '💾 Save'}
@@ -108,7 +122,7 @@ const InstallerMonitoring = ({ project, user }) => {
             <div className="mon-body">
                 {error && <div className="mon-error">⚠️ {error}</div>}
 
-                {/* Top info row — CSS controls layout (col on mobile, row on tablet+) */}
+                {/* Top info row */}
                 <div className="mon-top-row">
                     <div className="mon-top-field">
                         <span className="mon-input-label">Total Area Logged</span>

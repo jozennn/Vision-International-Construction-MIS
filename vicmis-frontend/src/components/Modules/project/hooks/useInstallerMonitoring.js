@@ -1,24 +1,17 @@
 // src/hooks/useInstallerMonitoring.js
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/api/axios';
 
 const today = () => new Date().toISOString().split('T')[0];
 
-// ── Reads installer_roster from wherever formatProject puts it ────────────────
-// ProjectController::formatProject() returns installer_roster at the TOP LEVEL
-// of the project object (project.installer_roster), not nested under mobilization.
-// We check both locations so it works regardless of API shape.
 export const resolveRoster = (project) => {
-    // 1. Top-level (from formatProject)
     const topLevel = project?.installer_roster;
     if (Array.isArray(topLevel) && topLevel.length > 0) return topLevel;
 
-    // 2. Nested under mobilization (direct relationship object)
     const nested = project?.mobilization?.installer_roster;
     if (Array.isArray(nested) && nested.length > 0) return nested;
 
-    // 3. JSON string fallback
     if (typeof topLevel === 'string') {
         try { const p = JSON.parse(topLevel); if (Array.isArray(p)) return p; } catch {}
     }
@@ -29,7 +22,6 @@ export const resolveRoster = (project) => {
     return [];
 };
 
-// ── Build a blank log pre-filled with roster names + positions ────────────────
 const buildBlankLog = (roster = [], date = today()) => ({
     date,
     totalArea:   '',
@@ -48,7 +40,6 @@ const buildBlankLog = (roster = [], date = today()) => ({
             timeOut:  '17:00',
             remarks:  '',
           }))
-        // If no roster yet, start with one blank row
         : [{ id: 0, name: '', position: '', timeIn: '08:00', timeOut: '17:00', remarks: '' }],
 });
 
@@ -64,7 +55,11 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     const [allLogs,      setAllLogs]      = useState([]);
     const [loading,      setLoading]      = useState(false);
     const [saving,       setSaving]       = useState(false);
+    const [saveStatus,   setSaveStatus]   = useState(null); // 'saving' | 'saved' | 'error' | null
     const [error,        setError]        = useState(null);
+
+    const autoSaveTimer = useRef(null);
+    const isFirstLoad   = useRef(true);
 
     // ── Fetch all saved logs ──────────────────────────────────────────────
     const fetchLogs = useCallback(async () => {
@@ -76,7 +71,6 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             const logs = res.data ?? [];
             setAllLogs(logs);
 
-            // Hydrate logsByDate from saved records
             const map = {};
             logs.forEach(l => {
                 const savedRows = parseInstallers(l.installers_data);
@@ -89,7 +83,6 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                     actualEnd:   l.end_date               ?? '',
                     completion:  l.accomplishment_percent ?? '',
                     remarks:     l.remarks                ?? '',
-                    // If saved rows exist use them, otherwise pre-fill from roster
                     rows: savedRows.length > 0 ? savedRows : buildBlankLog(roster, l.log_date).rows,
                 };
             });
@@ -98,20 +91,20 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             setError(e.response?.data?.message ?? 'Failed to load daily logs.');
         } finally {
             setLoading(false);
+            // Allow auto-save to fire after initial hydration
+            setTimeout(() => { isFirstLoad.current = false; }, 300);
         }
-    }, [projectId]); // intentionally omit roster — stable after mount
+    }, [projectId]);
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
     // ── Re-seed rows from roster when roster loads after logs ─────────────
-    // Edge case: project loads before mobilization relation is eager-loaded.
     useEffect(() => {
         if (roster.length === 0) return;
         setLogsByDate(prev => {
             const updated = { ...prev };
             Object.keys(updated).forEach(date => {
                 const log = updated[date];
-                // Only update rows that are all blank (not yet manually edited)
                 const allBlank = log.rows.every(r => !r.name.trim());
                 if (allBlank) {
                     updated[date] = { ...log, rows: buildBlankLog(roster, date).rows };
@@ -124,6 +117,10 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     // ── Current log (or blank with roster pre-filled) ─────────────────────
     const currentLog = logsByDate[selectedDate] ?? buildBlankLog(roster, selectedDate);
 
+    // ── Switching date preserves the previous date's data ─────────────────
+    // logsByDate is keyed by date so each date's edits are fully isolated.
+    // When user picks a new date, currentLog automatically reads from that
+    // date's entry (or builds a blank one) — no data is lost.
     const setCurrentLog = (updated) =>
         setLogsByDate(prev => ({ ...prev, [selectedDate]: updated }));
 
@@ -147,34 +144,93 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             rows: currentLog.rows.map(r => r.id === id ? { ...r, [field]: value } : r),
         });
 
-    // ── Save ──────────────────────────────────────────────────────────────
+    // ── Build save payload (reused by auto-save and manual save) ──────────
+    const buildPayload = useCallback((log) => {
+        const fd = new FormData();
+        fd.append('log_date',               log.date);
+        fd.append('total_area',             log.totalArea);
+        fd.append('client_start_date',      log.clientStart);
+        fd.append('client_end_date',        log.clientEnd);
+        fd.append('start_date',             log.actualStart);
+        fd.append('end_date',               log.actualEnd);
+        fd.append('accomplishment_percent', log.completion);
+        fd.append('remarks',               log.remarks);
+        fd.append('workers_count',          log.rows.length);
+        fd.append('installers_data',        JSON.stringify(log.rows));
+        return fd;
+    }, []);
+
+    // ── Debounced auto-save (fires 1.5s after user stops typing) ─────────
+    useEffect(() => {
+        if (isFirstLoad.current) return;
+        if (!projectId) return;
+
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+        autoSaveTimer.current = setTimeout(async () => {
+            setSaveStatus('saving');
+            try {
+                await api.post(
+                    `/projects/${projectId}/daily-logs`,
+                    buildPayload(currentLog),
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+                // Update allLogs list without a full refetch
+                setAllLogs(prev => {
+                    const exists = prev.find(l => l.log_date === currentLog.date);
+                    if (exists) {
+                        return prev.map(l => l.log_date === currentLog.date
+                            ? { ...l,
+                                total_area:             currentLog.totalArea,
+                                remarks:                currentLog.remarks,
+                                accomplishment_percent: currentLog.completion,
+                                installers_data:        JSON.stringify(currentLog.rows),
+                              }
+                            : l
+                        );
+                    }
+                    // New date entry — add to list
+                    return [...prev, {
+                        id:                     Date.now(),
+                        log_date:               currentLog.date,
+                        total_area:             currentLog.totalArea,
+                        remarks:                currentLog.remarks,
+                        accomplishment_percent: currentLog.completion,
+                        installers_data:        JSON.stringify(currentLog.rows),
+                    }];
+                });
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus(null), 3000);
+            } catch (e) {
+                console.error('[InstallerMonitoring] auto-save failed:', e);
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus(null), 4000);
+            }
+        }, 1500);
+
+        return () => clearTimeout(autoSaveTimer.current);
+    }, [currentLog, projectId, buildPayload]);
+
+    // ── Manual save (also handles photo uploads) ──────────────────────────
     const saveLog = async ({ photoMain, photo1, photo2 } = {}) => {
         if (!projectId) return;
         setSaving(true);
         setError(null);
         try {
-            const formData = new FormData();
-            formData.append('log_date',               currentLog.date);
-            formData.append('total_area',             currentLog.totalArea);
-            formData.append('client_start_date',      currentLog.clientStart);
-            formData.append('client_end_date',        currentLog.clientEnd);
-            formData.append('start_date',             currentLog.actualStart);
-            formData.append('end_date',               currentLog.actualEnd);
-            formData.append('accomplishment_percent', currentLog.completion);
-            formData.append('remarks',                currentLog.remarks);
-            formData.append('workers_count',          currentLog.rows.length);
-            formData.append('installers_data',        JSON.stringify(currentLog.rows));
-            if (photoMain) formData.append('photo',        photoMain);
-            if (photo1)    formData.append('team_photo_1', photo1);
-            if (photo2)    formData.append('team_photo_2', photo2);
+            const fd = buildPayload(currentLog);
+            if (photoMain) fd.append('photo',        photoMain);
+            if (photo1)    fd.append('team_photo_1', photo1);
+            if (photo2)    fd.append('team_photo_2', photo2);
 
             await api.post(
                 `/projects/${projectId}/daily-logs`,
-                formData,
+                fd,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
 
-            await fetchLogs(); // refresh history list
+            await fetchLogs();
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus(null), 3000);
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save log.';
             setError(msg);
@@ -188,7 +244,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         selectedDate, setSelectedDate,
         currentLog,   setCurrentLog,
         allLogs,
-        loading, saving, error,
+        loading, saving, saveStatus, error,
         addRow, removeRow, updateRow,
         saveLog, fetchLogs,
     };
