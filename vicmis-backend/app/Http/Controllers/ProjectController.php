@@ -1029,6 +1029,22 @@ public function index(Request $request): JsonResponse
     return response()->json(['message' => 'Draft saved.']);
     }
 
+
+    public function saveMobilizationDraftRoster(Request $request, int $id): JsonResponse
+    {
+    $project = Project::findOrFail($id);
+    $roster  = json_decode($request->installer_roster, true) ?? [];
+
+    if (!empty($roster)) {
+        ProjectMobilization::updateOrCreate(
+            ['project_id' => $project->id],
+            ['installer_roster' => $roster]
+        );
+    }
+
+    return response()->json(['message' => 'Roster draft saved.']);
+    }
+
     private function formatProject(Project $project): array
     {
         $po        = $project->poOrder;

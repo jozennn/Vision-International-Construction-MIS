@@ -129,7 +129,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
 
     Route::patch('/projects/{id}/status', [ProjectController::class, 'updateStatus']);
     Route::post('/projects/{id}/status',  [ProjectController::class, 'updateStatus']);
-
+    Route::post('/projects/{id}/mobilization/draft-roster', [ProjectController::class, 'saveMobilizationDraftRoster']);
     // BOQ
     Route::post('/projects/{id}/submit-plan',   [ProjectController::class, 'submitPlanData']);
     Route::post('/projects/{id}/submit-actual', [ProjectController::class, 'submitActualData']);
