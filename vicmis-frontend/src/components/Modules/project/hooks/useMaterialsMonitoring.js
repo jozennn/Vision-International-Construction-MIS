@@ -15,19 +15,22 @@ const toDateOnly = (val) => {
 export const totalDelivered = (item) =>
     (item.deliveries ?? []).reduce((s, d) => s + Number(d.qty || 0), 0);
 
-export const getRunningTotal = (item, upToDate) => {
-    if (!item.dailyConsumed) return 0;
-    return Object.entries(item.dailyConsumed)
+export const getTotalInstalledUpToDate = (item, upToDate) => {
+    if (!item.installed) return 0;
+    return Object.entries(item.installed)
         .filter(([d]) => d <= upToDate)
         .reduce((s, [, v]) => s + Number(v || 0), 0);
 };
 
-export const getRemainingInventory = (item, upToDate) =>
-    totalDelivered(item) - getRunningTotal(item, upToDate);
+export const getRemainingInventory = (item, upToDate) => {
+    const delivered = totalDelivered(item);
+    const installed = getTotalInstalledUpToDate(item, upToDate);
+    return delivered - installed;
+};
 
 // Get remaining inventory from previous date
 const getPreviousRemaining = (item, currentDate) => {
-    const dates = Object.keys(item.dailyConsumed || {}).sort();
+    const dates = Object.keys(item.installed || {}).sort();
     const prevDate = dates.filter(d => d < currentDate).pop();
     if (!prevDate) return totalDelivered(item);
     return getRemainingInventory(item, prevDate);
@@ -40,7 +43,6 @@ const emptyItem = (id, overrides = {}) => ({
     unit:          'pcs',
     deliveries:    [{ date: today(), qty: 0 }],
     remarks:       '',
-    dailyConsumed: {},
     installed:     {},
     ...overrides,
 });
@@ -54,9 +56,8 @@ const safeParse = (raw) => {
 
 const hasData = (item) => {
     const hasDelivery = (item.deliveries ?? []).some(d => Number(d.qty) > 0);
-    const hasConsumed = Object.values(item.dailyConsumed ?? {}).some(v => Number(v) > 0);
     const hasInstalled = Object.values(item.installed ?? {}).some(v => Number(v) > 0);
-    return hasDelivery || hasConsumed || hasInstalled;
+    return hasDelivery || hasInstalled;
 };
 
 const sanitizeItemDates = (item) => ({
@@ -89,16 +90,17 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
         const boqQty = parseFloat(row.qty) || 0;
         
         if (byBoqKey[key]) {
-            // Preserve existing data, update BOQ quantity if changed
+            // Preserve existing data
             const existing = byBoqKey[key];
+            // Only update first delivery if no deliveries exist yet
+            const hasDeliveries = existing.deliveries?.some(d => Number(d.qty) > 0);
             return {
                 ...existing,
                 name: row.description || key,
                 description: row.description || '',
                 unit: row.unit || 'pcs',
                 boqQty: boqQty,
-                // Update first delivery qty to BOQ qty if no deliveries recorded yet
-                deliveries: existing.deliveries?.length > 0 && existing.deliveries[0].qty > 0 
+                deliveries: hasDeliveries 
                     ? existing.deliveries 
                     : [{ date: today(), qty: boqQty }],
             };
@@ -205,38 +207,22 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
     const updateInstalled = (itemId, value) => {
         markDirty();
         const numValue = Number(value) || 0;
-        setItems(p => p.map(i =>
-            i.id === itemId
-                ? { 
-                    ...i, 
-                    installed: { 
-                        ...(i.installed ?? {}), 
-                        [currentDate]: numValue 
-                    } 
-                }
-                : i
-        ));
-    };
-
-    // Update consumed (synced with installed)
-    const updateConsumed = (itemId, date, value) => {
-        markDirty();
-        const numValue = Number(value) || 0;
-        setItems(p => p.map(i =>
-            i.id === itemId
-                ? { 
-                    ...i, 
-                    dailyConsumed: { 
-                        ...(i.dailyConsumed ?? {}), 
-                        [date]: numValue 
-                    },
-                    installed: {
-                        ...(i.installed ?? {}),
-                        [date]: numValue
-                    }
-                }
-                : i
-        ));
+        
+        setItems(p => p.map(i => {
+            if (i.id !== itemId) return i;
+            
+            // Get max allowed (starting inventory for this date)
+            const prevRemaining = getPreviousRemaining(i, currentDate);
+            const cappedValue = Math.min(numValue, prevRemaining);
+            
+            return { 
+                ...i, 
+                installed: { 
+                    ...(i.installed ?? {}), 
+                    [currentDate]: cappedValue
+                } 
+            };
+        }));
     };
 
     // ── Auto-save (debounced) ─────────────────────────────────────────────────
@@ -336,9 +322,10 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
         updateItem,
         updateDelivery,
         updateInstalled,
-        updateConsumed,
         saveMaterials,
         fetchMaterials,
         markDirty,
+        getRemainingInventory,
+        getTotalInstalledUpToDate,
     };
 };

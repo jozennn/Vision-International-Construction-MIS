@@ -6,6 +6,7 @@ import {
     useMaterialsMonitoring,
     totalDelivered,
     getRemainingInventory,
+    getTotalInstalledUpToDate,
 } from '../hooks/useMaterialsMonitoring.js';
 import '../css/MonitoringComponents.css';
 
@@ -65,9 +66,9 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         month: 'short', day: 'numeric', year: 'numeric',
     });
 
-    // Get previous date's remaining inventory for initial display
+    // Get starting inventory for current date (remaining from previous date)
     const getStartingInventory = (item) => {
-        const dates = Object.keys(item.dailyConsumed || {}).sort();
+        const dates = Object.keys(item.installed || {}).sort();
         const prevDate = dates.filter(d => d < currentDate).pop();
         if (!prevDate) return totalDelivered(item);
         return getRemainingInventory(item, prevDate);
@@ -207,6 +208,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                     const installedToday = item.installed?.[currentDate] ?? 0;
                                     const remainingInventory = getRemainingInventory(item, currentDate);
                                     const startingInventory = getStartingInventory(item);
+                                    const totalInstalled = getTotalInstalledUpToDate(item, currentDate);
 
                                     return (
                                         <tr key={item.id} className={fromBoq ? 'mon-row-boq' : ''}>
@@ -235,16 +237,44 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                             </td>
                                             <td className="td-bold">{delivered}</td>
                                             <td>
-                                                <input type="number"
-                                                    value={installedToday}
-                                                    onChange={e => updateInstalled(item.id, e.target.value)}
-                                                    className="mon-cell-input input-num"
-                                                    style={{ background: '#f0f9ff' }}
-                                                    placeholder="0" min="0"
-                                                    max={startingInventory} />
+                                                <div style={{ position: 'relative' }}>
+                                                    <input type="number"
+                                                        value={installedToday}
+                                                        onChange={e => updateInstalled(item.id, e.target.value)}
+                                                        className="mon-cell-input input-num"
+                                                        style={{ 
+                                                            background: installedToday > 0 ? '#f0f9ff' : '#fff',
+                                                            borderColor: installedToday > 0 ? '#3b82f6' : '#e5e7eb'
+                                                        }}
+                                                        placeholder="0" 
+                                                        min="0"
+                                                        max={startingInventory} />
+                                                    {installedToday > 0 && (
+                                                        <span style={{
+                                                            position: 'absolute',
+                                                            top: '-8px',
+                                                            right: '2px',
+                                                            fontSize: '9px',
+                                                            fontWeight: 700,
+                                                            color: '#3b82f6',
+                                                            background: '#eff6ff',
+                                                            borderRadius: '4px',
+                                                            padding: '1px 4px',
+                                                        }}>
+                                                            -{installedToday}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className={`td-bold ${remainingInventory <= 0 ? 'td-red' : remainingInventory < 10 ? 'td-orange' : 'td-green'}`}>
-                                                {remainingInventory}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                                    {remainingInventory}
+                                                    {totalInstalled > 0 && (
+                                                        <span style={{ fontSize: '9px', color: '#6b7280', fontWeight: 400 }}>
+                                                            ({totalInstalled} used)
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td>
                                                 <input type="text" value={item.remarks ?? ''}
@@ -261,7 +291,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                         </table>
                     </div>
                     <div className="mon-table-footer-hint">
-                        <span>💡 Installed quantity reduces remaining inventory. Remaining carries over to next date.</span>
+                        <span>💡 Remaining = Total Delivered ({items.reduce((s, i) => s + totalDelivered(i), 0)}) - Total Installed ({items.reduce((s, i) => s + getTotalInstalledUpToDate(i, currentDate), 0)})</span>
                     </div>
                 </div>
             </div>
