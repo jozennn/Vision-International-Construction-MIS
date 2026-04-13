@@ -159,125 +159,124 @@ class ProjectController extends Controller
     // 3. PROJECT LIST
     // =========================================================================
 
-public function index(Request $request): JsonResponse
-{
-    $user = $request->user();
-    if (!$user) {
-        return response()->json(['message' => 'Not Authenticated'], 401);
-    }
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Not Authenticated'], 401);
+        }
 
-    $dept  = strtolower($user->dept ?? $user->department ?? '');
-    $role  = strtolower($user->role ?? '');
-    $email = strtolower($user->email ?? '');
+        $dept  = strtolower($user->dept ?? $user->department ?? '');
+        $role  = strtolower($user->role ?? '');
+        $email = strtolower($user->email ?? '');
 
-    $query = Project::with(self::EAGER);
+        $query = Project::with(self::EAGER);
 
-    $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
-        || str_contains($dept, 'management')
-        || str_contains($email, 'ops')
-        || str_contains($email, 'admin');
+        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
+            || str_contains($dept, 'management')
+            || str_contains($email, 'ops')
+            || str_contains($email, 'admin');
 
-    if (!$isGlobal) {
-        $query->where(function ($q) use ($dept, $role, $email, $user) {
+        if (!$isGlobal) {
+            $query->where(function ($q) use ($dept, $role, $email, $user) {
 
-            // ✅ Engineering
-            if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
-                $q->where(function ($engQ) use ($role, $user) {
-                    $engQ->whereIn('status', [
-                        'Measurement based on Plan',
-                        'Actual Measurement',
-                        'Pending Head Review',
-                        'Initial Site Inspection',
-                        'Checking of Delivery of Materials',
-                        'Pending DR Verification',
-                        'Bidding of Project',
-                        'Awarding of Project',
-                        'Contract Signing for Installer',
-                        'Deployment and Orientation of Installers',
-                        'Site Inspection & Project Monitoring',
-                        'Request Materials Needed',
-                        'Request Billing',
-                        'Site Inspection & Quality Checking',
-                        'Pending QA Verification',
-                        'Final Site Inspection with the Client',
-                        'Signing of COC',
-                        'Request Final Billing',
-                        'Completed',
-                    ]);
+                // Engineering
+                if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
+                    $q->where(function ($engQ) use ($role, $user) {
+                        $engQ->whereIn('status', [
+                            'Measurement based on Plan',
+                            'Actual Measurement',
+                            'Pending Head Review',
+                            'Initial Site Inspection',
+                            'Checking of Delivery of Materials',
+                            'Pending DR Verification',
+                            'Bidding of Project',
+                            'Awarding of Project',
+                            'Contract Signing for Installer',
+                            'Deployment and Orientation of Installers',
+                            'Site Inspection & Project Monitoring',
+                            'Request Materials Needed',
+                            'Request Billing',
+                            'Site Inspection & Quality Checking',
+                            'Pending QA Verification',
+                            'Final Site Inspection with the Client',
+                            'Signing of COC',
+                            'Request Final Billing',
+                            'Completed',
+                        ]);
 
-                    if ($role !== 'dept_head') {
-                        $engQ->whereHas('assignments', function ($a) use ($user) {
-                            $a->where('user_id', $user->id)
-                              ->whereIn('role', ['lead_engineer', 'support_engineer'])
-                              ->whereNull('removed_at');
-                        });
-                    }
-                });
+                        if ($role !== 'dept_head') {
+                            $engQ->whereHas('assignments', function ($a) use ($user) {
+                                $a->where('user_id', $user->id)
+                                  ->whereIn('role', ['lead_engineer', 'support_engineer'])
+                                  ->whereNull('removed_at');
+                            });
+                        }
+                    });
 
-            // ✅ Sales
+                // Sales
                 } elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
                     $q->where(function ($salesQ) use ($user) {
                         $salesQ->where(function ($ownerQ) use ($user) {
                             $ownerQ
                                 ->where(function ($createdQ) use ($user) {
                                     $createdQ->whereNotNull('created_by')
-                                            ->where('created_by', (int) $user->id);
+                                             ->where('created_by', (int) $user->id);
                                 })
                                 ->orWhereHas('assignments', function ($a) use ($user) {
                                     $a->where('user_id', $user->id)
-                                    ->where('role', 'sales')
-                                    ->whereNull('removed_at');
+                                      ->where('role', 'sales')
+                                      ->whereNull('removed_at');
                                 })
                                 ->orWhereHas('lead', function ($l) use ($user) {
                                     $l->where('sales_rep_id', $user->id);
                                 });
                         });
                     });
+
+                // Logistics
+                } elseif (
+                    str_contains($dept, 'logistics') ||
+                    str_contains($dept, 'inventory') ||
+                    str_contains($email, 'logistic')
+                ) {
+                    $q->whereIn('status', self::LOGISTICS_PHASES);
+
+                // Accounting
+                } elseif (
+                    str_contains($dept, 'accounting') ||
+                    str_contains($dept, 'finance') ||
+                    str_contains($dept, 'procurement') ||
+                    str_contains($role, 'accounting') ||
+                    str_contains($email, 'accounting')
+                ) {
+                    $q->whereIn('status', self::ACCOUNTING_PHASES);
                 }
-
-            // ✅ Logistics
-            elseif (
-                str_contains($dept, 'logistics') ||
-                str_contains($dept, 'inventory') ||
-                str_contains($email, 'logistic')
-            ) {
-                $q->whereIn('status', self::LOGISTICS_PHASES);
-
-            // ✅ Accounting
-            } elseif (
-                str_contains($dept, 'accounting') ||
-                str_contains($dept, 'finance') ||
-                str_contains($dept, 'procurement') ||
-                str_contains($role, 'accounting') ||
-                str_contains($email, 'accounting')
-            ) {
-                $q->whereIn('status', self::ACCOUNTING_PHASES);
-            }
-        });
-    }
-
-    $projects = $query->latest()->get()->map(function ($project) use ($user) {
-        $formatted = $this->formatProject($project);
-
-        try {
-            $formatted['is_claimed'] = DB::table('engineering_tasks')
-                ->where('project_id', $project->id)
-                ->exists();
-
-            $formatted['is_mine'] = DB::table('engineering_tasks')
-                ->where('project_id', $project->id)
-                ->where('assigned_to', $user->id)
-                ->exists();
-        } catch (\Exception $e) {
-            $formatted['is_claimed'] = false;
-            $formatted['is_mine'] = false;
+            });
         }
 
-        return $formatted;
-    });
+        $projects = $query->latest()->get()->map(function ($project) use ($user) {
+            $formatted = $this->formatProject($project);
 
-    return response()->json($projects);
-}
+            try {
+                $formatted['is_claimed'] = DB::table('engineering_tasks')
+                    ->where('project_id', $project->id)
+                    ->exists();
+
+                $formatted['is_mine'] = DB::table('engineering_tasks')
+                    ->where('project_id', $project->id)
+                    ->where('assigned_to', $user->id)
+                    ->exists();
+            } catch (\Exception $e) {
+                $formatted['is_claimed'] = false;
+                $formatted['is_mine']    = false;
+            }
+
+            return $formatted;
+        });
+
+        return response()->json($projects);
+    }
 
     // =========================================================================
     // 4. SINGLE PROJECT
@@ -306,10 +305,10 @@ public function index(Request $request): JsonResponse
 
         if (!$isGlobal) {
 
-            // ✅ Sales
+            // Sales
             if (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
                 $ownsProject =
-                    (!empty($project->created_by) && (int)$project->created_by === (int)$user->id)
+                    (!empty($project->created_by) && (int) $project->created_by === (int) $user->id)
                     || $project->assignments()
                         ->where('user_id', $user->id)
                         ->where('role', 'sales')
@@ -318,16 +317,12 @@ public function index(Request $request): JsonResponse
                     || optional($project->lead)->sales_rep_id == $user->id;
 
                 if (!$ownsProject) {
-                    return response()->json([
-                        'message' => 'You do not own this project.'
-                    ], 403);
+                    return response()->json(['message' => 'You do not own this project.'], 403);
                 }
             }
 
-            // ✅ Engineering
+            // Engineering
             if (str_contains($dept, 'engineering') || str_contains($email, 'eng')) {
-
-                // dept head can always view
                 if ($role !== 'dept_head') {
                     $assigned = $project->assignments()
                         ->where('user_id', $user->id)
@@ -343,7 +338,7 @@ public function index(Request $request): JsonResponse
                 }
             }
 
-            // ✅ Accounting
+            // Accounting
             if (
                 str_contains($dept, 'accounting') ||
                 str_contains($dept, 'finance') ||
@@ -367,6 +362,7 @@ public function index(Request $request): JsonResponse
     // =========================================================================
     // 5. CREATE PROJECT
     // =========================================================================
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -377,8 +373,8 @@ public function index(Request $request): JsonResponse
             'project_type' => 'required',
         ]);
 
-        $validated['status'] = 'Floor Plan';
-        $validated['created_by'] = Auth::id(); // ✅ IMPORTANT
+        $validated['status']     = 'Floor Plan';
+        $validated['created_by'] = Auth::id();
 
         $project = Project::create($validated);
 
@@ -387,7 +383,7 @@ public function index(Request $request): JsonResponse
 
         return response()->json([
             'message' => 'Lead converted to Project!',
-            'project' => $project
+            'project' => $project,
         ], 201);
     }
 
@@ -397,15 +393,13 @@ public function index(Request $request): JsonResponse
 
     public function updateStatus(Request $request, $id): JsonResponse
     {
-        $project = Project::with(self::EAGER)->findOrFail($id);
+        $project      = Project::with(self::EAGER)->findOrFail($id);
         $dataToUpdate = ['status' => $request->status];
 
-        // ── Contract amount ───────────────────────────────────────────────────
         if ($request->has('contract_amount')) {
             $dataToUpdate['contract_amount'] = $request->contract_amount;
         }
 
-        // ── Subcontractor name (Awarding phase) ───────────────────────────────
         if ($request->has('subcontractor_name')) {
             $dataToUpdate['subcontractor_name'] = $request->subcontractor_name;
 
@@ -415,10 +409,8 @@ public function index(Request $request): JsonResponse
             );
         }
 
-        // ── Installer roster (Deployment phase) ───────────────────────────────
         if ($request->has('installer_roster')) {
             $roster = $request->installer_roster;
-
             if (is_string($roster)) {
                 $roster = json_decode($roster, true) ?? [];
             }
@@ -437,7 +429,6 @@ public function index(Request $request): JsonResponse
             );
         }
 
-        // ── Rejection vs advance vs go-back ──────────────────────────────────
         if ($request->filled('rejection_notes')) {
             ProjectRejectionLog::create([
                 'project_id'        => $project->id,
@@ -454,12 +445,10 @@ public function index(Request $request): JsonResponse
 
         } elseif ($request->boolean('go_back')) {
             // Silent go-back — no notification, no rejection log
-
         } else {
             $this->notifyNextPhase($request->status, $project);
         }
 
-        // ── File uploads ──────────────────────────────────────────────────────
         $fileKeys = [
             'floor_plan_image', 'po_document', 'work_order_document',
             'site_inspection_photo', 'delivery_receipt_document',
@@ -487,9 +476,6 @@ public function index(Request $request): JsonResponse
     // 7. MOBILIZATION ENDPOINTS
     // =========================================================================
 
-    /**
-     * GET /api/projects/{id}/mobilization
-     */
     public function getMobilization(int $id): JsonResponse
     {
         $mob = ProjectMobilization::where('project_id', $id)->first();
@@ -511,14 +497,9 @@ public function index(Request $request): JsonResponse
         ]);
     }
 
-    /**
-     * POST /api/projects/{id}/mobilization/contract
-     */
     public function saveMobilizationContract(Request $request, int $id): JsonResponse
     {
-        $request->validate([
-            'new_status' => 'required|string',
-        ]);
+        $request->validate(['new_status' => 'required|string']);
 
         try {
             $project = Project::with(self::EAGER)->findOrFail($id);
@@ -551,9 +532,6 @@ public function index(Request $request): JsonResponse
         }
     }
 
-    /**
-     * POST /api/projects/{id}/mobilization/deploy
-     */
     public function saveMobilizationDeploy(Request $request, int $id): JsonResponse
     {
         $request->validate([
@@ -564,8 +542,7 @@ public function index(Request $request): JsonResponse
 
         try {
             $project = Project::with(self::EAGER)->findOrFail($id);
-
-            $roster = json_decode($request->installer_roster, true);
+            $roster  = json_decode($request->installer_roster, true);
 
             if (!is_array($roster) || empty($roster)) {
                 return response()->json(['message' => 'Installer roster is required.'], 422);
@@ -736,7 +713,10 @@ public function index(Request $request): JsonResponse
 
     public function getDailyLogs($id): JsonResponse
     {
-        $logs = DailySiteLog::where('project_id', $id)->orderBy('log_date', 'desc')->get();
+        $logs = DailySiteLog::where('project_id', $id)
+            ->orderBy('log_date', 'desc')
+            ->get();
+
         return response()->json($logs);
     }
 
@@ -744,10 +724,13 @@ public function index(Request $request): JsonResponse
     {
         $request->validate(['log_date' => 'required|date']);
 
-        $photoPath = $request->hasFile('photo')
-            ? $request->file('photo')->store('daily_logs', 'public')
-            : null;
+        // ── Photo upload (only replace stored path if a new file is uploaded) ─
+        $photoPath = null;
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store('daily_logs', 'public');
+        }
 
+        // ── Per-installer photo uploads ───────────────────────────────────────
         $installersData = json_decode($request->installers_data, true) ?? [];
         foreach ($installersData as $key => &$installer) {
             if ($request->hasFile("installer_photo_$key")) {
@@ -755,24 +738,43 @@ public function index(Request $request): JsonResponse
                     ->store('daily_logs/installers', 'public');
             }
         }
+        unset($installer);
 
-        $log = DailySiteLog::create([
-            'project_id'             => $id,
-            'log_date'               => $request->log_date,
-            'client_start_date'      => $request->client_start_date,
-            'client_end_date'        => $request->client_end_date,
-            'start_date'             => $request->start_date,
-            'end_date'               => $request->end_date,
+        // ── Columns to upsert ─────────────────────────────────────────────────
+        $data = [
+            'client_start_date'      => $request->client_start_date ?: null,
+            'client_end_date'        => $request->client_end_date   ?: null,
+            'start_date'             => $request->start_date        ?: null,
+            'end_date'               => $request->end_date          ?: null,
             'lead_man'               => $request->lead_man,
             'total_area'             => $request->total_area,
             'accomplishment_percent' => $request->accomplishment_percent,
             'workers_count'          => $request->workers_count,
             'installers_data'        => json_encode($installersData),
             'remarks'                => $request->remarks,
-            'photo_path'             => $photoPath,
-        ]);
+        ];
 
-        return response()->json(['message' => 'Daily log saved successfully!', 'log' => $log]);
+        // Only overwrite photo_path when a new file was actually uploaded
+        if ($photoPath !== null) {
+            $data['photo_path'] = $photoPath;
+        }
+
+        // ── UPSERT keyed on project_id + log_date ─────────────────────────────
+        // FIX: was DailySiteLog::create() which always INSERTed a new row,
+        // causing the log history to grow by 1 on every auto-save.
+        // updateOrCreate ensures only ONE row exists per project per date.
+        $log = DailySiteLog::updateOrCreate(
+            [
+                'project_id' => $id,
+                'log_date'   => $request->log_date,
+            ],
+            $data
+        );
+
+        return response()->json([
+            'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
+            'log'     => $log,
+        ]);
     }
 
     public function getIssues($id): JsonResponse
@@ -935,10 +937,10 @@ public function index(Request $request): JsonResponse
         $now = now();
 
         $map = [
-            'floor_plan_image'      => fn() => $project->update(['floor_plan_image' => $path]),
+            'floor_plan_image' => fn() => $project->update(['floor_plan_image' => $path]),
 
-            'po_document'           => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['po_document'        => $path, 'po_uploaded_by' => $by, 'po_uploaded_at' => $now]),
-            'work_order_document'   => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['work_order_document' => $path, 'wo_uploaded_by' => $by, 'wo_uploaded_at' => $now]),
+            'po_document'         => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['po_document'        => $path, 'po_uploaded_by' => $by, 'po_uploaded_at' => $now]),
+            'work_order_document' => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['work_order_document' => $path, 'wo_uploaded_by' => $by, 'wo_uploaded_at' => $now]),
 
             'site_inspection_photo' => fn() => $project->siteInspection()->updateOrCreate(['project_id' => $uid], ['inspection_photo' => $path, 'submitted_at' => $now]),
 
@@ -967,82 +969,81 @@ public function index(Request $request): JsonResponse
 
     public function saveBOQDraft(Request $request, $id): JsonResponse
     {
-    $project = Project::findOrFail($id);
- 
-    // ── Plan fields ───────────────────────────────────────────────────────
-    if (
-        $request->has('plan_measurement') ||
-        $request->has('plan_sqm') ||
-        $request->has('plan_boq')
-    ) {
-        $planRows = $request->filled('plan_boq')
-            ? (json_decode($request->plan_boq, true) ?? [])
-            : null;
- 
-        $planData = array_filter([
-            'plan_measurement' => $request->plan_measurement,
-            'plan_sqm'         => $request->plan_sqm,
-            'boq_rows'         => $planRows,
-            'grand_total'      => $planRows
-                ? collect($planRows)->sum(fn($r) => floatval($r['total'] ?? 0))
-                : null,
-        ], fn($v) => $v !== null);
- 
-        if (!empty($planData)) {
-            $planData['submitted_by'] = $planData['submitted_by'] ?? Auth::id();
-            $project->boqPlan()->updateOrCreate(
-                ['project_id' => $project->id],
-                $planData
-            );
-        }
-    }
- 
-    // ── Actual fields ─────────────────────────────────────────────────────
-    if (
-        $request->has('actual_measurement') ||
-        $request->has('actual_sqm') ||
-        $request->has('final_boq')
-    ) {
-        $actualRows = $request->filled('final_boq')
-            ? (json_decode($request->final_boq, true) ?? [])
-            : null;
- 
-        $actualData = array_filter([
-            'actual_measurement' => $request->actual_measurement,
-            'actual_sqm'         => $request->actual_sqm,
-            'boq_rows'           => $actualRows,
-            'grand_total'        => $actualRows
-                ? collect($actualRows)->sum(fn($r) => floatval($r['total'] ?? 0))
-                : null,
-            'review_status'      => 'pending',
-        ], fn($v) => $v !== null);
- 
-        if (!empty($actualData)) {
-            $actualData['submitted_by'] = $actualData['submitted_by'] ?? Auth::id();
-            $project->boqActual()->updateOrCreate(
-                ['project_id' => $project->id],
-                $actualData
-            );
-        }
-    }
- 
-    return response()->json(['message' => 'Draft saved.']);
-    }
+        $project = Project::findOrFail($id);
 
+        // Plan fields
+        if (
+            $request->has('plan_measurement') ||
+            $request->has('plan_sqm') ||
+            $request->has('plan_boq')
+        ) {
+            $planRows = $request->filled('plan_boq')
+                ? (json_decode($request->plan_boq, true) ?? [])
+                : null;
+
+            $planData = array_filter([
+                'plan_measurement' => $request->plan_measurement,
+                'plan_sqm'         => $request->plan_sqm,
+                'boq_rows'         => $planRows,
+                'grand_total'      => $planRows
+                    ? collect($planRows)->sum(fn($r) => floatval($r['total'] ?? 0))
+                    : null,
+            ], fn($v) => $v !== null);
+
+            if (!empty($planData)) {
+                $planData['submitted_by'] = $planData['submitted_by'] ?? Auth::id();
+                $project->boqPlan()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    $planData
+                );
+            }
+        }
+
+        // Actual fields
+        if (
+            $request->has('actual_measurement') ||
+            $request->has('actual_sqm') ||
+            $request->has('final_boq')
+        ) {
+            $actualRows = $request->filled('final_boq')
+                ? (json_decode($request->final_boq, true) ?? [])
+                : null;
+
+            $actualData = array_filter([
+                'actual_measurement' => $request->actual_measurement,
+                'actual_sqm'         => $request->actual_sqm,
+                'boq_rows'           => $actualRows,
+                'grand_total'        => $actualRows
+                    ? collect($actualRows)->sum(fn($r) => floatval($r['total'] ?? 0))
+                    : null,
+                'review_status'      => 'pending',
+            ], fn($v) => $v !== null);
+
+            if (!empty($actualData)) {
+                $actualData['submitted_by'] = $actualData['submitted_by'] ?? Auth::id();
+                $project->boqActual()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    $actualData
+                );
+            }
+        }
+
+        return response()->json(['message' => 'Draft saved.']);
+    }
 
     public function saveMobilizationDraftRoster(Request $request, int $id): JsonResponse
     {
-    $project = Project::findOrFail($id);
-    $roster  = json_decode($request->installer_roster, true) ?? [];
+        $project = Project::findOrFail($id);
+        $roster  = json_decode($request->installer_roster, true) ?? [];
 
-    if (!empty($roster)) {
-        ProjectMobilization::updateOrCreate(
-            ['project_id' => $project->id],
-            ['installer_roster' => $roster]
-        );
-    }
+        if (!empty($roster)) {
+            ProjectMobilization::updateOrCreate(
+                ['project_id' => $project->id],
+                ['installer_roster' => $roster]
+            );
+        }
 
-    return response()->json(['message' => 'Roster draft saved.']);
+        return response()->json(['message' => 'Roster draft saved.']);
     }
 
     private function formatProject(Project $project): array
@@ -1056,7 +1057,7 @@ public function index(Request $request): JsonResponse
         $boqActual = $project->boqActual;
 
         return [
-            // ── Core ──────────────────────────────────────────────────────────
+            // Core
             'id'                    => $project->id,
             'lead_id'               => $project->lead_id,
             'project_name'          => $project->project_name,
@@ -1069,31 +1070,31 @@ public function index(Request $request): JsonResponse
             'floor_plan_image'      => $project->floor_plan_image,
             'created_at'            => $project->created_at,
 
-            // ── Personnel ─────────────────────────────────────────────────────
+            // Personnel
             'created_by'            => $project->created_by,
             'created_by_name'       => $project->created_by_name,
             'assigned_engineers'    => $project->assigned_engineers,
             'assigned_engineer_ids' => $project->assigned_engineer_ids,
 
-            // ── Rejection ─────────────────────────────────────────────────────
+            // Rejection
             'rejection_notes'       => $project->rejection_notes,
 
-            // ── BOQ Plan ──────────────────────────────────────────────────────
+            // BOQ Plan
             'plan_measurement'      => $boqPlan?->plan_measurement,
             'plan_sqm'              => $boqPlan?->plan_sqm,
             'plan_boq'              => $boqPlan?->boq_rows ? json_encode($boqPlan->boq_rows) : null,
 
-            // ── BOQ Actual ────────────────────────────────────────────────────
+            // BOQ Actual
             'actual_measurement'    => $boqActual?->actual_measurement,
             'actual_sqm'            => $boqActual?->actual_sqm,
             'final_boq'             => $boqActual?->boq_rows ? json_encode($boqActual->boq_rows) : null,
             'is_phase1_approved'    => $boqActual?->review_status === 'approved',
 
-            // ── PO ────────────────────────────────────────────────────────────
+            // PO
             'po_document'           => $po?->po_document,
             'work_order_document'   => $po?->work_order_document,
 
-            // ── Site inspection ───────────────────────────────────────────────
+            // Site inspection
             'site_inspection_photo'  => $si?->inspection_photo,
             'site_inspection_report' => $si ? [
                 'inspector_name'  => $si->inspector_name,
@@ -1103,11 +1104,11 @@ public function index(Request $request): JsonResponse
                 'notes_remarks'   => $si->notes_remarks,
             ] : null,
 
-            // ── Materials ─────────────────────────────────────────────────────
+            // Materials
             'delivery_receipt_document' => $mat?->delivery_receipt_document,
             'bidding_document'          => $mat?->bidding_document,
 
-            // ── Mobilization ──────────────────────────────────────────────────
+            // Mobilization
             'subcontractor_name'               => $mob?->subcontractor_name
                                                   ?? $mat?->subcontractor_name
                                                   ?? $project->subcontractor_name,
@@ -1116,7 +1117,7 @@ public function index(Request $request): JsonResponse
             'installer_roster'                 => $mob?->installer_roster ?? [],
             'installer_count'                  => $mob?->installer_count ?? 0,
 
-            // ── QA / Handover ─────────────────────────────────────────────────
+            // QA / Handover
             'qa_photo'               => $qa?->qa_photo,
             'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
             'coc_document'           => $qa?->coc_document,
@@ -1124,11 +1125,11 @@ public function index(Request $request): JsonResponse
             'qa_check_debris'        => (bool) ($qa?->qa_check_debris ?? false),
             'qa_check_defect'        => (bool) ($qa?->qa_check_defect ?? false),
 
-            // ── Billing ───────────────────────────────────────────────────────
+            // Billing
             'billing_invoice_document' => $project->progressBilling?->invoice_document,
             'final_invoice_document'   => $project->finalBilling?->invoice_document,
 
-            // ── Tracking ──────────────────────────────────────────────────────
+            // Tracking
             'material_items'    => $mat?->material_items,
             'timeline_tracking' => $mat?->timeline_tracking,
         ];
