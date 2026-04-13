@@ -232,8 +232,25 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
   const [showReorderModal, setShowReorderModal] = useState(false);
   const [reorderLoading, setReorderLoading] = useState(false);
   const [reorderToast, setReorderToast] = useState(null);
+  
+  // Inventory data for stock status
+  const [inventory, setInventory] = useState([]);
 
   const { status } = project;
+
+  // Fetch inventory data for stock status
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const res = await warehouseInventoryService.getAll({ per_page: 9999 });
+        const rows = res.data?.data ?? res.data ?? [];
+        setInventory(Array.isArray(rows) ? rows : []);
+      } catch (err) {
+        console.error('Failed to fetch inventory:', err);
+      }
+    };
+    fetchInventory();
+  }, []);
 
   // Sync award details from project prop when it changes
   useEffect(() => {
@@ -300,21 +317,27 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     }
   };
 
-  // Extract ALL BOQ items for reorder modal - regardless of stock status
+  // Extract ALL BOQ items for reorder modal - FIXED: Use correct field names from BoqTable
   const getBoqItemsForReorder = () => {
-    if (!boqData?.finalBOQ || !Array.isArray(boqData.finalBOQ)) return [];
+    const rows = boqData?.finalBOQ || [];
+    if (!rows || !Array.isArray(rows) || rows.length === 0) return [];
     
-    return boqData.finalBOQ
-      .filter(item => item.category && item.code) // Filter out empty rows
-      .map(item => ({
-        category: item.category || '—',
-        code: item.code || '—',
-        qty: parseInt(item.qty) || 0,
-        unit: item.unit || 'Pcs',
-        unitCost: parseFloat(item.unitCost) || 0,
-        availability: item.stock || 'ON STOCK', // Stock status from BOQ
-        currentStock: item.currentStock || 0 // Current stock quantity if available
-      }));
+    return rows
+      .filter(row => row.product_category && row.product_code) // Filter out empty rows
+      .map(row => {
+        // Find matching inventory item to get current stock and availability
+        const invItem = inventory.find(i => i.product_code === row.product_code);
+        
+        return {
+          category: row.product_category || '—',
+          code: row.product_code || '—',
+          qty: parseFloat(row.qty) || 0,
+          unit: row.unit || 'Pcs',
+          unitCost: parseFloat(row.unitCost) || 0,
+          availability: invItem?.availability || 'ON STOCK',
+          currentStock: invItem?.current_stock || 0
+        };
+      });
   };
 
   // Validation for award section
