@@ -53,6 +53,7 @@
   border-collapse: collapse;
   font-size: 0.87rem;
   font-family: 'DM Sans', sans-serif;
+  table-layout: fixed;
 }
 .db-table th {
   text-align: left;
@@ -285,43 +286,54 @@
 
 /* Mobile (≤768px) */
 @media (max-width: 768px) {
-  /* Tab nav */
-  .db-tab { padding: 8px 14px; font-size: 0.82rem; }
+  
+  /* FIX: Ensure Tab Nav doesn't blow out the parent width */
+  .db-tab-nav { 
+    width: 100%; 
+    max-width: 100%; 
+    padding: 8px 0; 
+  }
+  .db-tab { 
+    font-size: 0.82rem; 
+    flex-shrink: 0; /* Keeps tabs from squishing */
+  }
 
-  /* Quick actions wrap and go full-width */
   .db-quick-actions { flex-direction: column; }
   .db-quick-actions > * { width: 100%; justify-content: center; }
 
-  /* Info bar becomes 2-column grid */
   .db-info-bar { grid-template-columns: repeat(2, 1fr); }
   .db-stat-val { font-size: 1.2rem; }
 
   /* ───────────────────────────────────────────────────────────
-     CRITICAL FIX: CARD STACKING WITH STRICT FLEX BOUNDS
+     CRITICAL FIX: STRICT BOUNDARIES FOR THE TABLE
+     Every single element in the tree must have min-width: 0 
+     and max-width: 100% to force the filename to wrap.
      ─────────────────────────────────────────────────────────── */
   
-  /* Convert the table entirely into a block layout */
   .db-table, .db-table tbody { 
     display: block; 
     width: 100%; 
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Hide the desktop headers completely */
-  .db-table thead { 
-    display: none; 
-  }
+  .db-table thead { display: none; }
 
-  /* Make each row look like an Activity Tracker card */
   .db-table tr {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 16px 0;
-    border-bottom: 1px solid #e8eaed;
-    min-width: 0; /* MAGIC BULLET: Forces flex container to allow shrinking below content size */
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid #e8eaed;
+    border-radius: 8px;
+    background: #fff;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0; /* OVERRIDES FLEX DEFAULT */
+    box-sizing: border-box;
   }
 
-  /* Ensure cells stack vertically */
   .db-table td {
     display: flex;
     flex-direction: column;
@@ -329,47 +341,53 @@
     padding: 0;
     border: none;
     width: 100%;
-    min-width: 0; /* MAGIC BULLET 2: Ensures the cell itself will shrink */
+    max-width: 100%;
+    min-width: 0; /* OVERRIDES FLEX DEFAULT */
     box-sizing: border-box;
   }
 
-  /* Force super-long .sql filenames to wrap onto the next line! */
+  /* THE MAGIC BULLET: 
+     Combines word-break, overflow-wrap, and white-space normal. 
+     This forces the long SQL file to break across lines!
+  */
   .db-td-mono {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
     width: 100%;
-    min-width: 0; /* Must apply here too */
-    white-space: normal;
-    word-break: break-all;
-    overflow-wrap: break-word;
+    max-width: 100%;
+    min-width: 0 !important;
+    white-space: normal !important;
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
   }
 
-  /* Actions row spacing */
   .db-td-actions {
-    margin-top: 6px;
-    flex-direction: row; /* Keep the buttons side-by-side */
+    flex-direction: row;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+    width: 100%;
   }
 
   /* ─────────────────────────────────────────────────────────── */
 
-  /* Import card */
   .db-import-card { padding: 16px; }
   .db-file-drop   { padding: 24px 16px; }
 
-  /* Form rows stack vertically */
   .db-form-row  { flex-direction: column; }
   .db-field.half { min-width: 0; width: 100%; }
 
-  /* Schedule cards stack content vertically */
   .db-schedule-card { flex-direction: column; align-items: flex-start; gap: 12px; }
   .db-schedule-card-right { width: 100%; justify-content: flex-end; }
 
-  /* Form footer buttons go full-width */
   .db-form-foot { flex-direction: column; }
   .db-form-foot > * { width: 100%; justify-content: center; }
 }
 
 /* Small mobile (≤480px) */
 @media (max-width: 480px) {
-  /* Info bar becomes single column */
   .db-info-bar { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
 
   .db-import-warning { flex-direction: column; gap: 8px; }
@@ -378,8 +396,15 @@
   .db-schedule-form { padding: 14px; }
   .db-cron { font-size: 0.72rem; }
 
+  /* Reclaim space by stretching buttons on tiny screens */
+  .db-td-actions { flex-direction: row; gap: 8px; }
   .db-btn-download,
-  .db-btn-delete { padding: 6px 12px; font-size: 0.75rem; }
+  .db-btn-delete { 
+    flex: 1; 
+    text-align: center;
+    padding: 8px 12px; 
+    font-size: 0.75rem; 
+  }
 
   .db-btn-restore { font-size: 0.85rem; padding: 10px 16px; }
 }
