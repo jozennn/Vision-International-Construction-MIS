@@ -128,8 +128,6 @@ const Header = ({ user }) => {
                     style={{ display: 'none' }} 
                   />
                 </div>
-
-
                 <h2 className="profile-name">{user?.name || 'Staff User'}</h2>
                 <p className="profile-email">{user?.email || 'No email provided'}</p>
                 <div className="profile-badges">
