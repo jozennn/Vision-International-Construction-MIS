@@ -80,3 +80,42 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  .proj-count-large { font-size: 1.5rem; }
+}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
+  /* Stack the status breakdown vertically and allow items to wrap tighter */
+  .proj-status-breakdown {
+    padding: 0.6rem 1rem;
+    gap: 6px;
+  }
+
+  .proj-status-breakdown-item {
+    font-size: 0.68rem;
+  }
+
+  /* Slightly shrink the large count on smaller screens */
+  .proj-count-large { font-size: 1.35rem; }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  /* Each status item takes its own line for clarity */
+  .proj-status-breakdown { flex-direction: column; gap: 5px; }
+
+  .proj-count-large { font-size: 1.2rem; }
+
+  /* Make badge and pill text a touch larger for tap targets */
+  .proj-type-badge,
+  .proj-mat-pending,
+  .proj-mat-approved {
+    font-size: 0.68rem;
+    padding: 4px 10px;
+  }
+}

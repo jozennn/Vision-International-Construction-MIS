@@ -75,3 +75,37 @@
 /* ── Low-stock row highlight ──────────────────────────────── */
 .rpt-table tbody tr.inv-row-nostock td { background: #fff5f5 !important; }
 .rpt-table tbody tr.inv-row-low    td  { background: #fffdf0 !important; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  /* Origin tags can shrink slightly */
+  .rpt-origin-tag { font-size: 0.63rem; padding: 3px 7px; }
+}
+
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
+  /* Reduce empty-period padding so it doesn't eat too much height */
+  .inv-empty-period { padding: 2rem 1rem; font-size: 0.78rem; }
+
+  /* Shipment status and type pills: slightly larger for tap targets */
+  .inv-type-consumable,
+  .inv-type-main {
+    font-size: 0.68rem;
+    padding: 3px 10px;
+  }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  /* Stack origin tag icon and text naturally — already inline-flex, just reduce gap */
+  .rpt-origin-tag { gap: 3px; font-size: 0.62rem; padding: 2px 6px; }
+
+  /* Boost font-weight readability for value helpers on small screens */
+  .inv-val-danger,
+  .inv-val-warn,
+  .inv-val-ok,
+  .inv-net-positive,
+  .inv-net-negative { font-size: 0.78rem; }
+}
