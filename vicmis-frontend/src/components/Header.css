@@ -3,19 +3,19 @@
   width: 100%;
   position: sticky;
   top: 0;
-  z-index: 900; /* Lowered slightly so it stays under the mobile sidebar if open */
+  z-index: 900;
   font-family: 'DM Sans', sans-serif;
 }
 
 /* Main Header Container */
 .main-header {
   display: flex;
-  justify-content: space-between; /* Automatically pushes left and right zones apart */
+  justify-content: space-between;
   align-items: center;
   background: #ffffff;
   padding: 0 40px;
   height: 90px;
-  border-bottom: 2px solid #EBDBD6; /* VISION Beige */
+  border-bottom: 2px solid #EBDBD6;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
@@ -77,14 +77,12 @@
    RESPONSIVE DESIGN (Tablet & Mobile)
    ========================================================= */
 
-/* Large Tablets */
 @media (max-width: 1024px) {
   .main-header {
     padding: 0 30px;
   }
 }
 
-/* Mobile Phones & Small Tablets */
 @media (max-width: 768px) {
   .main-header {
     display: flex !important; 
@@ -93,10 +91,7 @@
     align-items: center !important;
     height: 80px;
     width: 100%;
-    box-sizing: border-box; /* Crucial: stops padding from breaking the width */
-    
-    /* 75px on the left perfectly clears the floating hamburger */
-    /* 20px on the right matches the spacing of your cards below */
+    box-sizing: border-box; 
     padding: 0 20px 0 75px !important; 
   }
 
@@ -109,7 +104,7 @@
   .user-info {
     display: flex;
     flex-direction: column;
-    align-items: flex-start; /* Aligns text cleanly to the left */
+    align-items: flex-start;
   }
 
   .header-right {
@@ -134,13 +129,12 @@
     width: 42px;
     height: 42px;
     font-size: 1.1rem;
-    margin: 0; /* Ensures nothing pushes it away from the right edge */
+    margin: 0; 
   }
 }
 
-/* =====
-  /* =========================================
-   PROFILE MODAL & DIGITAL PASSPORT
+/* =========================================
+   PROFILE MODAL (Simplified Card)
    ========================================= */
 .profile-modal-overlay {
   position: fixed;
@@ -160,7 +154,7 @@
 .profile-modal-content {
   background-color: #ffffff;
   width: 90%;
-  max-width: 800px;
+  max-width: 400px; /* Reduced width since it's just the profile info now */
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   position: relative;
@@ -170,8 +164,8 @@
 
 .profile-close-btn {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 16px;
+  right: 16px;
   background: none;
   border: none;
   font-size: 1.2rem;
@@ -185,20 +179,12 @@
   color: #0f172a;
 }
 
-.profile-modal-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr;
-}
-
-/* LEFT COLUMN: IDENTITY & PHOTO */
 .profile-identity-section {
-  background-color: #f8fafc;
   padding: 40px 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border-right: 1px solid #e2e8f0;
 }
 
 .profile-avatar-large-wrapper {
@@ -297,131 +283,6 @@
   color: #475569;
 }
 
-/* RIGHT COLUMN: DIGITAL PASSPORT */
-.profile-security-section {
-  padding: 40px 30px;
-  background-color: #ffffff;
-}
-
-.security-title {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 5px 0;
-}
-
-.security-subtitle {
-  font-size: 0.9rem;
-  color: #64748b;
-  margin: 0 0 25px 0;
-}
-
-.passport-card {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 12px;
-  padding: 24px;
-  color: #ffffff;
-  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.passport-card::after {
-  content: 'VISION';
-  position: absolute;
-  bottom: -20px;
-  right: -10px;
-  font-size: 5rem;
-  font-weight: 900;
-  color: rgba(255, 255, 255, 0.03);
-  pointer-events: none;
-}
-
-.passport-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 15px;
-  margin-bottom: 15px;
-}
-
-.passport-logo {
-  font-weight: 800;
-  letter-spacing: 2px;
-  font-size: 0.9rem;
-  color: #cbd5e1;
-}
-
-.passport-status {
-  font-size: 0.7rem;
-  font-weight: 700;
-  background-color: rgba(22, 163, 74, 0.2);
-  color: #4ade80;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.passport-label {
-  font-size: 0.7rem;
-  color: #94a3b8;
-  font-weight: 700;
-  letter-spacing: 1px;
-  display: block;
-  margin-bottom: 10px;
-}
-
-.permission-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 25px;
-}
-
-.perm-tag {
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.perm-tag.all-access {
-  background-color: rgba(234, 179, 8, 0.2);
-  color: #fde047;
-  border-color: rgba(234, 179, 8, 0.3);
-}
-
-.passport-footer {
-  display: flex;
-  justify-content: space-between;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 15px;
-}
-
-.passport-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.passport-info small {
-  color: #94a3b8;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-}
-
-.passport-info strong {
-  font-size: 0.95rem;
-  color: #f8fafc;
-  margin-top: 2px;
-}
-
-.text-right {
-  text-align: right;
-}
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -432,30 +293,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 👇 NEW: Mobile Responsiveness Fixes */
+/* Mobile Responsiveness for Modal */
 @media (max-width: 768px) {
   .profile-modal-content {
-    width: 95%;
-    max-height: 90vh; /* Prevents modal from getting cut off on small screens */
-    overflow-y: auto; /* Adds internal scrolling if the content is too tall */
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
   }
-
-  .profile-modal-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .profile-identity-section, .profile-security-section {
-    padding: 25px 20px;
-  }
-
   .profile-identity-section {
-    border-right: none;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  
-  .passport-header {
-    flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
+    padding: 30px 20px;
   }
 }
