@@ -15,11 +15,12 @@
 .cust-pipeline-bar {
   display: flex;
   gap: 2px;
-  height: 5px;
+  height: clamp(5px, 0.8vw, 6px);
   border-radius: 999px;
   overflow: hidden;
   margin-top: 6px;
 }
+
 .cust-pipeline-bar-seg {
   flex: 1;
   height: 100%;
@@ -30,13 +31,14 @@
 /* ── Win rate highlight ───────────────────────────────────── */
 .cust-win-rate {
   font-family: 'Syne', sans-serif;
-  font-size: 1.6rem;
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
   font-weight: 800;
   color: #B45309;
   line-height: 1;
 }
+
 .cust-win-rate-label {
-  font-size: 0.62rem;
+  font-size: clamp(0.58rem, 1.1vw, 0.62rem);
   font-weight: 700;
   color: var(--text-light);
   text-transform: uppercase;
@@ -56,30 +58,34 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
+  padding: clamp(2px, 0.5vw, 3px) clamp(7px, 1.5vw, 9px);
   background: rgba(124,58,237,.08);
   color: #5b21b6;
   border: 1px solid rgba(124,58,237,.2);
   border-radius: 999px;
-  font-size: 0.65rem;
+  font-size: clamp(0.62rem, 1.2vw, 0.65rem);
   font-weight: 700;
   white-space: nowrap;
+  min-height: 22px;
+  touch-action: manipulation;
 }
 
 /* ── Stage badge pill ─────────────────────────────────────── */
 .cust-stage-pill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
+  padding: clamp(2px, 0.5vw, 3px) clamp(7px, 1.5vw, 9px);
   border-radius: 999px;
-  font-size: 0.65rem;
+  font-size: clamp(0.62rem, 1.2vw, 0.65rem);
   font-weight: 700;
   white-space: nowrap;
+  min-height: 22px;
+  touch-action: manipulation;
 }
 
 /* ── Contact number cell ──────────────────────────────────── */
 .cust-contact {
-  font-size: 0.75rem;
+  font-size: clamp(0.72rem, 1.5vw, 0.75rem);
   color: var(--text-muted);
   font-feature-settings: 'tnum';
   font-variant-numeric: tabular-nums;
@@ -87,51 +93,90 @@
 
 /* ── Lead ID cell ─────────────────────────────────────────── */
 .cust-lead-id {
-  font-size: 0.72rem;
+  font-size: clamp(0.68rem, 1.3vw, 0.72rem);
   color: var(--text-light);
   font-weight: 600;
 }
 
-/* ── Responsive ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
 
-/* Tablet (≤1024px) */
+/* ── Tablet (≤ 1024px) ────────────────────────────────────── */
 @media (max-width: 1024px) {
   .cust-win-rate { font-size: 1.4rem; }
 }
 
-/* Mobile (≤768px) */
+/* ── Mobile (≤ 768px) ─────────────────────────────────────── */
 @media (max-width: 768px) {
-  /* Shrink win-rate display to fit tighter cards */
   .cust-win-rate       { font-size: 1.25rem; }
   .cust-win-rate-label { font-size: 0.6rem; }
 
-  /* Give pipeline bar a bit more breathing room */
   .cust-pipeline-bar { margin-top: 8px; height: 6px; }
 
-  /* Slightly larger tap target for stage pills */
   .cust-stage-pill {
     font-size: 0.68rem;
     padding: 4px 10px;
+    min-height: 28px;
   }
 
-  /* Contact number: bump up slightly for readability */
   .cust-contact { font-size: 0.78rem; }
+
+  .cust-converted-tag {
+    font-size: 0.68rem;
+    padding: 3px 10px;
+    min-height: 28px;
+  }
 }
 
-/* Small mobile (≤480px) */
+/* ── Small mobile (≤ 480px) ───────────────────────────────── */
 @media (max-width: 480px) {
   .cust-win-rate { font-size: 1.1rem; }
 
-  /* Converted tag and stage pill: easier to tap */
   .cust-converted-tag,
   .cust-stage-pill {
     font-size: 0.7rem;
     padding: 4px 10px;
+    min-height: 30px;
   }
 
-  /* Lead ID is secondary info — keep it small but readable */
   .cust-lead-id { font-size: 0.7rem; }
 
-  /* Pipeline bar taller on small screens for visibility */
   .cust-pipeline-bar { height: 7px; }
+}
+
+/* ── Tiny (≤ 360px) ───────────────────────────────────────── */
+@media (max-width: 360px) {
+  .cust-win-rate { font-size: 1rem; }
+  .cust-win-rate-label { font-size: 0.58rem; }
+
+  .cust-converted-tag,
+  .cust-stage-pill {
+    font-size: 0.68rem;
+    padding: 3px 8px;
+  }
+
+  .cust-contact  { font-size: 0.74rem; }
+  .cust-lead-id  { font-size: 0.68rem; }
+  .cust-pipeline-bar { height: 5px; }
+}
+
+/* ── Print ────────────────────────────────────────────────── */
+@media print {
+  .cust-converted-tag,
+  .cust-stage-pill {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #ccc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .rpt-table tbody tr.cust-row-trashed td {
+    opacity: 1;
+    text-decoration: line-through;
+    text-decoration-color: #999;
+  }
+
+  .cust-pipeline-bar { display: none; }
 }
