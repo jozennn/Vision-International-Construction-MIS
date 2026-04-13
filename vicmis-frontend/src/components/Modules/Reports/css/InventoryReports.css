@@ -11,10 +11,11 @@
   gap: 4px;
   padding: 3px 8px;
   border-radius: var(--r-sm);
-  font-size: 0.65rem;
+  font-size: clamp(0.6rem, 1.2vw, 0.65rem);
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: .03em;
+  min-height: 24px;
 }
 
 .rpt-origin-tag.rpt-intl {
@@ -41,71 +42,106 @@
 /* ── Stock movement empty period message ──────────────────── */
 .inv-empty-period {
   text-align: center;
-  padding: 3rem 2rem;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1rem, 3vw, 2rem);
   color: var(--text-light);
-  font-size: 0.82rem;
+  font-size: clamp(0.75rem, 1.6vw, 0.82rem);
 }
 
 /* ── Shipment status overrides ────────────────────────────── */
-.inv-shipment-arrived  { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
-.inv-shipment-transit  { background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
-.inv-shipment-waiting  { background: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
+.inv-shipment-arrived { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.inv-shipment-transit { background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE; }
+.inv-shipment-waiting { background: #FFFBEB; color: #92400E; border: 1px solid #FCD34D; }
 
 /* ── Delivery type pills ──────────────────────────────────── */
+.inv-type-consumable,
+.inv-type-main {
+  display: inline-flex;
+  align-items: center;
+  padding: clamp(2px, 0.5vw, 3px) clamp(7px, 1.5vw, 10px);
+  border-radius: 999px;
+  font-size: clamp(0.62rem, 1.2vw, 0.65rem);
+  font-weight: 700;
+  white-space: nowrap;
+  min-height: 22px;
+  touch-action: manipulation;
+}
+
 .inv-type-consumable {
   background: #FFFBEB;
   color: #92400E;
   border: 1px solid #FCD34D;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 700;
 }
 
 .inv-type-main {
   background: #EFF6FF;
   color: #1E40AF;
   border: 1px solid #BFDBFE;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 700;
 }
 
 /* ── Low-stock row highlight ──────────────────────────────── */
 .rpt-table tbody tr.inv-row-nostock td { background: #fff5f5 !important; }
 .rpt-table tbody tr.inv-row-low    td  { background: #fffdf0 !important; }
 
-/* ── Responsive ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
 
-/* Tablet (≤1024px) */
+/* ── Tablet (≤ 1024px) ────────────────────────────────────── */
 @media (max-width: 1024px) {
-  /* Origin tags can shrink slightly */
   .rpt-origin-tag { font-size: 0.63rem; padding: 3px 7px; }
 }
 
-/* Mobile (≤768px) */
+/* ── Mobile (≤ 768px) ─────────────────────────────────────── */
 @media (max-width: 768px) {
-  /* Reduce empty-period padding so it doesn't eat too much height */
   .inv-empty-period { padding: 2rem 1rem; font-size: 0.78rem; }
 
-  /* Shipment status and type pills: slightly larger for tap targets */
   .inv-type-consumable,
   .inv-type-main {
     font-size: 0.68rem;
     padding: 3px 10px;
+    min-height: 28px; /* comfortable tap target */
   }
 }
 
-/* Small mobile (≤480px) */
+/* ── Small mobile (≤ 480px) ───────────────────────────────── */
 @media (max-width: 480px) {
-  /* Stack origin tag icon and text naturally — already inline-flex, just reduce gap */
   .rpt-origin-tag { gap: 3px; font-size: 0.62rem; padding: 2px 6px; }
 
-  /* Boost font-weight readability for value helpers on small screens */
   .inv-val-danger,
   .inv-val-warn,
   .inv-val-ok,
   .inv-net-positive,
   .inv-net-negative { font-size: 0.78rem; }
+
+  .inv-type-consumable,
+  .inv-type-main {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    min-height: 30px;
+  }
+}
+
+/* ── Tiny (≤ 360px) ───────────────────────────────────────── */
+@media (max-width: 360px) {
+  .rpt-origin-tag { font-size: 0.6rem; padding: 2px 5px; gap: 2px; }
+
+  .inv-empty-period { padding: 1.5rem 0.75rem; font-size: 0.74rem; }
+}
+
+/* ── Print ────────────────────────────────────────────────── */
+@media print {
+  .inv-type-consumable,
+  .inv-type-main,
+  .rpt-origin-tag {
+    border: 1px solid #ccc !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .rpt-table tbody tr.inv-row-nostock td,
+  .rpt-table tbody tr.inv-row-low td {
+    background: transparent !important;
+  }
 }
