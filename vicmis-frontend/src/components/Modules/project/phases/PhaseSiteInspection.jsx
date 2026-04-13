@@ -1,9 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/SiteInspection.css';
 import api from '@/api/axios';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+
+// ─── Save Indicator ───────────────────────────────────────────────────────────
+const SaveIndicator = ({ status }) => {
+  if (!status) return null;
+  const styles = {
+    saving: { color: '#6b7280', fontSize: '0.8rem' },
+    saved:  { color: '#16a34a', fontSize: '0.8rem' },
+    error:  { color: '#dc2626', fontSize: '0.8rem' },
+  };
+  const labels = { saving: '● Saving…', saved: '✓ Draft saved', error: '✗ Auto-save failed' };
+  return <span style={styles[status]}>{labels[status]}</span>;
+};
 
 // ─── Single checklist row ─────────────────────────────────────────────────────
 const CheckRow = ({ item, onToggle, onLabelChange, onRemove }) => (
@@ -47,8 +59,6 @@ const safeParse = (raw) => {
   } catch { return null; }
 };
 
-// Strips Laravel ISO timestamp → yyyy-MM-dd for <input type="date">
-// e.g. "2026-03-16T00:00:00.000000Z" → "2026-03-16"
 const toDateInput = (val) => (val ? String(val).slice(0, 10) : '');
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -60,6 +70,11 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
   const [submitting,  setSubmitting]  = useState(false);
   const [exporting,   setExporting]   = useState(false);
   const [savedOk,     setSavedOk]     = useState(false);
+
+  // Auto-save state
+  const [saveStatus,  setSaveStatus]  = useState(null); // 'saving' | 'saved' | 'error' | null
+  const autoSaveTimer = useRef(null);
+  const isFirstLoad   = useRef(true); // prevents auto-save firing on initial data load
 
   const formCardRef = useRef(null);
 
@@ -77,18 +92,13 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
   const [checklist, setChecklist] = useState([]);
 
   // ── 1. Fetch engineers ────────────────────────────────────────────────────
-  // Uses ONLY /engineering/dashboard-stats — the only engineering route
-  // that exists in api.php. No other endpoints are called here.
   useEffect(() => {
     const fetchEngineers = async () => {
       setLoadingEng(true);
       try {
         const res  = await api.get('/engineering/dashboard-stats');
         const list = (res.data?.engineers_list ?? [])
-          .map(eng => ({
-            id:       eng.id,
-            name:     eng.name     ?? '',
-          }))
+          .map(eng => ({ id: eng.id, name: eng.name ?? '' }))
           .filter(e => e.name);
         setEngineers(list);
       } catch (err) {
@@ -113,15 +123,14 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
         if (!d || !d.inspection_date) return;
 
         setFormHeader({
-          project_name:    d.project_name       ?? project?.project_name ?? '',
-          site_location:   d.location           ?? project?.location     ?? '',
-          // Fix: convert "2026-03-16T00:00:00.000000Z" → "2026-03-16"
+          project_name:    d.project_name    ?? project?.project_name ?? '',
+          site_location:   d.location        ?? project?.location     ?? '',
           inspection_date: toDateInput(d.inspection_date) || new Date().toISOString().split('T')[0],
-          inspection_time: d.inspection_time    ?? new Date().toTimeString().slice(0, 5),
-          inspector_id:    d.inspector_id       ?? '',
-          inspector_name:  d.inspector_name     ?? '',
-          materials_scope: d.materials_scope    ?? '',
-          notes_remarks:   d.notes_remarks      ?? '',
+          inspection_time: d.inspection_time ?? new Date().toTimeString().slice(0, 5),
+          inspector_id:    d.inspector_id    ?? '',
+          inspector_name:  d.inspector_name  ?? '',
+          materials_scope: d.materials_scope ?? '',
+          notes_remarks:   d.notes_remarks   ?? '',
         });
 
         const saved = safeParse(d.checklist);
@@ -149,11 +158,46 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
         }
       } finally {
         setLoadingData(false);
+        // Allow auto-save to start firing AFTER initial load settles
+        setTimeout(() => { isFirstLoad.current = false; }, 300);
       }
     };
 
     fetchSavedInspection();
   }, [project?.id]);
+
+  // ── 3. Debounced auto-save (fires 1.5s after user stops typing) ──────────
+  const buildPayload = useCallback(() => ({
+    ...formHeader,
+    inspector_position: formHeader.position,
+    location:           formHeader.site_location,
+    checklist:          JSON.stringify(checklist),
+  }), [formHeader, checklist]);
+
+  useEffect(() => {
+    // Skip auto-save during initial data hydration
+    if (isFirstLoad.current) return;
+    if (!project?.id) return;
+
+    // Clear any pending timer
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+    autoSaveTimer.current = setTimeout(async () => {
+      setSaveStatus('saving');
+      try {
+        await api.post(`/projects/${project.id}/site-inspection`, buildPayload());
+        setSaveStatus('saved');
+        // Fade out the "Draft saved" message after 3s
+        setTimeout(() => setSaveStatus(null), 3000);
+      } catch (err) {
+        console.error('[SiteInspection] auto-save failed:', err);
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus(null), 4000);
+      }
+    }, 1500);
+
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [formHeader, checklist, project?.id, buildPayload]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const setHeader = (key, val) => setFormHeader(prev => ({ ...prev, [key]: val }));
@@ -184,21 +228,15 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
 
   const removeRow = (id) => setChecklist(prev => prev.filter(item => item.id !== id));
 
-  const buildPayload = () => ({
-    ...formHeader,
-    inspector_position: formHeader.position,
-    location:           formHeader.site_location,
-    checklist:          JSON.stringify(checklist),
-  });
-
-  // ── Save Draft ────────────────────────────────────────────────────────────
+  // ── Save Draft (manual) ───────────────────────────────────────────────────
   const handleSaveDraft = async () => {
     if (!project?.id) return;
     setSavedOk(false);
     try {
       await api.post(`/projects/${project.id}/site-inspection`, buildPayload());
       setSavedOk(true);
-      setTimeout(() => setSavedOk(false), 3000);
+      setSaveStatus('saved');
+      setTimeout(() => { setSavedOk(false); setSaveStatus(null); }, 3000);
     } catch (err) {
       alert('Failed to save: ' + (err?.response?.data?.message || err.message));
     }
@@ -429,7 +467,9 @@ const PhaseSiteInspection = ({ project, onUploadAdvance, renderDocumentLink }) =
           <button className="si-save-draft-btn" onClick={handleSaveDraft} disabled={submitting}>
             💾 Save Draft
           </button>
-          {savedOk && <span className="si-saved-badge">✅ Saved!</span>}
+          {/* Auto-save indicator — shown next to the button */}
+          <SaveIndicator status={saveStatus} />
+          {savedOk && !saveStatus && <span className="si-saved-badge">✅ Saved!</span>}
         </div>
         <div className="si-actions-right">
           <button className="si-print-btn" onClick={handleSavePdf} disabled={exporting}>
