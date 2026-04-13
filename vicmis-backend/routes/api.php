@@ -26,6 +26,8 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/login',      [AuthController::class, 'login']);
     Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
     Route::post('/refresh',    [AuthController::class, 'refresh']);
+    //Reset password
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
 
 /*
@@ -220,8 +222,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
             Route::patch('/schedules/{id}',      [DatabaseBackupController::class, 'updateSchedule']);
             Route::delete('/schedules/{id}',     [DatabaseBackupController::class, 'destroySchedule']);
 
-            //Reset password
-            Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+            
         });
     });
 });
