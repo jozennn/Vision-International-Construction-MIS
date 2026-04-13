@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import './DatabaseManager.css'; // Make sure the path matches your project!
+import './css/DatabaseManager.css'; // Make sure the path matches your project!
 
 const CRON_PRESETS = [
   { label: 'Every hour',        value: '0 * * * *'   },
