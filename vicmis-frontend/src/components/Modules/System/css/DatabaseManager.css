@@ -8,6 +8,7 @@
   margin-bottom: 24px;
   overflow-x: auto;
   font-family: 'DM Sans', sans-serif;
+  max-width: 100%; /* Prevent stretching parent */
 }
 .db-tab {
   background: none;
@@ -25,6 +26,7 @@
   gap: 7px;
   transition: all 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .db-tab:hover { color: #475569; }
 .db-tab.active { color: #C0392B; border-bottom-color: #C0392B; }
@@ -53,7 +55,6 @@
   border-collapse: collapse;
   font-size: 0.87rem;
   font-family: 'DM Sans', sans-serif;
-  table-layout: fixed;
 }
 .db-table th {
   text-align: left;
@@ -72,7 +73,7 @@
   vertical-align: middle;
 }
 .db-table tr:hover td { background: #fafbfd; }
-.db-td-mono    { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: #334155; }
+.db-td-mono { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: #334155; }
 .db-td-actions { display: flex; gap: 8px; align-items: center; }
 
 /* ── TYPE BADGE ──────────────────────────────── */
@@ -286,89 +287,77 @@
 
 /* Mobile (≤768px) */
 @media (max-width: 768px) {
+  .db-tab { padding: 8px 12px; font-size: 0.8rem; }
   
-  /* FIX: Ensure Tab Nav doesn't blow out the parent width */
-  .db-tab-nav { 
-    width: 100%; 
-    max-width: 100%; 
-    padding: 8px 0; 
-  }
-  .db-tab { 
-    font-size: 0.82rem; 
-    flex-shrink: 0; /* Keeps tabs from squishing */
-  }
-
   .db-quick-actions { flex-direction: column; }
   .db-quick-actions > * { width: 100%; justify-content: center; }
-
+  
   .db-info-bar { grid-template-columns: repeat(2, 1fr); }
   .db-stat-val { font-size: 1.2rem; }
 
   /* ───────────────────────────────────────────────────────────
-     CRITICAL FIX: STRICT BOUNDARIES FOR THE TABLE
-     Every single element in the tree must have min-width: 0 
-     and max-width: 100% to force the filename to wrap.
+     THE NUCLEAR OPTION: DESTROY ALL TABLE WIDTH CONSTRAINTS
      ─────────────────────────────────────────────────────────── */
   
-  .db-table, .db-table tbody { 
-    display: block; 
-    width: 100%; 
-    max-width: 100%;
-    box-sizing: border-box;
+  /* Strip all table properties and force rigid block formatting */
+  .db-table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important; /* KILLS the horizontal stretch bug */
+    box-sizing: border-box !important;
   }
   
-  .db-table thead { display: none; }
-
-  .db-table tr {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px;
-    margin-bottom: 12px;
-    border: 1px solid #e8eaed;
-    border-radius: 8px;
-    background: #fff;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0; /* OVERRIDES FLEX DEFAULT */
-    box-sizing: border-box;
+  .db-table thead { 
+    display: none !important; 
   }
 
+  .db-table tbody, 
+  .db-table tr, 
   .db-table td {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 0;
-    border: none;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0; /* OVERRIDES FLEX DEFAULT */
-    box-sizing: border-box;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important; /* KILLS the horizontal stretch bug */
+    box-sizing: border-box !important;
   }
 
-  /* THE MAGIC BULLET: 
-     Combines word-break, overflow-wrap, and white-space normal. 
-     This forces the long SQL file to break across lines!
-  */
+  /* Style rows as stacked cards */
+  .db-table tr {
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+    border: 1px solid #e8eaed !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+  }
+
+  /* Reset cells inside the cards */
+  .db-table td {
+    padding: 4px 0 !important;
+    border: none !important;
+    text-align: left !important;
+  }
+
+  /* Ensure the SQL filename wraps no matter what */
   .db-td-mono {
-    font-weight: 700;
-    color: #1e293b;
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0 !important;
-    white-space: normal !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    color: #1e293b !important;
+    margin-bottom: 8px !important;
     word-break: break-all !important;
     overflow-wrap: anywhere !important;
+    white-space: normal !important;
   }
 
+  /* Group actions neatly at the bottom of the card */
   .db-td-actions {
-    flex-direction: row;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #f1f5f9;
-    width: 100%;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+    padding-top: 12px !important;
+    border-top: 1px solid #f1f5f9 !important;
   }
 
   /* ─────────────────────────────────────────────────────────── */
@@ -396,8 +385,6 @@
   .db-schedule-form { padding: 14px; }
   .db-cron { font-size: 0.72rem; }
 
-  /* Reclaim space by stretching buttons on tiny screens */
-  .db-td-actions { flex-direction: row; gap: 8px; }
   .db-btn-download,
   .db-btn-delete { 
     flex: 1; 
