@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import api from '@/api/axios';
 import BoqTable from '../components/BoqTable.jsx';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 
@@ -11,6 +12,29 @@ const fmt = (n) =>
 
 const grandTotal = (rows = []) =>
   rows.reduce((s, r) => s + (parseFloat(r.total) || 0), 0);
+
+/* ─────────────────── Save indicator ─────────────────── */
+const SaveIndicator = ({ status }) => {
+  const cfg = {
+    idle:   { color: 'transparent',                     text: '' },
+    saving: { color: 'var(--pm-text-muted, #9ca3af)',   text: '● Saving…' },
+    saved:  { color: '#10B981',                          text: '✓ Draft saved' },
+    error:  { color: '#EF4444',                          text: '✕ Save failed' },
+  }[status] || { color: 'transparent', text: '' };
+
+  return (
+    <span style={{
+      fontSize: '12px',
+      fontWeight: 600,
+      color: cfg.color,
+      transition: 'color 0.3s',
+      minWidth: '90px',
+      whiteSpace: 'nowrap',
+    }}>
+      {cfg.text}
+    </span>
+  );
+};
 
 /* ─────────────────── Phase divider ─────────────────── */
 const PhaseDivider = ({ label }) => (
@@ -69,7 +93,15 @@ const PhaseBoq = ({
   phase = 'plan',
 }) => {
 
-  /* Auto-populate finalBOQ from planBOQ when entering actual phase */
+  const [saveStatus, setSaveStatus]   = useState('idle');
+  const draftTimerRef                 = useRef(null);
+  const statusTimerRef                = useRef(null);
+  // Skip the very first render so we don't auto-save the data
+  // that was just loaded from the DB via initFromProject.
+  const isFirstRender                 = useRef(true);
+  const isActual                      = phase === 'actual';
+
+  /* ── Auto-populate finalBOQ from planBOQ when entering actual phase ── */
   useEffect(() => {
     if (phase !== 'actual') return;
     const planRows  = boqData.planBOQ  || [];
@@ -79,7 +111,67 @@ const PhaseBoq = ({
     }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── PDF export — opens a clean new window and prints it ── */
+  /* ── Draft save function ── */
+  const saveDraft = useCallback(async () => {
+    if (!project?.id) return;
+    setSaveStatus('saving');
+
+    try {
+      const payload = isActual
+        ? {
+            actual_measurement: boqData.actualMeasurement,
+            actual_sqm:         boqData.actualSqm,
+            final_boq:          JSON.stringify(boqData.finalBOQ),
+          }
+        : {
+            plan_measurement: boqData.planMeasurement,
+            plan_sqm:         boqData.planSqm,
+            plan_boq:         JSON.stringify(boqData.planBOQ),
+          };
+
+      await api.patch(`/projects/${project.id}/boq-draft`, payload);
+
+      setSaveStatus('saved');
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch {
+      setSaveStatus('error');
+      clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 4000);
+    }
+  }, [boqData, project?.id, isActual]);
+
+  /* ── Watch boqData — debounce draft save by 1.5s after last change ── */
+  useEffect(() => {
+    // Skip first render — data was just loaded from DB, nothing new to save
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    clearTimeout(draftTimerRef.current);
+    setSaveStatus('saving');
+    draftTimerRef.current = setTimeout(saveDraft, 1500);
+
+    return () => clearTimeout(draftTimerRef.current);
+  }, [
+    boqData.planSqm,
+    boqData.planMeasurement,
+    boqData.planBOQ,
+    boqData.actualSqm,
+    boqData.actualMeasurement,
+    boqData.finalBOQ,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Cleanup timers on unmount */
+  useEffect(() => {
+    return () => {
+      clearTimeout(draftTimerRef.current);
+      clearTimeout(statusTimerRef.current);
+    };
+  }, []);
+
+  /* ── PDF export ── */
   const handleExportPDF = () => {
     const planRows  = boqData.planBOQ  || [];
     const finalRows = boqData.finalBOQ || [];
@@ -107,14 +199,14 @@ const PhaseBoq = ({
       `;
     };
 
-    /* Resolve project detail fields — check multiple possible key names */
     const projectName = project?.project_name || project?.name || '—';
     const clientName  = project?.client_name  || project?.client || '—';
     const location    = project?.location     || project?.address || project?.project_location || '—';
-    const salesRep    = project?.sales_name   || project?.salesperson || project?.lead?.sales_name || '—';
-    const engineers   = Array.isArray(project?.engineers)
-      ? project.engineers.map(e => e.name || e).join(', ')
-      : (project?.engineer_name || project?.engineer || '—');
+    const salesRep    = project?.created_by_name || project?.sales_name || project?.salesperson || '—';
+    const engineers   = project?.assigned_engineers
+      || (Array.isArray(project?.engineers)
+          ? project.engineers.map(e => e.name || e).join(', ')
+          : (project?.engineer_name || '—'));
 
     const actualSection = phase === 'actual' ? `
       <div class="meas-cols">
@@ -156,96 +248,35 @@ const PhaseBoq = ({
   <title>BOQ — ${projectName}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11pt;
-      color: #111;
-      padding: 28px 32px;
-      background: #fff;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 3px solid #C20100;
-      padding-bottom: 14px;
-      margin-bottom: 20px;
-    }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #111; padding: 28px 32px; background: #fff; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #C20100; padding-bottom: 14px; margin-bottom: 20px; }
     .header h1 { font-size: 22pt; font-weight: 900; color: #221f1f; margin-bottom: 4px; }
     .header p  { font-size: 11pt; color: #6b7280; }
     .header-right { font-size: 10pt; text-align: right; color: #374151; line-height: 1.9; }
     .header-right b { font-weight: 700; }
-
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px 24px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      padding: 14px 18px;
-      margin-bottom: 22px;
-    }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px 18px; margin-bottom: 22px; }
     .info-row { display: flex; gap: 8px; font-size: 10pt; }
-    .info-label {
-      font-weight: 700; color: #6b7280; min-width: 90px;
-      text-transform: uppercase; font-size: 8.5pt; letter-spacing: .04em;
-    }
+    .info-label { font-weight: 700; color: #6b7280; min-width: 90px; text-transform: uppercase; font-size: 8.5pt; letter-spacing: .04em; }
     .info-value { color: #111; }
-
-    .meas-cols {
-      display: flex; gap: 16px; margin-bottom: 20px;
-    }
-    .meas-col {
-      flex: 1;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      padding: 12px 16px;
-    }
-    .meas-col strong {
-      font-size: 8.5pt; text-transform: uppercase;
-      letter-spacing: .05em; color: #6b7280; display: block; margin-bottom: 4px;
-    }
+    .meas-cols { display: flex; gap: 16px; margin-bottom: 20px; }
+    .meas-col { flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 16px; }
+    .meas-col strong { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; display: block; margin-bottom: 4px; }
     .sqm { font-size: 18pt; font-weight: 900; color: #221f1f; margin-bottom: 4px; }
     .meas-col p { font-size: 9.5pt; color: #374151; }
-
     .section { margin-bottom: 24px; }
-    .section h3 {
-      font-size: 10.5pt; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .06em; color: #221f1f;
-      border-bottom: 2px solid #221f1f; padding-bottom: 6px; margin-bottom: 10px;
-    }
-
+    .section h3 { font-size: 10.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #221f1f; border-bottom: 2px solid #221f1f; padding-bottom: 6px; margin-bottom: 10px; }
     table { width: 100%; border-collapse: collapse; font-size: 10pt; }
     thead tr { background: #221f1f; }
-    thead th {
-      color: #fff; font-weight: 700; text-transform: uppercase;
-      font-size: 8.5pt; letter-spacing: .05em;
-      padding: 9px 12px; text-align: left; white-space: nowrap;
-    }
-    thead th:nth-child(3),
-    thead th:nth-child(4),
-    thead th:nth-child(5),
-    thead th:nth-child(6) { text-align: right; }
+    thead th { color: #fff; font-weight: 700; text-transform: uppercase; font-size: 8.5pt; letter-spacing: .05em; padding: 9px 12px; text-align: left; white-space: nowrap; }
+    thead th:nth-child(3), thead th:nth-child(4), thead th:nth-child(5), thead th:nth-child(6) { text-align: right; }
     tbody tr { border-bottom: 0.5pt solid #e5e7eb; }
     tbody tr:nth-child(even) { background: #fafafa; }
     tbody td { padding: 7px 12px; }
-
-    .footer {
-      margin-top: 32px;
-      border-top: 0.5pt solid #d1d5db;
-      padding-top: 8px;
-      font-size: 8pt;
-      color: #9ca3af;
-      text-align: center;
-    }
-
+    .footer { margin-top: 32px; border-top: 0.5pt solid #d1d5db; padding-top: 8px; font-size: 8pt; color: #9ca3af; text-align: center; }
     @page { size: A4 landscape; margin: 12mm 14mm; }
   </style>
 </head>
 <body>
-
   <div class="header">
     <div>
       <h1>Bill of Quantities</h1>
@@ -256,54 +287,25 @@ const PhaseBoq = ({
       <div><b>System:</b> Vision International Construction OPC-MIS</div>
     </div>
   </div>
-
   <div class="info-grid">
-    <div class="info-row">
-      <span class="info-label">Project</span>
-      <span class="info-value">${projectName}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Client</span>
-      <span class="info-value">${clientName}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Location</span>
-      <span class="info-value">${location}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Sales Rep</span>
-      <span class="info-value">${salesRep}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Engineer(s)</span>
-      <span class="info-value">${engineers}</span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Phase</span>
-      <span class="info-value">${phase === 'actual' ? 'Actual Measurement' : 'Measurement based on Plan'}</span>
-    </div>
+    <div class="info-row"><span class="info-label">Project</span><span class="info-value">${projectName}</span></div>
+    <div class="info-row"><span class="info-label">Client</span><span class="info-value">${clientName}</span></div>
+    <div class="info-row"><span class="info-label">Location</span><span class="info-value">${location}</span></div>
+    <div class="info-row"><span class="info-label">Sales Rep</span><span class="info-value">${salesRep}</span></div>
+    <div class="info-row"><span class="info-label">Engineer(s)</span><span class="info-value">${engineers}</span></div>
+    <div class="info-row"><span class="info-label">Phase</span><span class="info-value">${phase === 'actual' ? 'Actual Measurement' : 'Measurement based on Plan'}</span></div>
   </div>
-
   <div class="section">
     <h3>Plan BOQ</h3>
     <table>
-      <thead>
-        <tr>
-          <th>Category</th><th>Code</th><th>Unit</th>
-          <th>Qty</th><th>Unit Cost (₱)</th><th>Total (₱)</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Category</th><th>Code</th><th>Unit</th><th>Qty</th><th>Unit Cost (₱)</th><th>Total (₱)</th></tr></thead>
       <tbody>${tableRows(planRows)}</tbody>
     </table>
   </div>
-
   ${actualSection}
-
   <div class="footer">
-    Vision International Construction OPC &nbsp;·&nbsp; Bill of Quantities &nbsp;·&nbsp;
-    Generated ${new Date().toLocaleString('en-PH')}
+    Vision International Construction OPC &nbsp;·&nbsp; Bill of Quantities &nbsp;·&nbsp; Generated ${new Date().toLocaleString('en-PH')}
   </div>
-
 </body>
 </html>`;
 
@@ -315,11 +317,8 @@ const PhaseBoq = ({
     win.document.write(html);
     win.document.close();
     win.focus();
-    /* Small delay ensures styles render before print dialog opens */
     setTimeout(() => { win.print(); }, 500);
   };
-
-  const isActual = phase === 'actual';
 
   return (
     <div className="boq-phase-root">
@@ -374,6 +373,7 @@ const PhaseBoq = ({
             </svg>
             Export PDF
           </button>
+          <SaveIndicator status={saveStatus} />
         </div>
       )}
 
@@ -423,6 +423,7 @@ const PhaseBoq = ({
               </svg>
               Export PDF
             </button>
+            <SaveIndicator status={saveStatus} />
           </div>
         </>
       )}

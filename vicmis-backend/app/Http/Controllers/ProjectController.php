@@ -965,6 +965,70 @@ public function index(Request $request): JsonResponse
         if (isset($map[$field])) ($map[$field])();
     }
 
+    public function saveBOQDraft(Request $request, $id): JsonResponse
+    {
+    $project = Project::findOrFail($id);
+ 
+    // ── Plan fields ───────────────────────────────────────────────────────
+    if (
+        $request->has('plan_measurement') ||
+        $request->has('plan_sqm') ||
+        $request->has('plan_boq')
+    ) {
+        $planRows = $request->filled('plan_boq')
+            ? (json_decode($request->plan_boq, true) ?? [])
+            : null;
+ 
+        $planData = array_filter([
+            'plan_measurement' => $request->plan_measurement,
+            'plan_sqm'         => $request->plan_sqm,
+            'boq_rows'         => $planRows,
+            'grand_total'      => $planRows
+                ? collect($planRows)->sum(fn($r) => floatval($r['total'] ?? 0))
+                : null,
+        ], fn($v) => $v !== null);
+ 
+        if (!empty($planData)) {
+            $planData['submitted_by'] = $planData['submitted_by'] ?? Auth::id();
+            $project->boqPlan()->updateOrCreate(
+                ['project_id' => $project->id],
+                $planData
+            );
+        }
+    }
+ 
+    // ── Actual fields ─────────────────────────────────────────────────────
+    if (
+        $request->has('actual_measurement') ||
+        $request->has('actual_sqm') ||
+        $request->has('final_boq')
+    ) {
+        $actualRows = $request->filled('final_boq')
+            ? (json_decode($request->final_boq, true) ?? [])
+            : null;
+ 
+        $actualData = array_filter([
+            'actual_measurement' => $request->actual_measurement,
+            'actual_sqm'         => $request->actual_sqm,
+            'boq_rows'           => $actualRows,
+            'grand_total'        => $actualRows
+                ? collect($actualRows)->sum(fn($r) => floatval($r['total'] ?? 0))
+                : null,
+            'review_status'      => 'pending',
+        ], fn($v) => $v !== null);
+ 
+        if (!empty($actualData)) {
+            $actualData['submitted_by'] = $actualData['submitted_by'] ?? Auth::id();
+            $project->boqActual()->updateOrCreate(
+                ['project_id' => $project->id],
+                $actualData
+            );
+        }
+    }
+ 
+    return response()->json(['message' => 'Draft saved.']);
+    }
+
     private function formatProject(Project $project): array
     {
         $po        = $project->poOrder;

@@ -133,6 +133,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     // BOQ
     Route::post('/projects/{id}/submit-plan',   [ProjectController::class, 'submitPlanData']);
     Route::post('/projects/{id}/submit-actual', [ProjectController::class, 'submitActualData']);
+    Route::patch('/projects/{id}/boq-draft', [ProjectController::class, 'saveBOQDraft']);
     Route::middleware('can:manager-action')->group(function () {
         Route::post('/projects/{id}/approve-boq', [ProjectController::class, 'approveBOQ']);
     });
