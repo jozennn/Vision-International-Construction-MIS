@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import './css/DatabaseManager.css';
+import './css/DatabaseManager.css'; // Make sure the path matches your project!
 
 const CRON_PRESETS = [
   { label: 'Every hour',        value: '0 * * * *'   },
@@ -224,60 +224,37 @@ const DatabaseManager = () => {
               </div>
 
               {backups.length === 0 ? (
-  <div className="vcc-empty">
-    <div className="vcc-empty-icon">🗄️</div>
-    <p>No backups yet. Create your first backup using the button above.</p>
-  </div>
-) : (
-  <table className="db-table">
-    <thead>
-      <tr>
-        <th>Filename</th>
-        <th>Type</th>
-        <th>Size</th>
-        <th>Created</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {backups.map((b) => (
-        <tr key={b.id}>
-          {/* Filename acts as the card header on mobile */}
-          <td className="db-td-mono">
-            {b.filename}
-          </td>
-          
-          {/* Add data-label to all other tds */}
-          <td data-label="Type">
-            <span className={`db-type-badge ${b.type}`}>{b.type}</span>
-          </td>
-          
-          <td data-label="Size">
-            {formatSize(b.size)}
-          </td>
-          
-          <td data-label="Created" style={{ color: '#64748b', fontSize: '0.85rem' }}>
-            {formatDate(b.created_at)}
-          </td>
-          
-          <td data-label="Status">
-            <StatusBadge status={b.status} />
-          </td>
-          
-          <td className="db-td-actions" data-label="Actions">
-            <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
-              ⬇ Download
-            </button>
-            <button className="db-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>
-              Delete
-            </button>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-)}
+                <div className="vcc-empty">
+                  <div className="vcc-empty-icon">🗄️</div>
+                  <p>No backups yet. Create your first backup using the button above.</p>
+                </div>
+              ) : (
+                <table className="db-table">
+                  <thead>
+                    <tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th>Status</th><th>Actions</th></tr>
+                  </thead>
+                  <tbody>
+                    {backups.map(b => (
+                      <tr key={b.id}>
+                        {/* data-label added to ALL td elements for mobile! */}
+                        <td className="db-td-mono" data-label="Filename">{b.filename}</td>
+                        <td data-label="Type"><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
+                        <td data-label="Size">{formatSize(b.size)}</td>
+                        <td data-label="Created" style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
+                        <td data-label="Status"><StatusBadge status={b.status} /></td>
+                        <td className="db-td-actions" data-label="Actions">
+                          <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
+                            ⬇ Download
+                          </button>
+                          <button className="db-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 
