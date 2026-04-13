@@ -7,12 +7,11 @@ const WaitingView = ({ status, project, user, onAdvance }) => {
 
   const userDept = (user?.dept || user?.department || '').toLowerCase();
 
-  // ── Phase-owner-aware: only the correct dept sees the advance button ──────
   const canAdvance = canAdvanceWaitingPhase(status, user, userDept);
 
-  const currentPhase  = PHASE_ORDER.find(p => p.status === status);
-  const isWaitingOnly = WAITING_ONLY_PHASES.has(status);
-  const isHeadOnly    = currentPhase?.headOnly === true;
+  const currentPhase   = PHASE_ORDER.find(p => p.status === status);
+  const isWaitingOnly  = WAITING_ONLY_PHASES.has(status);
+  const isHeadOnly     = currentPhase?.headOnly === true;
   const showAdvanceBtn = (isWaitingOnly || isHeadOnly) && canAdvance;
 
   const getNextStatus = () => {
@@ -43,7 +42,10 @@ const WaitingView = ({ status, project, user, onAdvance }) => {
         <h3 className="pm-waiting-title">Waiting for {info.dept}</h3>
         <p className="pm-waiting-msg">
           This project is currently in the <strong>{status}</strong> phase.<br />
-          Waiting for <strong>{info.dept}</strong> to {info.msg}.
+          {status === 'P.O & Work Order'
+            ? <>This phase is handled <strong>internally within the office</strong>. The Sales team is preparing and aligning the Purchase Order and Work Order documents physically.</>
+            : <>Waiting for <strong>{info.dept}</strong> to {info.msg}.</>
+          }
         </p>
         <span className="pm-waiting-badge">{status}</span>
         <p className="pm-waiting-hint">
@@ -51,13 +53,26 @@ const WaitingView = ({ status, project, user, onAdvance }) => {
           The project summary is shown below for your reference.
         </p>
 
-        {/* Only shown to the dept that owns this phase */}
         {showAdvanceBtn && nextStatus && (
           <button
             className="pm-advance-btn"
             onClick={handleAdvance}
             disabled={loading}
-            style={{ marginTop: '1.25rem' }}
+            style={{
+              marginTop: '1.25rem',
+              padding: '0.65rem 1.5rem',
+              backgroundColor: loading ? '#aaa' : '#7c2d12',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+              letterSpacing: '0.04em',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s ease',
+            }}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = '#991b1b'; }}
+            onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = '#7c2d12'; }}
           >
             {loading ? 'Advancing…' : `Advance to "${nextStatus}" →`}
           </button>
