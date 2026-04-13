@@ -449,13 +449,20 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         reserve:         parseInt(formData.reserve,      10) || 0,
         availability:    deriveAvailability(stockInt),
       };
-      if (isEditing) await warehouseInventoryService.update(currentId, payload);
+
+      // Remove undefined/null keys so backend doesn't reject missing fields
+      const cleanPayload = Object.fromEntries(
+        Object.entries(payload).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      );
+
+      if (isEditing) await warehouseInventoryService.update(currentId, cleanPayload);
       else           await warehouseInventoryService.create(payload);
       closeModal();
       fetchItems();
       fetchStockCounts();
     } catch (err) {
-      alert('Failed to save. Please check all fields.');
+      console.error('Save error:', err.response?.data || err);
+      alert(err.response?.data?.message || 'Failed to save. Please check all fields.');
     } finally {
       setSaveLoading(false);
     }
