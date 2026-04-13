@@ -350,33 +350,34 @@ class AuthController extends Controller
     */
     public function resetPassword(Request $request)
     {
-        try {
-            $request->validate([
-                'token'    => ['required'],
-                'email'    => ['required', 'email'],
-                'password' => ['required', 'min:8', 'confirmed'],
-            ]);
+        // 1. Validate the incoming request from React
+        $request->validate([
+            'token'    => 'required',
+            'email'    => 'required|email',
+            'password' => 'required|min:6|confirmed', // 'confirmed' automatically checks 'password_confirmation'
+        ]);
 
-            $status = Password::broker()->reset(
-                $request->only('email', 'password', 'password_confirmation', 'token'),
-                function ($user, $password) {
-                    $user->password = Hash::make($password);
-                    $user->setRememberToken(Str::random(60));
-                    $user->save();
-                    event(new PasswordReset($user));
-                }
-            );
+        // 2. Pass the data to Laravel's built-in Password Broker
+        $status = Password::broker()->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                // 3. This closure runs ONLY if the token and email match perfectly
+                $user->forceFill([
+                    'password' => Hash::make($password)
+                ])->setRememberToken(Str::random(60));
 
-            if ($status === Password::PASSWORD_RESET) {
-                Log::info('Password reset successful', ['email' => $request->email]);
-                return response()->json(['message' => 'Password has been successfully reset.'], 200);
+                $user->save();
+
+                event(new PasswordReset($user));
             }
+        );
 
-            return response()->json(['message' => 'Password reset failed. Please request a new link.'], 400);
-
-        } catch (\Throwable $e) {
-            Log::error('Password reset error: ' . $e->getMessage());
-            return response()->json(['message' => 'An unexpected error occurred. Please try again.'], 500);
+        // 4. Return success or failure back to React
+        if ($status == Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password has been successfully reset.'], 200);
+        } else {
+            // Returns an error if the token is invalid or expired
+            return response()->json(['message' => __($status)], 400); 
         }
     }
 }
