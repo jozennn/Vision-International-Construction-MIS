@@ -2,66 +2,10 @@ import React, { useState, useRef } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 
 const PhasePOWorkOrder = ({ project, isSales, isSalesHead, onUploadAdvance, onAdvance, onReject, renderDocumentLink }) => {
-  const [poFile,        setPoFile]        = useState(null);
   const [workOrderFile, setWorkOrderFile] = useState(null);
-  const poInputRef        = useRef();
   const workOrderInputRef = useRef();
 
   const { status } = project;
-
-  // ── Sales uploads PO ────────────────────────────────────────
-  if (status === 'Purchase Order' && isSales) {
-    return (
-      <div>
-        <div className="pm-step-header">
-          <span className="pm-step-header-icon">📄</span>
-          <div>
-            <span className="pm-step-header-eyebrow">Step 5</span>
-            <h3 className="pm-step-header-title">P.O. Preparation</h3>
-          </div>
-        </div>
-
-        <div className="pm-card-below-header">
-          <div className="pm-info-blurb">
-            <span className="pm-info-blurb-icon">ℹ️</span>
-            <p>
-              Upload the <strong>official, signed Purchase Order</strong> document to proceed to the Work Order phase.
-              Accepted formats: image files or PDF.
-            </p>
-          </div>
-
-          <label className="pm-label">Purchase Order Document</label>
-          <label className={`pm-upload-zone ${poFile ? 'has-file' : ''}`}>
-            <span className="pm-upload-zone-icon">{poFile ? '✅' : '📁'}</span>
-            <span className="pm-upload-zone-name">
-              {poFile ? poFile.name : 'Click to choose file or drag & drop'}
-            </span>
-            <span className="pm-upload-zone-hint">PDF, JPG, PNG accepted</span>
-            <input
-              type="file"
-              ref={poInputRef}
-              accept="image/*,.pdf"
-              onChange={e => {
-                setPoFile(e.target.files[0]);
-                // Reset work order input so it never bleeds across
-                if (workOrderInputRef.current) workOrderInputRef.current.value = '';
-                setWorkOrderFile(null);
-              }}
-              style={{ display: 'none' }}
-            />
-          </label>
-
-          <PrimaryButton
-            onClick={() => onUploadAdvance('P.O & Work Order', 'po_document', poFile)}
-            variant="red"
-            disabled={!poFile}
-          >
-            Upload P.O. & Continue →
-          </PrimaryButton>
-        </div>
-      </div>
-    );
-  }
 
   // ── Sales uploads Work Order ────────────────────────────────
   if (status === 'P.O & Work Order' && isSales) {
@@ -77,7 +21,7 @@ const PhasePOWorkOrder = ({ project, isSales, isSalesHead, onUploadAdvance, onAd
         <div className="pm-step-header">
           <span className="pm-step-header-icon">📋</span>
           <div>
-            <span className="pm-step-header-eyebrow">Step 6</span>
+            <span className="pm-step-header-eyebrow">Step 5</span>
             <h3 className="pm-step-header-title">Work Order Preparation</h3>
           </div>
         </div>
@@ -107,12 +51,7 @@ const PhasePOWorkOrder = ({ project, isSales, isSalesHead, onUploadAdvance, onAd
               type="file"
               ref={workOrderInputRef}
               accept="image/*,.pdf"
-              onChange={e => {
-                setWorkOrderFile(e.target.files[0]);
-                // Reset PO input so it never bleeds across
-                if (poInputRef.current) poInputRef.current.value = '';
-                setPoFile(null);
-              }}
+              onChange={e => setWorkOrderFile(e.target.files[0])}
               style={{ display: 'none' }}
             />
           </label>

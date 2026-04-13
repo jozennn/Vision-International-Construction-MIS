@@ -43,7 +43,10 @@ const WaitingView = ({ status, project, user, onAdvance }) => {
         <h3 className="pm-waiting-title">Waiting for {info.dept}</h3>
         <p className="pm-waiting-msg">
           This project is currently in the <strong>{status}</strong> phase.<br />
-          Waiting for <strong>{info.dept}</strong> to {info.msg}.
+          {status === 'P.O & Work Order'
+            ? <>This phase is handled <strong>internally within the office</strong>. The Sales team is preparing and aligning the Purchase Order and Work Order documents physically.</>
+            : <>Waiting for <strong>{info.dept}</strong> to {info.msg}.</>
+          }
         </p>
         <span className="pm-waiting-badge">{status}</span>
         <p className="pm-waiting-hint">

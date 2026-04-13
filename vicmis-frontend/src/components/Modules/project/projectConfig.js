@@ -3,8 +3,7 @@ export const WAITING_MSG = {
   'Measurement based on Plan':                   { dept: 'Engineering',             msg: 'complete the Plan Measurement & BOQ' },
   'Actual Measurement':                          { dept: 'Engineering',             msg: 'submit the Actual Site Measurement' },
   'Pending Head Review':                         { dept: 'Engineering Head',        msg: 'review and approve the Final BOQ' },
-  'Purchase Order':                              { dept: 'Sales',                   msg: 'upload the Purchase Order' },
-  'P.O & Work Order':                            { dept: 'Sales',                   msg: 'prepare and upload the Work Order' },
+  'P.O & Work Order':                            { dept: 'Sales',                  msg: 'prepare and submit the Purchase Order and Work Order documents internally. This phase is handled through an internal office process.'  },
   'Pending Work Order Verification':             { dept: 'Sales Head',              msg: 'verify and approve the Work Order' },
   'Initial Site Inspection':                     { dept: 'Engineering',             msg: 'complete the Initial Site Inspection' },
   'Checking of Delivery of Materials':           { dept: 'Engineering / Logistics', msg: 'verify delivery of materials' },
@@ -30,7 +29,6 @@ export const PHASE_ORDER = [
   { status: 'Measurement based on Plan',                 owner: 'engineering' },
   { status: 'Actual Measurement',                        owner: 'engineering' },
   { status: 'Pending Head Review',                       owner: 'eng_head',   locked: true },
-  { status: 'Purchase Order',                            owner: 'sales'       },
   { status: 'P.O & Work Order',                         owner: 'sales'       },
   { status: 'Pending Work Order Verification',           owner: 'sales_head', locked: true },
   { status: 'Initial Site Inspection',                   owner: 'engineering' },
@@ -53,8 +51,7 @@ export const PHASE_ORDER = [
 ];
 
 // Phases that have NO component — always render WaitingView only
-export const WAITING_ONLY_PHASES = new Set([
-  'Purchase Order', 
+export const WAITING_ONLY_PHASES = new Set([ 
   'P.O & Work Order',
   'Pending Work Order Verification',
   'Bidding of Project',
