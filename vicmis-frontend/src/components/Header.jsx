@@ -136,44 +136,6 @@ const Header = ({ user }) => {
                   <span className="profile-badge role">{user?.role ? user.role.replace('_', ' ').toUpperCase() : 'N/A'}</span>
                 </div>
               </div>
-
-              {/* RIGHT COLUMN: DIGITAL PASSPORT */}
-              <div className="profile-security-section">
-                <h3 className="security-title">Digital Access Passport</h3>
-                <p className="security-subtitle">Your current system clearance and module access.</p>
-                
-                <div className="passport-card">
-                  <div className="passport-header">
-                    <span className="passport-logo">VISION MIS</span>
-                    <span className="passport-status">🟢 SECURE CONNECTION</span>
-                  </div>
-                  
-                  <div className="passport-permissions">
-                    <span className="passport-label">AUTHORIZED MODULES:</span>
-                    <div className="permission-tags">
-                      {activePermissions.length > 0 ? (
-                        activePermissions.map((mod, idx) => (
-                          <span key={idx} className="perm-tag">✓ {mod}</span>
-                        ))
-                      ) : (
-                        <span className="perm-tag all-access">🌟 FULL SYSTEM ACCESS</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="passport-footer">
-                    <div className="passport-info">
-                      <small>CLEARANCE LEVEL</small>
-                      <strong>Tier {user?.role === 'super_admin' ? '1 (Maximum)' : user?.role === 'manager' || user?.role === 'admin' ? '2 (Executive)' : '3 (Standard)'}</strong>
-                    </div>
-                    <div className="passport-info text-right">
-                      <small>AUTHENTICATION</small>
-                      <strong>2FA Enabled 🛡️</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
             </div>
           </div>
         </div>
