@@ -75,29 +75,6 @@
 
 /* ── RESPONSIVE ──────────────────────────────── */
 
-/* Tablet (≤1024px) */
-@media (max-width: 1024px) {
-  .at-filter-bar { gap: 10px; }
-  .at-search-wrap { min-width: 160px; }
-}
-
-/* Mobile (≤768px) */
-@media (max-width: 768px) {
-  /* Stack filters vertically so nothing overflows */
-  .at-filter-bar { flex-direction: column; gap: 8px; }
-  .at-search-wrap { min-width: 0; width: 100%; }
-  .at-select { width: 100%; }
-
-  /* Give timeline rows more breathing room and allow meta to wrap */
-  .at-timeline-row { gap: 12px; padding: 12px 0; }
-  .at-timeline-meta { gap: 6px; }
-
-  /* Push time to its own line so it doesn't crowd the pill */
-  .at-timeline-time { margin-left: 0; width: 100%; }
-
-  .at-timeline-desc { font-size: 0.82rem; }
-}
-
 /* Small mobile (≤480px) */
 @media (max-width: 480px) {
   /* Hide the dot on very small screens to reclaim horizontal space */
