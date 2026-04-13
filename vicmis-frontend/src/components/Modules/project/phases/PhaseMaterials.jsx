@@ -6,7 +6,7 @@ import api from '@/api/axios';
 import warehouseInventoryService from '@/api/warehouseInventoryService';
 import { X, Loader2, RotateCcw, PackageCheck, AlertTriangle } from 'lucide-react';
 
-// Reorder Modal Component
+// Reorder Modal Component - Styled to match ConstructionMat.css
 const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [quantityNeeded, setQuantityNeeded] = useState('');
@@ -21,106 +21,152 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
     });
   };
 
+  // Determine if low stock or no stock based on availability
+  const isLowStock = selectedItem?.availability === 'LOW STOCK';
+  const isNoStock = selectedItem?.availability === 'NO STOCK';
+  const urgencyCls = isNoStock ? 'reorder-urgent' : 'reorder-low';
+  const urgencyLabel = isNoStock ? 'No Stock — Urgent' : 'Low Stock';
+
   return (
-    <div className="pm-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="pm-modal pm-reorder-modal">
-        <div className="pm-modal-header">
-          <div className="pm-modal-title-wrap">
-            <AlertTriangle size={20} className="pm-modal-icon-warning" />
-            <h3 className="pm-modal-title">Request Reorder</h3>
+    <div className="wh-overlay reorder-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="wh-modal reorder-modal">
+        {/* Header */}
+        <div className={`reorder-modal-header ${urgencyCls}`}>
+          <div className="reorder-modal-header-left">
+            <div className="reorder-icon-wrap">
+              <RotateCcw size={20} />
+            </div>
+            <div>
+              <h2 className="reorder-modal-title">Request Reorder</h2>
+              <p className="reorder-modal-sub">This will notify Procurement to action this item.</p>
+            </div>
           </div>
-          <button className="pm-modal-close" onClick={onClose}><X size={18} /></button>
+          <button className="wh-modal-close reorder-close" onClick={onClose}><X size={18} /></button>
         </div>
 
-        <div className="pm-modal-body">
-          <div className="pm-form-group">
-            <label>Select Item to Reorder <span className="pm-required">*</span></label>
-            <select 
-              className="pm-select"
-              value={selectedItem?.code || ''}
-              onChange={(e) => {
-                const item = boqItems.find(i => i.code === e.target.value);
-                setSelectedItem(item);
-              }}
-            >
-              <option value="">— Select Item —</option>
-              {boqItems.map((item, idx) => (
-                <option key={idx} value={item.code}>
-                  {item.category} - {item.code} (Qty: {item.qty} {item.unit})
-                </option>
-              ))}
-            </select>
+        {/* Product identity block */}
+        <div className="reorder-product-card">
+          <div className="reorder-product-identity">
+            <div className="reorder-identity-row">
+              <span className="reorder-identity-label">Category</span>
+              <span className="reorder-category-badge">{selectedItem?.category || '—'}</span>
+            </div>
+            <div className="reorder-identity-row">
+              <span className="reorder-identity-label">Item Code</span>
+              <span className="reorder-code">{selectedItem?.code || '—'}</span>
+            </div>
+            {selectedItem?.unitCost > 0 && (
+              <div className="reorder-identity-row">
+                <span className="reorder-identity-label">Unit Price</span>
+                <span className="reorder-code">₱{selectedItem.unitCost.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Stats row */}
+          <div className="reorder-product-stats">
+            <div className="reorder-stat">
+              <span className="reorder-stat-label">Required Qty</span>
+              <span className="reorder-stat-value">
+                {selectedItem?.qty || 0} <em>{selectedItem?.unit || 'Pcs'}</em>
+              </span>
+            </div>
+            <div className="reorder-stat-divider" />
+            <div className="reorder-stat">
+              <span className="reorder-stat-label">Stock Status</span>
+              <span className={`wh-avail ${selectedItem?.availability === 'ON STOCK' ? 'avail-on' : selectedItem?.availability === 'LOW STOCK' ? 'avail-low' : 'avail-no'}`}>
+                {selectedItem?.availability || '—'}
+              </span>
+            </div>
+            <div className="reorder-stat-divider" />
+            <div className="reorder-stat">
+              <span className="reorder-stat-label">Priority</span>
+              <span className={`reorder-priority ${urgencyCls}`}>{urgencyLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Fields */}
+        <div className="reorder-fields-wrap">
+          <div className="reorder-field-group">
+            <label className="reorder-notes-label">
+              Select Item <span className="reorder-required">*</span>
+            </label>
+            <div className="wh-select-wrap">
+              <select 
+                value={selectedItem?.code || ''}
+                onChange={(e) => {
+                  const item = boqItems.find(i => i.code === e.target.value);
+                  setSelectedItem(item);
+                }}
+              >
+                <option value="">— Select Item —</option>
+                {boqItems.map((item, idx) => (
+                  <option key={idx} value={item.code}>
+                    {item.category} - {item.code} (Qty: {item.qty} {item.unit})
+                  </option>
+                ))}
+              </select>
+              <svg className="wh-select-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
 
           {selectedItem && (
             <>
-              <div className="pm-reorder-details">
-                <div className="pm-detail-row">
-                  <span className="pm-detail-label">Category:</span>
-                  <span className="pm-detail-value">{selectedItem.category}</span>
-                </div>
-                <div className="pm-detail-row">
-                  <span className="pm-detail-label">Code:</span>
-                  <span className="pm-detail-value">{selectedItem.code}</span>
-                </div>
-                <div className="pm-detail-row">
-                  <span className="pm-detail-label">Required Qty:</span>
-                  <span className="pm-detail-value">{selectedItem.qty} {selectedItem.unit}</span>
-                </div>
-                <div className="pm-detail-row">
-                  <span className="pm-detail-label">Unit Cost:</span>
-                  <span className="pm-detail-value">₱{selectedItem.unitCost?.toLocaleString() || '0.00'}</span>
-                </div>
-              </div>
-
-              <div className="pm-form-group">
-                <label>Quantity Needed <span className="pm-required">*</span></label>
-                <div className="pm-input-with-unit">
+              <div className="reorder-field-group">
+                <label className="reorder-notes-label">
+                  Quantity Needed <span className="reorder-required">*</span>
+                </label>
+                <div className="reorder-qty-wrap">
                   <input
                     type="number"
                     min="1"
-                    className="pm-input"
-                    placeholder="Enter quantity"
+                    className="reorder-qty-input"
+                    placeholder="0"
                     value={quantityNeeded}
-                    onChange={(e) => setQuantityNeeded(e.target.value)}
+                    onChange={e => setQuantityNeeded(e.target.value)}
                   />
-                  <span className="pm-unit-label">{selectedItem.unit}</span>
+                  <span className="reorder-qty-unit">{selectedItem.unit}</span>
                 </div>
-                {quantityNeeded && selectedItem.unitCost && (
-                  <p className="pm-hint-text" style={{ color: '#059669', marginTop: '6px' }}>
+                {quantityNeeded > 0 && selectedItem.unitCost > 0 && (
+                  <p className="wh-hint" style={{ marginTop: 6, color: '#059669', fontWeight: 600 }}>
                     Estimated cost: ₱{(quantityNeeded * selectedItem.unitCost).toLocaleString()}
                   </p>
                 )}
               </div>
 
-              <div className="pm-form-group">
-                <label>Notes for Procurement <span className="pm-optional">(optional)</span></label>
+              <div className="reorder-field-group">
+                <label className="reorder-notes-label">
+                  Notes for Procurement <span className="reorder-optional">(optional)</span>
+                </label>
                 <textarea
-                  className="pm-textarea"
+                  className="reorder-notes-input"
                   rows={3}
                   placeholder="e.g. Urgent - needed for project timeline..."
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={e => setNotes(e.target.value)}
                 />
               </div>
             </>
           )}
         </div>
 
-        <div className="pm-modal-footer">
-          <button className="pm-btn-outline" onClick={onClose} disabled={loading}>
+        {/* Footer */}
+        <div className="reorder-modal-footer">
+          <button type="button" className="wh-btn-cancel" onClick={onClose} disabled={loading}>
             Cancel
           </button>
-          <button 
-            className="pm-btn pm-btn-warning"
+          <button
+            type="button"
+            className={`reorder-confirm-btn ${urgencyCls || 'reorder-low'}`}
             onClick={handleConfirm}
             disabled={loading || !selectedItem || !quantityNeeded}
           >
-            {loading ? (
-              <><Loader2 size={16} className="pm-spinner" /> Sending Request...</>
-            ) : (
-              <><RotateCcw size={16} /> Send Reorder Request</>
-            )}
+            {loading
+              ? <><Loader2 size={15} className="wh-spinner" /> Sending…</>
+              : <><RotateCcw size={15} /> Send Reorder Request</>}
           </button>
         </div>
       </div>
@@ -136,10 +182,10 @@ const ReorderToast = ({ message, onDismiss }) => {
   }, [onDismiss]);
 
   return (
-    <div className="pm-toast pm-toast-success">
+    <div className="reorder-toast">
       <PackageCheck size={16} />
       <span>{message}</span>
-      <button className="pm-toast-close" onClick={onDismiss}><X size={14} /></button>
+      <button className="reorder-toast-close" onClick={onDismiss}><X size={13} /></button>
     </div>
   );
 };
@@ -236,18 +282,20 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     }
   };
 
-  // Extract BOQ items for reorder modal
+  // Extract BOQ items for reorder modal - FIXED: Properly extract from boqData
   const getBoqItemsForReorder = () => {
-    if (!boqData?.finalBOQ) return [];
+    if (!boqData?.finalBOQ || !Array.isArray(boqData.finalBOQ)) return [];
     
-    return boqData.finalBOQ.map(item => ({
-      category: item.category || item.CATEGORY || 'N/A',
-      code: item.code || item.CODE || 'N/A',
-      qty: item.qty || item.QTY || 0,
-      unit: item.unit || item.UNIT || 'Pcs',
-      unitCost: item.unitCost || item['UNIT COST (₱)'] || 0,
-      stock: item.stock || item.STOCK || 'ON STOCK'
-    }));
+    return boqData.finalBOQ
+      .filter(item => item.category && item.code) // Filter out empty rows
+      .map(item => ({
+        category: item.category || '—',
+        code: item.code || '—',
+        qty: parseInt(item.qty) || 0,
+        unit: item.unit || 'Pcs',
+        unitCost: parseFloat(item.unitCost) || 0,
+        availability: item.stockStatus || item.stock || 'ON STOCK'
+      }));
   };
 
   // Validation for award section
@@ -356,9 +404,17 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
             <div className="pm-grid-2">
               <button 
                 onClick={() => setShowReorderModal(true)} 
-                className="pm-btn-outline pm-btn-warning-outline"
+                className="pm-btn-outline"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '6px',
+                  borderColor: '#F59E0B',
+                  color: '#92400E'
+                }}
               >
-                <RotateCcw size={16} style={{ marginRight: '6px' }} />
+                <RotateCcw size={16} />
                 Reorder Supplies
               </button>
               <PrimaryButton variant="green" onClick={() => onAdvance('Bidding of Project')}>
