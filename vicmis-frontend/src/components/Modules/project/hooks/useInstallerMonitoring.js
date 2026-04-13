@@ -48,6 +48,38 @@ const parseInstallers = (raw) => {
     catch { return []; }
 };
 
+// ── Map a raw server log record → local shape ─────────────────────────────────
+// Single source of truth: every place that builds a logsByDate entry uses this.
+const mapServerLog = (l, roster = []) => {
+    const savedRows = parseInstallers(l.installers_data);
+    return {
+        date:        l.log_date,
+        totalArea:   l.total_area             ?? '',
+        clientStart: l.client_start_date      ?? '',   // ← FIX: was missing in optimistic update
+        clientEnd:   l.client_end_date        ?? '',   // ← FIX: was missing in optimistic update
+        actualStart: l.start_date             ?? '',   // ← FIX: was missing in optimistic update
+        actualEnd:   l.end_date               ?? '',   // ← FIX: was missing in optimistic update
+        completion:  l.accomplishment_percent ?? '',
+        remarks:     l.remarks                ?? '',
+        rows: savedRows.length > 0 ? savedRows : buildBlankLog(roster, l.log_date).rows,
+    };
+};
+
+// ── Map a local log shape → the allLogs server-record shape ──────────────────
+// Mirrors mapServerLog so optimistic updates stay consistent.
+const mapLocalToServerShape = (log, existingId = null) => ({
+    id:                     existingId ?? Date.now(),
+    log_date:               log.date,
+    total_area:             log.totalArea,
+    client_start_date:      log.clientStart,   // ← FIX: all fields now included
+    client_end_date:        log.clientEnd,
+    start_date:             log.actualStart,
+    end_date:               log.actualEnd,
+    accomplishment_percent: log.completion,
+    remarks:                log.remarks,
+    installers_data:        JSON.stringify(log.rows),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 export const useInstallerMonitoring = (projectId, roster = []) => {
     const [selectedDate, setSelectedDate] = useState(today());
@@ -71,34 +103,21 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             const logs = res.data ?? [];
             setAllLogs(logs);
 
+            // Build the date-keyed map using the shared mapper
             const map = {};
-            logs.forEach(l => {
-                const savedRows = parseInstallers(l.installers_data);
-                map[l.log_date] = {
-                    date:        l.log_date,
-                    totalArea:   l.total_area             ?? '',
-                    clientStart: l.client_start_date      ?? '',
-                    clientEnd:   l.client_end_date        ?? '',
-                    actualStart: l.start_date             ?? '',
-                    actualEnd:   l.end_date               ?? '',
-                    completion:  l.accomplishment_percent ?? '',
-                    remarks:     l.remarks                ?? '',
-                    rows: savedRows.length > 0 ? savedRows : buildBlankLog(roster, l.log_date).rows,
-                };
-            });
+            logs.forEach(l => { map[l.log_date] = mapServerLog(l, roster); });
             setLogsByDate(map);
         } catch (e) {
             setError(e.response?.data?.message ?? 'Failed to load daily logs.');
         } finally {
             setLoading(false);
-            // Allow auto-save to fire after initial hydration
             setTimeout(() => { isFirstLoad.current = false; }, 300);
         }
-    }, [projectId]);
+    }, [projectId]); // roster intentionally omitted — re-seed effect handles it
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-    // ── Re-seed rows from roster when roster loads after logs ─────────────
+    // ── Re-seed blank rows from roster when roster loads after logs ───────
     useEffect(() => {
         if (roster.length === 0) return;
         setLogsByDate(prev => {
@@ -117,10 +136,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     // ── Current log (or blank with roster pre-filled) ─────────────────────
     const currentLog = logsByDate[selectedDate] ?? buildBlankLog(roster, selectedDate);
 
-    // ── Switching date preserves the previous date's data ─────────────────
-    // logsByDate is keyed by date so each date's edits are fully isolated.
-    // When user picks a new date, currentLog automatically reads from that
-    // date's entry (or builds a blank one) — no data is lost.
+    // ── Switching date: update selectedDate; currentLog auto-derives ──────
     const setCurrentLog = (updated) =>
         setLogsByDate(prev => ({ ...prev, [selectedDate]: updated }));
 
@@ -144,7 +160,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             rows: currentLog.rows.map(r => r.id === id ? { ...r, [field]: value } : r),
         });
 
-    // ── Build save payload (reused by auto-save and manual save) ──────────
+    // ── Build FormData payload ─────────────────────────────────────────────
     const buildPayload = useCallback((log) => {
         const fd = new FormData();
         fd.append('log_date',               log.date);
@@ -160,7 +176,11 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         return fd;
     }, []);
 
-    // ── Debounced auto-save (fires 1.5s after user stops typing) ─────────
+    // ── Debounced auto-save ───────────────────────────────────────────────
+    // FIX: optimistic update now uses mapLocalToServerShape so ALL fields
+    // (including clientStart/End, actualStart/End) are reflected immediately.
+    // FIX: upsert logic checks allLogs for an existing record by date before
+    // deciding to add vs. replace — prevents the ever-growing history list.
     useEffect(() => {
         if (isFirstLoad.current) return;
         if (!projectId) return;
@@ -175,30 +195,27 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                     buildPayload(currentLog),
                     { headers: { 'Content-Type': 'multipart/form-data' } }
                 );
-                // Update allLogs list without a full refetch
+
+                // ── Upsert allLogs in-memory ──────────────────────────────
+                // Replace the existing entry for this date, or append if new.
+                // This is the ONLY place allLogs is mutated between full fetches.
                 setAllLogs(prev => {
-                    const exists = prev.find(l => l.log_date === currentLog.date);
-                    if (exists) {
-                        return prev.map(l => l.log_date === currentLog.date
-                            ? { ...l,
-                                total_area:             currentLog.totalArea,
-                                remarks:                currentLog.remarks,
-                                accomplishment_percent: currentLog.completion,
-                                installers_data:        JSON.stringify(currentLog.rows),
-                              }
-                            : l
-                        );
+                    const existingIdx = prev.findIndex(l => l.log_date === currentLog.date);
+                    const updated     = mapLocalToServerShape(
+                        currentLog,
+                        existingIdx >= 0 ? prev[existingIdx].id : null,
+                    );
+
+                    if (existingIdx >= 0) {
+                        // Replace — never grows the list
+                        const next = [...prev];
+                        next[existingIdx] = updated;
+                        return next;
                     }
-                    // New date entry — add to list
-                    return [...prev, {
-                        id:                     Date.now(),
-                        log_date:               currentLog.date,
-                        total_area:             currentLog.totalArea,
-                        remarks:                currentLog.remarks,
-                        accomplishment_percent: currentLog.completion,
-                        installers_data:        JSON.stringify(currentLog.rows),
-                    }];
+                    // Genuinely new date — append once
+                    return [...prev, updated];
                 });
+
                 setSaveStatus('saved');
                 setTimeout(() => setSaveStatus(null), 3000);
             } catch (e) {
@@ -228,6 +245,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
 
+            // Full refetch after manual save to sync server-assigned IDs / timestamps
             await fetchLogs();
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus(null), 3000);
