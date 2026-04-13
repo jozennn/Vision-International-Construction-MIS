@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import './ResetPassword.css'; // We'll put your CSS in here
+import './ResetPassword.css';
 
 const ResetPassword = () => {
-  const searchParams = new URLSearchParams(window.location.search);
-  const token = searchParams.get('token');
-  const email = searchParams.get('email');
+  // 1. Grab token and email from the URL ONCE when the component first loads and save them to state.
+  const [token] = useState(() => new URLSearchParams(window.location.search).get('token'));
+  const [email] = useState(() => new URLSearchParams(window.location.search).get('email'));
 
   const [formData, setFormData] = useState({
     password: '',
@@ -18,8 +18,12 @@ const ResetPassword = () => {
 
   useEffect(() => {
     if (!token || !email) {
+      // If they arrived without a token/email, show an error
       setStatus('error');
       setErrorMessage('Invalid or expired password reset link. Please contact the Super Admin.');
+    } else {
+      // 2. THE MAGIC TRICK: If token and email exist, erase them from the browser's address bar instantly!
+      window.history.replaceState(null, '', window.location.pathname);
     }
   }, [token, email]);
 
@@ -47,8 +51,8 @@ const ResetPassword = () => {
       setErrorMessage('');
 
       await api.post('/reset-password', {
-        token: token,
-        email: email,
+        token: token, // Uses the state we saved in step 1
+        email: email, // Uses the state we saved in step 1
         password: formData.password,
         password_confirmation: formData.password_confirmation
       });
