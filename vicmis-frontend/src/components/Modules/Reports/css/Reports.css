@@ -30,27 +30,13 @@
      --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 18px;
      --sh-sm: 0 1px 3px rgba(34,31,31,.06), 0 1px 2px rgba(34,31,31,.04);
      --sh-md: 0 4px 16px rgba(34,31,31,.09), 0 2px 4px rgba(34,31,31,.05);
-   
-     /* Fluid spacing scale */
-     --space-xs:  clamp(0.4rem,  1vw,  0.6rem);
-     --space-sm:  clamp(0.6rem,  1.5vw, 0.9rem);
-     --space-md:  clamp(0.9rem,  2vw,  1.3rem);
-     --space-lg:  clamp(1.2rem,  3vw,  1.8rem);
-     --space-xl:  clamp(1.5rem,  4vw,  2.4rem);
-   
-     /* Fluid type scale */
-     --text-xs:   clamp(0.6rem,  1.2vw, 0.65rem);
-     --text-sm:   clamp(0.7rem,  1.4vw, 0.75rem);
-     --text-base: clamp(0.76rem, 1.6vw, 0.82rem);
-     --text-lg:   clamp(0.82rem, 1.8vw, 0.9rem);
-     --text-xl:   clamp(0.9rem,  2vw,  1rem);
    }
    
    @keyframes rpt-rise  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
    @keyframes rpt-spin  { to { transform:rotate(360deg); } }
    @keyframes rpt-blink { 0%,100%{opacity:1} 50%{opacity:.2} }
    
-   /* ── Base Reset for module ────────────────────────────────── */
+   /* ── Base Reset ───────────────────────────────────────────── */
    .rpt-wrapper *,
    .rpt-wrapper *::before,
    .rpt-wrapper *::after {
@@ -63,6 +49,10 @@
      background: var(--bg-page);
      min-height: 100vh;
      color: var(--text-pri);
+     /* FIX: Prevent content being clipped by parent sidebar */
+     width: 100%;
+     min-width: 0;
+     overflow-x: hidden;
      -webkit-text-size-adjust: 100%;
    }
    
@@ -70,11 +60,11 @@
    .rpt-page-header {
      background: var(--vision-black);
      border-bottom: 3px solid var(--vision-red-dk);
-     padding: clamp(0.7rem, 2vw, 1.1rem) clamp(1rem, 3vw, 2rem);
+     padding: clamp(0.65rem, 2vw, 1.1rem) clamp(0.75rem, 3vw, 2rem);
      display: flex;
-     align-items: center;
+     align-items: flex-start;
      justify-content: space-between;
-     gap: 1rem;
+     gap: 0.75rem;
      position: relative;
      overflow: hidden;
      flex-wrap: wrap;
@@ -93,11 +83,12 @@
      gap: clamp(8px, 2vw, 14px);
      position: relative;
      min-width: 0;
+     flex-shrink: 1;
    }
    
    .rpt-page-icon {
-     width: clamp(38px, 5vw, 50px);
-     height: clamp(38px, 5vw, 50px);
+     width: clamp(34px, 5vw, 50px);
+     height: clamp(34px, 5vw, 50px);
      border-radius: var(--r-md);
      display: flex; align-items: center; justify-content: center;
      flex-shrink: 0;
@@ -106,19 +97,20 @@
    
    .rpt-page-title {
      font-family: 'Syne', sans-serif;
-     font-size: clamp(0.8rem, 2.2vw, 1rem);
+     font-size: clamp(0.78rem, 2.2vw, 1rem);
      font-weight: 800;
      color: var(--vision-white);
      margin: 0;
      text-transform: uppercase;
      letter-spacing: 0.07em;
-     white-space: nowrap;
      overflow: hidden;
      text-overflow: ellipsis;
+     white-space: nowrap;
+     max-width: 100%;
    }
    
    .rpt-page-sub {
-     font-size: clamp(0.6rem, 1.2vw, 0.68rem);
+     font-size: clamp(0.58rem, 1.2vw, 0.68rem);
      color: rgba(235,219,214,.55);
      margin: 3px 0 0;
      letter-spacing: 0.02em;
@@ -127,11 +119,12 @@
    .rpt-page-right {
      display: flex;
      align-items: center;
-     gap: 10px;
+     gap: 8px;
      position: relative;
      flex-wrap: wrap;
      justify-content: flex-end;
      flex-shrink: 0;
+     min-width: 0;
    }
    
    .rpt-live-pill {
@@ -139,8 +132,8 @@
      background: rgba(255,255,255,.07);
      border: 1px solid rgba(255,255,255,.12);
      border-radius: 999px;
-     padding: .3rem .9rem;
-     font-size: clamp(0.62rem, 1.2vw, 0.7rem);
+     padding: .3rem .75rem;
+     font-size: clamp(0.6rem, 1.2vw, 0.7rem);
      font-weight: 700;
      color: rgba(255,255,255,.75);
      letter-spacing: .03em;
@@ -157,23 +150,26 @@
    }
    
    .rpt-page-date {
-     font-size: clamp(0.6rem, 1.2vw, 0.68rem);
+     font-size: clamp(0.58rem, 1.2vw, 0.68rem);
      color: rgba(255,255,255,.35);
      white-space: nowrap;
    }
    
-   /* ── Export All Block (in page header) ────────────────────── */
+   /* ── Export All Block ─────────────────────────────────────── */
    .rpt-export-all-block {
      display: flex;
      align-items: center;
      gap: 8px;
      flex-wrap: wrap;
+     width: 100%;
    }
    
    .rpt-export-all-dates {
      display: flex;
      align-items: center;
      gap: 6px;
+     flex: 1;
+     min-width: 0;
      flex-wrap: wrap;
    }
    
@@ -184,6 +180,7 @@
      font-size: clamp(0.6rem, 1.2vw, 0.68rem);
      font-weight: 600;
      color: rgba(235,219,214,.7);
+     white-space: nowrap;
    }
    
    .rpt-date-sep {
@@ -195,7 +192,8 @@
      padding: 4px 8px;
      font-size: clamp(0.62rem, 1.2vw, 0.7rem);
      max-width: 130px;
-     width: 100%;
+     min-width: 0;
+     width: auto;
    }
    
    .rpt-btn-export-all {
@@ -215,19 +213,15 @@
      transition: all .15s;
      white-space: nowrap;
      touch-action: manipulation;
+     min-height: 34px;
    }
    .rpt-btn-export-all:hover:not(:disabled) {
      background: var(--vision-red-dkr);
      transform: translateY(-1px);
      box-shadow: 0 3px 10px rgba(194,1,0,.35);
    }
-   .rpt-btn-export-all:active:not(:disabled) {
-     transform: translateY(0);
-   }
-   .rpt-btn-export-all:disabled {
-     opacity: .55;
-     cursor: not-allowed;
-   }
+   .rpt-btn-export-all:active:not(:disabled) { transform: translateY(0); }
+   .rpt-btn-export-all:disabled { opacity: .55; cursor: not-allowed; }
    
    .rpt-export-spinner {
      display: inline-block;
@@ -243,22 +237,23 @@
    .rpt-tabs-bar {
      display: flex;
      gap: 2px;
-     padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(1rem, 3vw, 2rem) 0;
+     padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(0.75rem, 3vw, 2rem) 0;
      background: var(--bg-card);
      border-bottom: 1px solid var(--border);
      overflow-x: auto;
      -webkit-overflow-scrolling: touch;
+     scroll-snap-type: x mandatory;
      scrollbar-width: none;
    }
    .rpt-tabs-bar::-webkit-scrollbar { height: 0; }
    
    .rpt-tab {
      position: relative;
-     padding: clamp(0.45rem, 1.2vw, 0.6rem) clamp(0.8rem, 2vw, 1.3rem) clamp(0.55rem, 1.5vw, 0.75rem);
+     padding: clamp(0.45rem, 1.2vw, 0.6rem) clamp(0.75rem, 2vw, 1.3rem) clamp(0.55rem, 1.5vw, 0.75rem);
      border: none;
      background: transparent;
      font-family: 'DM Sans', sans-serif;
-     font-size: clamp(0.74rem, 1.5vw, 0.82rem);
+     font-size: clamp(0.72rem, 1.5vw, 0.82rem);
      font-weight: 600;
      color: var(--text-muted);
      cursor: pointer;
@@ -268,9 +263,11 @@
      letter-spacing: .01em;
      touch-action: manipulation;
      -webkit-tap-highlight-color: transparent;
+     scroll-snap-align: start;
+     flex-shrink: 0;
    }
-   .rpt-tab:hover            { color: var(--text-pri); background: var(--bg-subtle); }
-   .rpt-tab.active           { color: var(--text-pri); font-weight: 700; background: var(--bg-card); }
+   .rpt-tab:hover  { color: var(--text-pri); background: var(--bg-subtle); }
+   .rpt-tab.active { color: var(--text-pri); font-weight: 700; background: var(--bg-card); }
    .rpt-tab-indicator {
      position: absolute;
      bottom: -1px; left: 0; right: 0;
@@ -280,10 +277,10 @@
    
    /* ── Content Area ─────────────────────────────────────────── */
    .rpt-content-area {
-     padding: clamp(1rem, 2.5vw, 1.6rem) clamp(1rem, 3vw, 2rem);
+     padding: clamp(0.75rem, 2.5vw, 1.6rem) clamp(0.75rem, 3vw, 2rem);
      display: flex;
      flex-direction: column;
-     gap: clamp(1rem, 2vw, 1.4rem);
+     gap: clamp(0.9rem, 2vw, 1.4rem);
    }
    
    /* ── Report Card ──────────────────────────────────────────── */
@@ -295,6 +292,7 @@
      box-shadow: var(--sh-sm);
      animation: rpt-rise .35s ease both;
      transition: box-shadow .2s;
+     min-width: 0;
    }
    .rpt-card:hover { box-shadow: var(--sh-md); }
    
@@ -303,18 +301,24 @@
      display: flex;
      align-items: flex-start;
      justify-content: space-between;
-     gap: 1rem;
-     padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 2.5vw, 1.5rem);
+     gap: 0.75rem;
+     padding: clamp(0.65rem, 2vw, 1rem) clamp(0.75rem, 2.5vw, 1.5rem);
      background: var(--vision-black);
      border-bottom: 2px solid var(--vision-red-dk);
      flex-wrap: wrap;
    }
    
-   .rpt-sec-header-left { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+   .rpt-sec-header-left {
+     display: flex;
+     flex-direction: column;
+     gap: 3px;
+     min-width: 0;
+     flex: 1;
+   }
    
    .rpt-sec-title {
      font-family: 'Syne', sans-serif;
-     font-size: clamp(0.76rem, 1.8vw, 0.85rem);
+     font-size: clamp(0.74rem, 1.8vw, 0.85rem);
      font-weight: 700;
      color: var(--vision-white);
      margin: 0;
@@ -323,7 +327,7 @@
    }
    
    .rpt-sec-sub {
-     font-size: clamp(0.62rem, 1.2vw, 0.7rem);
+     font-size: clamp(0.6rem, 1.2vw, 0.7rem);
      color: rgba(235,219,214,.6);
      margin: 0;
    }
@@ -341,7 +345,7 @@
      display: inline-flex;
      align-items: center;
      gap: 6px;
-     padding: clamp(0.35rem, 1vw, 0.42rem) clamp(0.7rem, 2vw, 1rem);
+     padding: clamp(0.35rem, 1vw, 0.42rem) clamp(0.65rem, 2vw, 1rem);
      border-radius: var(--r-sm);
      border: none;
      font-family: 'DM Sans', sans-serif;
@@ -353,7 +357,7 @@
      letter-spacing: .02em;
      touch-action: manipulation;
      -webkit-tap-highlight-color: transparent;
-     min-height: 36px; /* comfortable tap target */
+     min-height: 34px;
    }
    .rpt-btn:disabled { opacity: .55; cursor: not-allowed; }
    
@@ -380,7 +384,7 @@
    }
    .rpt-btn-apply:active:not(:disabled) { transform: translateY(0); }
    
-   /* ── Date Row (inside section header) ────────────────────── */
+   /* ── Date Row ─────────────────────────────────────────────── */
    .rpt-date-row {
      display: flex;
      align-items: center;
@@ -406,25 +410,31 @@
      cursor: pointer;
      transition: border-color .15s;
      color-scheme: dark;
-     max-width: 150px;
-     width: 100%;
-     min-height: 36px;
+     max-width: 145px;
+     min-width: 0;
+     min-height: 34px;
    }
    .rpt-date-input:focus { outline: none; border-color: var(--vision-blue); }
    
    /* ── Summary Chips ────────────────────────────────────────── */
    .rpt-summary-row {
      display: flex;
-     gap: 10px;
-     padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 2.5vw, 1.5rem);
+     gap: 8px;
+     padding: clamp(0.65rem, 2vw, 1rem) clamp(0.75rem, 2.5vw, 1.5rem);
      background: var(--bg-subtle);
      border-bottom: 1px solid var(--border);
      flex-wrap: wrap;
    }
    
+   /*
+    * FIX — Chips collapsed to just a colored top-border line on mobile.
+    * Root cause: no min-height + flex children with no content height.
+    * Fix: explicit min-height, flex-direction column, justify-content center.
+    */
    .rpt-chip {
-     flex: 1 1 120px;
-     min-width: 90px;
+     flex: 1 1 clamp(80px, 18%, 160px);
+     min-width: 80px;
+     min-height: 58px;
      background: var(--bg-card);
      border: 1px solid var(--border);
      border-top: 3px solid var(--chip-accent, #497B97);
@@ -432,19 +442,22 @@
      padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 14px);
      transition: box-shadow .15s, transform .15s;
      cursor: default;
+     display: flex;
+     flex-direction: column;
+     justify-content: center;
    }
    .rpt-chip:hover { box-shadow: var(--sh-sm); transform: translateY(-1px); }
    
    .rpt-chip-val {
      font-family: 'Syne', sans-serif;
-     font-size: clamp(1.1rem, 3vw, 1.4rem);
+     font-size: clamp(1rem, 3vw, 1.4rem);
      font-weight: 800;
      color: var(--vision-black);
      line-height: 1;
    }
    
    .rpt-chip-label {
-     font-size: clamp(0.57rem, 1.1vw, 0.62rem);
+     font-size: clamp(0.55rem, 1.1vw, 0.62rem);
      font-weight: 700;
      color: var(--text-light);
      text-transform: uppercase;
@@ -467,8 +480,8 @@
    .rpt-table {
      width: 100%;
      border-collapse: collapse;
-     font-size: clamp(0.72rem, 1.5vw, 0.8rem);
-     min-width: 560px;
+     font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+     min-width: 520px;
    }
    
    .rpt-table thead {
@@ -478,9 +491,9 @@
    }
    
    .rpt-table thead th {
-     padding: clamp(0.5rem, 1.5vw, 0.65rem) clamp(0.75rem, 2vw, 1.1rem);
+     padding: clamp(0.5rem, 1.5vw, 0.65rem) clamp(0.65rem, 2vw, 1.1rem);
      text-align: left;
-     font-size: clamp(0.58rem, 1.2vw, 0.65rem);
+     font-size: clamp(0.56rem, 1.2vw, 0.65rem);
      font-weight: 700;
      text-transform: uppercase;
      letter-spacing: 0.07em;
@@ -501,12 +514,11 @@
    .rpt-table tbody tr:nth-child(even) td { background: #faf9f8; }
    
    .rpt-table td {
-     padding: clamp(0.55rem, 1.5vw, 0.72rem) clamp(0.75rem, 2vw, 1.1rem);
+     padding: clamp(0.5rem, 1.5vw, 0.72rem) clamp(0.65rem, 2vw, 1.1rem);
      vertical-align: middle;
      color: var(--text-pri);
    }
    
-   /* Cell helpers */
    .rpt-fw     { font-weight: 700; color: var(--vision-black); }
    .rpt-tc     { text-align: center; }
    .rpt-tr     { text-align: right; }
@@ -554,7 +566,7 @@
      display: flex;
      align-items: center;
      justify-content: center;
-     padding: 4rem;
+     padding: clamp(2rem, 5vw, 4rem);
    }
    .rpt-spinner {
      width: 32px; height: 32px;
@@ -583,15 +595,15 @@
      display: flex;
      align-items: center;
      justify-content: space-between;
-     gap: 12px;
-     padding: clamp(0.6rem, 1.5vw, 0.75rem) clamp(1rem, 2.5vw, 1.5rem);
+     gap: 10px;
+     padding: clamp(0.55rem, 1.5vw, 0.75rem) clamp(0.75rem, 2.5vw, 1.5rem);
      border-top: 1px solid var(--border);
      background: var(--bg-subtle);
      flex-wrap: wrap;
    }
    
    .rpt-pagination-info {
-     font-size: clamp(0.65rem, 1.3vw, 0.72rem);
+     font-size: clamp(0.64rem, 1.3vw, 0.72rem);
      color: var(--text-muted);
      font-weight: 500;
      white-space: nowrap;
@@ -600,16 +612,15 @@
    .rpt-pagination-controls {
      display: flex;
      align-items: center;
-     gap: 12px;
+     gap: 10px;
      flex-wrap: wrap;
    }
    
-   /* Rows-per-page selector */
    .rpt-perpage-wrap {
      display: flex;
      align-items: center;
      gap: 6px;
-     font-size: clamp(0.65rem, 1.3vw, 0.72rem);
+     font-size: clamp(0.64rem, 1.3vw, 0.72rem);
      color: var(--text-muted);
      font-weight: 600;
    }
@@ -623,25 +634,22 @@
      background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237A706C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center;
      color: var(--text-pri);
      font-family: 'DM Sans', sans-serif;
-     font-size: clamp(0.65rem, 1.3vw, 0.72rem);
+     font-size: clamp(0.64rem, 1.3vw, 0.72rem);
      font-weight: 600;
      cursor: pointer;
      transition: border-color .15s, box-shadow .15s;
-     min-height: 36px;
+     min-height: 32px;
    }
    .rpt-perpage-select:focus {
      outline: none;
      border-color: var(--vision-blue);
      box-shadow: 0 0 0 3px rgba(73,123,151,.15);
    }
-   .rpt-perpage-select:hover { border-color: var(--border-md); }
    
-   /* Page button group */
    .rpt-page-btns {
      display: flex;
      align-items: center;
      gap: 3px;
-     flex-wrap: wrap;
    }
    
    .rpt-page-btn {
@@ -650,7 +658,7 @@
      justify-content: center;
      min-width: clamp(28px, 4vw, 32px);
      height: clamp(28px, 4vw, 32px);
-     padding: 0 8px;
+     padding: 0 6px;
      border: 1px solid var(--border-md);
      border-radius: var(--r-sm);
      background: var(--bg-card);
@@ -665,13 +673,11 @@
      touch-action: manipulation;
      -webkit-tap-highlight-color: transparent;
    }
-   
    .rpt-page-btn:hover:not(:disabled):not(.active) {
      background: var(--bg-subtle);
      border-color: var(--vision-blue);
      color: var(--vision-blue);
    }
-   
    .rpt-page-btn.active {
      background: var(--vision-black);
      border-color: var(--vision-black);
@@ -680,14 +686,11 @@
      box-shadow: 0 2px 6px rgba(34,31,31,.25);
      cursor: default;
    }
-   
    .rpt-page-btn:disabled {
      opacity: .35;
      cursor: not-allowed;
      background: var(--bg-subtle);
    }
-   
-   /* Prev / Next nav arrows */
    .rpt-page-btn:first-child,
    .rpt-page-btn:last-child {
      font-size: 1rem;
@@ -699,7 +702,7 @@
      display: inline-flex;
      align-items: center;
      justify-content: center;
-     min-width: 28px;
+     min-width: 24px;
      height: 32px;
      font-size: 0.78rem;
      color: var(--text-light);
@@ -708,10 +711,10 @@
    }
    
    /* ═══════════════════════════════════════════════════════════
-      RESPONSIVE — Fluid Breakpoints
+      RESPONSIVE BREAKPOINTS
       ═══════════════════════════════════════════════════════════ */
    
-   /* ── Wide screens (≥ 1280px) ──────────────────────────────── */
+   /* ── Wide (≥ 1280px) ──────────────────────────────────────── */
    @media (min-width: 1280px) {
      .rpt-chip { flex: 1; }
      .rpt-table-wrap { max-height: 600px; }
@@ -719,158 +722,79 @@
    
    /* ── Medium-large (≤ 1024px) ──────────────────────────────── */
    @media (max-width: 1024px) {
-     .rpt-summary-row { gap: 8px; }
      .rpt-chip { flex: 1 1 calc(50% - 4px); min-width: 0; }
      .rpt-table-wrap { max-height: 420px; }
    }
    
    /* ── Tablet (≤ 768px) ─────────────────────────────────────── */
    @media (max-width: 768px) {
-     .rpt-page-header {
-       gap: 0.75rem;
-     }
-   
-     .rpt-page-right {
-       width: 100%;
-       justify-content: flex-start;
-     }
-   
-     .rpt-export-all-block {
-       flex-direction: row;
-       align-items: center;
-       gap: 6px;
-     }
-   
-     .rpt-sec-header {
-       flex-direction: column;
-       gap: 0.75rem;
-     }
-   
-     .rpt-sec-actions {
-       width: 100%;
-       justify-content: flex-start;
-     }
-   
-     .rpt-date-row {
-       width: 100%;
-     }
-   
-     .rpt-page-date { display: none; }
-   
-     .rpt-chip { flex: 1 1 calc(50% - 5px); }
-   
-     .rpt-summary-row {
-       gap: 8px;
-     }
-   
-     .rpt-pagination {
-       flex-direction: column;
-       align-items: flex-start;
-       gap: 10px;
-     }
-   
-     .rpt-pagination-controls {
-       width: 100%;
-       justify-content: space-between;
-     }
-   
-     .rpt-perpage-wrap { order: -1; }
-   
-     .rpt-page-btns { flex-wrap: nowrap; overflow-x: auto; }
+     .rpt-page-header { flex-direction: column; align-items: flex-start; }
+     .rpt-page-right  { width: 100%; justify-content: flex-start; }
+     .rpt-sec-header  { flex-direction: column; gap: 0.65rem; }
+     .rpt-sec-actions { width: 100%; }
+     .rpt-page-date   { display: none; }
+     .rpt-chip        { flex: 1 1 calc(50% - 4px); }
+     .rpt-pagination  { flex-direction: column; align-items: flex-start; gap: 8px; }
+     .rpt-pagination-controls { width: 100%; justify-content: space-between; }
    }
    
    /* ── Mobile L (≤ 600px) ───────────────────────────────────── */
    @media (max-width: 600px) {
+     /* FIX: Export block — stack dates and button vertically */
      .rpt-export-all-block {
        flex-direction: column;
        align-items: flex-start;
-       gap: 8px;
-       width: 100%;
-     }
-   
-     .rpt-export-all-dates {
-       width: 100%;
-     }
-   
-     .rpt-date-input-sm,
-     .rpt-date-input {
-       max-width: 100%;
-       width: 100%;
-     }
-   
-     .rpt-btn-export-all {
-       width: 100%;
-       justify-content: center;
-     }
-   
-     .rpt-sec-actions {
-       flex-direction: column;
-       align-items: stretch;
-     }
-   
-     .rpt-btn {
-       width: 100%;
-       justify-content: center;
-     }
-   
-     .rpt-date-row {
-       flex-direction: column;
-       align-items: stretch;
        gap: 6px;
      }
+     .rpt-export-all-dates { width: 100%; flex-wrap: nowrap; }
+     .rpt-date-input-sm    { width: 100%; max-width: none; flex: 1; min-width: 0; }
+     .rpt-btn-export-all   { width: 100%; justify-content: center; }
    
-     .rpt-date-row label {
-       flex-direction: row;
-       align-items: center;
-       gap: 6px;
-     }
+     .rpt-pagination-controls { flex-direction: column; align-items: flex-start; gap: 8px; }
    }
    
-   /* ── Mobile S (≤ 480px) ───────────────────────────────────── */
+   /* ── Small mobile / Samsung S8+ (≤ 480px) ────────────────── */
    @media (max-width: 480px) {
-     .rpt-chip { flex: 1 1 100%; }
+     /* Chips: 2-per-row with guaranteed height — prevents collapsing to lines */
+     .rpt-chip     { flex: 1 1 calc(50% - 4px); min-height: 54px; }
+     .rpt-chip-val { font-size: 1.15rem; }
    
-     .rpt-page-title { font-size: .82rem; }
+     .rpt-tabs-bar { gap: 0; padding-left: 0.75rem; padding-right: 0.75rem; }
+     .rpt-tab      { font-size: 0.72rem; padding: .45rem .7rem .6rem; }
    
-     .rpt-tabs-bar { gap: 0; }
+     .rpt-sec-actions { flex-direction: column; align-items: stretch; }
+     .rpt-btn         { width: 100%; justify-content: center; }
    
-     .rpt-tab { font-size: .74rem; padding: .45rem .75rem .6rem; }
+     .rpt-date-row   { flex-direction: column; align-items: stretch; gap: 6px; }
+     .rpt-date-input { max-width: 100%; width: 100%; }
    
-     .rpt-chip-val { font-size: 1.1rem; }
-   
-     .rpt-pagination-controls {
-       flex-direction: column;
-       align-items: flex-start;
-       gap: 8px;
-     }
-   
-     .rpt-page-btns {
-       gap: 2px;
-     }
-   
-     .rpt-page-btn {
-       min-width: 30px;
-       height: 30px;
-       font-size: 0.7rem;
-     }
-   
-     .rpt-table-wrap { max-height: 340px; }
+     .rpt-page-btn   { min-width: 28px; height: 28px; font-size: 0.7rem; }
+     .rpt-table-wrap { max-height: 360px; }
    }
    
-   /* ── Tiny (≤ 360px) ───────────────────────────────────────── */
-   @media (max-width: 360px) {
-     .rpt-page-icon { display: none; }
+   /* ── Tiny / Samsung S8+ at 360px ─────────────────────────── */
+   @media (max-width: 380px) {
+     /* FIX: Chips full-width so they never collapse to just the accent border */
+     .rpt-chip     { flex: 1 1 100%; min-height: 50px; }
+     .rpt-chip-val { font-size: 1.05rem; }
    
+     /* FIX: Remove decorative elements to free horizontal space */
+     .rpt-page-icon { display: none; }
      .rpt-live-pill { display: none; }
    
-     .rpt-chip { padding: 8px 10px; }
+     .rpt-page-title { font-size: 0.8rem; }
+     .rpt-page-sub   { font-size: 0.58rem; }
+     .rpt-sec-title  { font-size: 0.72rem; }
    
-     .rpt-chip-val { font-size: 1rem; }
+     /* FIX: Date inputs in export block stack vertically so nothing overflows */
+     .rpt-export-all-dates { flex-direction: column; gap: 5px; }
+     .rpt-date-input-sm    { width: 100%; max-width: 100%; }
    
-     .rpt-sec-title { font-size: 0.75rem; }
+     .rpt-page-btns { flex-wrap: wrap; gap: 2px; }
+     .rpt-table-wrap { max-height: 320px; }
    }
    
-   /* ── Print styles ─────────────────────────────────────────── */
+   /* ── Print ────────────────────────────────────────────────── */
    @media print {
      .rpt-page-header,
      .rpt-tabs-bar,
@@ -880,18 +804,15 @@
      .rpt-live-pill { display: none !important; }
    
      .rpt-wrapper { background: #fff; }
-     .rpt-card { box-shadow: none; border: 1px solid #ddd; }
+     .rpt-card    { box-shadow: none; border: 1px solid #ddd; }
      .rpt-table-wrap { max-height: none; overflow: visible; }
-   
      .rpt-table thead th {
        background: #221F1F !important;
        -webkit-print-color-adjust: exact;
        print-color-adjust: exact;
      }
-   
      .rpt-content-area { padding: 0; gap: 1rem; }
-   
-     .rpt-chip { break-inside: avoid; }
+     .rpt-chip  { break-inside: avoid; }
      .rpt-table { break-inside: auto; }
      .rpt-table tr { break-inside: avoid; }
    }
