@@ -50,9 +50,9 @@ class AdminUserController extends Controller
 
         // Generate password reset token and reset link
         $token        = Password::broker()->createToken($user);
-        $frontendUrl  = env('FRONTEND_URL', 'http://localhost:5173');
-        $resetLink    = $frontendUrl . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
-
+        $frontendUrl = env('FRONTEND_URL', 'https://visionintlconstopc.com');
+        $resetLink   = rtrim($frontendUrl, '/') . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+        
         $htmlEmail = "
         <div style='font-family: Arial, sans-serif; background-color: #f4f5f7; padding: 40px 20px;'>
             <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);'>
