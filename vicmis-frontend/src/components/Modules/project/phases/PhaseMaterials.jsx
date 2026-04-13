@@ -4,9 +4,9 @@ import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseMaterials.css';
 import api from '@/api/axios';
 import warehouseInventoryService from '@/api/warehouseInventoryService';
-import { X, Loader2, RotateCcw, PackageCheck, AlertTriangle } from 'lucide-react';
+import { X, Loader2, RotateCcw, PackageCheck, ShoppingCart } from 'lucide-react';
 
-// Reorder Modal Component - Styled to match ConstructionMat.css
+// Reorder Modal Component - Shows ALL BOQ items for reorder
 const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [quantityNeeded, setQuantityNeeded] = useState('');
@@ -21,89 +21,55 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
     });
   };
 
-  // Determine if low stock or no stock based on availability
-  const isLowStock = selectedItem?.availability === 'LOW STOCK';
-  const isNoStock = selectedItem?.availability === 'NO STOCK';
-  const urgencyCls = isNoStock ? 'reorder-urgent' : 'reorder-low';
-  const urgencyLabel = isNoStock ? 'No Stock — Urgent' : 'Low Stock';
+  // When item is selected, pre-fill quantity needed with BOQ required quantity
+  const handleItemSelect = (item) => {
+    setSelectedItem(item);
+    setQuantityNeeded(item.qty || ''); // Pre-fill with BOQ required quantity
+  };
+
+  // Determine stock status styling
+  const getStockStatusClass = (availability) => {
+    if (availability === 'NO STOCK') return 'avail-no';
+    if (availability === 'LOW STOCK') return 'avail-low';
+    return 'avail-on';
+  };
 
   return (
     <div className="wh-overlay reorder-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="wh-modal reorder-modal">
         {/* Header */}
-        <div className={`reorder-modal-header ${urgencyCls}`}>
+        <div className="reorder-modal-header reorder-standard">
           <div className="reorder-modal-header-left">
             <div className="reorder-icon-wrap">
-              <RotateCcw size={20} />
+              <ShoppingCart size={20} />
             </div>
             <div>
               <h2 className="reorder-modal-title">Request Reorder</h2>
-              <p className="reorder-modal-sub">This will notify Procurement to action this item.</p>
+              <p className="reorder-modal-sub">Select any item from the BOQ to request additional stock.</p>
             </div>
           </div>
           <button className="wh-modal-close reorder-close" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {/* Product identity block */}
-        <div className="reorder-product-card">
-          <div className="reorder-product-identity">
-            <div className="reorder-identity-row">
-              <span className="reorder-identity-label">Category</span>
-              <span className="reorder-category-badge">{selectedItem?.category || '—'}</span>
-            </div>
-            <div className="reorder-identity-row">
-              <span className="reorder-identity-label">Item Code</span>
-              <span className="reorder-code">{selectedItem?.code || '—'}</span>
-            </div>
-            {selectedItem?.unitCost > 0 && (
-              <div className="reorder-identity-row">
-                <span className="reorder-identity-label">Unit Price</span>
-                <span className="reorder-code">₱{selectedItem.unitCost.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Stats row */}
-          <div className="reorder-product-stats">
-            <div className="reorder-stat">
-              <span className="reorder-stat-label">Required Qty</span>
-              <span className="reorder-stat-value">
-                {selectedItem?.qty || 0} <em>{selectedItem?.unit || 'Pcs'}</em>
-              </span>
-            </div>
-            <div className="reorder-stat-divider" />
-            <div className="reorder-stat">
-              <span className="reorder-stat-label">Stock Status</span>
-              <span className={`wh-avail ${selectedItem?.availability === 'ON STOCK' ? 'avail-on' : selectedItem?.availability === 'LOW STOCK' ? 'avail-low' : 'avail-no'}`}>
-                {selectedItem?.availability || '—'}
-              </span>
-            </div>
-            <div className="reorder-stat-divider" />
-            <div className="reorder-stat">
-              <span className="reorder-stat-label">Priority</span>
-              <span className={`reorder-priority ${urgencyCls}`}>{urgencyLabel}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Fields */}
-        <div className="reorder-fields-wrap">
+        {/* Item Selection */}
+        <div className="reorder-fields-wrap" style={{ paddingTop: '1rem' }}>
           <div className="reorder-field-group">
             <label className="reorder-notes-label">
-              Select Item <span className="reorder-required">*</span>
+              Select Item from BOQ <span className="reorder-required">*</span>
             </label>
             <div className="wh-select-wrap">
               <select 
                 value={selectedItem?.code || ''}
                 onChange={(e) => {
                   const item = boqItems.find(i => i.code === e.target.value);
-                  setSelectedItem(item);
+                  handleItemSelect(item);
                 }}
+                style={{ width: '100%', padding: '0.65rem 2rem 0.65rem 0.75rem' }}
               >
                 <option value="">— Select Item —</option>
                 {boqItems.map((item, idx) => (
                   <option key={idx} value={item.code}>
-                    {item.category} - {item.code} (Qty: {item.qty} {item.unit})
+                    {item.category} - {item.code} (Required: {item.qty} {item.unit})
                   </option>
                 ))}
               </select>
@@ -112,9 +78,56 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
               </svg>
             </div>
           </div>
+        </div>
 
-          {selectedItem && (
-            <>
+        {selectedItem && (
+          <>
+            {/* Product identity block */}
+            <div className="reorder-product-card">
+              <div className="reorder-product-identity">
+                <div className="reorder-identity-row">
+                  <span className="reorder-identity-label">Category</span>
+                  <span className="reorder-category-badge">{selectedItem.category}</span>
+                </div>
+                <div className="reorder-identity-row">
+                  <span className="reorder-identity-label">Item Code</span>
+                  <span className="reorder-code">{selectedItem.code}</span>
+                </div>
+                {selectedItem.unitCost > 0 && (
+                  <div className="reorder-identity-row">
+                    <span className="reorder-identity-label">Unit Price</span>
+                    <span className="reorder-code">₱{selectedItem.unitCost.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats row */}
+              <div className="reorder-product-stats">
+                <div className="reorder-stat">
+                  <span className="reorder-stat-label">BOQ Required</span>
+                  <span className="reorder-stat-value">
+                    {selectedItem.qty} <em>{selectedItem.unit}</em>
+                  </span>
+                </div>
+                <div className="reorder-stat-divider" />
+                <div className="reorder-stat">
+                  <span className="reorder-stat-label">Current Stock</span>
+                  <span className={`wh-avail ${getStockStatusClass(selectedItem.availability)}`}>
+                    {selectedItem.currentStock || 0} {selectedItem.unit}
+                  </span>
+                </div>
+                <div className="reorder-stat-divider" />
+                <div className="reorder-stat">
+                  <span className="reorder-stat-label">Status</span>
+                  <span className={`wh-avail ${getStockStatusClass(selectedItem.availability)}`} style={{ fontSize: '0.68rem' }}>
+                    {selectedItem.availability}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Fields */}
+            <div className="reorder-fields-wrap">
               <div className="reorder-field-group">
                 <label className="reorder-notes-label">
                   Quantity Needed <span className="reorder-required">*</span>
@@ -124,7 +137,7 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
                     type="number"
                     min="1"
                     className="reorder-qty-input"
-                    placeholder="0"
+                    placeholder="Enter quantity"
                     value={quantityNeeded}
                     onChange={e => setQuantityNeeded(e.target.value)}
                   />
@@ -133,6 +146,11 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
                 {quantityNeeded > 0 && selectedItem.unitCost > 0 && (
                   <p className="wh-hint" style={{ marginTop: 6, color: '#059669', fontWeight: 600 }}>
                     Estimated cost: ₱{(quantityNeeded * selectedItem.unitCost).toLocaleString()}
+                  </p>
+                )}
+                {selectedItem.qty > 0 && (
+                  <p className="wh-hint" style={{ marginTop: 4 }}>
+                    💡 BOQ required quantity: {selectedItem.qty} {selectedItem.unit}
                   </p>
                 )}
               </div>
@@ -144,14 +162,14 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
                 <textarea
                   className="reorder-notes-input"
                   rows={3}
-                  placeholder="e.g. Urgent - needed for project timeline..."
+                  placeholder="e.g. Additional quantity needed beyond BOQ, urgent delivery..."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                 />
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Footer */}
         <div className="reorder-modal-footer">
@@ -160,7 +178,7 @@ const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
           </button>
           <button
             type="button"
-            className={`reorder-confirm-btn ${urgencyCls || 'reorder-low'}`}
+            className="reorder-confirm-btn reorder-standard"
             onClick={handleConfirm}
             disabled={loading || !selectedItem || !quantityNeeded}
           >
@@ -268,7 +286,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
         unit: item.unit,
         unit_cost: item.unitCost,
         total_cost: quantity_needed * item.unitCost,
-        notes: notes,
+        notes: notes || `Reorder request from project: ${project.project_name}`,
         requested_by: 'Logistics',
         status: project.status
       });
@@ -282,7 +300,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     }
   };
 
-  // Extract BOQ items for reorder modal - FIXED: Properly extract from boqData
+  // Extract ALL BOQ items for reorder modal - regardless of stock status
   const getBoqItemsForReorder = () => {
     if (!boqData?.finalBOQ || !Array.isArray(boqData.finalBOQ)) return [];
     
@@ -294,7 +312,8 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
         qty: parseInt(item.qty) || 0,
         unit: item.unit || 'Pcs',
         unitCost: parseFloat(item.unitCost) || 0,
-        availability: item.stockStatus || item.stock || 'ON STOCK'
+        availability: item.stock || 'ON STOCK', // Stock status from BOQ
+        currentStock: item.currentStock || 0 // Current stock quantity if available
       }));
   };
 
@@ -409,13 +428,11 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  gap: '6px',
-                  borderColor: '#F59E0B',
-                  color: '#92400E'
+                  gap: '6px'
                 }}
               >
-                <RotateCcw size={16} />
-                Reorder Supplies
+                <ShoppingCart size={16} />
+                Request Reorder
               </button>
               <PrimaryButton variant="green" onClick={() => onAdvance('Bidding of Project')}>
                 ✓ Stock Verified — Proceed

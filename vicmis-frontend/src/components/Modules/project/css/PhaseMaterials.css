@@ -213,6 +213,26 @@
   cursor: pointer;
 }
 
+
+.reorder-modal-header.reorder-standard {
+  background: #1e3a8a;
+  border-bottom: 2px solid #3b82f6;
+}
+.reorder-modal-header.reorder-standard .reorder-icon-wrap {
+  background: rgba(59, 130, 246, 0.25);
+  color: #bfdbfe;
+}
+.reorder-modal-header.reorder-standard .reorder-modal-title { color: #fff; }
+.reorder-modal-header.reorder-standard .reorder-modal-sub { color: #dbeafe; }
+
+.reorder-confirm-btn.reorder-standard {
+  background: #1e3a8a;
+  color: #fff;
+}
+.reorder-confirm-btn.reorder-standard:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
 /* ============================================================
    RESPONSIVE OVERRIDES
    ============================================================ */
