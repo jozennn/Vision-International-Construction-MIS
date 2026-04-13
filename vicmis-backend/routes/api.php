@@ -219,6 +219,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
             Route::post('/schedules',            [DatabaseBackupController::class, 'storeSchedule']);
             Route::patch('/schedules/{id}',      [DatabaseBackupController::class, 'updateSchedule']);
             Route::delete('/schedules/{id}',     [DatabaseBackupController::class, 'destroySchedule']);
+
+            //Reset password
+            Route::post('/reset-password', [AuthController::class, 'resetPassword']);
         });
     });
 });
