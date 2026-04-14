@@ -30,24 +30,17 @@ class DatabaseBackupController extends Controller
         return $dir;
     }
 
-    private function buildDumpCommand(string $outputPath): array
+    private function buildDumpCommand(string $outputPath): string
     {
-        // Add support for custom dump paths in your .env file
         $dumpPath = env('DB_DUMP_PATH', 'mysqldump');
+        $host     = config('database.connections.mysql.host');
+        $port     = config('database.connections.mysql.port');
+        $user     = config('database.connections.mysql.username');
+        $pass     = config('database.connections.mysql.password');
+        $db       = config('database.connections.mysql.database');
 
-        return [
-            $dumpPath,
-            '--host='      . config('database.connections.mysql.host'),
-            '--port='      . config('database.connections.mysql.port'),
-            '--user='      . config('database.connections.mysql.username'),
-            '--password='  . config('database.connections.mysql.password'),
-            '--single-transaction',
-            '--routines',
-            '--triggers',
-            '--add-drop-table',
-            config('database.connections.mysql.database'),
-            '--result-file=' . $outputPath,
-        ];
+        // Using a raw string command is much safer across different server environments
+        return "{$dumpPath} --host={$host} --port={$port} --user={$user} --password=\"{$pass}\" --single-transaction --routines --triggers --add-drop-table {$db} --result-file=\"{$outputPath}\"";
     }
 
     private function logActivity(Request $request, string $description): void
@@ -89,11 +82,16 @@ class DatabaseBackupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!function_exists('proc_open')) {
+            return response()->json(['message' => 'Server Error: The "proc_open" function is disabled. Please enable it in your cPanel PHP options.'], 500);
+        }
+
         $filename   = 'vision_backup_' . now()->format('Y-m-d_His') . '.sql';
         $outputPath = $this->backupDir() . '/' . $filename;
 
         try {
-            $process = new Process($this->buildDumpCommand($outputPath));
+            $command = $this->buildDumpCommand($outputPath);
+            $process = Process::fromShellCommandline($command);
             $process->setTimeout(300);
             $process->run();
 
@@ -130,17 +128,22 @@ class DatabaseBackupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!function_exists('proc_open')) {
+            return response()->json(['message' => 'Server Error: The "proc_open" function is disabled. Please enable it in your cPanel PHP options.'], 500);
+        }
+
         $filename   = 'vision_export_' . now()->format('Y-m-d_His') . '.sql';
         $outputPath = $this->backupDir() . '/' . $filename;
 
         try {
-            $process = new Process($this->buildDumpCommand($outputPath));
+            $command = $this->buildDumpCommand($outputPath);
+            $process = Process::fromShellCommandline($command);
             $process->setTimeout(300);
             $process->run();
 
             if (!$process->isSuccessful()) {
                 Log::error('mysqldump export failed: ' . $process->getErrorOutput());
-                return response()->json(['message' => 'Export failed: ' . $process->getErrorOutput()], 500);
+                return response()->json(['message' => 'Export failed: Check server logs. Is mysqldump installed?'], 500);
             }
 
             DatabaseBackup::create([
@@ -160,8 +163,7 @@ class DatabaseBackupController extends Controller
 
         } catch (Exception $e) {
             Log::error('Database Export Exception: ' . $e->getMessage());
-            // Using a JSON response here even for download route so your React app catches the exact error
-            return response()->json(['message' => 'Server configuration error: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Server error: ' . $e->getMessage()], 500);
         }
     }
 
@@ -218,6 +220,10 @@ class DatabaseBackupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!function_exists('proc_open')) {
+            return response()->json(['message' => 'Server Error: The "proc_open" function is disabled. Please enable it in your cPanel PHP options.'], 500);
+        }
+
         $request->validate([
             'sql_file' => 'required|file|mimes:sql,txt|max:524288',
         ]);
@@ -234,7 +240,7 @@ class DatabaseBackupController extends Controller
 
         try {
             $mysqlPath = env('DB_MYSQL_PATH', 'mysql');
-            $command = "{$mysqlPath} --host={$host} --port={$port} --user={$user} --password={$pass} {$db} < {$fullPath}";
+            $command = "{$mysqlPath} --host={$host} --port={$port} --user={$user} --password=\"{$pass}\" {$db} < \"{$fullPath}\"";
             
             $process = Process::fromShellCommandline($command);
             $process->setTimeout(600);
@@ -315,6 +321,11 @@ class DatabaseBackupController extends Controller
     // ──────────────────────────────────────────────
     public static function runScheduledBackup(BackupSchedule $schedule): void
     {
+        if (!function_exists('proc_open')) {
+            Log::error("[ScheduledBackup:{$schedule->name}] Cannot run backup: proc_open is disabled on this server.");
+            return;
+        }
+
         $dir      = storage_path('app/database-backups');
         $safeName = str_replace([' ', '/'], '-', $schedule->name);
         $filename = 'vision_scheduled_' . now()->format('Y-m-d_His') . '_' . $safeName . '.sql';
@@ -325,19 +336,16 @@ class DatabaseBackupController extends Controller
         }
 
         $dumpPath = env('DB_DUMP_PATH', 'mysqldump');
+        $host     = config('database.connections.mysql.host');
+        $port     = config('database.connections.mysql.port');
+        $user     = config('database.connections.mysql.username');
+        $pass     = config('database.connections.mysql.password');
+        $db       = config('database.connections.mysql.database');
+
+        $command = "{$dumpPath} --host={$host} --port={$port} --user={$user} --password=\"{$pass}\" --single-transaction --routines --triggers --add-drop-table {$db} --result-file=\"{$path}\"";
 
         try {
-            $process = new Process([
-                $dumpPath,
-                '--host='     . config('database.connections.mysql.host'),
-                '--port='     . config('database.connections.mysql.port'),
-                '--user='     . config('database.connections.mysql.username'),
-                '--password=' . config('database.connections.mysql.password'),
-                '--single-transaction', '--routines', '--triggers', '--add-drop-table',
-                config('database.connections.mysql.database'),
-                '--result-file=' . $path,
-            ]);
-
+            $process = Process::fromShellCommandline($command);
             $process->setTimeout(300);
             $process->run();
 
