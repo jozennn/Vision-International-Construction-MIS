@@ -21,41 +21,51 @@ class MaterialRequestController extends Controller
     // Called by the engineer to see the status of their own requests
     // for a specific project.
     // =========================================================================
-    public function getProjectRequests(int $id): JsonResponse
-    {
+public function getProjectRequests(int $id): JsonResponse
+{
+    try {
         $requests = MaterialRequest::with('items')
             ->where('project_id', $id)
             ->latest()
             ->get();
 
-        // Enrich each item with live stock data from warehouse
         $requests->each(function ($req) {
-            $req->items->each(function ($item) {
-                if ($item->product_code) {
-                    $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
-                    $item->current_stock = $inv?->current_stock;
-                    $item->stock_status  = $inv?->availability ?? null;
-                }
-            });
+            // Add for frontend compatibility
+            $req->requested_by_name = $req->requester_name ?? 'Unknown';
+            
+            // 👇 $req->items is already a Collection, don't override it
+            // Just loop through and add properties to each item
+            if ($req->items && count($req->items) > 0) {
+                $req->items->each(function ($item) {
+                    if (!empty($item->product_code)) {
+                        $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
+                        $item->current_stock = $inv->current_stock ?? 0;
+                        $item->stock_status  = $inv->availability ?? 'NO STOCK';
+                    } else {
+                        $item->current_stock = 0;
+                        $item->stock_status  = 'NO STOCK';
+                    }
+                });
+            }
         });
 
         return response()->json($requests);
+        
+    } catch (\Exception $e) {
+        \Log::error('getProjectRequests Error: ' . $e->getMessage());
+        \Log::error('Line: ' . $e->getLine());
+        
+        // Return empty array so frontend doesn't break
+        return response()->json([]);
     }
+}
 
     // =========================================================================
     // GET /material-requests/pending
-    //
-    // Called by Logistics (DeliveryMat → "Pending Requests" tab).
-    // Returns ALL pending + reordering requests across all projects,
-    // each item enriched with live stock data.
-    //
-    // Query params:
-    //   status     — default includes 'pending' and 'reordering'
-    //   project_id — optional filter
-    //   per_page   — default 20
     // =========================================================================
     public function getPending(Request $request): JsonResponse
-    {
+{
+    try {
         $status = $request->filled('status')
             ? [$request->status]
             : ['pending', 'reordering'];
@@ -67,43 +77,34 @@ class MaterialRequestController extends Controller
 
         $paginated = $query->paginate($request->per_page ?? 20);
 
-        // Enrich each item with current stock info from warehouse
         $paginated->getCollection()->each(function ($req) {
-            $req->items->each(function ($item) {
-                if ($item->product_code) {
-                    $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
-                    $item->current_stock = $inv?->current_stock;
-                    $item->stock_status  = $inv?->availability ?? null;
-                } else {
-                    $item->current_stock = null;
-                    $item->stock_status  = null;
-                }
-            });
+            $req->requested_by_name = $req->requester_name ?? 'Unknown';
+            
+            if ($req->items && count($req->items) > 0) {
+                $req->items->each(function ($item) {
+                    if (!empty($item->product_code)) {
+                        $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
+                        $item->current_stock = $inv->current_stock ?? 0;
+                        $item->stock_status  = $inv->availability ?? 'NO STOCK';
+                    } else {
+                        $item->current_stock = 0;
+                        $item->stock_status  = 'NO STOCK';
+                    }
+                });
+            }
         });
 
         return response()->json($paginated);
+        
+    } catch (\Exception $e) {
+        \Log::error('getPending Error: ' . $e->getMessage());
+        return response()->json(['data' => []]);
     }
+}
 
     // =========================================================================
     // POST /projects/{id}/material-requests
-    //
-    // Called by the engineer from PhaseCommandCenter → "Request Materials" button.
-    // Creates a material_request + material_request_items (status: pending).
-    //
-    // Also fires the existing notification engine used by ProjectController
-    // so Logistics gets alerted automatically.
-    //
-    // Request body:
-    // {
-    //   requested_by_name: string,
-    //   engineer_name:     string | null,
-    //   destination:       string | null,
-    //   items: [
-    //     { description, product_code, unit, requested_qty }
-    //   ]
-    // }
-    // In MaterialRequestController.php - store() method
-
+    // =========================================================================
     public function store(Request $request, int $id): JsonResponse
     {
         $project = Project::findOrFail($id);
@@ -123,16 +124,14 @@ class MaterialRequestController extends Controller
 
         try {
             $materialRequest = DB::transaction(function () use ($validated, $project) {
-                // 👇 Use columns that actually exist
                 $req = MaterialRequest::create([
                     'project_id'     => $project->id,
                     'project_name'   => $project->project_name,
                     'requester_name' => $validated['requested_by_name'],
                     'status'         => 'pending',
-                    'items'          => $validated['items'], // Store items in JSON as backup
+                    'items'          => $validated['items'],
                 ]);
 
-                // Also create individual item records for easier querying
                 foreach ($validated['items'] as $item) {
                     $req->items()->create([
                         'description'   => $item['description'],
@@ -147,7 +146,6 @@ class MaterialRequestController extends Controller
                 return $req;
             });
 
-            // Rest of notification code...
             $totalValue = collect($validated['items'])->sum('total_cost');
             $valueStr = $totalValue > 0 
                 ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
@@ -163,7 +161,7 @@ class MaterialRequestController extends Controller
             return response()->json($materialRequest->load('items'), 201);
             
         } catch (\Exception $e) {
-            \Log::error('Material Request Error: ' . $e->getMessage());
+            \Log::error('Material Request Store Error: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Server Error: ' . $e->getMessage(),
             ], 500);
@@ -172,32 +170,10 @@ class MaterialRequestController extends Controller
 
     // =========================================================================
     // PATCH /material-requests/{id}
-    //
-    // General status update — used by Logistics for dispatch, reorder, reject.
-    // Action is determined by the 'action' field in the request body.
-    //
-    // Request body for dispatch:
-    // {
-    //   action: 'dispatch',
-    //   trucking_service, driver_name, destination, date_of_delivery
-    // }
-    //
-    // Request body for reorder:
-    // {
-    //   action: 'reorder',
-    //   quantity_needed, notes
-    // }
-    //
-    // Request body for reject:
-    // {
-    //   action: 'reject',
-    //   reason (optional)
-    // }
     // =========================================================================
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         $req = MaterialRequest::with('items')->findOrFail($id);
-
         $action = $request->input('action');
 
         return match ($action) {
