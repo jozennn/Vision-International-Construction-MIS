@@ -263,16 +263,17 @@ class MaterialRequestController extends Controller
     // PRIVATE — handleDispatch
     // =========================================================================
     private function handleDispatch(Request $request, MaterialRequest $req): JsonResponse
-    {
-        abort_if($req->status !== 'pending', 422, 'Only pending requests can be dispatched.');
+{
+    abort_if($req->status !== 'pending', 422, 'Only pending requests can be dispatched.');
 
-        $validated = $request->validate([
-            'trucking_service' => 'required|string|max:255',
-            'driver_name'      => 'required|string|max:255',
-            'destination'      => 'required|string|max:255',
-            'date_of_delivery' => 'required|date',
-        ]);
+    $validated = $request->validate([
+        'trucking_service' => 'required|string|max:255',
+        'driver_name'      => 'required|string|max:255',
+        'destination'      => 'required|string|max:255',
+        'date_of_delivery' => 'required|date',
+    ]);
 
+    try {
         $deliveries = DB::transaction(function () use ($req, $validated) {
             $created = [];
 
@@ -281,17 +282,18 @@ class MaterialRequestController extends Controller
                     ? WarehouseInventory::where('product_code', $item->product_code)->first()
                     : null;
 
+                // 👇 Match exact columns from your logistics table
                 $delivery = Logistics::create([
                     'material_request_id' => $req->id,
-                    'project_name'        => $req->project_name,
                     'trucking_service'    => $validated['trucking_service'],
+                    'product_category'    => $inv->product_category ?? '',
+                    'product_code'        => $item->product_code ?? $item->description,
+                    'is_consumable'       => $inv->is_consumable ?? false,
+                    'project_name'        => $req->project_name,
                     'driver_name'         => $validated['driver_name'],
                     'destination'         => $validated['destination'],
-                    'date_of_delivery'    => $validated['date_of_delivery'],
-                    'product_category'    => $inv?->product_category ?? '',
-                    'product_code'        => $item->product_code ?? $item->description,
-                    'is_consumable'       => $inv?->is_consumable ?? false,
                     'quantity'            => $item->requested_qty,
+                    'date_of_delivery'    => $validated['date_of_delivery'],
                     'status'              => 'In Transit',
                 ]);
 
@@ -314,7 +316,15 @@ class MaterialRequestController extends Controller
             'message'    => 'Request dispatched. Delivery records created.',
             'deliveries' => $deliveries,
         ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Dispatch Error: ' . $e->getMessage());
+        \Log::error($e->getTraceAsString());
+        return response()->json([
+            'message' => 'Dispatch Error: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     // =========================================================================
     // PRIVATE — handleReorder
