@@ -208,7 +208,7 @@ const DatabaseManager = () => {
       </div>
 
       {isLoading ? (
-        <div className="vcc-loader"><div className="vcc-spinner" /></div>
+        
       ) : (
         <>
           {/* ── BACKUP TAB ── */}
