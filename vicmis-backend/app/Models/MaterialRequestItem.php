@@ -13,10 +13,14 @@ class MaterialRequestItem extends Model
         'product_code',
         'unit',
         'requested_qty',
+        'unit_cost',      // 👈 Added
+        'total_cost', 
     ];
 
     protected $casts = [
         'requested_qty' => 'decimal:2',
+        'unit_cost'     => 'decimal:2',  // 👈 Added
+        'total_cost'    => 'decimal:2',  // 👈 Added
     ];
 
     // ── Relationships ──────────────────────────────────────────────────────

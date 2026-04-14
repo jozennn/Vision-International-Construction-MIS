@@ -116,6 +116,8 @@ class MaterialRequestController extends Controller
             'items.*.product_code'  => 'nullable|string|max:100',
             'items.*.unit'          => 'nullable|string|max:50',
             'items.*.requested_qty' => 'required|numeric|min:0.01',
+            'items.*.unit_cost'     => 'nullable|numeric|min:0',      // 👈 Added
+            'items.*.total_cost'    => 'nullable|numeric|min:0',      // 👈 Added
         ]);
 
         $materialRequest = DB::transaction(function () use ($validated, $project) {
@@ -136,15 +138,22 @@ class MaterialRequestController extends Controller
                     'product_code'  => $item['product_code']  ?? null,
                     'unit'          => $item['unit']          ?? null,
                     'requested_qty' => $item['requested_qty'],
+                    'unit_cost'     => $item['unit_cost']     ?? null,  // 👈 Added
+                    'total_cost'    => $item['total_cost']    ?? null,  // 👈 Added
                 ]);
             }
 
             return $req->load('items');
         });
 
-        // Reuse the existing notification engine from ProjectController
-        // so Logistics gets the same style of notification as other phase changes
-        $notifMsg = "📦 Material Request: '{$project->project_name}' needs materials. Review in Logistics.";
+        // Calculate total request value for notification
+        $totalValue = $materialRequest->items->sum('total_cost');
+        $valueStr = $totalValue > 0 
+            ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
+            : '';
+
+        $notifMsg = "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}. Review in Logistics.";
+        
         \App\Models\AppNotification::create([
             'target_department' => 'Logistics',
             'target_role'       => null,
