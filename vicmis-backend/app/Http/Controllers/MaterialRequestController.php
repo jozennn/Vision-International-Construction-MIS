@@ -69,7 +69,7 @@ public function getProjectRequests(int $id): JsonResponse
     // =========================================================================
     // GET /material-requests/pending
     // =========================================================================
-    public function getPending(Request $request): JsonResponse
+public function getPending(Request $request): JsonResponse
 {
     try {
         $status = $request->filled('status')
@@ -83,28 +83,43 @@ public function getProjectRequests(int $id): JsonResponse
 
         $paginated = $query->paginate($request->per_page ?? 20);
 
-        $paginated->getCollection()->each(function ($req) {
+        $paginated->getCollection()->transform(function ($req) {
+            // Add fields the frontend expects
             $req->requested_by_name = $req->requester_name ?? 'Unknown';
+            $req->engineer_name = $req->engineer_name ?? '';
+            $req->destination = $req->destination ?? '';
             
-            if ($req->items && count($req->items) > 0) {
-                $req->items->each(function ($item) {
-                    if (!empty($item->product_code)) {
-                        $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
-                        $item->current_stock = $inv->current_stock ?? 0;
-                        $item->stock_status  = $inv->availability ?? 'NO STOCK';
-                    } else {
-                        $item->current_stock = 0;
-                        $item->stock_status  = 'NO STOCK';
-                    }
-                });
+            // Process items
+            $items = $req->items ?? [];
+            foreach ($items as $item) {
+                $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
+                
+                if (!empty($productCode)) {
+                    $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                    $currentStock = $inv->current_stock ?? 0;
+                    $stockStatus = $inv->availability ?? 'NO STOCK';
+                } else {
+                    $currentStock = 0;
+                    $stockStatus = 'NO STOCK';
+                }
+                
+                if (is_object($item)) {
+                    $item->current_stock = $currentStock;
+                    $item->stock_status = $stockStatus;
+                } else {
+                    $item['current_stock'] = $currentStock;
+                    $item['stock_status'] = $stockStatus;
+                }
             }
+            
+            return $req;
         });
 
         return response()->json($paginated);
         
     } catch (\Exception $e) {
         \Log::error('getPending Error: ' . $e->getMessage());
-        return response()->json(['data' => []]);
+        return response()->json(['data' => [], 'total' => 0]);
     }
 }
 
