@@ -8,19 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MaterialRequest extends Model
 {
+    // 👇 Update fillable to match actual table columns
     protected $fillable = [
         'project_id',
         'project_name',
-        'location',
-        'destination',
-        'requested_by_id',
-        'requested_by_name',
-        'engineer_name',
+        'requester_name',      // 👈 Actual column in table
         'status',
-        'reject_reason',
+        'approver_name',       // 👈 Actual column in table
+        'items',               // 👈 Actual JSON column in table
     ];
 
     protected $casts = [
+        'items'      => 'array',     // 👈 Cast JSON column
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -35,11 +34,6 @@ class MaterialRequest extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
-    }
-
-    public function deliveries(): HasMany
-    {
-        return $this->hasMany(LogisticsDelivery::class);
     }
 
     // ── Scopes ─────────────────────────────────────────────────────────────

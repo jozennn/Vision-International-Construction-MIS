@@ -102,22 +102,11 @@ class MaterialRequestController extends Controller
     //     { description, product_code, unit, requested_qty }
     //   ]
     // }
-    // =========================================================================
+    // In MaterialRequestController.php - store() method
+
     public function store(Request $request, int $id): JsonResponse
     {
         $project = Project::findOrFail($id);
-
-        // 👇 Debug: Log the raw request
-        \Log::info('Material Request Raw Input:', $request->all());
-        \Log::info('Material Request Content-Type:', [$request->header('Content-Type')]);
-        
-        // 👇 If items is a JSON string, decode it to array
-        if ($request->has('items') && is_string($request->input('items'))) {
-            $decoded = json_decode($request->input('items'), true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $request->merge(['items' => $decoded]);
-            }
-        }
 
         $validated = $request->validate([
             'requested_by_name'     => 'required|string|max:255',
@@ -130,50 +119,55 @@ class MaterialRequestController extends Controller
             'items.*.requested_qty' => 'required|numeric|min:0.01',
             'items.*.unit_cost'     => 'nullable|numeric|min:0',
             'items.*.total_cost'    => 'nullable|numeric|min:0',
-    ]);
-
-        $materialRequest = DB::transaction(function () use ($validated, $project) {
-            $req = MaterialRequest::create([
-                'project_id'        => $project->id,
-                'project_name'      => $project->project_name,
-                'location'          => $project->location ?? null,
-                'destination'       => $validated['destination'] ?? $project->location ?? null,
-                'requested_by_id'   => Auth::id(),
-                'requested_by_name' => $validated['requested_by_name'],
-                'engineer_name'     => $validated['engineer_name'] ?? null,
-                'status'            => 'pending',
-            ]);
-
-            foreach ($validated['items'] as $item) {
-                $req->items()->create([
-                    'description'   => $item['description'],
-                    'product_code'  => $item['product_code']  ?? null,
-                    'unit'          => $item['unit']          ?? null,
-                    'requested_qty' => $item['requested_qty'],
-                    'unit_cost'     => $item['unit_cost']     ?? null,  // 👈 Added
-                    'total_cost'    => $item['total_cost']    ?? null,  // 👈 Added
-                ]);
-            }
-
-            return $req->load('items');
-        });
-
-        // Calculate total request value for notification
-        $totalValue = $materialRequest->items->sum('total_cost');
-        $valueStr = $totalValue > 0 
-            ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
-            : '';
-
-        $notifMsg = "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}. Review in Logistics.";
-        
-        \App\Models\AppNotification::create([
-            'target_department' => 'Logistics',
-            'target_role'       => null,
-            'project_id'        => $project->id,
-            'message'           => $notifMsg,
         ]);
 
-        return response()->json($materialRequest, 201);
+        try {
+            $materialRequest = DB::transaction(function () use ($validated, $project) {
+                // 👇 Use columns that actually exist
+                $req = MaterialRequest::create([
+                    'project_id'     => $project->id,
+                    'project_name'   => $project->project_name,
+                    'requester_name' => $validated['requested_by_name'],
+                    'status'         => 'pending',
+                    'items'          => $validated['items'], // Store items in JSON as backup
+                ]);
+
+                // Also create individual item records for easier querying
+                foreach ($validated['items'] as $item) {
+                    $req->items()->create([
+                        'description'   => $item['description'],
+                        'product_code'  => $item['product_code']  ?? null,
+                        'unit'          => $item['unit']          ?? null,
+                        'requested_qty' => $item['requested_qty'],
+                        'unit_cost'     => $item['unit_cost']     ?? null,
+                        'total_cost'    => $item['total_cost']    ?? null,
+                    ]);
+                }
+
+                return $req;
+            });
+
+            // Rest of notification code...
+            $totalValue = collect($validated['items'])->sum('total_cost');
+            $valueStr = $totalValue > 0 
+                ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
+                : '';
+
+            \App\Models\AppNotification::create([
+                'target_department' => 'Logistics',
+                'target_role'       => null,
+                'project_id'        => $project->id,
+                'message'           => "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}.",
+            ]);
+
+            return response()->json($materialRequest->load('items'), 201);
+            
+        } catch (\Exception $e) {
+            \Log::error('Material Request Error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Server Error: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     // =========================================================================
