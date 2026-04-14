@@ -70,9 +70,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     Route::get('/projects/{id}/issues',     [ProjectController::class, 'getIssues']);
 
     // ── Material Requests (read) ──────────────────────────────────────────────
-    // Engineer reads their own project's requests
     Route::get('/projects/{id}/material-requests', [MaterialRequestController::class, 'getProjectRequests']);
-    // Logistics reads all pending requests across all projects (DeliveryMat tab)
     Route::get('/material-requests/pending',        [MaterialRequestController::class, 'getPending']);
 
     // Image proxy
@@ -161,18 +159,19 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     Route::patch('/projects/{id}/qa-checks', [ProjectController::class, 'saveQaChecks']);
 
     // ── Material Requests (write) ─────────────────────────────────────────────
-    // Engineer submits a new material request for a project
     Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
-    // Logistics acts on a request: action = 'dispatch' | 'reorder' | 'reject'
     Route::patch('/material-requests/{id}',         [MaterialRequestController::class, 'updateStatus']);
+    
+    // 👇 ADDED: Logistics dispatch/reorder/reject endpoints
+    Route::post('/inventory/material-requests/{id}/dispatch', [MaterialRequestController::class, 'dispatch']);
+    Route::post('/inventory/material-requests/{id}/reorder',  [MaterialRequestController::class, 'reorder']);
+    Route::patch('/inventory/material-requests/{id}/reject',  [MaterialRequestController::class, 'reject']);
 
     // ── New Arrival Acknowledgement (write) ───────────────────────────────────
-    // Engineer dismisses the "🆕 New Arrival" badge on a specific item
     Route::patch(
         '/projects/{id}/material-items/{itemIndex}/acknowledge',
         [ProjectController::class, 'acknowledgeNewArrival']
     );
-    // Engineer dismisses ALL new arrival badges at once
     Route::patch(
         '/projects/{id}/material-items/acknowledge-all',
         [ProjectController::class, 'acknowledgeAllNewArrivals']
@@ -204,7 +203,6 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::put('/shipments/{id}',                   [IncomingShipmentController::class, 'updateShipment']);
         Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
         Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
-        
 
         Route::post('/logistics',                 [LogisticsController::class, 'store']);
         Route::patch('/logistics/{id}/delivered', [LogisticsController::class, 'markDelivered']);
