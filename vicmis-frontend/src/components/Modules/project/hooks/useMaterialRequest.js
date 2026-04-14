@@ -42,37 +42,38 @@ const useMaterialRequest = ({ project, user, boqData }) => {
 
     setSubmittingRequest(true);
     try {
-      const payload = {
-        requested_by_name: currentUser?.name || currentUser?.username || 'Unknown',
-        engineer_name: project?.assigned_engineers || currentUser?.name || '',
-        destination: project?.location || project?.address || '',
-        items: validItems.map(i => {
-          const unitCost = parseFloat(i.unitCost) || 0;
-          const requestedQty = parseFloat(i.requestedQty) || 0;
-          const totalCost = unitCost * requestedQty;
-          
-          return {
-            description:   i.description || i.product_code || '—',
-            product_code:  i.product_code || '',
-            unit:          i.unit || 'pcs',
-            requested_qty: requestedQty,
-            unit_cost:     unitCost,      // 👈 Now sent to backend
-            total_cost:    totalCost,     // 👈 Now sent to backend
-          };
-        }),
-      };
-
-      console.log('[MaterialRequest] Sending payload:', payload);
-
-      await materialRequestService.create({
-        project_id: project.id,
-        project_name: project.project_name,
-        location: project.location || '',
-        ...payload,
+      // Build items array with costs
+      const items = validItems.map(i => {
+        const unitCost = parseFloat(i.unitCost) || 0;
+        const requestedQty = parseFloat(i.requestedQty) || 0;
+        const totalCost = unitCost * requestedQty;
+        
+        return {
+          description:   i.description || i.product_code || '—',
+          product_code:  i.product_code || '',
+          unit:          i.unit || 'pcs',
+          requested_qty: requestedQty,
+          unit_cost:     unitCost,
+          total_cost:    totalCost,
+        };
       });
 
+      // Build payload matching MaterialRequestController::store() validation
+      const payload = {
+        requested_by_name: currentUser?.name || user?.name || 'Unknown',
+        engineer_name: project?.assigned_engineers || currentUser?.name || '',
+        destination: project?.location || '',
+        items: items,
+      };
+
+      console.log('[MaterialRequest] Sending to project:', project.id);
+      console.log('[MaterialRequest] Payload:', payload);
+
+      // 👇 FIXED: Pass projectId and payload
+      await materialRequestService.create(project.id, payload);
+
       // Calculate total for success message
-      const totalValue = payload.items.reduce((sum, item) => sum + item.total_cost, 0);
+      const totalValue = items.reduce((sum, item) => sum + item.total_cost, 0);
       const valueStr = totalValue > 0 
         ? `\nTotal value: ₱${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` 
         : '';
@@ -82,16 +83,22 @@ const useMaterialRequest = ({ project, user, boqData }) => {
       alert(`✅ Material request sent to Logistics!${valueStr}`);
     } catch (err) {
       console.error('[MaterialRequest] Error:', err.response?.data);
-      const errorMsg = err.response?.data?.message 
-        || err.response?.data?.errors
-          ? JSON.stringify(err.response?.data?.errors)
-          : 'Failed to send material request.';
-      alert(`❌ ${errorMsg}`);
+      
+      // Show detailed validation errors
+      if (err.response?.data?.errors) {
+        const errorMessages = Object.entries(err.response.data.errors)
+          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+          .join('\n');
+        alert(`❌ Validation errors:\n${errorMessages}`);
+      } else {
+        const errorMsg = err.response?.data?.message || 'Failed to send material request.';
+        alert(`❌ ${errorMsg}`);
+      }
       throw err;
     } finally {
       setSubmittingRequest(false);
     }
-  }, [requestItems, project]);
+  }, [requestItems, project, user]);
 
   const handleIssueSubmit = useCallback(async () => {
     if (!issueLog.problem?.trim()) {
