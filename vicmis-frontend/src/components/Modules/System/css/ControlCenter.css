@@ -33,19 +33,23 @@
 
 /* ── HERO ────────────────────────────────────── */
 .vcc-hero {
-  background: linear-gradient(135deg, #221F1F 0%, #2d2a2a 60%, #1a1718 100%);
+  background-color: #1a1a1a;
   position: relative;
-  padding: 44px 36px 40px;
+  padding: 24px;
   overflow: hidden;
-  border-bottom: 3px solid #C0392B;
+  border-bottom: 4px solid #c0392b; 
+  margin: 24px 28px 0; /* Gives it that floating card look */
+  border-radius: 8px; /* Rounded corners */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-family: 'DM Sans', sans-serif;
 }
 .vcc-hero-grid {
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
   pointer-events: none;
 }
 .vcc-hero-content { 
@@ -54,40 +58,32 @@
 }
 .vcc-hero-badge {
   display: inline-block;
-  background: rgba(192,57,43,0.25);
-  border: 1px solid rgba(192,57,43,0.5);
-  color: #e87c72;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  padding: 4px 12px;
+  background: rgba(192, 57, 43, 0.2);
+  border: 1px solid rgba(192, 57, 43, 0.4);
+  color: #e74c3c;
+  padding: 4px 10px;
   border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   margin-bottom: 12px;
 }
 .vcc-hero-title {
-  font-size: 2.2rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: #fff;
-  margin: 0 0 8px;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+  letter-spacing: normal;
 }
 .vcc-hero-sub {
-  color: rgba(255,255,255,0.5);
-  font-size: 0.95rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
   margin: 0;
   font-weight: 400;
 }
 .vcc-hero-emblem {
-  position: absolute;
-  right: 36px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 7rem;
-  opacity: 0.04;
-  user-select: none;
-  pointer-events: none;
+  display: none; /* Hidden to match the cleaner layout */
 }
 
 /* ── STATUS BAR ──────────────────────────────── */
@@ -273,16 +269,15 @@
 /* ── RESPONSIVE ──────────────────────────────── */
 @media (max-width: 1024px) {
   .vcc-module-grid  { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; padding: 24px 24px; }
-  .vcc-hero         { padding: 36px 24px 32px; }
-  .vcc-hero-emblem  { font-size: 5rem; right: 24px; }
+  .vcc-hero         { padding: 24px; margin: 20px 24px 0; } /* Fixed margin/padding */
+  .vcc-hero-emblem  { display: none; } /* Kept hidden */
   .vcc-status-bar   { padding: 10px 24px; }
   .vcc-footer-note  { padding: 0 24px 24px; }
 }
 
 @media (max-width: 768px) {
-  .vcc-hero           { padding: 28px 20px; }
+  .vcc-hero           { padding: 20px; margin: 16px 16px 0; } /* Fixed margin/padding */
   .vcc-hero-title     { font-size: 1.7rem; }
-  .vcc-hero-emblem    { display: none; }
   .vcc-module-grid    { padding: 20px 16px; gap: 12px; }
   .vcc-status-bar     { padding: 10px 16px; flex-direction: column; align-items: flex-start; gap: 6px; }
   .vcc-status-divider { display: none; }
@@ -296,6 +291,7 @@
 }
 
 @media (max-width: 480px) {
+  .vcc-hero        { padding: 16px; margin: 12px 12px 0; } /* Fixed margin/padding */
   .vcc-hero-title  { font-size: 1.4rem; }
   .vcc-hero-sub    { font-size: 0.85rem; }
   .vcc-hero-badge  { font-size: 0.68rem; }

@@ -178,12 +178,7 @@ const DatabaseManager = () => {
     <div className="vcc-module">
       
       {/* ── VISION SYSTEM DARK HEADER ── */}
-      <div className="vision-dark-header">
-        <span className="vision-badge">VISION SYSTEM</span>
-        <h2 className="vision-title">🗄️ Database Manager</h2>
-        <p className="vision-subtitle">Backup, restore, and automate database operations</p>
-      </div>
-
+      
       {/* ── ACTION BAR ── */}
       <div className="vision-action-bar">
         <button className="vision-btn-outline" onClick={handleExport} disabled={isExporting}>
