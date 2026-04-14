@@ -33,6 +33,7 @@ export const useCommandCenter = (selectedProject) => {
   const [showMaterialHistory,     setShowMaterialHistory]     = useState(true);
   const [materialHistoryFilter,   setMaterialHistoryFilter]   = useState('');
   const [showRequestModal,        setShowRequestModal]        = useState(false);
+  const [submittingRequest,       setSubmittingRequest]       = useState(false); // 👈 Added
 
   const fetchCommandCenterData = async (projectId) => {
     try {
@@ -95,31 +96,86 @@ export const useCommandCenter = (selectedProject) => {
     finally { setIsSubmittingIssue(false); }
   };
 
+  // 👇 FIXED: Use product_code instead of description for matching
   const handleRequestQtyChange = (item, qty) => {
     setRequestItems(prev => {
-      const e = prev.find(i => i.description === item.description);
-      return e ? prev.map(i => i.description === item.description ? { ...i, requestedQty: qty } : i)
-               : [...prev, { ...item, requestedQty: qty }];
+      const exists = prev.find(i => i.product_code === item.product_code);
+      return exists 
+        ? prev.map(i => i.product_code === item.product_code ? { ...i, requestedQty: qty } : i)
+        : [...prev, { ...item, requestedQty: qty }];
     });
   };
 
+  // 👇 FIXED: Use product_code instead of description for matching
   const handleRequestToggle = (item, checked) => {
-    if (checked) setRequestItems(p => p.find(i => i.description === item.description) ? p : [...p, { ...item, requestedQty: 0 }]);
-    else         setRequestItems(p => p.filter(i => i.description !== item.description));
+    if (checked) {
+      setRequestItems(p => 
+        p.find(i => i.product_code === item.product_code) 
+          ? p 
+          : [...p, { ...item, requestedQty: 0 }]
+      );
+    } else {
+      setRequestItems(p => p.filter(i => i.product_code !== item.product_code));
+    }
   };
 
+  // 👇 FIXED: Send correct payload format
   const submitMaterialRequest = async (user) => {
     const selected = requestItems.filter(i => parseFloat(i.requestedQty) > 0);
-    if (!selected.length) return alert('Please select at least one item and enter a quantity > 0.');
+    if (!selected.length) {
+      alert('Please select at least one item and enter a quantity > 0.');
+      return;
+    }
+    
+    setSubmittingRequest(true);
     try {
-      await api.post(`/projects/${selectedProject.id}/material-requests`, {
-        items:          JSON.stringify(selected),
-        requester_name: user?.name,
+      // 👇 Build items array with CORRECT field names for backend
+      const items = selected.map(item => {
+        const requestedQty = parseFloat(item.requestedQty) || 0;
+        const unitCost = parseFloat(item.unitCost) || 0;
+        
+        return {
+          description: item.description || item.name || item.product_code || 'Material Item',
+          product_code: item.product_code || '',
+          unit: item.unit || 'pcs',
+          requested_qty: requestedQty,  // 👈 snake_case for backend
+          unit_cost: unitCost,
+          total_cost: unitCost * requestedQty,
+        };
       });
-      alert('Material Requisition sent to Logistics! 🚀');
-      setShowRequestModal(false); setRequestItems([]);
+
+      // 👇 Build payload with CORRECT field names
+      const payload = {
+        requested_by_name: user?.name || 'System User',  // 👈 requested_by_name, NOT requester_name
+        engineer_name: selectedProject?.assigned_engineers || user?.name || '',
+        destination: selectedProject?.location || '',
+        items: items,  // 👈 Send as array, NOT JSON string
+      };
+
+      console.log('📤 Sending material request:', payload);
+
+      await api.post(
+        `/projects/${selectedProject.id}/material-requests`,
+        payload,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      alert('✅ Material Requisition sent to Logistics! 🚀');
+      setShowRequestModal(false);
+      setRequestItems([]);
       fetchCommandCenterData(selectedProject.id);
-    } catch (err) { alert(`Failed: ${err.response?.data?.message || err.message}`); }
+    } catch (err) {
+      console.error('Failed:', err.response?.data);
+      const errors = err.response?.data?.errors;
+      if (errors) {
+        const msg = Object.entries(errors).map(([k, v]) => `${k}: ${v.join(', ')}`).join('\n');
+        alert(`❌ Failed:\n${msg}`);
+      } else {
+        alert(`❌ Failed: ${err.response?.data?.message || err.message}`);
+      }
+    } finally {
+      setSubmittingRequest(false);
+    }
   };
 
   const updateInstaller = (idx, field, value) => {
@@ -141,5 +197,6 @@ export const useCommandCenter = (selectedProject) => {
     materialHistoryFilter, setMaterialHistoryFilter, showRequestModal, setShowRequestModal,
     fetchCommandCenterData, handleSaveDailyLog, handleIssueSubmit,
     handleRequestQtyChange, handleRequestToggle, submitMaterialRequest,
+    submittingRequest,  // 👈 Added
   };
 };
