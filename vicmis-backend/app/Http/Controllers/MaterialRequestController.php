@@ -235,11 +235,70 @@ class MaterialRequestController extends Controller
     // =========================================================================
     // POST /inventory/material-requests/{id}/dispatch
     // =========================================================================
-    public function dispatch(Request $request, int $id): JsonResponse
-    {
-        $req = MaterialRequest::with('items')->findOrFail($id);
-        return $this->handleDispatch($request, $req);
+public function dispatch(Request $request, int $id): JsonResponse
+{
+    try {
+        $req = MaterialRequest::findOrFail($id);
+        
+        if ($req->status !== 'pending') {
+            return response()->json(['message' => 'Only pending requests can be dispatched.'], 422);
+        }
+
+        $validated = $request->validate([
+            'trucking_service' => 'required|string|max:255',
+            'driver_name'      => 'required|string|max:255',
+            'destination'      => 'required|string|max:255',
+            'date_of_delivery' => 'required|date',
+        ]);
+
+        // Get items as array
+        $items = $req->items ?? [];
+        
+        DB::transaction(function () use ($req, $validated, $items) {
+            foreach ($items as $item) {
+                // 👇 Use array syntax, not object syntax
+                $productCode = $item['product_code'] ?? $item['description'] ?? '';
+                
+                $inv = !empty($productCode)
+                    ? WarehouseInventory::where('product_code', $productCode)->first()
+                    : null;
+
+                Logistics::create([
+                    'material_request_id' => $req->id,
+                    'trucking_service'    => $validated['trucking_service'],
+                    'product_category'    => $inv->product_category ?? '',
+                    'product_code'        => $productCode,
+                    'is_consumable'       => $inv->is_consumable ?? false,
+                    'project_name'        => $req->project_name,
+                    'driver_name'         => $validated['driver_name'],
+                    'destination'         => $validated['destination'],
+                    'quantity'            => $item['requested_qty'] ?? $item['quantity'] ?? 1,
+                    'date_of_delivery'    => $validated['date_of_delivery'],
+                    'status'              => 'In Transit',
+                ]);
+            }
+
+            $req->update(['status' => 'dispatched']);
+        });
+
+        \App\Models\AppNotification::create([
+            'target_department' => 'Engineering',
+            'target_role'       => null,
+            'project_id'        => $req->project_id,
+            'message'           => "🚚 Materials dispatched for '{$req->project_name}'. Delivery is In Transit.",
+        ]);
+
+        return response()->json([
+            'message' => 'Request dispatched successfully.',
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Dispatch Error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Dispatch Error: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     // =========================================================================
     // POST /inventory/material-requests/{id}/reorder
@@ -262,7 +321,7 @@ class MaterialRequestController extends Controller
     // =========================================================================
     // PRIVATE — handleDispatch
     // =========================================================================
-    private function handleDispatch(Request $request, MaterialRequest $req): JsonResponse
+   private function handleDispatch(Request $request, MaterialRequest $req): JsonResponse
 {
     abort_if($req->status !== 'pending', 422, 'Only pending requests can be dispatched.');
 
@@ -274,25 +333,29 @@ class MaterialRequestController extends Controller
     ]);
 
     try {
-        $deliveries = DB::transaction(function () use ($req, $validated) {
+        $items = $req->items ?? [];
+        
+        $deliveries = DB::transaction(function () use ($req, $validated, $items) {
             $created = [];
 
-            foreach ($req->items as $item) {
-                $inv = $item->product_code
-                    ? WarehouseInventory::where('product_code', $item->product_code)->first()
+            foreach ($items as $item) {
+                // 👇 Use array syntax
+                $productCode = $item['product_code'] ?? $item['description'] ?? '';
+                
+                $inv = !empty($productCode)
+                    ? WarehouseInventory::where('product_code', $productCode)->first()
                     : null;
 
-                // 👇 Match exact columns from your logistics table
                 $delivery = Logistics::create([
                     'material_request_id' => $req->id,
                     'trucking_service'    => $validated['trucking_service'],
                     'product_category'    => $inv->product_category ?? '',
-                    'product_code'        => $item->product_code ?? $item->description,
+                    'product_code'        => $productCode,
                     'is_consumable'       => $inv->is_consumable ?? false,
                     'project_name'        => $req->project_name,
                     'driver_name'         => $validated['driver_name'],
                     'destination'         => $validated['destination'],
-                    'quantity'            => $item->requested_qty,
+                    'quantity'            => $item['requested_qty'] ?? 1,
                     'date_of_delivery'    => $validated['date_of_delivery'],
                     'status'              => 'In Transit',
                 ]);
@@ -319,13 +382,11 @@ class MaterialRequestController extends Controller
         
     } catch (\Exception $e) {
         \Log::error('Dispatch Error: ' . $e->getMessage());
-        \Log::error($e->getTraceAsString());
         return response()->json([
             'message' => 'Dispatch Error: ' . $e->getMessage(),
         ], 500);
     }
 }
-
     // =========================================================================
     // PRIVATE — handleReorder
     // =========================================================================
