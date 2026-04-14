@@ -1,7 +1,7 @@
 // src/hooks/useMaterialRequest.js
 
 import { useState, useCallback } from 'react';
-import materialRequestService from '@/api/materialRequestService';
+import api from '@/api/axios';
 
 const useMaterialRequest = ({ project, user, boqData }) => {
   const [showRequestModal, setShowRequestModal]     = useState(false);
@@ -42,7 +42,7 @@ const useMaterialRequest = ({ project, user, boqData }) => {
 
     setSubmittingRequest(true);
     try {
-      // Build items array with costs
+      // Build items array
       const items = validItems.map(i => {
         const unitCost = parseFloat(i.unitCost) || 0;
         const requestedQty = parseFloat(i.requestedQty) || 0;
@@ -58,22 +58,32 @@ const useMaterialRequest = ({ project, user, boqData }) => {
         };
       });
 
-      // Build payload matching MaterialRequestController::store() validation
+      // 👇 Send as JSON with proper Content-Type header
       const payload = {
         requested_by_name: currentUser?.name || user?.name || 'Unknown',
         engineer_name: project?.assigned_engineers || currentUser?.name || '',
         destination: project?.location || '',
-        items: items,
+        items: items,  // 👈 Send as actual array, not JSON string
       };
 
-      console.log('[MaterialRequest] Sending to project:', project.id);
-      console.log('[MaterialRequest] Payload:', payload);
+      console.log('[MaterialRequest] Sending payload:', payload);
 
-      // 👇 FIXED: Pass projectId and payload
-      await materialRequestService.create(project.id, payload);
+      // 👇 Use axios directly with JSON content type
+      const response = await api.post(
+        `/projects/${project.id}/material-requests`,
+        payload,
+        { 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          } 
+        }
+      );
+
+      console.log('[MaterialRequest] Success:', response.data);
 
       // Calculate total for success message
-      const totalValue = items.reduce((sum, item) => sum + item.total_cost, 0);
+      const totalValue = items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
       const valueStr = totalValue > 0 
         ? `\nTotal value: ₱${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` 
         : '';
@@ -82,9 +92,10 @@ const useMaterialRequest = ({ project, user, boqData }) => {
       setShowRequestModal(false);
       alert(`✅ Material request sent to Logistics!${valueStr}`);
     } catch (err) {
-      console.error('[MaterialRequest] Error:', err.response?.data);
+      console.error('[MaterialRequest] Error:', err);
+      console.error('[MaterialRequest] Response status:', err.response?.status);
+      console.error('[MaterialRequest] Response data:', err.response?.data);
       
-      // Show detailed validation errors
       if (err.response?.data?.errors) {
         const errorMessages = Object.entries(err.response.data.errors)
           .map(([field, messages]) => `${field}: ${messages.join(', ')}`)

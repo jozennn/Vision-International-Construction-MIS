@@ -107,6 +107,18 @@ class MaterialRequestController extends Controller
     {
         $project = Project::findOrFail($id);
 
+        // 👇 Debug: Log the raw request
+        \Log::info('Material Request Raw Input:', $request->all());
+        \Log::info('Material Request Content-Type:', [$request->header('Content-Type')]);
+        
+        // 👇 If items is a JSON string, decode it to array
+        if ($request->has('items') && is_string($request->input('items'))) {
+            $decoded = json_decode($request->input('items'), true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge(['items' => $decoded]);
+            }
+        }
+
         $validated = $request->validate([
             'requested_by_name'     => 'required|string|max:255',
             'engineer_name'         => 'nullable|string|max:255',
@@ -116,9 +128,9 @@ class MaterialRequestController extends Controller
             'items.*.product_code'  => 'nullable|string|max:100',
             'items.*.unit'          => 'nullable|string|max:50',
             'items.*.requested_qty' => 'required|numeric|min:0.01',
-            'items.*.unit_cost'     => 'nullable|numeric|min:0',      // 👈 Added
-            'items.*.total_cost'    => 'nullable|numeric|min:0',      // 👈 Added
-        ]);
+            'items.*.unit_cost'     => 'nullable|numeric|min:0',
+            'items.*.total_cost'    => 'nullable|numeric|min:0',
+    ]);
 
         $materialRequest = DB::transaction(function () use ($validated, $project) {
             $req = MaterialRequest::create([
