@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
 /* ── Root ────────────────────────────────────── */
 .vcc-root {
   font-family: 'DM Sans', sans-serif;
@@ -19,9 +17,19 @@
   text-align: center;
   color: #64748b;
 }
-.vcc-denied-icon { font-size: 3.5rem; margin-bottom: 16px; }
-.vcc-access-denied h3 { font-size: 1.5rem; font-weight: 700; color: #221F1F; margin: 0 0 8px; }
-.vcc-access-denied p { font-size: 0.95rem; }
+.vcc-denied-icon { 
+  font-size: 3.5rem; 
+  margin-bottom: 16px; 
+}
+.vcc-access-denied h3 { 
+  font-size: 1.5rem; 
+  font-weight: 700; 
+  color: #221F1F; 
+  margin: 0 0 8px; 
+}
+.vcc-access-denied p { 
+  font-size: 0.95rem; 
+}
 
 /* ── HERO ────────────────────────────────────── */
 .vcc-hero {
@@ -40,7 +48,10 @@
   background-size: 32px 32px;
   pointer-events: none;
 }
-.vcc-hero-content { position: relative; z-index: 1; }
+.vcc-hero-content { 
+  position: relative; 
+  z-index: 1; 
+}
 .vcc-hero-badge {
   display: inline-block;
   background: rgba(192,57,43,0.25);
@@ -104,7 +115,8 @@
   margin: 0 16px;
 }
 .vcc-status-dot {
-  width: 8px; height: 8px;
+  width: 8px; 
+  height: 8px;
   border-radius: 50%;
   animation: vcc-pulse 2s infinite;
 }
@@ -112,7 +124,7 @@
 .vcc-status-dot.amber { background: #f59e0b; }
 @keyframes vcc-pulse {
   0%,100% { box-shadow: 0 0 0 0 currentColor; }
-  50%      { box-shadow: 0 0 0 4px transparent; }
+  50%     { box-shadow: 0 0 0 4px transparent; }
 }
 
 /* ── MODULE GRID (home cards) ────────────────── */
@@ -142,23 +154,26 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .vcc-card:hover {
-  border-color: var(--card-color);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px var(--card-color);
+  border-color: var(--card-color, #C0392B);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px var(--card-color, #C0392B);
   transform: translateY(-2px);
 }
 .vcc-card-accent {
   position: absolute;
-  top: 0; left: 0;
-  width: 4px; height: 100%;
-  background: var(--card-color);
+  top: 0; 
+  left: 0;
+  width: 4px; 
+  height: 100%;
+  background: var(--card-color, #C0392B);
   border-radius: 0 2px 2px 0;
   opacity: 0;
   transition: opacity 0.22s;
 }
 .vcc-card:hover .vcc-card-accent { opacity: 1; }
 .vcc-card-icon-wrap {
-  width: 48px; height: 48px;
-  background: color-mix(in srgb, var(--card-color) 12%, transparent);
+  width: 48px; 
+  height: 48px;
+  background: color-mix(in srgb, var(--card-color, #C0392B) 12%, transparent);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -172,7 +187,7 @@
 .vcc-card-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin: 0 0 3px; }
 .vcc-card-desc  { font-size: 0.8rem; color: #94a3b8; margin: 0; }
 .vcc-card-arrow { color: #cbd5e1; font-size: 1.1rem; transition: all 0.22s; flex-shrink: 0; }
-.vcc-card:hover .vcc-card-arrow { color: var(--card-color); transform: translateX(4px); }
+.vcc-card:hover .vcc-card-arrow { color: var(--card-color, #C0392B); transform: translateX(4px); }
 
 /* ── FOOTER NOTE ─────────────────────────────── */
 .vcc-footer-note {
@@ -241,7 +256,8 @@
   padding: 60px;
 }
 .vcc-spinner {
-  width: 36px; height: 36px;
+  width: 36px; 
+  height: 36px;
   border: 3px solid #e2e8f0;
   border-top-color: #C0392B;
   border-radius: 50%;
