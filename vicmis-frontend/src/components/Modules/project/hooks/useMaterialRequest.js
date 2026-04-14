@@ -15,36 +15,34 @@ import materialRequestService from '@/api/materialRequestService';
 
 const useMaterialRequest = ({ project, user, boqData }) => {
   // ── Request modal state ────────────────────────────────────────────────────
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestItems, setRequestItems]         = useState([]);   // items selected in the modal
-  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [showRequestModal, setShowRequestModal]     = useState(false);
+  const [requestItems, setRequestItems]             = useState([]);
+  const [submittingRequest, setSubmittingRequest]   = useState(false);
 
-  // ── Issues state (unchanged from original) ─────────────────────────────────
-  const [issueLog, setIssueLog]           = useState({ problem: '', solution: '' });
-  const [issuesHistory, setIssuesHistory] = useState([]);
-  const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
+  // ── Issues state ───────────────────────────────────────────────────────────
+  const [issueLog, setIssueLog]                     = useState({ problem: '', solution: '' });
+  const [issuesHistory, setIssuesHistory]           = useState([]);
+  const [isSubmittingIssue, setIsSubmittingIssue]   = useState(false);
 
-  // ── Item qty change ────────────────────────────────────────────────────────
+  // ── Item qty change — keyed by product_code ────────────────────────────────
   const handleRequestQtyChange = useCallback((item, value) => {
-    setRequestItems(prev => {
-      const exists = prev.find(i => i.description === item.description);
-      if (!exists) return prev;
-      return prev.map(i =>
-        i.description === item.description
+    setRequestItems(prev =>
+      prev.map(i =>
+        i.product_code === item.product_code
           ? { ...i, requestedQty: value }
           : i
-      );
-    });
+      )
+    );
   }, []);
 
-  // ── Toggle item in/out of the request list ─────────────────────────────────
+  // ── Toggle item in/out — keyed by product_code ─────────────────────────────
   const handleRequestToggle = useCallback((item, checked) => {
     setRequestItems(prev => {
       if (checked) {
         // Add with empty qty so user is forced to fill it
         return [...prev, { ...item, requestedQty: '' }];
       }
-      return prev.filter(i => i.description !== item.description);
+      return prev.filter(i => i.product_code !== item.product_code);
     });
   }, []);
 
@@ -69,12 +67,18 @@ const useMaterialRequest = ({ project, user, boqData }) => {
         requested_by_id:   currentUser?.id,
         requested_by_name: currentUser?.name || currentUser?.username || '',
         engineer_name:     project.engineer_name || currentUser?.name || '',
-        items: validItems.map(i => ({
-          description:   i.description,
-          product_code:  i.product_code  || '',   // from finalBOQ if available
-          unit:          i.unit          || '',
-          requested_qty: parseFloat(i.requestedQty),
-        })),
+        items: validItems.map(i => {
+          const unitCost     = parseFloat(i.unitCost) || 0;
+          const requestedQty = parseFloat(i.requestedQty);
+          return {
+            description:   i.description || i.product_code || '',
+            product_code:  i.product_code  || '',
+            unit:          i.unit          || '',
+            requested_qty: requestedQty,
+            unit_cost:     unitCost,
+            total_cost:    unitCost * requestedQty,
+          };
+        }),
       });
 
       // Reset selection after successful submit
@@ -88,7 +92,7 @@ const useMaterialRequest = ({ project, user, boqData }) => {
     }
   }, [requestItems, project]);
 
-  // ── Issue submit (unchanged logic, just moved here for completeness) ────────
+  // ── Issue submit ───────────────────────────────────────────────────────────
   const handleIssueSubmit = useCallback(async () => {
     if (!issueLog.problem?.trim()) {
       alert('Please describe the problem.');

@@ -26,29 +26,68 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
             <tr>
               <th className="text-left">Description</th>
               <th>Unit</th>
+              <th>Unit Cost (₱)</th>
               <th>Needed Qty</th>
+              <th>Total (₱)</th>
               <th>Select</th>
             </tr>
           </thead>
           <tbody>
             {finalBOQ.map((item, idx) => {
-              const isSel = requestItems.some(i => i.description === item.description);
-              const cur   = requestItems.find(i => i.description === item.description);
+              const isSel     = requestItems.some(i => i.product_code === item.product_code);
+              const cur       = requestItems.find(i => i.product_code === item.product_code);
+              const unitCost  = parseFloat(item.unitCost) || 0;
+              const qty       = parseFloat(cur?.requestedQty) || 0;
+              const total     = unitCost * qty;
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
-                  <td className="pm-td-bold text-left">{item.description}</td>
-                  <td>{item.unit}</td>
+                  {/* Description — fall back to product_code if description is blank */}
+                  <td className="pm-td-bold text-left">
+                    {item.description || item.product_code || '—'}
+                    {item.product_code && item.description && (
+                      <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
+                        Code: {item.product_code}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Unit */}
+                  <td>{item.unit || '—'}</td>
+
+                  {/* Unit Cost (auto-filled from inventory) */}
+                  <td>
+                    {unitCost > 0
+                      ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'}
+                  </td>
+
+                  {/* Needed Qty input */}
                   <td>
                     <input
                       type="number"
                       placeholder="Qty"
+                      min={0}
                       className={`pm-input pm-req-qty-input text-center ${isSel ? 'pm-req-qty-active' : ''}`}
                       value={cur ? cur.requestedQty : ''}
                       onChange={e => onQtyChange(item, e.target.value)}
                       disabled={!isSel}
                     />
                   </td>
+
+                  {/* Computed Total */}
+                  <td
+                    style={{
+                      fontWeight: 500,
+                      color: isSel && total > 0 ? '#15803d' : 'inherit',
+                    }}
+                  >
+                    {isSel && total > 0
+                      ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'}
+                  </td>
+
+                  {/* Select checkbox */}
                   <td>
                     <input
                       type="checkbox"
@@ -155,7 +194,7 @@ const PhaseCommandCenter = ({
   isLogistics,
   user,
 }) => {
-  const [activeTab, setActiveTab]       = useState('installers');
+  const [activeTab, setActiveTab]         = useState('installers');
   const [reqSentBanner, setReqSentBanner] = useState(false);
 
   const { status } = project;
@@ -167,7 +206,7 @@ const PhaseCommandCenter = ({
     handleRequestQtyChange,
     handleRequestToggle,
     submitMaterialRequest,
-    submittingRequest,   // ← new: loading state from parent hook
+    submittingRequest,
     issueLog,
     setIssueLog,
     issuesHistory,
