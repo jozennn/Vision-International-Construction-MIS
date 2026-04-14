@@ -6,7 +6,9 @@ import MaterialsMonitoring from './MaterialsMonitoring.jsx';
 import SiteInspectionReport from './SiteInspectionReport.jsx';
 import '../css/PhaseCommandCenter.css';
 
-const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose }) => (
+// ─── Material Requisition Modal ───────────────────────────────────────────────
+// Engineer selects items from the approved Final BOQ and specifies qty needed.
+const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting }) => (
   <div className="pm-modal-overlay">
     <div className="pm-modal-content pm-modal-orange large">
       <div className="pm-flex-between mb-4">
@@ -31,7 +33,7 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
           <tbody>
             {finalBOQ.map((item, idx) => {
               const isSel = requestItems.some(i => i.description === item.description);
-              const cur = requestItems.find(i => i.description === item.description);
+              const cur   = requestItems.find(i => i.description === item.description);
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
@@ -63,13 +65,32 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
       </div>
 
       <div className="pm-grid-2 mt-4">
-        <button className="pm-btn pm-btn-outline" onClick={onClose}>Cancel</button>
-        <PrimaryButton variant="orange" onClick={onSubmit}>🚀 Send Request</PrimaryButton>
+        <button className="pm-btn pm-btn-outline" onClick={onClose} disabled={submitting}>
+          Cancel
+        </button>
+        <PrimaryButton variant="orange" onClick={onSubmit} disabled={submitting}>
+          {submitting ? '⏳ Sending…' : '🚀 Send Request'}
+        </PrimaryButton>
       </div>
     </div>
   </div>
 );
 
+// ─── Request Sent Confirmation Banner ─────────────────────────────────────────
+const RequestSentBanner = ({ onDismiss }) => (
+  <div className="pm-req-sent-banner">
+    <span className="pm-req-sent-icon">✅</span>
+    <div>
+      <strong>Material request sent to Logistics!</strong>
+      <p className="pm-text-muted" style={{ margin: 0 }}>
+        Logistics will verify stock and schedule a delivery. You'll see new arrivals reflected in Materials Monitoring once delivered.
+      </p>
+    </div>
+    <button className="pm-close-btn" onClick={onDismiss}>✕</button>
+  </div>
+);
+
+// ─── Logistics Dispatch View ───────────────────────────────────────────────────
 const LogisticsDispatch = ({ onAdvance }) => {
   const [checks, setChecks] = useState({ inventory: false, transport: false, notified: false });
   const ready = checks.inventory && checks.transport && checks.notified;
@@ -89,7 +110,7 @@ const LogisticsDispatch = ({ onAdvance }) => {
               {Object.entries({
                 inventory: '📦 Pulled from Inventory',
                 transport: '🚚 Transport Assigned',
-                notified: '📱 Eng Team Notified',
+                notified:  '📱 Eng Team Notified',
               }).map(([key, label]) => (
                 <label key={key} className="pm-checklist-item pm-checklist-orange">
                   <input
@@ -116,6 +137,7 @@ const LogisticsDispatch = ({ onAdvance }) => {
   );
 };
 
+// ─── Tab Config ────────────────────────────────────────────────────────────────
 const TABS = [
   { key: 'installers', label: '📋 INSTALLER MONITORING' },
   { key: 'timeline',   label: '⏳ PROJECT TIMELINE'     },
@@ -124,6 +146,7 @@ const TABS = [
   { key: 'inspection', label: '✅ SITE INSPECTION'       },
 ];
 
+// ─── Main Component ────────────────────────────────────────────────────────────
 const PhaseCommandCenter = ({
   project,
   cc,
@@ -132,7 +155,8 @@ const PhaseCommandCenter = ({
   isLogistics,
   user,
 }) => {
-  const [activeTab, setActiveTab] = useState('installers');
+  const [activeTab, setActiveTab]       = useState('installers');
+  const [reqSentBanner, setReqSentBanner] = useState(false);
 
   const { status } = project;
 
@@ -143,6 +167,7 @@ const PhaseCommandCenter = ({
     handleRequestQtyChange,
     handleRequestToggle,
     submitMaterialRequest,
+    submittingRequest,   // ← new: loading state from parent hook
     issueLog,
     setIssueLog,
     issuesHistory,
@@ -150,8 +175,6 @@ const PhaseCommandCenter = ({
     handleIssueSubmit,
   } = cc;
 
-  // ── boqData is used both for the Material Requisition modal
-  // and passed down to MaterialsMonitoring so BOQ items auto-populate.
   const { boqData } = tracking;
 
   const timelineTrackingData = useMemo(() => {
@@ -167,6 +190,13 @@ const PhaseCommandCenter = ({
   if (status === 'Request Materials Needed' && isLogistics) {
     return <LogisticsDispatch onAdvance={onAdvance} />;
   }
+
+  // ── Wrap submit so we can show the success banner ──────────────────────────
+  const handleSubmitRequest = async () => {
+    await submitMaterialRequest(user);
+    setShowRequestModal(false);
+    setReqSentBanner(true);
+  };
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -198,7 +228,7 @@ const PhaseCommandCenter = ({
             project={project}
             user={user}
             trackingData={tracking}
-            boqData={boqData}   // ← FIX: pass boqData so approved BOQ items auto-populate
+            boqData={boqData}
             onSave={() => {}}
           />
         );
@@ -268,15 +298,23 @@ const PhaseCommandCenter = ({
 
   return (
     <div className="pm-cc-wrapper">
+
+      {/* ── Material Request Modal ── */}
       {showRequestModal && (
         <MaterialReqModal
           finalBOQ={boqData?.finalBOQ ?? []}
           requestItems={requestItems}
           onQtyChange={handleRequestQtyChange}
           onToggle={handleRequestToggle}
-          onSubmit={() => submitMaterialRequest(user)}
+          onSubmit={handleSubmitRequest}
           onClose={() => setShowRequestModal(false)}
+          submitting={submittingRequest}
         />
+      )}
+
+      {/* ── Success Banner ── */}
+      {reqSentBanner && (
+        <RequestSentBanner onDismiss={() => setReqSentBanner(false)} />
       )}
 
       <div className="pm-card">

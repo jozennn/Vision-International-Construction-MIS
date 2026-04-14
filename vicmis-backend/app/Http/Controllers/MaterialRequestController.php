@@ -2,117 +2,335 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\MaterialRequest;
-use App\Models\Project; // Make sure to import your Project model
+use App\Models\MaterialRequestItem;
+use App\Models\WarehouseInventory;
+use App\Models\Logistics;
+use App\Models\ReorderRequest;
+use App\Models\Project;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class MaterialRequestController extends Controller
 {
-    // 1. Engineering sends a request
-    public function store(Request $request, $projectId)
+    // =========================================================================
+    // GET /projects/{id}/material-requests
+    //
+    // Called by the engineer to see the status of their own requests
+    // for a specific project.
+    // =========================================================================
+    public function getProjectRequests(int $id): JsonResponse
     {
-        $project = Project::findOrFail($projectId);
+        $requests = MaterialRequest::with('items')
+            ->where('project_id', $id)
+            ->latest()
+            ->get();
 
-        $materialRequest = MaterialRequest::create([
-            'project_id' => $project->id,
-            'project_name' => $project->project_name, // Assuming your column is project_name
-            'requester_name' => $request->requester_name,
-            'items' => $request->items,
-            'status' => 'Pending'
+        // Enrich each item with live stock data from warehouse
+        $requests->each(function ($req) {
+            $req->items->each(function ($item) {
+                if ($item->product_code) {
+                    $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
+                    $item->current_stock = $inv?->current_stock;
+                    $item->stock_status  = $inv?->availability ?? null;
+                }
+            });
+        });
+
+        return response()->json($requests);
+    }
+
+    // =========================================================================
+    // GET /material-requests/pending
+    //
+    // Called by Logistics (DeliveryMat → "Pending Requests" tab).
+    // Returns ALL pending + reordering requests across all projects,
+    // each item enriched with live stock data.
+    //
+    // Query params:
+    //   status     — default includes 'pending' and 'reordering'
+    //   project_id — optional filter
+    //   per_page   — default 20
+    // =========================================================================
+    public function getPending(Request $request): JsonResponse
+    {
+        $status = $request->filled('status')
+            ? [$request->status]
+            : ['pending', 'reordering'];
+
+        $query = MaterialRequest::with('items')
+            ->whereIn('status', $status)
+            ->when($request->project_id, fn($q, $p) => $q->where('project_id', $p))
+            ->latest();
+
+        $paginated = $query->paginate($request->per_page ?? 20);
+
+        // Enrich each item with current stock info from warehouse
+        $paginated->getCollection()->each(function ($req) {
+            $req->items->each(function ($item) {
+                if ($item->product_code) {
+                    $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
+                    $item->current_stock = $inv?->current_stock;
+                    $item->stock_status  = $inv?->availability ?? null;
+                } else {
+                    $item->current_stock = null;
+                    $item->stock_status  = null;
+                }
+            });
+        });
+
+        return response()->json($paginated);
+    }
+
+    // =========================================================================
+    // POST /projects/{id}/material-requests
+    //
+    // Called by the engineer from PhaseCommandCenter → "Request Materials" button.
+    // Creates a material_request + material_request_items (status: pending).
+    //
+    // Also fires the existing notification engine used by ProjectController
+    // so Logistics gets alerted automatically.
+    //
+    // Request body:
+    // {
+    //   requested_by_name: string,
+    //   engineer_name:     string | null,
+    //   destination:       string | null,
+    //   items: [
+    //     { description, product_code, unit, requested_qty }
+    //   ]
+    // }
+    // =========================================================================
+    public function store(Request $request, int $id): JsonResponse
+    {
+        $project = Project::findOrFail($id);
+
+        $validated = $request->validate([
+            'requested_by_name'     => 'required|string|max:255',
+            'engineer_name'         => 'nullable|string|max:255',
+            'destination'           => 'nullable|string|max:255',
+            'items'                 => 'required|array|min:1',
+            'items.*.description'   => 'required|string|max:255',
+            'items.*.product_code'  => 'nullable|string|max:100',
+            'items.*.unit'          => 'nullable|string|max:50',
+            'items.*.requested_qty' => 'required|numeric|min:0.01',
         ]);
 
-        return response()->json(['message' => 'Requested successfully', 'data' => $materialRequest], 201);
-    }
+        $materialRequest = DB::transaction(function () use ($validated, $project) {
+            $req = MaterialRequest::create([
+                'project_id'        => $project->id,
+                'project_name'      => $project->project_name,
+                'location'          => $project->location ?? null,
+                'destination'       => $validated['destination'] ?? $project->location ?? null,
+                'requested_by_id'   => Auth::id(),
+                'requested_by_name' => $validated['requested_by_name'],
+                'engineer_name'     => $validated['engineer_name'] ?? null,
+                'status'            => 'pending',
+            ]);
 
-    // 2. Logistics fetches pending requests
-    public function getPending()
-    {
-        $requests = MaterialRequest::where('status', 'Pending')
-                                   ->orderBy('created_at', 'desc')
-                                   ->get();
-                                   
-        return response()->json($requests);
-    }
-    
-// 3. Logistics updates status (Dispatch/Deny)
-    public function updateStatus(Request $request, $id)
-    {
-        $materialRequest = MaterialRequest::findOrFail($id);
-        $materialRequest->status = $request->status;
-        
-        // 🚨 CATCH THE APPROVER'S NAME HERE 🚨
-        if ($request->has('approver_name')) {
-            $materialRequest->approver_name = $request->approver_name;
-        }
-        
-        $materialRequest->save();
-
-        // 🚨 NEW LOGIC: If approved, add the quantities to the Project's Materials Tracking 🚨
-        if ($request->status === 'Dispatched') {
-            $project = Project::find($materialRequest->project_id);
-            
-            if ($project) {
-                // 1. Get the current tracking list (or start fresh from the Final BOQ if empty)
-                $tracking = json_decode($project->materials_tracking, true);
-                
-                if (!$tracking || empty($tracking)) {
-                    $tracking = json_decode($project->final_boq, true);
-                    // Initialize installed and remaining if starting fresh
-                    foreach ($tracking as &$item) {
-                        $item['installed'] = 0;
-                        $item['remaining'] = (float)$item['qty'];
-                    }
-                }
-
-                // 2. Get the items Logistics just approved
-                $requestedItems = json_decode($materialRequest->items, true);
-
-                // 3. Loop through requested items and add them to the tracker
-                foreach ($requestedItems as $reqItem) {
-                    $found = false;
-                    
-                    foreach ($tracking as &$trackItem) {
-                        // Match the item by its description
-                        if ($trackItem['description'] === $reqItem['description']) {
-                            $reqQty = (float)($reqItem['requestedQty'] ?? 0);
-                            
-                            // Add the new quantity to Total Qty and Remaining
-                            $trackItem['qty'] = (float)($trackItem['qty'] ?? 0) + $reqQty;
-                            $trackItem['remaining'] = (float)($trackItem['remaining'] ?? 0) + $reqQty;
-                            
-                            $found = true;
-                            break;
-                        }
-                    }
-                    
-                    // Edge Case: If Logistics dispatches an entirely new item not originally in the BOQ
-                    if (!$found) {
-                        $reqQty = (float)($reqItem['requestedQty'] ?? 0);
-                        $tracking[] = [
-                            'description' => $reqItem['description'],
-                            'unit' => $reqItem['unit'] ?? '',
-                            'qty' => $reqQty,
-                            'installed' => 0,
-                            'remaining' => $reqQty
-                        ];
-                    }
-                }
-
-                // 4. Save the updated tracking back to the Project
-                $project->materials_tracking = json_encode($tracking);
-                $project->save();
+            foreach ($validated['items'] as $item) {
+                $req->items()->create([
+                    'description'   => $item['description'],
+                    'product_code'  => $item['product_code']  ?? null,
+                    'unit'          => $item['unit']          ?? null,
+                    'requested_qty' => $item['requested_qty'],
+                ]);
             }
-        }
-        
-        return response()->json(['message' => 'Status updated and Project Materials adjusted!']);
+
+            return $req->load('items');
+        });
+
+        // Reuse the existing notification engine from ProjectController
+        // so Logistics gets the same style of notification as other phase changes
+        $notifMsg = "📦 Material Request: '{$project->project_name}' needs materials. Review in Logistics.";
+        \App\Models\AppNotification::create([
+            'target_department' => 'Logistics',
+            'target_role'       => null,
+            'project_id'        => $project->id,
+            'message'           => $notifMsg,
+        ]);
+
+        return response()->json($materialRequest, 201);
     }
-    // Fetch all requests (Pending, Dispatched, Denied) for a specific project
-    public function getProjectRequests($projectId)
+
+    // =========================================================================
+    // PATCH /material-requests/{id}
+    //
+    // General status update — used by Logistics for dispatch, reorder, reject.
+    // Action is determined by the 'action' field in the request body.
+    //
+    // Request body for dispatch:
+    // {
+    //   action: 'dispatch',
+    //   trucking_service, driver_name, destination, date_of_delivery
+    // }
+    //
+    // Request body for reorder:
+    // {
+    //   action: 'reorder',
+    //   quantity_needed, notes
+    // }
+    //
+    // Request body for reject:
+    // {
+    //   action: 'reject',
+    //   reason (optional)
+    // }
+    // =========================================================================
+    public function updateStatus(Request $request, int $id): JsonResponse
     {
-        $requests = MaterialRequest::where('project_id', $projectId)
-                                   ->orderBy('created_at', 'desc')
-                                   ->get();
-                                   
-        return response()->json($requests);
+        $req = MaterialRequest::with('items')->findOrFail($id);
+
+        $action = $request->input('action');
+
+        return match ($action) {
+            'dispatch' => $this->handleDispatch($request, $req),
+            'reorder'  => $this->handleReorder($request, $req),
+            'reject'   => $this->handleReject($request, $req),
+            default    => response()->json(['message' => "Unknown action: {$action}"], 422),
+        };
+    }
+
+    // =========================================================================
+    // PRIVATE — handleDispatch
+    //
+    // Logistics confirms stock is available → creates Logistics rows
+    // (one per item in the request) using the existing Logistics model.
+    // =========================================================================
+    private function handleDispatch(Request $request, MaterialRequest $req): JsonResponse
+    {
+        abort_if($req->status !== 'pending', 422, 'Only pending requests can be dispatched.');
+
+        $validated = $request->validate([
+            'trucking_service' => 'required|string|max:255',
+            'driver_name'      => 'required|string|max:255',
+            'destination'      => 'required|string|max:255',
+            'date_of_delivery' => 'required|date',
+        ]);
+
+        $deliveries = DB::transaction(function () use ($req, $validated) {
+            $created = [];
+
+            foreach ($req->items as $item) {
+                $inv = $item->product_code
+                    ? WarehouseInventory::where('product_code', $item->product_code)->first()
+                    : null;
+
+                // Use the existing Logistics model / logistics table
+                $delivery = Logistics::create([
+                    'material_request_id' => $req->id,
+                    'project_name'        => $req->project_name,
+                    'trucking_service'    => $validated['trucking_service'],
+                    'driver_name'         => $validated['driver_name'],
+                    'destination'         => $validated['destination'],
+                    'date_of_delivery'    => $validated['date_of_delivery'],
+                    'product_category'    => $inv?->product_category ?? '',
+                    'product_code'        => $item->product_code ?? $item->description,
+                    'is_consumable'       => $inv?->is_consumable ?? false,
+                    'quantity'            => $item->requested_qty,
+                    'status'              => 'In Transit',
+                ]);
+
+                $created[] = $delivery;
+            }
+
+            $req->update(['status' => 'dispatched']);
+
+            // Notify engineer that materials are on the way
+            \App\Models\AppNotification::create([
+                'target_department' => 'Engineering',
+                'target_role'       => null,
+                'project_id'        => $req->project_id,
+                'message'           => "🚚 Materials dispatched for '{$req->project_name}'. Delivery is In Transit.",
+            ]);
+
+            return $created;
+        });
+
+        return response()->json([
+            'message'    => 'Request dispatched. Delivery records created.',
+            'deliveries' => $deliveries,
+        ]);
+    }
+
+    // =========================================================================
+    // PRIVATE — handleReorder
+    //
+    // Logistics triggers a reorder → creates ReorderRequest entries
+    // for out-of-stock items using the existing ReorderRequestController model.
+    // =========================================================================
+    private function handleReorder(Request $request, MaterialRequest $req): JsonResponse
+    {
+        abort_if($req->status !== 'pending', 422, 'Only pending requests can trigger a reorder.');
+
+        $validated = $request->validate([
+            'quantity_needed' => 'nullable|integer|min:1',
+            'notes'           => 'nullable|string|max:1000',
+        ]);
+
+        DB::transaction(function () use ($req, $validated) {
+            foreach ($req->items as $item) {
+                $inv = $item->product_code
+                    ? WarehouseInventory::where('product_code', $item->product_code)->first()
+                    : null;
+
+                // Only reorder items that are actually out of stock
+                if (!$inv || $inv->availability === 'NO STOCK' || $inv->availability === 'LOW STOCK') {
+                    // Use the existing ReorderRequest model / reorder_requests table
+                    ReorderRequest::create([
+                        'warehouse_inventory_id' => $inv?->id,
+                        'material_request_id'    => $req->id,
+                        'product_category'       => $inv?->product_category ?? '',
+                        'product_code'           => $item->product_code    ?? '',
+                        'current_stock'          => $inv?->current_stock   ?? 0,
+                        'unit'                   => $item->unit            ?? '',
+                        'availability'           => $inv?->availability    ?? 'NO STOCK',
+                        'quantity_needed'        => $validated['quantity_needed'] ?? (int) $item->requested_qty,
+                        'notes'                  => $validated['notes']    ?? null,
+                    ]);
+                }
+            }
+
+            $req->update(['status' => 'reordering']);
+
+            // Notify Procurement/Accounting (matches your existing phase notification pattern)
+            \App\Models\AppNotification::create([
+                'target_department' => 'Accounting/Procurement',
+                'target_role'       => 'dept_head',
+                'project_id'        => $req->project_id,
+                'message'           => "⚠️ Reorder Required: '{$req->project_name}' needs stock replenishment before delivery.",
+            ]);
+        });
+
+        return response()->json(['message' => 'Reorder request sent to Procurement.']);
+    }
+
+    // =========================================================================
+    // PRIVATE — handleReject
+    // =========================================================================
+    private function handleReject(Request $request, MaterialRequest $req): JsonResponse
+    {
+        abort_if(
+            in_array($req->status, ['dispatched', 'rejected']),
+            422,
+            'Cannot reject a request that has already been dispatched or rejected.'
+        );
+
+        $req->update([
+            'status'        => 'rejected',
+            'reject_reason' => $request->reason ?? null,
+        ]);
+
+        // Notify engineer their request was rejected
+        \App\Models\AppNotification::create([
+            'target_department' => 'Engineering',
+            'target_role'       => null,
+            'project_id'        => $req->project_id,
+            'message'           => "❌ Material request rejected for '{$req->project_name}'. " . ($request->reason ?? 'No reason given.'),
+        ]);
+
+        return response()->json(['message' => 'Request rejected.']);
     }
 }
