@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
+use Exception;
 
 class DatabaseBackupController extends Controller
 {
@@ -29,21 +30,17 @@ class DatabaseBackupController extends Controller
         return $dir;
     }
 
-    private function buildDumpCommand(string $outputPath): array
+    private function buildDumpCommand(string $outputPath): string
     {
-        return [
-            'mysqldump',
-            '--host='      . config('database.connections.mysql.host'),
-            '--port='      . config('database.connections.mysql.port'),
-            '--user='      . config('database.connections.mysql.username'),
-            '--password='  . config('database.connections.mysql.password'),
-            '--single-transaction',
-            '--routines',
-            '--triggers',
-            '--add-drop-table',
-            config('database.connections.mysql.database'),
-            '--result-file=' . $outputPath,
-        ];
+        $dumpPath = env('DB_DUMP_PATH', 'mysqldump');
+        $host     = config('database.connections.mysql.host');
+        $port     = config('database.connections.mysql.port');
+        $user     = config('database.connections.mysql.username');
+        $pass     = config('database.connections.mysql.password');
+        $db       = config('database.connections.mysql.database');
+
+        // Using a raw string command is much safer across different server environments
+        return "{$dumpPath} --host={$host} --port={$port} --user={$user} --password=\"{$pass}\" --single-transaction --routines --triggers --add-drop-table {$db} --result-file=\"{$outputPath}\"";
     }
 
     private function logActivity(Request $request, string $description): void
@@ -76,7 +73,7 @@ class DatabaseBackupController extends Controller
     }
 
     // ──────────────────────────────────────────────
-    // MANUAL BACKUP — saves file on the server
+    // MANUAL BACKUP
     // ──────────────────────────────────────────────
 
     public function backup(Request $request)
@@ -85,33 +82,44 @@ class DatabaseBackupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!function_exists('proc_open')) {
+            return response()->json(['message' => 'Server Error: The "proc_open" function is disabled. Please enable it in your cPanel PHP options.'], 500);
+        }
+
         $filename   = 'vision_backup_' . now()->format('Y-m-d_His') . '.sql';
         $outputPath = $this->backupDir() . '/' . $filename;
 
-        $process = new Process($this->buildDumpCommand($outputPath));
-        $process->setTimeout(300);
-        $process->run();
+        try {
+            $command = $this->buildDumpCommand($outputPath);
+            $process = Process::fromShellCommandline($command);
+            $process->setTimeout(300);
+            $process->run();
 
-        if (!$process->isSuccessful()) {
-            Log::error('mysqldump failed: ' . $process->getErrorOutput());
-            return response()->json(['message' => 'Backup failed. Check system logs.'], 500);
+            if (!$process->isSuccessful()) {
+                Log::error('mysqldump failed: ' . $process->getErrorOutput());
+                return response()->json(['message' => 'Backup failed: ' . $process->getErrorOutput()], 500);
+            }
+
+            $record = DatabaseBackup::create([
+                'filename'   => $filename,
+                'type'       => 'manual',
+                'status'     => 'success',
+                'size'       => File::exists($outputPath) ? File::size($outputPath) : 0,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $this->logActivity($request, "Manual database backup created: {$filename}");
+
+            return response()->json(['message' => 'Backup created successfully.', 'backup' => $record]);
+
+        } catch (Exception $e) {
+            Log::error('Database Backup Exception: ' . $e->getMessage());
+            return response()->json(['message' => 'Server configuration error: ' . $e->getMessage()], 500);
         }
-
-        $record = DatabaseBackup::create([
-            'filename'   => $filename,
-            'type'       => 'manual',
-            'status'     => 'success',
-            'size'       => File::size($outputPath),
-            'created_by' => $request->user()->id,
-        ]);
-
-        $this->logActivity($request, "Manual database backup created: {$filename}");
-
-        return response()->json(['message' => 'Backup created successfully.', 'backup' => $record]);
     }
 
     // ──────────────────────────────────────────────
-    // EXPORT — streams .sql directly to the browser
+    // EXPORT
     // ──────────────────────────────────────────────
 
     public function export(Request $request)
@@ -120,37 +128,47 @@ class DatabaseBackupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!function_exists('proc_open')) {
+            return response()->json(['message' => 'Server Error: The "proc_open" function is disabled. Please enable it in your cPanel PHP options.'], 500);
+        }
+
         $filename   = 'vision_export_' . now()->format('Y-m-d_His') . '.sql';
         $outputPath = $this->backupDir() . '/' . $filename;
 
-        $process = new Process($this->buildDumpCommand($outputPath));
-        $process->setTimeout(300);
-        $process->run();
+        try {
+            $command = $this->buildDumpCommand($outputPath);
+            $process = Process::fromShellCommandline($command);
+            $process->setTimeout(300);
+            $process->run();
 
-        if (!$process->isSuccessful()) {
-            Log::error('mysqldump export failed: ' . $process->getErrorOutput());
-            return response()->json(['message' => 'Export failed. Check system logs.'], 500);
+            if (!$process->isSuccessful()) {
+                Log::error('mysqldump export failed: ' . $process->getErrorOutput());
+                return response()->json(['message' => 'Export failed: Check server logs. Is mysqldump installed?'], 500);
+            }
+
+            DatabaseBackup::create([
+                'filename'   => $filename,
+                'type'       => 'manual',
+                'status'     => 'success',
+                'size'       => File::exists($outputPath) ? File::size($outputPath) : 0,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $this->logActivity($request, "Database exported by {$request->user()->name}: {$filename}");
+
+            return response()->download($outputPath, $filename, [
+                'Content-Type'        => 'application/octet-stream',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            ])->deleteFileAfterSend(false);
+
+        } catch (Exception $e) {
+            Log::error('Database Export Exception: ' . $e->getMessage());
+            return response()->json(['message' => 'Server error: ' . $e->getMessage()], 500);
         }
-
-        // Also record it in the backups table
-        DatabaseBackup::create([
-            'filename'   => $filename,
-            'type'       => 'manual',
-            'status'     => 'success',
-            'size'       => File::size($outputPath),
-            'created_by' => $request->user()->id,
-        ]);
-
-        $this->logActivity($request, "Database exported by {$request->user()->name}: {$filename}");
-
-        return response()->download($outputPath, $filename, [
-            'Content-Type'        => 'application/octet-stream',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ])->deleteFileAfterSend(false);
     }
 
     // ──────────────────────────────────────────────
-    // DOWNLOAD A SAVED BACKUP FILE
+    // DOWNLOAD SAVED BACKUP
     // ──────────────────────────────────────────────
 
     public function download(Request $request, $id)
@@ -170,7 +188,7 @@ class DatabaseBackupController extends Controller
     }
 
     // ──────────────────────────────────────────────
-    // DELETE A SAVED BACKUP
+    // DELETE SAVED BACKUP
     // ──────────────────────────────────────────────
 
     public function destroy(Request $request, $id)
@@ -187,14 +205,13 @@ class DatabaseBackupController extends Controller
         }
 
         $backup->delete();
-
         $this->logActivity($request, "Deleted backup file: {$backup->filename}");
 
         return response()->json(['message' => 'Backup deleted successfully.']);
     }
 
     // ──────────────────────────────────────────────
-    // IMPORT — restore from an uploaded .sql file
+    // IMPORT
     // ──────────────────────────────────────────────
 
     public function import(Request $request)
@@ -203,8 +220,12 @@ class DatabaseBackupController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!function_exists('proc_open')) {
+            return response()->json(['message' => 'Server Error: The "proc_open" function is disabled. Please enable it in your cPanel PHP options.'], 500);
+        }
+
         $request->validate([
-            'sql_file' => 'required|file|mimes:sql,txt|max:524288', // max 512 MB
+            'sql_file' => 'required|file|mimes:sql,txt|max:524288',
         ]);
 
         $file     = $request->file('sql_file');
@@ -217,44 +238,42 @@ class DatabaseBackupController extends Controller
         $user = config('database.connections.mysql.username');
         $pass = config('database.connections.mysql.password');
 
-        // Use shell command to pipe the SQL file into mysql
-        $command = "mysql --host={$host} --port={$port} --user={$user} --password={$pass} {$db} < {$fullPath}";
-        $process = Process::fromShellCommandline($command);
-        $process->setTimeout(600);
-        $process->run();
+        try {
+            $mysqlPath = env('DB_MYSQL_PATH', 'mysql');
+            $command = "{$mysqlPath} --host={$host} --port={$port} --user={$user} --password=\"{$pass}\" {$db} < \"{$fullPath}\"";
+            
+            $process = Process::fromShellCommandline($command);
+            $process->setTimeout(600);
+            $process->run();
 
-        // Always clean up the temp file
-        File::delete($fullPath);
+            File::delete($fullPath);
 
-        if (!$process->isSuccessful()) {
-            Log::error('MySQL import failed: ' . $process->getErrorOutput());
-            return response()->json(['message' => 'Import failed. Ensure the file is a valid SQL dump.'], 500);
+            if (!$process->isSuccessful()) {
+                Log::error('MySQL import failed: ' . $process->getErrorOutput());
+                return response()->json(['message' => 'Import failed: ' . $process->getErrorOutput()], 500);
+            }
+
+            $this->logActivity($request, "Database restored from import by {$request->user()->name}: {$file->getClientOriginalName()}");
+
+            return response()->json(['message' => 'Database restored successfully.']);
+
+        } catch (Exception $e) {
+            if (File::exists($fullPath)) File::delete($fullPath);
+            Log::error('Database Import Exception: ' . $e->getMessage());
+            return response()->json(['message' => 'Server configuration error: ' . $e->getMessage()], 500);
         }
-
-        $this->logActivity(
-            $request,
-            "Database restored from import by {$request->user()->name}: {$file->getClientOriginalName()}"
-        );
-
-        return response()->json(['message' => 'Database restored successfully.']);
     }
 
     // ──────────────────────────────────────────────
-    // SCHEDULES — List
+    // SCHEDULES (List, Store, Update, Destroy)
     // ──────────────────────────────────────────────
-
     public function listSchedules(Request $request)
     {
         if (!$this->isSuperAdmin($request)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
         return response()->json(['schedules' => BackupSchedule::orderBy('created_at', 'desc')->get()]);
     }
-
-    // ──────────────────────────────────────────────
-    // SCHEDULES — Create
-    // ──────────────────────────────────────────────
 
     public function storeSchedule(Request $request)
     {
@@ -270,53 +289,43 @@ class DatabaseBackupController extends Controller
         ]);
 
         $schedule = BackupSchedule::create($validated);
-
         $this->logActivity($request, "Backup schedule created: {$schedule->name} ({$schedule->cron})");
 
         return response()->json(['schedule' => $schedule], 201);
     }
-
-    // ──────────────────────────────────────────────
-    // SCHEDULES — Toggle / Update
-    // ──────────────────────────────────────────────
 
     public function updateSchedule(Request $request, $id)
     {
         if (!$this->isSuperAdmin($request)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
         $schedule = BackupSchedule::findOrFail($id);
         $schedule->update($request->only(['enabled', 'name', 'cron', 'retention']));
-
         return response()->json(['schedule' => $schedule]);
     }
-
-    // ──────────────────────────────────────────────
-    // SCHEDULES — Delete
-    // ──────────────────────────────────────────────
 
     public function destroySchedule(Request $request, $id)
     {
         if (!$this->isSuperAdmin($request)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-
         $schedule = BackupSchedule::findOrFail($id);
         $name     = $schedule->name;
         $schedule->delete();
-
         $this->logActivity($request, "Deleted backup schedule: {$name}");
-
         return response()->json(['message' => 'Schedule removed successfully.']);
     }
 
     // ──────────────────────────────────────────────
-    // STATIC — Called by Kernel.php for scheduled runs
+    // STATIC — Called by Kernel.php
     // ──────────────────────────────────────────────
-
     public static function runScheduledBackup(BackupSchedule $schedule): void
     {
+        if (!function_exists('proc_open')) {
+            Log::error("[ScheduledBackup:{$schedule->name}] Cannot run backup: proc_open is disabled on this server.");
+            return;
+        }
+
         $dir      = storage_path('app/database-backups');
         $safeName = str_replace([' ', '/'], '-', $schedule->name);
         $filename = 'vision_scheduled_' . now()->format('Y-m-d_His') . '_' . $safeName . '.sql';
@@ -326,52 +335,53 @@ class DatabaseBackupController extends Controller
             File::makeDirectory($dir, 0755, true);
         }
 
-        $process = new Process([
-            'mysqldump',
-            '--host='     . config('database.connections.mysql.host'),
-            '--port='     . config('database.connections.mysql.port'),
-            '--user='     . config('database.connections.mysql.username'),
-            '--password=' . config('database.connections.mysql.password'),
-            '--single-transaction', '--routines', '--triggers', '--add-drop-table',
-            config('database.connections.mysql.database'),
-            '--result-file=' . $path,
-        ]);
+        $dumpPath = env('DB_DUMP_PATH', 'mysqldump');
+        $host     = config('database.connections.mysql.host');
+        $port     = config('database.connections.mysql.port');
+        $user     = config('database.connections.mysql.username');
+        $pass     = config('database.connections.mysql.password');
+        $db       = config('database.connections.mysql.database');
 
-        $process->setTimeout(300);
-        $process->run();
+        $command = "{$dumpPath} --host={$host} --port={$port} --user={$user} --password=\"{$pass}\" --single-transaction --routines --triggers --add-drop-table {$db} --result-file=\"{$path}\"";
 
-        $status = $process->isSuccessful() ? 'success' : 'failed';
+        try {
+            $process = Process::fromShellCommandline($command);
+            $process->setTimeout(300);
+            $process->run();
 
-        DatabaseBackup::create([
-            'filename'           => $filename,
-            'type'               => 'scheduled',
-            'status'             => $status,
-            'size'               => ($status === 'success' && File::exists($path)) ? File::size($path) : null,
-            'backup_schedule_id' => $schedule->id,
-        ]);
+            $status = $process->isSuccessful() ? 'success' : 'failed';
 
-        // Update last_run timestamp on the schedule
-        $schedule->update(['last_run' => now()]);
+            DatabaseBackup::create([
+                'filename'           => $filename,
+                'type'               => 'scheduled',
+                'status'             => $status,
+                'size'               => ($status === 'success' && File::exists($path)) ? File::size($path) : null,
+                'backup_schedule_id' => $schedule->id,
+            ]);
 
-        // Enforce retention — delete backups older than retention days for this schedule
-        if ($status === 'success' && $schedule->retention) {
-            $cutoff = now()->subDays($schedule->retention);
-            $old    = DatabaseBackup::where('type', 'scheduled')
-                ->where('backup_schedule_id', $schedule->id)
-                ->where('created_at', '<', $cutoff)
-                ->get();
+            $schedule->update(['last_run' => now()]);
 
-            foreach ($old as $oldBackup) {
-                $oldPath = $dir . '/' . $oldBackup->filename;
-                if (File::exists($oldPath)) {
-                    File::delete($oldPath);
+            if ($status === 'success' && $schedule->retention) {
+                $cutoff = now()->subDays($schedule->retention);
+                $old    = DatabaseBackup::where('type', 'scheduled')
+                    ->where('backup_schedule_id', $schedule->id)
+                    ->where('created_at', '<', $cutoff)
+                    ->get();
+
+                foreach ($old as $oldBackup) {
+                    $oldPath = $dir . '/' . $oldBackup->filename;
+                    if (File::exists($oldPath)) {
+                        File::delete($oldPath);
+                    }
+                    $oldBackup->delete();
                 }
-                $oldBackup->delete();
             }
-        }
 
-        if (!$process->isSuccessful()) {
-            Log::error("[ScheduledBackup:{$schedule->name}] mysqldump failed: " . $process->getErrorOutput());
+            if (!$process->isSuccessful()) {
+                Log::error("[ScheduledBackup:{$schedule->name}] mysqldump failed: " . $process->getErrorOutput());
+            }
+        } catch (Exception $e) {
+            Log::error("[ScheduledBackup:{$schedule->name}] Process Exception: " . $e->getMessage());
         }
     }
 }
