@@ -8,12 +8,36 @@ import '../css/PhaseCommandCenter.css';
 
 // ─── Material Requisition Modal ───────────────────────────────────────────────
 // Engineer selects items from the approved Final BOQ and specifies qty needed.
-const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting }) => (
+// Inside PhaseCommandCenter.jsx, update the MaterialReqModal component
+
+const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting, requesterName }) => (
   <div className="pm-modal-overlay">
     <div className="pm-modal-content pm-modal-orange large">
       <div className="pm-flex-between mb-4">
         <h3 className="pm-title-lg pm-text-orange">📦 Material Requisition Alert</h3>
         <button onClick={onClose} className="pm-close-btn">✕</button>
+      </div>
+
+      {/* 👇 ADDED: Requester info */}
+      <div className="pm-requester-info" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 14px',
+        background: '#f0f9ff',
+        border: '1px solid #bae6fd',
+        borderRadius: '8px',
+        marginBottom: '16px'
+      }}>
+        <span style={{ fontSize: '18px' }}>👤</span>
+        <div>
+          <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', display: 'block' }}>
+            Requested By
+          </span>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e' }}>
+            {requesterName || '—'}
+          </span>
+        </div>
       </div>
 
       <p className="pm-text-muted">
@@ -42,7 +66,6 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
-                  {/* Description — fall back to product_code if description is blank */}
                   <td className="pm-td-bold text-left">
                     {item.description || item.product_code || '—'}
                     {item.product_code && item.description && (
@@ -51,18 +74,12 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
                       </div>
                     )}
                   </td>
-
-                  {/* Unit */}
                   <td>{item.unit || '—'}</td>
-
-                  {/* Unit Cost (auto-filled from inventory) */}
                   <td>
                     {unitCost > 0
                       ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '—'}
                   </td>
-
-                  {/* Needed Qty input */}
                   <td>
                     <input
                       type="number"
@@ -74,8 +91,6 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
                       disabled={!isSel}
                     />
                   </td>
-
-                  {/* Computed Total */}
                   <td
                     style={{
                       fontWeight: 500,
@@ -86,8 +101,6 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
                       ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '—'}
                   </td>
-
-                  {/* Select checkbox */}
                   <td>
                     <input
                       type="checkbox"
@@ -114,7 +127,6 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
     </div>
   </div>
 );
-
 // ─── Request Sent Confirmation Banner ─────────────────────────────────────────
 const RequestSentBanner = ({ onDismiss }) => (
   <div className="pm-req-sent-banner">
@@ -348,6 +360,7 @@ const PhaseCommandCenter = ({
           onSubmit={handleSubmitRequest}
           onClose={() => setShowRequestModal(false)}
           submitting={submittingRequest}
+          requesterName={user?.name || user?.username || 'Unknown'}  // 👈 ADD THIS
         />
       )}
 
