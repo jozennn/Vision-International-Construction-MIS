@@ -670,15 +670,37 @@ class ProjectController extends Controller
             'checklist'       => 'required|string',
         ]);
 
-        $project   = Project::findOrFail($id);
-        $checklist = json_decode($request->checklist, true);
-        $photoPath = null;
-
+        $project = Project::findOrFail($id);
+        
+        // Get existing inspection or create new
+        $inspection = $project->siteInspection;
+        $existingChecklist = $inspection?->checklist ?? ['inspections' => []];
+        
+        // New inspection data for this date
+        $newInspection = json_decode($request->checklist, true);
+        $date = $request->inspection_date;
+        
+        // Handle photo upload
+        $photoPath = $existingChecklist['inspections'][$date]['photo'] ?? null;
         if ($request->hasFile('site_inspection_photo')) {
             $photoPath = $request->file('site_inspection_photo')
                 ->store('project_documents', 'public');
         }
-
+        
+        // Merge with existing inspections
+        $existingChecklist['inspections'][$date] = array_merge(
+            $newInspection,
+            [
+                'time' => $request->inspection_time,
+                'inspector_name' => $request->inspector_name,
+                'position' => $request->position,
+                'photo' => $photoPath,
+            ]
+        );
+        
+        // Keep track of latest inspection date for quick reference
+        $existingChecklist['latest_date'] = $date;
+        
         $project->siteInspection()->updateOrCreate(
             ['project_id' => $project->id],
             [
@@ -686,17 +708,42 @@ class ProjectController extends Controller
                 'inspector_name'   => $request->inspector_name,
                 'position'         => $request->position,
                 'site_location'    => $request->site_location ?? $project->location,
-                'inspection_date'  => $request->inspection_date,
+                'inspection_date'  => $date,
                 'inspection_time'  => $request->inspection_time,
                 'materials_scope'  => $request->materials_scope,
                 'notes_remarks'    => $request->notes_remarks,
-                'checklist'        => $checklist,
+                'checklist'        => $existingChecklist,
                 'inspection_photo' => $photoPath,
                 'submitted_at'     => now(),
             ]
         );
 
-        return response()->json(['message' => 'Site inspection saved.']);
+        return response()->json([
+            'message' => 'Site inspection saved.',
+            'inspection' => $project->siteInspection->fresh()
+        ]);
+    }
+
+    // Add endpoint to get inspection by date (optional)
+    public function getSiteInspectionByDate(Request $request, $id): JsonResponse
+    {
+        $project = Project::findOrFail($id);
+        $inspection = $project->siteInspection;
+        $date = $request->query('date', today());
+        
+        if (!$inspection) {
+            return response()->json(['data' => null]);
+        }
+        
+        $checklist = $inspection->checklist ?? ['inspections' => []];
+        $dateData = $checklist['inspections'][$date] ?? null;
+        
+        return response()->json([
+            'data' => $dateData ? array_merge($dateData, [
+                'inspector_name' => $inspection->inspector_name,
+                'position' => $inspection->position,
+            ]) : null
+        ]);
     }
 
     public function getSiteInspection($id): JsonResponse

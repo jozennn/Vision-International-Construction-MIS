@@ -1,10 +1,12 @@
-// src/hooks/useSiteInspectionReport.js
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/api/axios';
 
 const today   = () => new Date().toISOString().split('T')[0];
-const timeNow = () => new Date().toTimeString().slice(0, 5);
+const timeNow = () => {
+    const now = new Date();
+    return now.toTimeString().slice(0, 5);
+};
 
 const safeParse = (raw) => {
     try {
@@ -13,8 +15,9 @@ const safeParse = (raw) => {
     } catch { return null; }
 };
 
-const blankReport = () => ({
-    date:        today(),
+const blankReport = (date = today()) => ({
+    id:          null,
+    date:        date,
     time:        timeNow(),
     inspectorId: '',
     preparedBy:  '',
@@ -22,15 +25,10 @@ const blankReport = () => ({
     checkedBy:   '',
     observation: '',
     problems:    [],
+    photoPath:   null,
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * Resolves the lead engineer name directly from the project object.
- * Checks project.assigned_engineers and project.assignments — no API call needed.
- */
 const resolveLeadEngineer = (project) => {
-    // Check assigned_engineers array (formatted project shape)
     const engineers = project?.assigned_engineers;
     if (Array.isArray(engineers) && engineers.length > 0) {
         const first = engineers[0];
@@ -38,7 +36,6 @@ const resolveLeadEngineer = (project) => {
         if (first?.name) return { name: first.name, position: first.position ?? 'Engineer' };
     }
 
-    // Fall back to project.assignments (raw shape)
     const assignments = project?.assignments ?? [];
     const eng = assignments.find(a =>
         ['lead_engineer', 'support_engineer', 'engineer']
@@ -54,129 +51,252 @@ const resolveLeadEngineer = (project) => {
     return { name: '', position: '' };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-/**
- * @param {string|number} projectId
- * @param {string}        projectLocation  - project.location from parent
- * @param {string|number} userId           - logged-in user id
- * @param {Object}        project          - full project object (for engineer lookup)
- */
 export const useSiteInspectionReport = (projectId, projectLocation = '', userId = null, project = null) => {
-    const [report,  setReport]  = useState(blankReport());
+    const [selectedDate, setSelectedDate] = useState(today());
+    const [currentReport, setCurrentReport] = useState(blankReport());
+    const [allInspections, setAllInspections] = useState({}); // Cache all inspections by date
     const [loading, setLoading] = useState(false);
-    const [saving,  setSaving]  = useState(false);
-    const [error,   setError]   = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState(null);
+    const [error, setError] = useState(null);
 
-    // Derive lead engineer from project prop — no API call, no 404
+    const isFirstLoad = useRef(true);
+    const autoSaveTimer = useRef(null);
+    const isDirty = useRef(false);
+
     const leadEngineer = resolveLeadEngineer(project);
 
-    // ── Auto-fill preparedBy from assigned engineer on first load ─────────
+    // ── Fetch inspection for specific date ─────────────────────────────────
+    const fetchInspectionByDate = useCallback(async (date) => {
+        if (!projectId) return null;
+        
+        // Check cache first
+        if (allInspections[date]) {
+            return allInspections[date];
+        }
+
+        try {
+            // 👇 USE THE NEW ENDPOINT
+            const res = await api.get(`/projects/${projectId}/site-inspection-by-date`, {
+                params: { date }
+            });
+            
+            const data = res.data?.data;
+            
+            if (data) {
+                const problems = safeParse(data.problems) || [];
+                const report = {
+                    date: date,
+                    time: data.time || timeNow(),
+                    inspectorId: data.inspector_id || userId || '',
+                    preparedBy: data.inspector_name || '',
+                    position: data.position || '',
+                    checkedBy: data.notes_remarks || '',
+                    observation: data.observation || data.materials_scope || '',
+                    problems: problems.filter(p => (p.problem ?? '').trim() || (p.solution ?? '').trim()),
+                    photoPath: data.photo || data.inspection_photo || null,
+                };
+                
+                // Cache it
+                setAllInspections(prev => ({ ...prev, [date]: report }));
+                return report;
+            }
+        } catch (e) {
+            // 404 means no inspection for this date - that's fine
+            if (e.response?.status !== 404) {
+                console.error('Failed to load inspection:', e);
+            }
+        }
+        return null;
+    }, [projectId, userId, allInspections]);
+
+    // ── Initialize: load inspection for selected date ───────────────────────
+    useEffect(() => {
+        const init = async () => {
+            setLoading(true);
+            
+            const saved = await fetchInspectionByDate(selectedDate);
+            
+            if (saved) {
+                setCurrentReport(saved);
+            } else {
+                // Create new report with pre-filled engineer info
+                setCurrentReport({
+                    ...blankReport(selectedDate),
+                    preparedBy: leadEngineer.name || '',
+                    position: leadEngineer.position || '',
+                });
+            }
+            
+            setLoading(false);
+            setTimeout(() => { isFirstLoad.current = false; }, 300);
+        };
+        
+        init();
+    }, [selectedDate, projectId, fetchInspectionByDate]);
+
+    // ── Pre-fill preparedBy when leadEngineer is available ─────────────────
     useEffect(() => {
         if (!leadEngineer.name) return;
-        setReport(r => ({
-            ...r,
-            // Only pre-fill if the user hasn't already typed something
-            preparedBy: r.preparedBy || leadEngineer.name,
-            position:   r.position   || leadEngineer.position,
+        if (currentReport.preparedBy) return;
+        
+        setCurrentReport(prev => ({
+            ...prev,
+            preparedBy: leadEngineer.name,
+            position: leadEngineer.position,
         }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [leadEngineer.name]);
+    }, [leadEngineer.name, leadEngineer.position]);
 
-    // ── Load previously saved inspection ──────────────────────────────────
-    const fetchInspection = useCallback(async () => {
-        if (!projectId) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await api.get(`/projects/${projectId}/site-inspection`);
-            const d   = res.data;
+    // ── Reset dirty flag when date changes ────────────────────────────────
+    useEffect(() => {
+        isDirty.current = false;
+    }, [selectedDate]);
 
-            if (!d || !d.inspection_date) return;
+    // ── Mark dirty and update report ───────────────────────────────────────
+    const markDirty = () => { isDirty.current = true; };
 
-            const problems = safeParse(d.checklist);
-
-            setReport({
-                date:        d.inspection_date    ?? today(),
-                time:        d.inspection_time    ?? timeNow(),
-                inspectorId: d.inspector_id       ?? '',
-                preparedBy:  d.inspector_name     ?? leadEngineer.name,
-                position:    d.inspector_position ?? leadEngineer.position,
-                observation: d.materials_scope    ?? '',
-                checkedBy:   d.notes_remarks      ?? '',
-                problems: (problems && problems.length > 0)
-                    ? problems.filter(p => (p.problem ?? '').trim() || (p.solution ?? '').trim())
-                    : [],
-            });
-        } catch (e) {
-            // 404 just means no inspection saved yet — not an error worth showing
-            if (e.response?.status !== 404) {
-                setError(e.response?.data?.message ?? 'Failed to load inspection.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => { fetchInspection(); }, [fetchInspection]);
-
-    // ── Field helpers ─────────────────────────────────────────────────────
-    const updateReport = (field, value) =>
-        setReport(r => ({ ...r, [field]: value }));
+    const updateReport = (field, value) => {
+        markDirty();
+        setCurrentReport(prev => ({ ...prev, [field]: value }));
+    };
 
     // ── Problem row helpers ───────────────────────────────────────────────
-    const addProblem = () =>
-        setReport(r => ({
-            ...r,
-            problems: [...r.problems, { id: Date.now(), problem: '', solution: '' }],
+    const addProblem = () => {
+        markDirty();
+        setCurrentReport(prev => ({
+            ...prev,
+            problems: [...prev.problems, { id: Date.now(), problem: '', solution: '' }],
         }));
+    };
 
-    const removeProblem = (id) =>
-        setReport(r => ({ ...r, problems: r.problems.filter(p => p.id !== id) }));
-
-    const updateProblem = (id, field, value) =>
-        setReport(r => ({
-            ...r,
-            problems: r.problems.map(p => p.id === id ? { ...p, [field]: value } : p),
+    const removeProblem = (id) => {
+        markDirty();
+        setCurrentReport(prev => ({
+            ...prev,
+            problems: prev.problems.filter(p => p.id !== id),
         }));
+    };
 
-    // ── Save ──────────────────────────────────────────────────────────────
+    const updateProblem = (id, field, value) => {
+        markDirty();
+        setCurrentReport(prev => ({
+            ...prev,
+            problems: prev.problems.map(p => p.id === id ? { ...p, [field]: value } : p),
+        }));
+    };
+
+    // ── Build payload for backend ─────────────────────────────────────────
+    const buildPayload = (report, photoFile = null) => {
+        const formData = new FormData();
+        formData.append('inspector_id', String(userId || ''));
+        formData.append('inspector_name', report.preparedBy || '');
+        formData.append('inspector_position', report.position || 'Engineer');
+        formData.append('inspection_date', report.date);
+        formData.append('inspection_time', report.time);
+        formData.append('materials_scope', report.observation || '');
+        formData.append('notes_remarks', report.checkedBy || '');
+        formData.append('site_location', projectLocation || '');
+        
+        // Send problems as part of checklist
+        const checklistData = {
+            problems: report.problems,
+            observation: report.observation,
+        };
+        formData.append('checklist', JSON.stringify(checklistData));
+        
+        if (photoFile) {
+            formData.append('site_inspection_photo', photoFile);
+        }
+        
+        return formData;
+    };
+
+    // ── Auto-save (debounced) ─────────────────────────────────────────────
+    useEffect(() => {
+        if (isFirstLoad.current) return;
+        if (!projectId) return;
+        if (!isDirty.current) return;
+
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
+        autoSaveTimer.current = setTimeout(async () => {
+            setSaveStatus('saving');
+            try {
+                const payload = buildPayload(currentReport);
+                await api.post(
+                    `/projects/${projectId}/site-inspection`,
+                    payload,
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+                
+                // Update cache
+                setAllInspections(prev => ({
+                    ...prev,
+                    [selectedDate]: currentReport
+                }));
+
+                isDirty.current = false;
+                setSaveStatus('saved');
+                setTimeout(() => setSaveStatus(null), 3000);
+            } catch (e) {
+                console.error('[SiteInspection] auto-save failed:', e);
+                setSaveStatus('error');
+                setTimeout(() => setSaveStatus(null), 4000);
+            }
+        }, 1500);
+
+        return () => clearTimeout(autoSaveTimer.current);
+    }, [currentReport, projectId, selectedDate]);
+
+    // ── Manual save (with photo) ──────────────────────────────────────────
     const saveInspection = async ({ photoFile = null } = {}) => {
         if (!projectId) return;
         setSaving(true);
         setError(null);
         try {
-            const formData = new FormData();
-            formData.append('inspector_id',       report.inspectorId || userId || '');
-            formData.append('inspector_name',     report.preparedBy);
-            formData.append('inspector_position', report.position);
-            formData.append('inspection_date',    report.date);
-            formData.append('inspection_time',    report.time);
-            formData.append('materials_scope',    report.observation);
-            formData.append('notes_remarks',      report.checkedBy);
-            formData.append('location',           projectLocation);
-            formData.append('checklist',          JSON.stringify(report.problems));
-            if (photoFile) formData.append('site_inspection_photo', photoFile);
-
-            const res = await api.post(
+            const payload = buildPayload(currentReport, photoFile);
+            await api.post(
                 `/projects/${projectId}/site-inspection`,
-                formData,
+                payload,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
-            return res.data;
+            
+            // Update cache
+            setAllInspections(prev => ({
+                ...prev,
+                [selectedDate]: currentReport
+            }));
+
+            isDirty.current = false;
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus(null), 3000);
+            
+            return true;
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save inspection.';
             setError(msg);
+            setSaveStatus('error');
             throw new Error(msg);
         } finally {
             setSaving(false);
         }
     };
 
+    // Get list of dates that have inspections
+    const getAvailableDates = useCallback(() => {
+        return Object.keys(allInspections).sort().reverse();
+    }, [allInspections]);
+
     return {
-        report,
-        leadEngineer,   // { name, position } — use for display
+        selectedDate,
+        setSelectedDate,
+        currentReport,
+        allInspections,
+        availableDates: getAvailableDates(),
+        leadEngineer,
         loading,
         saving,
+        saveStatus,
         error,
         projectLocation,
         updateReport,
@@ -184,6 +304,5 @@ export const useSiteInspectionReport = (projectId, projectLocation = '', userId 
         removeProblem,
         updateProblem,
         saveInspection,
-        fetchInspection,
     };
 };

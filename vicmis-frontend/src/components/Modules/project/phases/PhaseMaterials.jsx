@@ -3,6 +3,210 @@ import BoqTable from '../components/BoqTable.jsx';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseMaterials.css';
 import api from '@/api/axios';
+import warehouseInventoryService from '@/api/warehouseInventoryService';
+import { X, Loader2, RotateCcw, PackageCheck, ShoppingCart } from 'lucide-react';
+
+// Reorder Modal Component - Shows ALL BOQ items for reorder
+const ReorderModal = ({ boqItems, onConfirm, onClose, loading }) => {
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [quantityNeeded, setQuantityNeeded] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const handleConfirm = () => {
+    if (!selectedItem || !quantityNeeded) return;
+    onConfirm({
+      item: selectedItem,
+      quantity_needed: parseInt(quantityNeeded, 10),
+      notes: notes || null
+    });
+  };
+
+  // When item is selected, pre-fill quantity needed with BOQ required quantity
+  const handleItemSelect = (item) => {
+    setSelectedItem(item);
+    setQuantityNeeded(item.qty || ''); // Pre-fill with BOQ required quantity
+  };
+
+  // Determine stock status styling
+  const getStockStatusClass = (availability) => {
+    if (availability === 'NO STOCK') return 'avail-no';
+    if (availability === 'LOW STOCK') return 'avail-low';
+    return 'avail-on';
+  };
+
+  return (
+    <div className="wh-overlay reorder-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="wh-modal reorder-modal">
+        {/* Header */}
+        <div className="reorder-modal-header reorder-standard">
+          <div className="reorder-modal-header-left">
+            <div className="reorder-icon-wrap">
+              <ShoppingCart size={20} />
+            </div>
+            <div>
+              <h2 className="reorder-modal-title">Request Reorder</h2>
+              <p className="reorder-modal-sub">Select any item from the BOQ to request additional stock.</p>
+            </div>
+          </div>
+          <button className="wh-modal-close reorder-close" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        {/* Item Selection */}
+        <div className="reorder-fields-wrap" style={{ paddingTop: '1rem' }}>
+          <div className="reorder-field-group">
+            <label className="reorder-notes-label">
+              Select Item from BOQ <span className="reorder-required">*</span>
+            </label>
+            <div className="wh-select-wrap">
+              <select 
+                value={selectedItem?.code || ''}
+                onChange={(e) => {
+                  const item = boqItems.find(i => i.code === e.target.value);
+                  handleItemSelect(item);
+                }}
+                style={{ width: '100%', padding: '0.65rem 2rem 0.65rem 0.75rem' }}
+              >
+                <option value="">— Select Item —</option>
+                {boqItems.map((item, idx) => (
+                  <option key={idx} value={item.code}>
+                    {item.category} - {item.code} (Required: {item.qty} {item.unit})
+                  </option>
+                ))}
+              </select>
+              <svg className="wh-select-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {selectedItem && (
+          <>
+            {/* Product identity block */}
+            <div className="reorder-product-card">
+              <div className="reorder-product-identity">
+                <div className="reorder-identity-row">
+                  <span className="reorder-identity-label">Category</span>
+                  <span className="reorder-category-badge">{selectedItem.category}</span>
+                </div>
+                <div className="reorder-identity-row">
+                  <span className="reorder-identity-label">Item Code</span>
+                  <span className="reorder-code">{selectedItem.code}</span>
+                </div>
+                {selectedItem.unitCost > 0 && (
+                  <div className="reorder-identity-row">
+                    <span className="reorder-identity-label">Unit Price</span>
+                    <span className="reorder-code">₱{selectedItem.unitCost.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats row */}
+              <div className="reorder-product-stats">
+                <div className="reorder-stat">
+                  <span className="reorder-stat-label">BOQ Required</span>
+                  <span className="reorder-stat-value">
+                    {selectedItem.qty} <em>{selectedItem.unit}</em>
+                  </span>
+                </div>
+                <div className="reorder-stat-divider" />
+                <div className="reorder-stat">
+                  <span className="reorder-stat-label">Current Stock</span>
+                  <span className={`wh-avail ${getStockStatusClass(selectedItem.availability)}`}>
+                    {selectedItem.currentStock || 0} {selectedItem.unit}
+                  </span>
+                </div>
+                <div className="reorder-stat-divider" />
+                <div className="reorder-stat">
+                  <span className="reorder-stat-label">Status</span>
+                  <span className={`wh-avail ${getStockStatusClass(selectedItem.availability)}`} style={{ fontSize: '0.68rem' }}>
+                    {selectedItem.availability}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Fields */}
+            <div className="reorder-fields-wrap">
+              <div className="reorder-field-group">
+                <label className="reorder-notes-label">
+                  Quantity Needed <span className="reorder-required">*</span>
+                </label>
+                <div className="reorder-qty-wrap">
+                  <input
+                    type="number"
+                    min="1"
+                    className="reorder-qty-input"
+                    placeholder="Enter quantity"
+                    value={quantityNeeded}
+                    onChange={e => setQuantityNeeded(e.target.value)}
+                  />
+                  <span className="reorder-qty-unit">{selectedItem.unit}</span>
+                </div>
+                {quantityNeeded > 0 && selectedItem.unitCost > 0 && (
+                  <p className="wh-hint" style={{ marginTop: 6, color: '#059669', fontWeight: 600 }}>
+                    Estimated cost: ₱{(quantityNeeded * selectedItem.unitCost).toLocaleString()}
+                  </p>
+                )}
+                {selectedItem.qty > 0 && (
+                  <p className="wh-hint" style={{ marginTop: 4 }}>
+                    💡 BOQ required quantity: {selectedItem.qty} {selectedItem.unit}
+                  </p>
+                )}
+              </div>
+
+              <div className="reorder-field-group">
+                <label className="reorder-notes-label">
+                  Notes for Procurement <span className="reorder-optional">(optional)</span>
+                </label>
+                <textarea
+                  className="reorder-notes-input"
+                  rows={3}
+                  placeholder="e.g. Additional quantity needed beyond BOQ, urgent delivery..."
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Footer */}
+        <div className="reorder-modal-footer">
+          <button type="button" className="wh-btn-cancel" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="reorder-confirm-btn reorder-standard"
+            onClick={handleConfirm}
+            disabled={loading || !selectedItem || !quantityNeeded}
+          >
+            {loading
+              ? <><Loader2 size={15} className="wh-spinner" /> Sending…</>
+              : <><RotateCcw size={15} /> Send Reorder Request</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Success Toast Component
+const ReorderToast = ({ message, onDismiss }) => {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div className="reorder-toast">
+      <PackageCheck size={16} />
+      <span>{message}</span>
+      <button className="reorder-toast-close" onClick={onDismiss}><X size={13} /></button>
+    </div>
+  );
+};
 
 const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOpsAss, onAdvance, onUploadAdvance, onReject, renderDocumentLink, refreshProject}) => {
   // Initialize award details from saved project data
@@ -11,24 +215,42 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     amount: project.contract_amount || ''
   });
 
-  const [drFile, setDrFile] = useState(null);
   const [biddingFile, setBiddingFile] = useState(null);
   const [awardFile, setAwardFile] = useState(null);
   
-  const [uploadingDr, setUploadingDr] = useState(false);
   const [uploadingBidding, setUploadingBidding] = useState(false);
   const [uploadingAward, setUploadingAward] = useState(false);
 
   // Local upload success flags — so button enables immediately after upload
-  const [drUploaded, setDrUploaded] = useState(false);
   const [biddingUploaded, setBiddingUploaded] = useState(false);
   const [awardUploaded, setAwardUploaded] = useState(false);
 
-  const drInputRef = useRef();
   const biddingInputRef = useRef();
   const awardInputRef = useRef();
 
+  // Reorder state
+  const [showReorderModal, setShowReorderModal] = useState(false);
+  const [reorderLoading, setReorderLoading] = useState(false);
+  const [reorderToast, setReorderToast] = useState(null);
+  
+  // Inventory data for stock status
+  const [inventory, setInventory] = useState([]);
+
   const { status } = project;
+
+  // Fetch inventory data for stock status
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const res = await warehouseInventoryService.getAll({ per_page: 9999 });
+        const rows = res.data?.data ?? res.data ?? [];
+        setInventory(Array.isArray(rows) ? rows : []);
+      } catch (err) {
+        console.error('Failed to fetch inventory:', err);
+      }
+    };
+    fetchInventory();
+  }, []);
 
   // Sync award details from project prop when it changes
   useEffect(() => {
@@ -45,7 +267,6 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     if (!file) return false;
 
     const setUploading = 
-      fileKey === 'delivery_receipt_document' ? setUploadingDr :
       fileKey === 'bidding_document' ? setUploadingBidding :
       setUploadingAward;
 
@@ -69,6 +290,56 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     }
   };
 
+  // Handle reorder request using warehouseInventoryService
+  const handleReorderRequest = async ({ item, quantity_needed, notes }) => {
+    setReorderLoading(true);
+    try {
+      await warehouseInventoryService.requestReorder({
+        project_id: project.id,
+        project_name: project.project_name,
+        product_category: item.category,
+        product_code: item.code,
+        quantity_needed: quantity_needed,
+        unit: item.unit,
+        unit_cost: item.unitCost,
+        total_cost: quantity_needed * item.unitCost,
+        notes: notes || `Reorder request from project: ${project.project_name}`,
+        requested_by: 'Logistics',
+        status: project.status
+      });
+      
+      setShowReorderModal(false);
+      setReorderToast(`Reorder request sent for ${item.code} (${quantity_needed} ${item.unit})!`);
+    } catch (err) {
+      alert(`Failed to send reorder request: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
+  // Extract ALL BOQ items for reorder modal - FIXED: Use correct field names from BoqTable
+  const getBoqItemsForReorder = () => {
+    const rows = boqData?.finalBOQ || [];
+    if (!rows || !Array.isArray(rows) || rows.length === 0) return [];
+    
+    return rows
+      .filter(row => row.product_category && row.product_code) // Filter out empty rows
+      .map(row => {
+        // Find matching inventory item to get current stock and availability
+        const invItem = inventory.find(i => i.product_code === row.product_code);
+        
+        return {
+          category: row.product_category || '—',
+          code: row.product_code || '—',
+          qty: parseFloat(row.qty) || 0,
+          unit: row.unit || 'Pcs',
+          unitCost: parseFloat(row.unitCost) || 0,
+          availability: invItem?.availability || 'ON STOCK',
+          currentStock: invItem?.current_stock || 0
+        };
+      });
+  };
+
   // Validation for award section
   const isAwardValid =
     (project.subcontractor_agreement_document || awardUploaded) &&
@@ -76,10 +347,6 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
     awardDetails.amount.trim() !== '';
 
   const resetOthers = (except) => {
-    if (except !== 'dr') {
-      if (drInputRef.current) drInputRef.current.value = '';
-      setDrFile(null);
-    }
     if (except !== 'bidding') {
       if (biddingInputRef.current) biddingInputRef.current.value = '';
       setBiddingFile(null);
@@ -94,6 +361,10 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
   if (status === 'Checking of Delivery of Materials' && (isEng || isLogistics || isOpsAss)) {
     return (
       <div className="pm-phase-wrapper">
+        {reorderToast && (
+          <ReorderToast message={reorderToast} onDismiss={() => setReorderToast(null)} />
+        )}
+        
         {project.rejection_notes && (
           <div className="pm-card-red">
             <h4 className="pm-title-md pm-label-red">🚨 REVISION REQUIRED FROM LOGISTICS</h4>
@@ -117,44 +388,9 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   onAdd={() => {}} onRemove={() => {}} onChange={() => {}} />
             </div>
 
-            <div className="pm-card-cream">
-              <h4 className="pm-title-lg">Upload P.O / Proof of Payment</h4>
-
-              {(project.delivery_receipt_document || drUploaded) && (
-                <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#E8F5E9', borderLeft: '3px solid #4CAF50' }}>
-                  <strong style={{ color: '#2E7D32' }}>✅ File uploaded:</strong>
-                  {project.delivery_receipt_document
-                    ? renderDocumentLink('P.O / Proof of Payment', project.delivery_receipt_document)
-                    : <span style={{ marginLeft: '0.5rem', color: '#2E7D32' }}>File uploaded successfully</span>
-                  }
-                </div>
-              )}
-
-              <input
-                type="file"
-                ref={drInputRef}
-                accept="image/*,.pdf"
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  setDrFile(file);
-                  resetOthers('dr');
-                  if (file) {
-                    const success = await uploadFileImmediately(file, 'delivery_receipt_document');
-                    if (success) {
-                      setDrUploaded(true);
-                      await refreshProject?.();
-                    }
-                  }
-                }}
-                className="pm-file-input"
-                disabled={uploadingDr}
-              />
-
-              {uploadingDr && <p style={{ color: '#F59E0B', margin: '0.5rem 0' }}>⏳ Uploading file...</p>}
-
+            <div style={{ marginTop: '2rem' }}>
               <PrimaryButton
                 variant="red"
-                disabled={!project.delivery_receipt_document && !drUploaded}
                 onClick={() => onAdvance('Pending DR Verification')}
               >
                 Submit for DR Verification
@@ -168,19 +404,29 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
 
   /* ── 2. Pending DR Verification ── */
   if (status === 'Pending DR Verification' && isLogistics) {
+    const boqItems = getBoqItemsForReorder();
+    
     return (
       <div className="pm-phase-wrapper">
+        {reorderToast && (
+          <ReorderToast message={reorderToast} onDismiss={() => setReorderToast(null)} />
+        )}
+        
+        {showReorderModal && (
+          <ReorderModal
+            boqItems={boqItems}
+            onConfirm={handleReorderRequest}
+            onClose={() => setShowReorderModal(false)}
+            loading={reorderLoading}
+          />
+        )}
+        
         <div className="pm-card">
           <div className="pm-card-navy">
             <h3 className="pm-title-md" style={{ color: 'white', margin: 0 }}>🔍 Logistics Stock Verification</h3>
           </div>
 
           <div className="pm-card-body">
-            <div className="pm-card-gray">
-              <h4 className="pm-title-md">Uploaded P.O / Proof of Payment</h4>
-              {renderDocumentLink('Purchase Order / Proof of Payment', project.delivery_receipt_document)}
-            </div>
-
             <div className="pm-card-gray" style={{ minWidth: 0, overflow: 'hidden' }}>
               <h4 className="pm-title-md">Final BOQ — Stock Cross-Reference</h4>
               <BoqTable type="finalBOQ" boqData={boqData} readOnly={true}
@@ -198,8 +444,18 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
             </div>
 
             <div className="pm-grid-2">
-              <button onClick={() => onReject('Checking of Delivery of Materials')} className="pm-btn-outline">
-                ❌ Reject — Insufficient Stock
+              <button 
+                onClick={() => setShowReorderModal(true)} 
+                className="pm-btn-outline"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <ShoppingCart size={16} />
+                Request Reorder
               </button>
               <PrimaryButton variant="green" onClick={() => onAdvance('Bidding of Project')}>
                 ✓ Stock Verified — Proceed
@@ -230,37 +486,42 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
             <div className="pm-card-cream">
               <h4 className="pm-title-lg">Upload Winning Subcontractor Bid</h4>
 
-              {(project.bidding_document || biddingUploaded) && (
+              {(project.bidding_document || biddingUploaded) ? (
                 <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#E8F5E9', borderLeft: '3px solid #4CAF50' }}>
                   <strong style={{ color: '#2E7D32' }}>✅ File uploaded:</strong>
-                  {project.bidding_document
-                    ? renderDocumentLink('Winning Bid', project.bidding_document)
-                    : <span style={{ marginLeft: '0.5rem', color: '#2E7D32' }}>File uploaded successfully</span>
-                  }
+                  {project.bidding_document ? (
+                    <div style={{ marginTop: '8px' }}>
+                      {renderDocumentLink('Winning Bid', project.bidding_document)}
+                    </div>
+                  ) : (
+                    <span style={{ marginLeft: '0.5rem', color: '#2E7D32' }}>File uploaded successfully</span>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <input
+                    type="file"
+                    ref={biddingInputRef}
+                    accept="image/*,.pdf"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      setBiddingFile(file);
+                      resetOthers('bidding');
+                      if (file) {
+                        const success = await uploadFileImmediately(file, 'bidding_document');
+                        if (success) {
+                          setBiddingUploaded(true);
+                          await refreshProject?.();
+                        }
+                      }
+                    }}
+                    className="pm-file-input"
+                    disabled={uploadingBidding}
+                  />
+
+                  {uploadingBidding && <p style={{ color: '#F59E0B', margin: '0.5rem 0' }}>⏳ Uploading file...</p>}
+                </>
               )}
-
-              <input
-                type="file"
-                ref={biddingInputRef}
-                accept="image/*,.pdf"
-                onChange={async (e) => {
-                  const file = e.target.files[0];
-                  setBiddingFile(file);
-                  resetOthers('bidding');
-                  if (file) {
-                    const success = await uploadFileImmediately(file, 'bidding_document');
-                    if (success) {
-                      setBiddingUploaded(true);
-                      await refreshProject?.();
-                    }
-                  }
-                }}
-                className="pm-file-input"
-                disabled={uploadingBidding}
-              />
-
-              {uploadingBidding && <p style={{ color: '#F59E0B', margin: '0.5rem 0' }}>⏳ Uploading file...</p>}
 
               <PrimaryButton
                 variant="red"
@@ -295,7 +556,7 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
                   <span className="pm-award-step-dot pm-dot-blue" /> Approved Bid
                 </div>
                 <div className="pm-award-doc-block">
-                  {renderDocumentLink('Winning Subcontractor Quote', project.bidding_document)}
+                  {project.bidding_document && renderDocumentLink('Winning Subcontractor Quote', project.bidding_document)}
                 </div>
               </div>
 
@@ -398,10 +659,11 @@ const PhaseMaterials = ({ project, boqData, isEng, isLogistics, isEngHead, isOps
 
                   {(project.subcontractor_agreement_document || awardUploaded) && (
                     <div style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-                      {project.subcontractor_agreement_document
-                        ? renderDocumentLink('Current Agreement', project.subcontractor_agreement_document)
-                        : <span style={{ color: '#2E7D32' }}>✅ Agreement uploaded successfully</span>
-                      }
+                      {project.subcontractor_agreement_document ? (
+                        renderDocumentLink('Current Agreement', project.subcontractor_agreement_document)
+                      ) : (
+                        <span style={{ color: '#2E7D32' }}>✅ Agreement uploaded successfully</span>
+                      )}
                     </div>
                   )}
 

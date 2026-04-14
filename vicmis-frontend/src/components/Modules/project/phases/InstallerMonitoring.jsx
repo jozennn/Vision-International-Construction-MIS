@@ -54,43 +54,340 @@ const InstallerMonitoring = ({ project, user }) => {
         } catch {}
     };
 
+    // ─── Export to Excel ──────────────────────────────────────────────────────
     const exportExcel = async () => {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Daily Monitoring');
-        const NAVY='FF1A1A2E',RED='FFFF1817',YELLOW='FFFFFF00',CREAM='FFEBDBD6',LGRAY='FFF2F2F2';
-        const b=(sz=10)=>({bold:true,size:sz,name:'Arial'});
-        const n=(sz=10)=>({bold:false,size:sz,name:'Arial'});
-        const ctr={horizontal:'center',vertical:'middle',wrapText:true};
-        const lft={horizontal:'left',vertical:'middle',wrapText:true};
-        const fill=(c)=>({type:'pattern',pattern:'solid',fgColor:{argb:c}});
-        const thin={style:'thin',color:{argb:'FF000000'}};
-        const brd={top:thin,bottom:thin,left:thin,right:thin};
-        ws.columns=[{width:6},{width:28},{width:14},{width:14},{width:22},{width:28}];
-        let r=1;
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value='VISION INTERNATIONAL CONSTRUCTION OPC\n"You Envision, We Build"';
-        ws.getCell(`A${r}`).font={bold:true,size:13,name:'Arial',color:{argb:'FFFFFFFF'}};
-        ws.getCell(`A${r}`).fill=fill(NAVY); ws.getCell(`A${r}`).alignment=ctr; ws.getCell(`A${r}`).border=brd;
-        ws.getRow(r).height=40; r++;
-        ws.mergeCells(`A${r}:F${r}`);
-        ws.getCell(`A${r}`).value="INSTALLER'S DAILY MONITORING ON SITE";
-        ws.getCell(`A${r}`).font=b(12); ws.getCell(`A${r}`).fill=fill(CREAM);
-        ws.getCell(`A${r}`).alignment=ctr; ws.getCell(`A${r}`).border=brd;
-        ws.getRow(r).height=22; r++;
-        [['Project',projectName],['Location',location],['Requirement:',requirement],
-         ['Installer (Lead Man):',leadMan],['Total Area:',currentLog.totalArea],
-         ['Date:',new Date(currentLog.date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})]
-        ].forEach(([lbl,val])=>{
-            ws.mergeCells(`A${r}:B${r}`); ws.mergeCells(`C${r}:F${r}`);
-            ws.getCell(`A${r}`).value=lbl; ws.getCell(`A${r}`).font=b(); ws.getCell(`A${r}`).alignment=lft; ws.getCell(`A${r}`).border=brd;
-            ws.getCell(`C${r}`).value=val; ws.getCell(`C${r}`).font=n(); ws.getCell(`C${r}`).alignment=lft; ws.getCell(`C${r}`).border=brd;
-            ws.getRow(r).height=18; r++;
+
+        // ── Palette ───────────────────────────────────────────────────────────
+        const NAVY   = 'FF1A1A2E';
+        const CREAM  = 'FFF5EDE8';
+        const LGRAY  = 'FFF2F2F2';
+        const MGRAY  = 'FFE0E0E0';
+        const DGRAY  = 'FF4A4A4A';
+        const WHITE  = 'FFFFFFFF';
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+        const fill  = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+        const thin  = (argb = 'FFB0B0B0') => ({ style: 'thin',   color: { argb } });
+        const thick = (argb = 'FF1A1A2E') => ({ style: 'medium', color: { argb } });
+        const brd   = (c = 'FFB0B0B0') => ({ top: thin(c), bottom: thin(c), left: thin(c), right: thin(c) });
+        const brdThick = () => ({ top: thick(), bottom: thick(), left: thick(), right: thick() });
+        const ctr   = { horizontal: 'center',  vertical: 'middle', wrapText: true };
+        const lft   = { horizontal: 'left',    vertical: 'middle', wrapText: true };
+
+        const font = (opts = {}) => ({
+            name:   'Arial',
+            size:   opts.size  ?? 10,
+            bold:   opts.bold  ?? false,
+            color:  { argb: opts.color ?? 'FF000000' },
+            italic: opts.italic ?? false,
         });
+
+        const style = (cell, opts = {}) => {
+            if (opts.font)      cell.font      = opts.font;
+            if (opts.fill)      cell.fill      = opts.fill;
+            if (opts.alignment) cell.alignment = opts.alignment;
+            if (opts.border)    cell.border    = opts.border;
+        };
+
+        // ── Column widths ─────────────────────────────────────────────────────
+        ws.columns = [
+            { width: 5  },  // A – row #
+            { width: 26 },  // B – name / label
+            { width: 16 },  // C – position / value
+            { width: 16 },  // D – time in
+            { width: 16 },  // E – time out
+            { width: 32 },  // F – remarks / value
+        ];
+
+        let r = 1;
+
+        // ── 1. COMPANY HEADER ────────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const hdr = ws.getCell(`A${r}`);
+        hdr.value = 'VISION INTERNATIONAL CONSTRUCTION OPC\n"You Envision, We Build"';
+        style(hdr, {
+            font:      font({ size: 14, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: ctr,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 48;
         r++;
-        const buf=await wb.xlsx.writeBuffer();
-        const dateStr=new Date(currentLog.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'}).replace(/ /g,'-');
-        saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
-            `${projectName}_DailyLog_${dateStr}.xlsx`);
+
+        // ── 2. SUBTITLE ──────────────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const sub = ws.getCell(`A${r}`);
+        sub.value = "INSTALLER'S DAILY MONITORING ON SITE";
+        style(sub, {
+            font:      font({ size: 11, bold: true }),
+            fill:      fill(CREAM),
+            alignment: ctr,
+            border:    brd(),
+        });
+        ws.getRow(r).height = 22;
+        r++;
+
+        // ── 3. PROJECT INFO BLOCK ────────────────────────────────────────────
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const dt = new Date(d + 'T00:00:00');
+            return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        };
+
+        const infoRows = [
+            ['Project',              projectName],
+            ['Location',             location],
+            ['Requirement',          requirement],
+            ['Installer (Lead Man)', leadMan],
+            ['Total Area Logged',    currentLog.totalArea || '—'],
+            ['Date',                 fmtDate(currentLog.date)],
+        ];
+
+        infoRows.forEach(([label, value]) => {
+            ws.mergeCells(`A${r}:B${r}`);
+            ws.mergeCells(`C${r}:F${r}`);
+
+            const lc = ws.getCell(`A${r}`);
+            lc.value = label;
+            style(lc, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
+
+            const vc = ws.getCell(`C${r}`);
+            vc.value = value;
+            style(vc, { font: font(), fill: fill(WHITE), alignment: lft, border: brd() });
+
+            ws.getRow(r).height = 18;
+            r++;
+        });
+
+        // Status / Remarks
+        ws.mergeCells(`A${r}:B${r}`);
+        ws.mergeCells(`C${r}:F${r}`);
+        const sLbl = ws.getCell(`A${r}`);
+        sLbl.value = 'Status / Remarks';
+        style(sLbl, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
+        const sVal = ws.getCell(`C${r}`);
+        sVal.value = currentLog.remarks || '—';
+        style(sVal, { font: font(), fill: fill(WHITE), alignment: lft, border: brd() });
+        ws.getRow(r).height = 32;
+        r++;
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 4. TIMELINE LOGS SECTION ─────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const tlHdr = ws.getCell(`A${r}`);
+        tlHdr.value = 'TIMELINE LOGS';
+        style(tlHdr, {
+            font:      font({ size: 10, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: lft,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 20;
+        r++;
+
+        // Sub-headers
+        const tlSubHeaders = ['', 'From Client — Start', 'Actual Start', '', 'From Client — End', 'Actual End'];
+        ['A','B','C','D','E','F'].forEach((col, i) => {
+            const c = ws.getCell(`${col}${r}`);
+            c.value = tlSubHeaders[i];
+            style(c, { font: font({ bold: true, size: 9 }), fill: fill(MGRAY), alignment: ctr, border: brd() });
+        });
+        ws.getRow(r).height = 16;
+        r++;
+
+        // Values
+        const tlValues = [
+            '', fmtDate(currentLog.clientStart), fmtDate(currentLog.actualStart),
+            '', fmtDate(currentLog.clientEnd),   fmtDate(currentLog.actualEnd),
+        ];
+        ['A','B','C','D','E','F'].forEach((col, i) => {
+            const c = ws.getCell(`${col}${r}`);
+            c.value = tlValues[i];
+            style(c, { font: font(), fill: fill(WHITE), alignment: ctr, border: brd() });
+        });
+        ws.getRow(r).height = 18;
+        r++;
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 5. INSTALLER TABLE ───────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const instHdr = ws.getCell(`A${r}`);
+        instHdr.value = `INSTALLERS  —  ${selectedDate}`;
+        style(instHdr, {
+            font:      font({ size: 10, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: lft,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 20;
+        r++;
+
+        // Table column headers
+        const tblHeaders = ['#', 'Name', 'Position', 'Time In', 'Time Out', 'Remarks'];
+        ['A','B','C','D','E','F'].forEach((col, i) => {
+            const c = ws.getCell(`${col}${r}`);
+            c.value = tblHeaders[i];
+            style(c, {
+                font:      font({ bold: true, size: 9, color: WHITE }),
+                fill:      fill('FF2D2D44'),
+                alignment: i === 0 ? ctr : lft,
+                border:    brd('FF000000'),
+            });
+        });
+        ws.getRow(r).height = 18;
+        r++;
+
+        // Installer rows
+        const fmt12hr = (t) => {
+            if (!t) return '—';
+            const [h, m] = t.split(':');
+            const hh   = parseInt(h);
+            const ampm = hh >= 12 ? 'PM' : 'AM';
+            const disp = hh % 12 || 12;
+            return `${disp}:${m} ${ampm}`;
+        };
+
+        (currentLog.rows || []).forEach((row, idx) => {
+            const rowFill = idx % 2 === 0 ? WHITE : 'FFFAFAFA';
+            const cells = [
+                [idx + 1,            ctr],
+                [row.name     || '—', lft],
+                [row.position || '—', lft],
+                [fmt12hr(row.timeIn),  ctr],
+                [fmt12hr(row.timeOut), ctr],
+                [row.remarks  || '',  lft],
+            ];
+            ['A','B','C','D','E','F'].forEach((col, i) => {
+                const c = ws.getCell(`${col}${r}`);
+                c.value = cells[i][0];
+                style(c, { font: font(), fill: fill(rowFill), alignment: cells[i][1], border: brd() });
+            });
+            ws.getRow(r).height = 18;
+            r++;
+        });
+
+        // Roster summary row
+        const rosterSummary = ['Lead Installer', 'Installer', 'Helper', 'Supervisor']
+            .map(pos => {
+                const count = (currentLog.rows || []).filter(row => row.position === pos).length;
+                return count > 0 ? `${count} ${pos}` : null;
+            })
+            .filter(Boolean)
+            .join('   •   ');
+
+        if (rosterSummary) {
+            ws.mergeCells(`A${r}:F${r}`);
+            const sumCell = ws.getCell(`A${r}`);
+            sumCell.value = rosterSummary;
+            style(sumCell, {
+                font:      font({ size: 9, italic: true, color: DGRAY }),
+                fill:      fill(LGRAY),
+                alignment: lft,
+                border:    brd(),
+            });
+            ws.getRow(r).height = 16;
+            r++;
+        }
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 6. PHOTO ATTACHMENTS ─────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const photoHdr = ws.getCell(`A${r}`);
+        photoHdr.value = 'PHOTO ATTACHMENTS';
+        style(photoHdr, {
+            font:      font({ size: 10, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: lft,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 20;
+        r++;
+
+        const photoEntries = [
+            ['Main Progress Photo', photoMain],
+            ['Team Photo 1',        photo1],
+            ['Team Photo 2',        photo2],
+        ];
+
+        for (const [label, fileObj] of photoEntries) {
+            ws.mergeCells(`A${r}:B${r}`);
+            ws.mergeCells(`C${r}:F${r}`);
+
+            const lc = ws.getCell(`A${r}`);
+            lc.value = label;
+            style(lc, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
+
+            const vc = ws.getCell(`C${r}`);
+
+            if (fileObj) {
+                try {
+                    const buf  = await fileObj.arrayBuffer();
+                    const ext  = fileObj.name.split('.').pop().toLowerCase();
+                    const mime = ext === 'png' ? 'png' : 'jpeg';
+                    const b64  = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                    const imgId = wb.addImage({ base64: b64, extension: mime });
+                    ws.getRow(r).height = 80;
+                    ws.addImage(imgId, {
+                        tl: { col: 2, row: r - 1 },
+                        br: { col: 6, row: r },
+                        editAs: 'oneCell',
+                    });
+                    vc.value = '';
+                } catch {
+                    vc.value = `[Image: ${fileObj.name}]`;
+                    ws.getRow(r).height = 18;
+                }
+            } else {
+                vc.value = '(no photo attached)';
+                ws.getRow(r).height = 18;
+            }
+
+            style(vc, { font: font({ italic: true, color: DGRAY }), fill: fill(WHITE), alignment: lft, border: brd() });
+            r++;
+        }
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 7. FOOTER ─────────────────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const footer = ws.getCell(`A${r}`);
+        footer.value = `Generated on ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })} · Vision International Construction OPC`;
+        style(footer, {
+            font:      font({ size: 8, italic: true, color: DGRAY }),
+            fill:      fill(LGRAY),
+            alignment: ctr,
+            border:    brd(),
+        });
+        ws.getRow(r).height = 14;
+
+        // ── Print settings ────────────────────────────────────────────────────
+        ws.pageSetup = {
+            paperSize:   9,
+            orientation: 'portrait',
+            fitToPage:   true,
+            fitToWidth:  1,
+            fitToHeight: 0,
+            margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+        };
+
+        // ── Save ──────────────────────────────────────────────────────────────
+        const buf = await wb.xlsx.writeBuffer();
+        const dateStr = new Date(currentLog.date + 'T00:00:00')
+            .toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+            .replace(/ /g, '-');
+        saveAs(
+            new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `${projectName}_DailyLog_${dateStr}.xlsx`
+        );
     };
 
     if (loading) return <div className="mon-loading">⏳ Loading logs...</div>;
@@ -100,8 +397,8 @@ const InstallerMonitoring = ({ project, user }) => {
             {/* Header */}
             <div className="mon-page-header">
                 <div className="mon-header-meta">
-                    {[['Project',projectName],['Location',location],
-                      ['Requirement',requirement],['Lead Installer',leadMan]].map(([l,v]) => (
+                    {[['Project', projectName], ['Location', location],
+                      ['Requirement', requirement], ['Lead Installer', leadMan]].map(([l, v]) => (
                         <div key={l} className="mon-header-field">
                             <span className="mon-header-label">{l}</span>
                             <span className="mon-header-value">{v}</span>
@@ -109,7 +406,6 @@ const InstallerMonitoring = ({ project, user }) => {
                     ))}
                 </div>
                 <div className="mon-header-actions">
-                    {/* Auto-save indicator sits next to the buttons */}
                     <SaveIndicator status={saveStatus} />
                     <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
                     <button className="mon-btn mon-btn-navy" onClick={handleSave} disabled={saving}>
@@ -253,7 +549,7 @@ const InstallerMonitoring = ({ project, user }) => {
                     </div>
                     {roster.length > 0 && (
                         <div className="mon-roster-summary">
-                            {['Lead Installer','Installer','Helper','Supervisor'].map(pos => {
+                            {['Lead Installer', 'Installer', 'Helper', 'Supervisor'].map(pos => {
                                 const count = roster.filter(r => r.position === pos).length;
                                 return count > 0 ? (
                                     <span key={pos} className="mon-roster-pill">{count} {pos}</span>
@@ -269,9 +565,10 @@ const InstallerMonitoring = ({ project, user }) => {
                         <span className="mon-block-title">📸 Photo Attachments</span>
                     </div>
                     <div className="mon-photo-grid">
-                        {[['Main Progress Photo',photoMain,setPhotoMain,fileMainRef],
-                          ['Team Photo 1',photo1,setPhoto1,file1Ref],
-                          ['Team Photo 2',photo2,setPhoto2,file2Ref]].map(([label,state,setter,ref]) => (
+                        {[['Main Progress Photo', photoMain, setPhotoMain, fileMainRef],
+                          ['Team Photo 1',        photo1,    setPhoto1,    file1Ref],
+                          ['Team Photo 2',        photo2,    setPhoto2,    file2Ref]
+                        ].map(([label, state, setter, ref]) => (
                             <div key={label} className="mon-photo-item">
                                 <span className="mon-photo-label">{label}</span>
                                 <label className={`mon-upload-trigger ${state ? 'has-file' : ''}`}>
