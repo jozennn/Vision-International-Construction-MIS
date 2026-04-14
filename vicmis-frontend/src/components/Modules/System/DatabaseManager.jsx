@@ -71,7 +71,9 @@ const DatabaseManager = () => {
       const a = document.createElement('a');
       a.href = url;
       a.download = `vision_backup_${new Date().toISOString().slice(0,10)}.sql`;
+      document.body.appendChild(a); // FIX: Required for Firefox
       a.click();
+      document.body.removeChild(a); // FIX: Cleanup
       URL.revokeObjectURL(url);
       await fetchData();
     } catch { alert('Export failed. Check server logs.'); }
@@ -119,7 +121,12 @@ const DatabaseManager = () => {
     try {
       const res = await api.get(`/admin/database/backups/${id}/download`, { responseType: 'blob' });
       const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+      const a = document.createElement('a'); 
+      a.href = url; 
+      a.download = filename; 
+      document.body.appendChild(a); // FIX: Required for Firefox
+      a.click();
+      document.body.removeChild(a); // FIX: Cleanup
       URL.revokeObjectURL(url);
     } catch { alert('Download failed.'); }
   };
@@ -169,19 +176,22 @@ const DatabaseManager = () => {
 
   return (
     <div className="vcc-module">
-      <div className="vcc-module-header">
-        <div>
-          <h2 className="vcc-module-title">Database Manager</h2>
-          <p className="vcc-module-subtitle">Backup, restore, and automate database operations</p>
-        </div>
-        <div className="db-quick-actions">
-          <button className="vcc-btn-ghost" onClick={handleExport} disabled={isExporting}>
-            {isExporting ? '↻ Exporting...' : '⬇ Export .sql'}
-          </button>
-          <button className="vcc-btn-primary" onClick={handleManualBackup} disabled={isExporting}>
-            {isExporting ? '↻ Backing up...' : '+ Manual Backup'}
-          </button>
-        </div>
+      
+      {/* ── VISION SYSTEM DARK HEADER ── */}
+      <div className="vision-dark-header">
+        <span className="vision-badge">VISION SYSTEM</span>
+        <h2 className="vision-title">🗄️ Database Manager</h2>
+        <p className="vision-subtitle">Backup, restore, and automate database operations</p>
+      </div>
+
+      {/* ── ACTION BAR ── */}
+      <div className="vision-action-bar">
+        <button className="vision-btn-outline" onClick={handleExport} disabled={isExporting}>
+          {isExporting ? '↻ Exporting...' : '⬇ Export .sql'}
+        </button>
+        <button className="vision-btn-solid" onClick={handleManualBackup} disabled={isExporting}>
+          {isExporting ? '↻ Backing up...' : '+ Manual Backup'}
+        </button>
       </div>
 
       {/* Tab Nav */}
@@ -204,56 +214,42 @@ const DatabaseManager = () => {
           {/* ── BACKUP TAB ── */}
           {activeTab === 'backup' && (
             <div>
-              <div className="db-info-bar">
-                <div className="db-stat">
-                  <span className="db-stat-val">{backups.length}</span>
-                  <span className="db-stat-lbl">Total Backups</span>
-                </div>
-                <div className="db-stat">
-                  <span className="db-stat-val">{formatSize(backups.reduce((s, b) => s + (b.size || 0), 0))}</span>
-                  <span className="db-stat-lbl">Total Size</span>
-                </div>
-                <div className="db-stat">
-                  <span className="db-stat-val">{backups.filter(b => b.type === 'scheduled').length}</span>
-                  <span className="db-stat-lbl">Auto Backups</span>
-                </div>
-                <div className="db-stat">
-                  <span className="db-stat-val">{backups.filter(b => b.type === 'manual').length}</span>
-                  <span className="db-stat-lbl">Manual Backups</span>
-                </div>
-              </div>
-
               {backups.length === 0 ? (
                 <div className="vcc-empty">
                   <div className="vcc-empty-icon">🗄️</div>
                   <p>No backups yet. Create your first backup using the button above.</p>
                 </div>
               ) : (
-                <div className="db-table-wrap">
-                  <table className="db-table">
-                    <thead>
-                      <tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th>Status</th><th>Actions</th></tr>
-                    </thead>
-                    <tbody>
-                      {backups.map(b => (
-                        <tr key={b.id}>
-                          <td className="db-td-mono">{b.filename}</td>
-                          <td><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
-                          <td>{formatSize(b.size)}</td>
-                          <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
-                          <td><StatusBadge status={b.status} /></td>
-                          <td className="db-td-actions">
-                            <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
-                              ⬇ Download
-                            </button>
-                            <button className="db-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="vision-card-list-container">
+                  <div className="vision-card-list-header">
+                    <span className="list-title"><span className="red-dot">●</span> Backups</span>
+                    <span className="list-count">{backups.length}</span>
+                  </div>
+                  
+                  {backups.map(b => (
+                    <div className="vision-card" key={b.id}>
+                      <div className="card-primary-info">
+                        <span className="card-title">{b.filename}</span>
+                        <span className="card-subtitle">
+                          {formatSize(b.size)} • {formatDate(b.created_at)}
+                        </span>
+                      </div>
+                      
+                      <div className="card-badges">
+                        <span className={`db-type-badge ${b.type}`}>{b.type}</span>
+                        <StatusBadge status={b.status} />
+                      </div>
+                      
+                      <div className="card-actions">
+                        <button className="action-btn blue" onClick={() => handleDownloadBackup(b.id, b.filename)}>
+                          Download
+                        </button>
+                        <button className="action-btn red" onClick={() => handleDeleteBackup(b.id, b.filename)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
