@@ -42,33 +42,32 @@ const useMaterialRequest = ({ project, user, boqData }) => {
 
     setSubmittingRequest(true);
     try {
-      // Build items array
+      // 👇 Build items array with CORRECT field names
       const items = validItems.map(i => {
         const unitCost = parseFloat(i.unitCost) || 0;
         const requestedQty = parseFloat(i.requestedQty) || 0;
         const totalCost = unitCost * requestedQty;
         
         return {
-          description:   i.description || i.product_code || '—',
+          description:   i.description || i.name || i.product_code || 'Material Item',
           product_code:  i.product_code || '',
           unit:          i.unit || 'pcs',
-          requested_qty: requestedQty,
+          requested_qty: requestedQty,  // 👈 snake_case for backend
           unit_cost:     unitCost,
           total_cost:    totalCost,
         };
       });
 
-      // 👇 Send as JSON with proper Content-Type header
+      // 👇 Build payload with CORRECT field names
       const payload = {
-        requested_by_name: currentUser?.name || user?.name || 'Unknown',
+        requested_by_name: currentUser?.name || user?.name || 'System User',  // 👈 Correct field name
         engineer_name: project?.assigned_engineers || currentUser?.name || '',
         destination: project?.location || '',
-        items: items,  // 👈 Send as actual array, not JSON string
+        items: items,  // 👈 Send as array, not JSON string
       };
 
       console.log('[MaterialRequest] Sending payload:', payload);
 
-      // 👇 Use axios directly with JSON content type
       const response = await api.post(
         `/projects/${project.id}/material-requests`,
         payload,
@@ -82,7 +81,6 @@ const useMaterialRequest = ({ project, user, boqData }) => {
 
       console.log('[MaterialRequest] Success:', response.data);
 
-      // Calculate total for success message
       const totalValue = items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
       const valueStr = totalValue > 0 
         ? `\nTotal value: ₱${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` 
@@ -93,7 +91,6 @@ const useMaterialRequest = ({ project, user, boqData }) => {
       alert(`✅ Material request sent to Logistics!${valueStr}`);
     } catch (err) {
       console.error('[MaterialRequest] Error:', err);
-      console.error('[MaterialRequest] Response status:', err.response?.status);
       console.error('[MaterialRequest] Response data:', err.response?.data);
       
       if (err.response?.data?.errors) {
