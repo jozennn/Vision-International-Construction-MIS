@@ -73,9 +73,72 @@ const TimelineGantt = ({ project, trackingData }) => {
             ...ganttDates.map(() => ({ width: 5.5 })),
         ];
 
+        const DARK_NAVY = 'FF1A1A2E';
+        const INFO_BG   = 'FFF0F4F8';
+        const HDR_BG    = 'FF2D3A4E';
+
         let r = 1;
 
-        // ── ROW 1: Day-number header ──────────────────────────────────────────
+        // ── ROW 1: Title banner ───────────────────────────────────────────────
+        const totalCols = 2 + ganttDates.length;
+        ws.mergeCells(r, 1, r, totalCols);
+        const titleCell = ws.getCell(r, 1);
+        titleCell.value     = '  PROJECT GANTT TIMELINE';
+        titleCell.font      = font({ bold: true, size: 16, color: WHITE });
+        titleCell.fill      = fill(DARK_NAVY);
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        titleCell.border    = brdH();
+        ws.getRow(r).height = 34;
+        r++;
+
+        // ── ROW 2: Info column labels ─────────────────────────────────────────
+        const infoHeaders = ['PROJECT NAME', 'DURATION (days)', 'START DATE', 'END DATE', 'DATE AS OF'];
+        infoHeaders.forEach((h, i) => {
+            const c = ws.getCell(r, i + 1);
+            c.value     = h;
+            c.font      = font({ bold: true, size: 8, color: WHITE });
+            c.fill      = fill(HDR_BG);
+            c.alignment = i === 0 ? lft : ctr;
+            c.border    = brdH();
+        });
+        // Fill remaining date columns with same dark header colour
+        for (let ci = infoHeaders.length + 1; ci <= totalCols; ci++) {
+            const c = ws.getCell(r, ci);
+            c.fill   = fill(HDR_BG);
+            c.border = brd();
+        }
+        ws.getRow(r).height = 18;
+        r++;
+
+        // ── ROW 3: Info values ────────────────────────────────────────────────
+        const infoValues = [
+            project.project_name,
+            projectDuration ? `${projectDuration} days` : '—',
+            projectStart ?? '—',
+            projectEnd   ?? '—',
+            new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        ];
+        infoValues.forEach((v, i) => {
+            const c = ws.getCell(r, i + 1);
+            c.value     = v;
+            c.font      = font({ bold: i === 0, size: 10, color: i === 0 ? DARK_NAVY : BLACK });
+            c.fill      = fill(INFO_BG);
+            c.alignment = i === 0 ? lft : ctr;
+            c.border    = brdH();
+        });
+        for (let ci = infoValues.length + 1; ci <= totalCols; ci++) {
+            const c = ws.getCell(r, ci);
+            c.fill   = fill(INFO_BG);
+            c.border = brd();
+        }
+        ws.getRow(r).height = 22;
+        r++;
+
+        // Spacer row
+        ws.getRow(r).height = 6;
+        r++;
+
+        // ── ROW next: Day-number header ───────────────────────────────────────
         // Task Name cell merges rows 1–2
         ws.mergeCells(r, TASK_COL, r + 1, TASK_COL);
         sc(ws.getCell(r, TASK_COL), {
