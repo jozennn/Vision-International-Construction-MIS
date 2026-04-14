@@ -30,22 +30,31 @@ public function getProjectRequests(int $id): JsonResponse
             ->get();
 
         $requests->each(function ($req) {
-            // Add for frontend compatibility
             $req->requested_by_name = $req->requester_name ?? 'Unknown';
             
-            // 👇 $req->items is already a Collection, don't override it
-            // Just loop through and add properties to each item
-            if ($req->items && count($req->items) > 0) {
-                $req->items->each(function ($item) {
-                    if (!empty($item->product_code)) {
-                        $inv = WarehouseInventory::where('product_code', $item->product_code)->first();
-                        $item->current_stock = $inv->current_stock ?? 0;
-                        $item->stock_status  = $inv->availability ?? 'NO STOCK';
-                    } else {
-                        $item->current_stock = 0;
-                        $item->stock_status  = 'NO STOCK';
-                    }
-                });
+            // 👇 Use foreach instead of each() - works for both arrays and collections
+            $items = $req->items ?? [];
+            foreach ($items as $item) {
+                // Handle both object and array access
+                $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
+                
+                if (!empty($productCode)) {
+                    $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                    $currentStock = $inv->current_stock ?? 0;
+                    $stockStatus = $inv->availability ?? 'NO STOCK';
+                } else {
+                    $currentStock = 0;
+                    $stockStatus = 'NO STOCK';
+                }
+                
+                // Assign properties
+                if (is_object($item)) {
+                    $item->current_stock = $currentStock;
+                    $item->stock_status = $stockStatus;
+                } else {
+                    $item['current_stock'] = $currentStock;
+                    $item['stock_status'] = $stockStatus;
+                }
             }
         });
 
@@ -53,9 +62,6 @@ public function getProjectRequests(int $id): JsonResponse
         
     } catch (\Exception $e) {
         \Log::error('getProjectRequests Error: ' . $e->getMessage());
-        \Log::error('Line: ' . $e->getLine());
-        
-        // Return empty array so frontend doesn't break
         return response()->json([]);
     }
 }
