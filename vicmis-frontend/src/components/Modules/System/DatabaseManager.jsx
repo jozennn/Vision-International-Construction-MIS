@@ -229,30 +229,32 @@ const DatabaseManager = () => {
                   <p>No backups yet. Create your first backup using the button above.</p>
                 </div>
               ) : (
-                <table className="db-table">
-                  <thead>
-                    <tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th>Status</th><th>Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {backups.map(b => (
-                      <tr key={b.id}>
-                        <td className="db-td-mono">{b.filename}</td>
-                        <td><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
-                        <td>{formatSize(b.size)}</td>
-                        <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
-                        <td><StatusBadge status={b.status} /></td>
-                        <td className="db-td-actions">
-                          <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
-                            ⬇ Download
-                          </button>
-                          <button className="db-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="db-table-wrap">
+                  <table className="db-table">
+                    <thead>
+                      <tr><th>Filename</th><th>Type</th><th>Size</th><th>Created</th><th>Status</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {backups.map(b => (
+                        <tr key={b.id}>
+                          <td className="db-td-mono">{b.filename}</td>
+                          <td><span className={`db-type-badge ${b.type}`}>{b.type}</span></td>
+                          <td>{formatSize(b.size)}</td>
+                          <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{formatDate(b.created_at)}</td>
+                          <td><StatusBadge status={b.status} /></td>
+                          <td className="db-td-actions">
+                            <button className="db-btn-download" onClick={() => handleDownloadBackup(b.id, b.filename)}>
+                              ⬇ Download
+                            </button>
+                            <button className="db-btn-delete" onClick={() => handleDeleteBackup(b.id, b.filename)}>
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}
