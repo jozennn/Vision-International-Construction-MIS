@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+
 /* Add this at the top of your CSS file */
 .vcc-module {
   width: 100%;
@@ -13,9 +16,6 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-
 /* ── TAB NAV ─────────────────────────────────── */
 .db-tab-nav {
   display: flex;
