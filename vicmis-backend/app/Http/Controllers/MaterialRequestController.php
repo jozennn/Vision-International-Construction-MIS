@@ -73,23 +73,56 @@ public function getPending(Request $request): JsonResponse
 {
     try {
         $status = $request->filled('status')
-            ? [$request->status]
+            ? (is_array($request->status) ? $request->status : [$request->status])
             : ['pending', 'reordering'];
 
+        $perPage = $request->input('per_page', 20);
+        
         $query = MaterialRequest::with('items')
             ->whereIn('status', $status)
             ->when($request->project_id, fn($q, $p) => $q->where('project_id', $p))
             ->latest();
 
-        $paginated = $query->paginate($request->per_page ?? 20);
+        // If per_page is 9999, just get all without pagination
+        if ($perPage >= 9999) {
+            $requests = $query->get();
+            
+            $requests->transform(function ($req) {
+                $req->requested_by_name = $req->requester_name ?? 'Unknown';
+                
+                $items = $req->items ?? [];
+                foreach ($items as $item) {
+                    $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
+                    
+                    if (!empty($productCode)) {
+                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                        $currentStock = $inv->current_stock ?? 0;
+                        $stockStatus = $inv->availability ?? 'NO STOCK';
+                    } else {
+                        $currentStock = 0;
+                        $stockStatus = 'NO STOCK';
+                    }
+                    
+                    if (is_object($item)) {
+                        $item->current_stock = $currentStock;
+                        $item->stock_status = $stockStatus;
+                    } else {
+                        $item['current_stock'] = $currentStock;
+                        $item['stock_status'] = $stockStatus;
+                    }
+                }
+                
+                return $req;
+            });
+            
+            return response()->json(['data' => $requests, 'total' => $requests->count()]);
+        }
+
+        $paginated = $query->paginate($perPage);
 
         $paginated->getCollection()->transform(function ($req) {
-            // Add fields the frontend expects
             $req->requested_by_name = $req->requester_name ?? 'Unknown';
-            $req->engineer_name = $req->engineer_name ?? '';
-            $req->destination = $req->destination ?? '';
             
-            // Process items
             $items = $req->items ?? [];
             foreach ($items as $item) {
                 $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);

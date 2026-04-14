@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
         Route::get('/shipments',         [IncomingShipmentController::class, 'getShipments']);
         Route::get('/logistics/meta',    [LogisticsController::class, 'meta']);
         Route::get('/logistics',         [LogisticsController::class, 'index']);
+        Route::get('/material-requests', [MaterialRequestController::class, 'getPending']);
     });
 
     // --- WAREHOUSE INVENTORY (read) ---
@@ -203,6 +204,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::put('/shipments/{id}',                   [IncomingShipmentController::class, 'updateShipment']);
         Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
         Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
+        
 
         Route::post('/logistics',                 [LogisticsController::class, 'store']);
         Route::patch('/logistics/{id}/delivered', [LogisticsController::class, 'markDelivered']);
