@@ -95,67 +95,116 @@ public function getPending(Request $request): JsonResponse
             ? (is_array($request->status) ? $request->status : [$request->status])
             : ['pending', 'reordering'];
 
-        // Get requests with their relationship items
-        $requests = MaterialRequest::with('items')
-            ->whereIn('status', $status)
-            ->latest()
-            ->get();
+        $perPage = $request->input('per_page', 20);
+        
+        $query = MaterialRequest::whereIn('status', $status);
+        
+        if ($request->project_id) {
+            $query->where('project_id', $request->project_id);
+        }
+        
+        $query->latest();
 
-        $requests->transform(function ($req) {
-            $req->requested_by_name = $req->requester_name ?? 'Unknown';
+        if ($perPage >= 9999) {
+            $requests = $query->get();
             
-            // Priority 1: Use the MaterialRequestItem relationship
-            // Priority 2: Use the JSON 'items' column if the relationship is empty
-            $items = $req->items->isNotEmpty() ? $req->items : ($req->getAttributes()['items'] ?? []);
-            
-            // If the JSON column was returned as a string (rare with casting), decode it
-            if (is_string($items)) {
-                $items = json_decode($items, true) ?: [];
-            }
-
-            $processedItems = [];
-
-            foreach ($items as $item) {
-                // Standardize to array for consistent access
-                $itemData = is_object($item) ? $item->toArray() : (array)$item;
-                $productCode = $itemData['product_code'] ?? null;
+            $result = [];
+            foreach ($requests as $req) {
+                $reqData = $req->toArray();
+                $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
                 
-                // Fetch physical inventory based on the exact product_code
-                $inv = null;
-                if (!empty($productCode)) {
-                    $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                // items is already an array from the JSON cast
+                $itemsData = [];
+                foreach ($req->items as $item) {
+                    $productCode = $item['product_code'] ?? null;
+                    $productCategory = $item['product_category'] ?? null;
+                    
+                    $item['current_stock'] = 0;
+                    $item['stock_status'] = 'NO STOCK';
+                    
+                    if (!empty($productCode)) {
+                        $invQuery = WarehouseInventory::where('product_code', $productCode);
+                        
+                        if (!empty($productCategory)) {
+                            $invQuery->where('product_category', $productCategory);
+                        }
+                        
+                        $inv = $invQuery->first();
+                        
+                        if ($inv) {
+                            $item['current_stock'] = (int) $inv->current_stock;
+                            $item['stock_status'] = $inv->availability;
+                        }
+                    }
+                    
+                    $itemsData[] = $item;
                 }
-
-                // USE PHYSICAL STOCK: Bypass reserve logic to allow the dispatch button to show
-                $physicalStock = $inv ? (float)$inv->current_stock : 0;
-                $requestedQty = (float)($itemData['requested_qty'] ?? 0);
-
-                // Re-calculate the status string for the frontend UI
-                $statusVal = 'NO STOCK';
-                if ($physicalStock > 0) {
-                    $statusVal = ($physicalStock >= $requestedQty) ? 'ON STOCK' : 'LOW STOCK';
-                }
-
-                $processedItems[] = array_merge($itemData, [
-                    'current_stock' => $physicalStock,
-                    'stock_status'  => $statusVal,
-                ]);
+                
+                $reqData['items'] = $itemsData;
+                $result[] = $reqData;
             }
+            
+            return response()->json([
+                'data' => $result,
+                'total' => count($result)
+            ]);
+        }
 
-            // Assign the processed array back to the response object
-            $req->items = $processedItems;
-            return $req;
-        });
+        $paginated = $query->paginate($perPage);
+        
+        $result = [];
+        foreach ($paginated->items() as $req) {
+            $reqData = $req->toArray();
+            $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
+            
+            $itemsData = [];
+            foreach ($req->items as $item) {
+                $productCode = $item['product_code'] ?? null;
+                $productCategory = $item['product_category'] ?? null;
+                
+                $item['current_stock'] = 0;
+                $item['stock_status'] = 'NO STOCK';
+                
+                if (!empty($productCode)) {
+                    $invQuery = WarehouseInventory::where('product_code', $productCode);
+                    
+                    if (!empty($productCategory)) {
+                        $invQuery->where('product_category', $productCategory);
+                    }
+                    
+                    $inv = $invQuery->first();
+                    
+                    if ($inv) {
+                        $item['current_stock'] = (int) $inv->current_stock;
+                        $item['stock_status'] = $inv->availability;
+                    }
+                }
+                
+                $itemsData[] = $item;
+            }
+            
+            $reqData['items'] = $itemsData;
+            $result[] = $reqData;
+        }
 
-        return response()->json(['data' => $requests, 'total' => $requests->count()]);
+        return response()->json([
+            'data' => $result,
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'per_page' => $paginated->perPage(),
+            'total' => $paginated->total(),
+            'from' => $paginated->firstItem(),
+            'to' => $paginated->lastItem(),
+        ]);
         
     } catch (\Exception $e) {
-        // Log the exact error to storage/logs/laravel.log to see the line number
         \Log::error('getPending Error: ' . $e->getMessage());
         return response()->json([
-            'message' => 'Internal Server Error',
-            'error' => $e->getMessage()
-        ], 500);
+            'data' => [],
+            'total' => 0,
+            'current_page' => 1,
+            'last_page' => 1,
+        ]);
     }
 }
     // =========================================================================
