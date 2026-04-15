@@ -133,7 +133,7 @@ const SuperAdminDashboard = ({ user }) => {
             <div className="sa-kpi-split">
               <span className="sa-active-text">{activeLeads} Active</span>
               <span className="sa-divider">|</span>
-              <span className="sa-trashed-text">{trashedLeads} Trashed</span>
+              <span className="sa-trashed-text">{trashedLeads} Trash</span>
             </div>
           </div>
         </div>
