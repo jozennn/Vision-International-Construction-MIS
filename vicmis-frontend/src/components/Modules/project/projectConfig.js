@@ -145,7 +145,6 @@ export const getPhaseAccess = (status, {
     'Measurement based on Plan':                 isEng      || isEngHead,
     'Actual Measurement':                        isEng      || isEngHead,
     'Pending Head Review':                       isEngHead,
-    'Purchase Order':                            isSales    || isSalesHead,
     'P.O & Work Order':                          isSales    || isSalesHead,
     'Pending Work Order Verification':           isSalesHead,
     'Initial Site Inspection':                   isEng      || isEngHead,
