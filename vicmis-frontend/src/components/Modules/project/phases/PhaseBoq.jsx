@@ -16,21 +16,14 @@ const grandTotal = (rows = []) =>
 /* ─────────────────── Save indicator ─────────────────── */
 const SaveIndicator = ({ status }) => {
   const cfg = {
-    idle:   { color: 'transparent',                     text: '' },
-    saving: { color: 'var(--pm-text-muted, #9ca3af)',   text: '● Saving…' },
-    saved:  { color: '#10B981',                          text: '✓ Draft saved' },
-    error:  { color: '#EF4444',                          text: '✕ Save failed' },
+    idle:   { color: 'transparent',                   text: '' },
+    saving: { color: 'var(--pm-text-muted, #9ca3af)', text: '● Saving…' },
+    saved:  { color: '#10B981',                        text: '✓ Draft saved' },
+    error:  { color: '#EF4444',                        text: '✕ Save failed' },
   }[status] || { color: 'transparent', text: '' };
 
   return (
-    <span style={{
-      fontSize: '12px',
-      fontWeight: 600,
-      color: cfg.color,
-      transition: 'color 0.3s',
-      minWidth: '90px',
-      whiteSpace: 'nowrap',
-    }}>
+    <span className="boq-save-indicator" style={{ color: cfg.color }}>
       {cfg.text}
     </span>
   );
@@ -96,8 +89,6 @@ const PhaseBoq = ({
   const [saveStatus, setSaveStatus]   = useState('idle');
   const draftTimerRef                 = useRef(null);
   const statusTimerRef                = useRef(null);
-  // Skip the very first render so we don't auto-save the data
-  // that was just loaded from the DB via initFromProject.
   const isFirstRender                 = useRef(true);
   const isActual                      = phase === 'actual';
 
@@ -130,7 +121,6 @@ const PhaseBoq = ({
           };
 
       await api.patch(`/projects/${project.id}/boq-draft`, payload);
-
       setSaveStatus('saved');
       clearTimeout(statusTimerRef.current);
       statusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 3000);
@@ -143,16 +133,13 @@ const PhaseBoq = ({
 
   /* ── Watch boqData — debounce draft save by 1.5s after last change ── */
   useEffect(() => {
-    // Skip first render — data was just loaded from DB, nothing new to save
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-
     clearTimeout(draftTimerRef.current);
     setSaveStatus('saving');
     draftTimerRef.current = setTimeout(saveDraft, 1500);
-
     return () => clearTimeout(draftTimerRef.current);
   }, [
     boqData.planSqm,
@@ -249,7 +236,7 @@ const PhaseBoq = ({
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #111; padding: 28px 32px; background: #fff; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #C20100; padding-bottom: 14px; margin-bottom: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #C20100; padding-bottom: 14px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
     .header h1 { font-size: 22pt; font-weight: 900; color: #221f1f; margin-bottom: 4px; }
     .header p  { font-size: 11pt; color: #6b7280; }
     .header-right { font-size: 10pt; text-align: right; color: #374151; line-height: 1.9; }
@@ -258,8 +245,8 @@ const PhaseBoq = ({
     .info-row { display: flex; gap: 8px; font-size: 10pt; }
     .info-label { font-weight: 700; color: #6b7280; min-width: 90px; text-transform: uppercase; font-size: 8.5pt; letter-spacing: .04em; }
     .info-value { color: #111; }
-    .meas-cols { display: flex; gap: 16px; margin-bottom: 20px; }
-    .meas-col { flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 16px; }
+    .meas-cols { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .meas-col { flex: 1; min-width: 200px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 16px; }
     .meas-col strong { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; display: block; margin-bottom: 4px; }
     .sqm { font-size: 18pt; font-weight: 900; color: #221f1f; margin-bottom: 4px; }
     .meas-col p { font-size: 9.5pt; color: #374151; }
@@ -325,7 +312,7 @@ const PhaseBoq = ({
 
       {/* Rejection banner */}
       {project?.rejection_notes && (
-        <div className="pm-card-red">
+        <div className="pm-card-red boq-rejection-banner">
           <h4 className="pm-title-md pm-label-red">🚨 REVISION REQUIRED FROM DEPT. HEAD</h4>
           <p className="pm-text-muted" style={{ margin: 0 }}>"{project.rejection_notes}"</p>
         </div>
@@ -382,6 +369,7 @@ const PhaseBoq = ({
         <>
           <PhaseDivider label="Actual Phase" />
 
+          {/* Measurement cards — stacks on mobile, side-by-side on tablet+ */}
           <div className="boq-measurements-row">
             <MeasurementCard
               title="Measurement Based on Plan"
