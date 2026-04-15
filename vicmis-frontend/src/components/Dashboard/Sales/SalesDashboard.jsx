@@ -137,34 +137,44 @@ const LeadDetailModal = ({ lead, onClose, user }) => {
 // ── #1 Pipeline Funnel Card ───────────────────────────────────────────────────
 const PipelineFunnel = ({ leads }) => {
   const activeLeads = leads.filter(l => !l.is_trashed);
-  
-  // FIX: Use exact string matching (===) instead of .includes()
   const counts = PIPELINE_STAGES.map(stage => ({
     ...stage,
+    // FIX 1: Use strict equality (===) instead of .includes() to stop double counting
     count: activeLeads.filter(l =>
       (l.status || '').toLowerCase().trim() === stage.key
     ).length,
   }));
+  const maxCount = Math.max(1, ...counts.map(s => s.count));
 
+  // FIX 2: Added inline styling to align text straight on the left, making bars start together
   return (
-    <div className="sd-funnel-wrap">
+    <div className="sd-funnel-wrap" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
       {counts.map((stage, i) => {
+        const pct = Math.max(8, (stage.count / maxCount) * 100);
         return (
-          <div key={stage.key} className="sd-funnel-stage">
-            <div className="sd-funnel-bar-wrap">
+          <div key={stage.key} className="sd-funnel-stage" style={{ display: 'flex', alignItems: 'center' }}>
+            <span 
+              className="sd-funnel-label" 
+              style={{ width: '90px', textAlign: 'left', flexShrink: 0, fontSize: '11px', fontWeight: '600', color: '#64748b' }}
+            >
+              {stage.label}
+            </span>
+            <div className="sd-funnel-bar-wrap" style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
               <div
                 className="sd-funnel-bar"
                 style={{
-                  width: '100%', // FIX: Set all bars to the exact same length size
+                  width: `${pct}%`,
                   background: stage.color,
                   opacity: 0.85 - i * 0.1,
+                  height: '20px',
+                  borderRadius: '4px',
+                  transition: 'width 0.4s ease'
                 }}
               />
-              <span className="sd-funnel-count" style={{ color: stage.color }}>
+              <span className="sd-funnel-count" style={{ color: stage.color, marginLeft: '8px', fontWeight: 'bold', fontSize: '12px' }}>
                 {stage.count}
               </span>
             </div>
-            <span className="sd-funnel-label">{stage.label}</span>
           </div>
         );
       })}
