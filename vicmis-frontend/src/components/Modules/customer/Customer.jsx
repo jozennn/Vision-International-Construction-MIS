@@ -4,9 +4,9 @@ import './css/Customer.css';
 
 // ── Pipeline stages ───────────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
-  { key: 'To be Contacted',      label: 'To Be Contacted',  color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8', border: '#e2e8f0' },
-  { key: 'Contacted',            label: 'Contacted',        color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6', border: '#bfdbfe' },
-  { key: 'For Presentation',     label: 'For Presentation', color: '#d97706', bg: '#fffbeb', dot: '#f59e0b', border: '#fde68a' },
+  { key: 'To be Contacted',    label: 'To Be Contacted',  color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8', border: '#e2e8f0' },
+  { key: 'Contacted',          label: 'Contacted',        color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6', border: '#bfdbfe' },
+  { key: 'For Presentation',   label: 'For Presentation', color: '#d97706', bg: '#fffbeb', dot: '#f59e0b', border: '#fde68a' },
   { key: 'Ready for Creating Project', label: 'Ready for Project', color: '#059669', bg: '#ecfdf5', dot: '#10b981', border: '#6ee7b7' },
 ];
 
@@ -27,6 +27,18 @@ const getProjectStage = (status) =>
 
 const getStageIndex = (status) =>
   PIPELINE_STAGES.findIndex(s => s.key === status);
+
+// ── Utility: Format Date & Time ───────────────────────────────────────────────
+const formatDateTime = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 // ── Pipeline Progress Bar ─────────────────────────────────────────────────────
 const PipelineProgress = ({ status, inModal = false }) => {
@@ -53,12 +65,9 @@ const PipelineProgress = ({ status, inModal = false }) => {
 // ── Kanban Card ───────────────────────────────────────────────────────────────
 const KanbanCard = ({ lead, onClick, onCreateProject, userRole }) => (
   <div className="kanban-card" onClick={() => onClick(lead)}>
-    <div className="kanban-card-top">
-      <span className="lead-id">#{lead.id}</span>
-      <span className="kanban-card-date">
-        {lead.created_at
-          ? new Date(lead.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
-          : ''}
+    <div className="kanban-card-top" style={{ justifyContent: 'flex-end' }}>
+      <span className="kanban-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
+        {lead.created_at ? formatDateTime(lead.created_at) : ''}
       </span>
     </div>
     <div className="kanban-card-client">{lead.client_name}</div>
@@ -113,15 +122,10 @@ const Customer = ({ user }) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const [searchQuery, setSearchQuery]   = useState('');
-  
-  // Filters
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterMonth, setFilterMonth]   = useState('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef(null);
-
-  const [filterMonth, setFilterMonth] = useState('all');
-  const [isMonthFilterOpen, setIsMonthFilterOpen] = useState(false);
-  const monthFilterRef = useRef(null);
 
   const [formData, setFormData] = useState({
     clientName: '', projectName: '', location: '', contactNo: '',
@@ -132,8 +136,6 @@ const Customer = ({ user }) => {
     const handler = (e) => {
       if (filterRef.current && !filterRef.current.contains(e.target))
         setIsFilterOpen(false);
-      if (monthFilterRef.current && !monthFilterRef.current.contains(e.target))
-        setIsMonthFilterOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -204,13 +206,7 @@ const Customer = ({ user }) => {
   const activeLeads       = leads.filter(l => l.status !== 'Project Created');
   const completedProjects = leads.filter(l => l.status === 'Project Created');
 
-  // Dynamically get unique months from the converted projects
-  const availableMonths = [...new Set(completedProjects.map(l => {
-    if (!l.created_at) return null;
-    return new Date(l.created_at).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-  }).filter(Boolean))].sort((a, b) => new Date(b) - new Date(a));
-
-  const applyActiveFilters = (list) => {
+  const applyFilters = (list) => {
     let r = list;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -224,28 +220,27 @@ const Customer = ({ user }) => {
     return r;
   };
 
-  const applyConvertedFilters = (list) => {
-    return list.filter(l => {
-      let matchesSearch = true;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        matchesSearch = l.client_name?.toLowerCase().includes(q) ||
-                        l.project_name?.toLowerCase().includes(q) ||
-                        l.location?.toLowerCase().includes(q);
+  const displayedActive = applyFilters(activeLeads);
+  
+  // Custom filter logic for Converted Projects to include Month Filtering
+  const displayedConverted = completedProjects.filter(l => {
+    let match = true;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      match = l.client_name?.toLowerCase().includes(q) ||
+              l.project_name?.toLowerCase().includes(q) ||
+              l.location?.toLowerCase().includes(q);
+    }
+    if (match && filterMonth !== 'all') {
+      const date = new Date(l.created_at);
+      if (!isNaN(date.getTime())) {
+         match = date.getMonth().toString() === filterMonth;
+      } else {
+         match = false;
       }
-      
-      let matchesMonth = true;
-      if (filterMonth !== 'all' && l.created_at) {
-        const m = new Date(l.created_at).toLocaleString('en-US', { month: 'long', year: 'numeric' });
-        matchesMonth = m === filterMonth;
-      }
-
-      return matchesSearch && matchesMonth;
-    });
-  };
-
-  const displayedActive = applyActiveFilters(activeLeads);
-  const displayedConverted = applyConvertedFilters(completedProjects);
+    }
+    return match;
+  });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -260,8 +255,8 @@ const Customer = ({ user }) => {
 
   const handleCardClick = (lead) => {
     setSelectedLead(lead);
-    // Force View Only if user is a manager OR if the lead is already converted to a project
-    setIsViewOnly(user?.role === 'manager' || lead.status === 'Project Created');
+    // Force view-only mode for converted projects AND managers
+    setIsViewOnly(user?.role === 'manager' || activeTab === 'converted');
     setIsModalOpen(true);
   };
 
@@ -297,7 +292,6 @@ const Customer = ({ user }) => {
   };
 
   const handleRestore = async (id) => {
-    // Added restore alert logic
     if (!window.confirm('Want to restore?')) return;
     try {
       await api.put(`/leads/${id}/restore`);
@@ -366,7 +360,7 @@ const Customer = ({ user }) => {
         <td>${lead.location}</td>
         <td><span style="color:${statusColors[lead.status] || '#64748b'};font-weight:600;font-size:11px;">${lead.status}</span></td>
         <td>${sixth}</td>
-        <td>${lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-PH') : '—'}</td>
+        <td>${lead.created_at ? formatDateTime(lead.created_at) : '—'}</td>
       </tr>`;
     }).join('');
 
@@ -528,22 +522,12 @@ const Customer = ({ user }) => {
       <div className="tab-search-row">
         <div className="lead-tabs">
           <button className={`lead-tab ${activeTab === 'active' ? 'active' : ''}`}
-            onClick={() => { 
-              setActiveTab('active'); 
-              setFilterStatus('all'); 
-              setFilterMonth('all'); 
-              setSearchQuery(''); 
-            }}>
+            onClick={() => { setActiveTab('active'); setFilterStatus('all'); setFilterMonth('all'); setSearchQuery(''); }}>
             Active Leads
             <span className="tab-count">{activeLeads.length}</span>
           </button>
           <button className={`lead-tab ${activeTab === 'converted' ? 'active' : ''}`}
-            onClick={() => { 
-              setActiveTab('converted'); 
-              setFilterStatus('all'); 
-              setFilterMonth('all'); 
-              setSearchQuery(''); 
-            }}>
+            onClick={() => { setActiveTab('converted'); setFilterStatus('all'); setFilterMonth('all'); setSearchQuery(''); }}>
             Converted Projects
             <span className="tab-count converted">{completedProjects.length}</span>
           </button>
@@ -565,7 +549,6 @@ const Customer = ({ user }) => {
             )}
           </div>
 
-          {/* Active Lead Status Filter */}
           {activeTab === 'active' && (
             <div className="filter-wrap" ref={filterRef}>
               <button className={`btn-filter ${filterStatus !== 'all' ? 'has-filter' : ''}`}
@@ -591,29 +574,36 @@ const Customer = ({ user }) => {
             </div>
           )}
 
-          {/* Converted Projects Month Filter */}
-          {activeTab === 'converted' && availableMonths.length > 0 && (
-            <div className="filter-wrap" ref={monthFilterRef}>
-              <button className={`btn-filter ${filterMonth !== 'all' ? 'has-filter' : ''}`}
-                onClick={() => setIsMonthFilterOpen(v => !v)}>
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                  <path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                {filterMonth === 'all' ? 'Month' : filterMonth}
-                {filterMonth !== 'all' && <span className="filter-active-dot" />}
-              </button>
-              {isMonthFilterOpen && (
-                <div className="filter-dropdown">
-                  <div className="filter-dropdown-title">Filter by Month</div>
-                  {['all', ...availableMonths].map(opt => (
-                    <button key={opt}
-                      className={`filter-option ${filterMonth === opt ? 'selected' : ''}`}
-                      onClick={() => { setFilterMonth(opt); setIsMonthFilterOpen(false); }}>
-                      {opt === 'all' ? '📅 All Months' : opt}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {activeTab === 'converted' && (
+            <div className="filter-wrap">
+              <select
+                value={filterMonth}
+                onChange={e => setFilterMonth(e.target.value)}
+                style={{
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--pm-border-soft, #e2e8f0)',
+                  outline: 'none',
+                  fontSize: '13px',
+                  color: '#64748b',
+                  background: '#fff',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">📅 All Months</option>
+                <option value="0">January</option>
+                <option value="1">February</option>
+                <option value="2">March</option>
+                <option value="3">April</option>
+                <option value="4">May</option>
+                <option value="5">June</option>
+                <option value="6">July</option>
+                <option value="7">August</option>
+                <option value="8">September</option>
+                <option value="9">October</option>
+                <option value="10">November</option>
+                <option value="11">December</option>
+              </select>
             </div>
           )}
         </div>
@@ -637,7 +627,9 @@ const Customer = ({ user }) => {
                 <span className={`status-badge ${lead.status.replace(/\s+/g, '-').toLowerCase()}`}>
                   {lead.status}
                 </span>
-                <span className="lead-id">#{lead.id}</span>
+                <span className="lead-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
+                  {lead.created_at ? formatDateTime(lead.created_at) : ''}
+                </span>
               </div>
               <div className="lead-body">
                 <h3>{lead.client_name}</h3>
@@ -681,7 +673,7 @@ const Customer = ({ user }) => {
             <div className="no-leads-container">
               <div className="no-leads-icon">📂</div>
               <h3>{searchQuery || filterMonth !== 'all' ? 'No Matching Projects' : 'No Converted Projects Yet'}</h3>
-              <p>{searchQuery || filterMonth !== 'all' ? 'Try adjusting your search or filter.' : 'Projects created from leads will appear here.'}</p>
+              <p>{searchQuery || filterMonth !== 'all' ? 'Try adjusting your search or month filter.' : 'Projects created from leads will appear here.'}</p>
             </div>
           ) : displayedConverted.map(lead => {
             const proj  = projectsMap[lead.id];
@@ -691,7 +683,9 @@ const Customer = ({ user }) => {
                 onClick={() => handleCardClick(lead)}>
                 <div className="lead-card-header">
                   <span className="status-badge project-created">Project Created</span>
-                  <span className="lead-id">#{lead.id}</span>
+                  <span className="lead-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
+                    {lead.created_at ? formatDateTime(lead.created_at) : ''}
+                  </span>
                 </div>
                 <div className="lead-body">
                   <h3>{lead.client_name}</h3>
@@ -713,10 +707,9 @@ const Customer = ({ user }) => {
                 </div>
                 <div className="lead-card-footer">
                   <div className="lead-click-hint">Click to View Details</div>
-                  {/* Updated: Created Date & Time using lead.created_at */}
-                  {lead.created_at && (
+                  {proj?.created_at && (
                     <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                      📅 Created: {new Date(lead.created_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      📅 {new Date(proj.created_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   )}
                 </div>
@@ -768,7 +761,7 @@ const Customer = ({ user }) => {
                 </div>
                 <div className="form-group-compact">
                   <label>Sales Rep</label>
-                  <input type="text" value={formData.salesRep} readOnly className="locked-input-field" disabled={isViewOnly} />
+                  <input type="text" value={formData.salesRep} readOnly className="locked-input-field" />
                 </div>
                 <div className="form-group-compact">
                   <label>Status</label>
