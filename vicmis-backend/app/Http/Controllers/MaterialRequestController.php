@@ -75,110 +75,128 @@ class MaterialRequestController extends Controller
     // GET /inventory/material-requests
     // =========================================================================
     public function getPending(Request $request): JsonResponse
-    {
-        try {
-            $status = $request->filled('status')
-                ? (is_array($request->status) ? $request->status : [$request->status])
-                : ['pending', 'reordering'];
+{
+    try {
+        $status = $request->filled('status')
+            ? (is_array($request->status) ? $request->status : [$request->status])
+            : ['pending', 'reordering'];
 
-            $perPage = $request->input('per_page', 20);
+        $perPage = $request->input('per_page', 20);
+        
+        $query = MaterialRequest::with('items')
+            ->whereIn('status', $status)
+            ->when($request->project_id, function($q) use ($request) {
+                return $q->where('project_id', $request->project_id);
+            })
+            ->latest();
+
+        if ($perPage >= 9999) {
+            $requests = $query->get();
             
-            $query = MaterialRequest::with('items')
-                ->whereIn('status', $status)
-                ->when($request->project_id, fn($q, $p) => $q->where('project_id', $p))
-                ->latest();
-
-            if ($perPage >= 9999) {
-                $requests = $query->get();
+            $result = [];
+            foreach ($requests as $req) {
+                $reqArray = $req->toArray();
+                $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
                 
-                $requests->transform(function ($req) {
-                    $req->requested_by_name = $req->requester_name ?? 'Unknown';
+                $itemsArray = [];
+                foreach ($req->items as $item) {
+                    // Convert item to array
+                    $itemArray = $item->toArray();
                     
-                    $items = $req->items ?? [];
-                    foreach ($items as $item) {
-                        $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
-                        $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
-                        
-                        if (!empty($productCode)) {
-                            // Try exact match first (code + category)
-                            $inv = WarehouseInventory::where('product_code', $productCode)
-                                ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
-                                ->first();
-
-                            // Fallback: match by product_code only if category mismatch
-                            if (!$inv) {
-                                $inv = WarehouseInventory::where('product_code', $productCode)->first();
-                            }
-
-                            $currentStock = $inv->current_stock ?? 0;
-                            $stockStatus = $inv->availability ?? 'NO STOCK';
-                        } else {
-                            $currentStock = 0;
-                            $stockStatus = 'NO STOCK';
-                        }
-                        
-                        if (is_object($item)) {
-                            $item->current_stock = $currentStock;
-                            $item->stock_status = $stockStatus;
-                        } else {
-                            $item['current_stock'] = $currentStock;
-                            $item['stock_status'] = $stockStatus;
-                        }
-                    }
+                    $productCode = $item->product_code ?? null;
+                    $productCategory = $item->product_category ?? null;
                     
-                    return $req;
-                });
-                
-                return response()->json(['data' => $requests, 'total' => $requests->count()]);
-            }
-
-            $paginated = $query->paginate($perPage);
-
-            $paginated->getCollection()->transform(function ($req) {
-                $req->requested_by_name = $req->requester_name ?? 'Unknown';
-                
-                $items = $req->items ?? [];
-                foreach ($items as $item) {
-                    $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
-                    $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
+                    // Default values
+                    $itemArray['current_stock'] = 0;
+                    $itemArray['stock_status'] = 'NO STOCK';
                     
                     if (!empty($productCode)) {
-                        // Try exact match first (code + category)
                         $inv = WarehouseInventory::where('product_code', $productCode)
-                            ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
+                            ->where('product_category', $productCategory)
                             ->first();
-
-                        // Fallback: match by product_code only if category mismatch
+                        
                         if (!$inv) {
                             $inv = WarehouseInventory::where('product_code', $productCode)->first();
                         }
-
-                        $currentStock = $inv->current_stock ?? 0;
-                        $stockStatus = $inv->availability ?? 'NO STOCK';
-                    } else {
-                        $currentStock = 0;
-                        $stockStatus = 'NO STOCK';
+                        
+                        if ($inv) {
+                            $itemArray['current_stock'] = $inv->current_stock ?? 0;
+                            $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
+                        }
                     }
                     
-                    if (is_object($item)) {
-                        $item->current_stock = $currentStock;
-                        $item->stock_status = $stockStatus;
-                    } else {
-                        $item['current_stock'] = $currentStock;
-                        $item['stock_status'] = $stockStatus;
+                    $itemsArray[] = $itemArray;
+                }
+                
+                $reqArray['items'] = $itemsArray;
+                $result[] = $reqArray;
+            }
+            
+            return response()->json([
+                'data' => $result,
+                'total' => count($result)
+            ]);
+        }
+
+        $paginated = $query->paginate($perPage);
+        
+        $result = [];
+        foreach ($paginated->items() as $req) {
+            $reqArray = $req->toArray();
+            $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
+            
+            $itemsArray = [];
+            foreach ($req->items as $item) {
+                $itemArray = $item->toArray();
+                
+                $productCode = $item->product_code ?? null;
+                $productCategory = $item->product_category ?? null;
+                
+                $itemArray['current_stock'] = 0;
+                $itemArray['stock_status'] = 'NO STOCK';
+                
+                if (!empty($productCode)) {
+                    $inv = WarehouseInventory::where('product_code', $productCode)
+                        ->where('product_category', $productCategory)
+                        ->first();
+                    
+                    if (!$inv) {
+                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                    }
+                    
+                    if ($inv) {
+                        $itemArray['current_stock'] = $inv->current_stock ?? 0;
+                        $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
                     }
                 }
                 
-                return $req;
-            });
-
-            return response()->json($paginated);
+                $itemsArray[] = $itemArray;
+            }
             
-        } catch (\Exception $e) {
-            \Log::error('getPending Error: ' . $e->getMessage());
-            return response()->json(['data' => [], 'total' => 0]);
+            $reqArray['items'] = $itemsArray;
+            $result[] = $reqArray;
         }
+
+        return response()->json([
+            'data' => $result,
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'per_page' => $paginated->perPage(),
+            'total' => $paginated->total(),
+            'from' => $paginated->firstItem(),
+            'to' => $paginated->lastItem(),
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('getPending Error: ' . $e->getMessage());
+        return response()->json([
+            'data' => [],
+            'total' => 0,
+            'current_page' => 1,
+            'last_page' => 1,
+        ]);
     }
+}
 
     // =========================================================================
     // POST /projects/{id}/material-requests
