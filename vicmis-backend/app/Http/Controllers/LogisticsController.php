@@ -180,6 +180,7 @@ public function markDelivered(int $id): JsonResponse
             $newRows = [];
 
             if ($materialRequest) {
+                // items is an array from JSON cast
                 $items = $materialRequest->items;
                 
                 foreach ($items as $item) {
@@ -210,7 +211,7 @@ public function markDelivered(int $id): JsonResponse
                             ]
                         ],
                         'installed'        => [],
-                        'remarks'          => 'Auto-added from material request delivery',
+                        'remarks'          => $item['remarks'] ?? 'Auto-added from material request delivery',
                         'is_new_arrival'   => true,
                         'logistics_id'     => $delivery->id,
                     ];
@@ -218,12 +219,14 @@ public function markDelivered(int $id): JsonResponse
                 
                 $materialRequest->update(['status' => 'delivered']);
             } else {
+                // Manual delivery
                 $inv = WarehouseInventory::where('product_code', $delivery->product_code)
                     ->where('product_category', $delivery->product_category)
                     ->first();
                 
                 $newRows[] = [
                     'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                    'boqKey'           => $delivery->product_code,
                     'name'             => $delivery->product_code,
                     'description'      => null,
                     'product_category' => $delivery->product_category ?: ($inv->product_category ?? ''),
