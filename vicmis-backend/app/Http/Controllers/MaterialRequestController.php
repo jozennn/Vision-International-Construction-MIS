@@ -88,77 +88,70 @@ class MaterialRequestController extends Controller
     // GET /material-requests/pending
     // GET /inventory/material-requests
     // =========================================================================
-    public function getPending(Request $request): JsonResponse
-    {
-        try {
-            $status = $request->filled('status')
-                ? (is_array($request->status) ? $request->status : [$request->status])
-                : ['pending', 'reordering'];
+public function getPending(Request $request): JsonResponse
+{
+    try {
+        $status = $request->filled('status')
+            ? (is_array($request->status) ? $request->status : [$request->status])
+            : ['pending', 'reordering'];
 
-            $query = MaterialRequest::with('items')
-                ->whereIn('status', $status)
-                ->latest();
+        // Fetch requests with their related items from the database table
+        $requests = MaterialRequest::with('items')
+            ->whereIn('status', $status)
+            ->latest()
+            ->get();
 
-            $requests = $query->get();
+        $requests->transform(function ($req) {
+            $req->requested_by_name = $req->requester_name ?? 'Unknown';
+            
+            // We prioritize the 'items' relation from the database table, 
+            // falling back to the JSON 'items' column if necessary.
+            $itemsSource = $req->items->isNotEmpty() ? $req->items : ($req->getAttributes()['items'] ?? []);
+            
+            // If it's the JSON column string, Laravel's casting makes it an array.
+            $itemsArray = is_array($itemsSource) ? $itemsSource : $itemsSource->toArray();
+            $processedItems = [];
 
-            $requests->transform(function ($req) {
-                $req->requested_by_name = $req->requester_name ?? 'Unknown';
+            foreach ($itemsArray as $item) {
+                // Ensure we handle both object and array formats
+                $itemData = (array)$item;
+                $productCode = $itemData['product_code'] ?? null;
                 
-                // We must decode or access items as an array/collection
-                $items = is_string($req->items) ? json_decode($req->items, true) : $req->items;
-                $updatedItems = [];
-
-                foreach ($items as $item) {
-                    $itemObj = (object) $item;
-                    $productCode = $itemObj->product_code ?? null;
-                    $description = $itemObj->description ?? null;
-                    
-                    $inv = null;
-
-                    // 1. Precise Code Match
-                    if (!empty($productCode)) {
-                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
-                    }
-
-                    // 2. Fallback to Description Match
-                    if (!$inv && !empty($description)) {
-                        $inv = WarehouseInventory::where('product_name', 'LIKE', '%' . $description . '%')
-                            ->orWhere('product_code', $description)
-                            ->first();
-                    }
-
-                    // FIX: We use 'current_stock' (300) instead of calculating reserves.
-                    // This ensures that even if items are reserved, the warehouse manager
-                    // can see the physical stock exists for dispatching.
-                    $stockVal = $inv ? $inv->current_stock : 0;
-                    
-                    // Logic for Stock Status Badge
-                    if (!$inv || $stockVal <= 0) {
-                        $statusVal = 'NO STOCK';
-                    } elseif ($stockVal < ($itemObj->requested_qty ?? 0)) {
-                        $statusVal = 'LOW STOCK';
-                    } else {
-                        $statusVal = 'ON STOCK';
-                    }
-
-                    $updatedItems[] = array_merge($item, [
-                        'current_stock' => $stockVal,
-                        'stock_status'  => $statusVal,
-                        'product_code'  => $inv ? $inv->product_code : ($productCode ?? 'N/A')
-                    ]);
+                // Fetch physical inventory
+                $inv = null;
+                if (!empty($productCode)) {
+                    $inv = WarehouseInventory::where('product_code', $productCode)->first();
                 }
 
-                $req->items = $updatedItems;
-                return $req;
-            });
+                // CRITICAL FIX: Use physical current_stock (e.g., 300) 
+                // instead of an 'available' balance that might be 0 due to reserves.
+                $physicalStock = $inv ? (float)$inv->current_stock : 0;
+                $requestedQty = (float)($itemData['requested_qty'] ?? 0);
 
-            return response()->json(['data' => $requests, 'total' => $requests->count()]);
-            
-        } catch (\Exception $e) {
-            \Log::error('getPending Error: ' . $e->getMessage());
-            return response()->json(['data' => [], 'total' => 0]);
-        }
+                // Determine the status string for the frontend badge
+                $statusVal = 'NO STOCK';
+                if ($physicalStock > 0) {
+                    $statusVal = ($physicalStock >= $requestedQty) ? 'ON STOCK' : 'LOW STOCK';
+                }
+
+                $processedItems[] = array_merge($itemData, [
+                    'current_stock' => $physicalStock,
+                    'stock_status'  => $statusVal,
+                ]);
+            }
+
+            // Re-assign the enriched items back to the request object for the JSON response
+            $req->items = $processedItems;
+            return $req;
+        });
+
+        return response()->json(['data' => $requests, 'total' => $requests->count()]);
+        
+    } catch (\Exception $e) {
+        \Log::error('getPending Error: ' . $e->getMessage());
+        return response()->json(['data' => [], 'total' => 0], 500);
     }
+}
     // =========================================================================
     // POST /projects/{id}/material-requests
     // =========================================================================
