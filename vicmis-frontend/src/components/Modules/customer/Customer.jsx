@@ -334,7 +334,17 @@ const Customer = ({ user }) => {
     const dateStr = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
     const data    = activeTab === 'converted' ? displayedConverted : displayedActive;
-    const tabLabel = activeTab === 'converted' ? 'Converted Projects Report' : 'Active Leads Report';
+    
+    // Add dynamic title generation based on selected month filter
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    let tabLabel = activeTab === 'converted' ? 'Converted Projects Report' : 'Active Leads Report';
+
+    if (activeTab === 'converted' && filterMonth !== 'all') {
+      tabLabel = `Converted Projects Report — ${monthNames[parseInt(filterMonth)]}`;
+    } else if (activeTab === 'converted') {
+      tabLabel = `Converted Projects Report — All Months`;
+    }
+
     const lastCol  = activeTab === 'converted' ? 'Project Stage' : 'Contact No.';
 
     const statusColors = {
@@ -370,7 +380,7 @@ const Customer = ({ user }) => {
             <div class="chip-val">${data.filter(l => l.status === s.key).length}</div>
             <div class="chip-label">${s.label}</div>
           </div>`).join('')
-      : `<div class="chip"><div class="chip-val">${completedProjects.length}</div><div class="chip-label">Total Converted</div></div>
+      : `<div class="chip"><div class="chip-val">${displayedConverted.length}</div><div class="chip-label">Total Converted</div></div>
          <div class="chip"><div class="chip-val">${activeLeads.length}</div><div class="chip-label">Still Active</div></div>
          <div class="chip"><div class="chip-val">${leads.length}</div><div class="chip-label">Total Leads</div></div>`;
 
