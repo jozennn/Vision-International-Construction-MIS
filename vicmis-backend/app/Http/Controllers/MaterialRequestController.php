@@ -153,68 +153,72 @@ class MaterialRequestController extends Controller
     // =========================================================================
     // POST /projects/{id}/material-requests
     // =========================================================================
-    public function store(Request $request, int $id): JsonResponse
-    {
-        $project = Project::findOrFail($id);
+    // In MaterialRequestController.php, update the store method validation and item creation
 
-        $validated = $request->validate([
-            'requested_by_name'     => 'required|string|max:255',
-            'engineer_name'         => 'nullable|string|max:255',
-            'destination'           => 'nullable|string|max:255',
-            'items'                 => 'required|array|min:1',
-            'items.*.description'   => 'required|string|max:255',
-            'items.*.product_code'  => 'nullable|string|max:100',
-            'items.*.unit'          => 'nullable|string|max:50',
-            'items.*.requested_qty' => 'required|numeric|min:0.01',
-            'items.*.unit_cost'     => 'nullable|numeric|min:0',
-            'items.*.total_cost'    => 'nullable|numeric|min:0',
-        ]);
+public function store(Request $request, int $id): JsonResponse
+{
+    $project = Project::findOrFail($id);
 
-        try {
-            $materialRequest = DB::transaction(function () use ($validated, $project) {
-                $req = MaterialRequest::create([
-                    'project_id'     => $project->id,
-                    'project_name'   => $project->project_name,
-                    'requester_name' => $validated['requested_by_name'],
-                    'status'         => 'pending',
-                    'items'          => $validated['items'],
-                ]);
+    $validated = $request->validate([
+        'requested_by_name'        => 'required|string|max:255',
+        'engineer_name'            => 'nullable|string|max:255',
+        'destination'              => 'nullable|string|max:255',
+        'items'                    => 'required|array|min:1',
+        'items.*.description'      => 'required|string|max:255',
+        'items.*.product_code'     => 'nullable|string|max:100',
+        'items.*.product_category' => 'nullable|string|max:255', // 👈 ADDED
+        'items.*.unit'             => 'nullable|string|max:50',
+        'items.*.requested_qty'    => 'required|numeric|min:0.01',
+        'items.*.unit_cost'        => 'nullable|numeric|min:0',
+        'items.*.total_cost'       => 'nullable|numeric|min:0',
+    ]);
 
-                foreach ($validated['items'] as $item) {
-                    $req->items()->create([
-                        'description'   => $item['description'],
-                        'product_code'  => $item['product_code']  ?? null,
-                        'unit'          => $item['unit']          ?? null,
-                        'requested_qty' => $item['requested_qty'],
-                        'unit_cost'     => $item['unit_cost']     ?? null,
-                        'total_cost'    => $item['total_cost']    ?? null,
-                    ]);
-                }
-
-                return $req;
-            });
-
-            $totalValue = collect($validated['items'])->sum('total_cost');
-            $valueStr = $totalValue > 0 
-                ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
-                : '';
-
-            \App\Models\AppNotification::create([
-                'target_department' => 'Logistics',
-                'target_role'       => null,
-                'project_id'        => $project->id,
-                'message'           => "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}.",
+    try {
+        $materialRequest = DB::transaction(function () use ($validated, $project) {
+            $req = MaterialRequest::create([
+                'project_id'     => $project->id,
+                'project_name'   => $project->project_name,
+                'requester_name' => $validated['requested_by_name'],
+                'status'         => 'pending',
+                'items'          => $validated['items'],
             ]);
 
-            return response()->json($materialRequest->load('items'), 201);
-            
-        } catch (\Exception $e) {
-            \Log::error('Material Request Store Error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Server Error: ' . $e->getMessage(),
-            ], 500);
-        }
+            foreach ($validated['items'] as $item) {
+                $req->items()->create([
+                    'description'      => $item['description'],
+                    'product_code'     => $item['product_code']  ?? null,
+                    'product_category' => $item['product_category'] ?? null, // 👈 ADDED
+                    'unit'             => $item['unit']          ?? null,
+                    'requested_qty'    => $item['requested_qty'],
+                    'unit_cost'        => $item['unit_cost']     ?? null,
+                    'total_cost'       => $item['total_cost']    ?? null,
+                ]);
+            }
+
+            return $req;
+        });
+
+        $totalValue = collect($validated['items'])->sum('total_cost');
+        $valueStr = $totalValue > 0 
+            ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
+            : '';
+
+        \App\Models\AppNotification::create([
+            'target_department' => 'Logistics',
+            'target_role'       => null,
+            'project_id'        => $project->id,
+            'message'           => "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}.",
+        ]);
+
+        return response()->json($materialRequest->load('items'), 201);
+        
+    } catch (\Exception $e) {
+        \Log::error('Material Request Store Error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Server Error: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     // =========================================================================
     // PATCH /material-requests/{id}
@@ -266,7 +270,7 @@ public function dispatch(Request $request, int $id): JsonResponse
                 Logistics::create([
                     'material_request_id' => $req->id,
                     'trucking_service'    => $validated['trucking_service'],
-                    'product_category'    => $inv->product_category ?? '',
+                    'product_category'    => $item['product_category'] ?? $inv->product_category ?? '', // 👈 UPDATED
                     'product_code'        => $productCode,
                     'is_consumable'       => $inv->is_consumable ?? false,
                     'project_name'        => $req->project_name,

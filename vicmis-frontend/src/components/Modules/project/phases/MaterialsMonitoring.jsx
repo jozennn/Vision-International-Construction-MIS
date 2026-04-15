@@ -82,7 +82,6 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
             if (!seen.has(key)) {
                 seen.set(key, item);
             } else {
-                // Keep the one with more delivery data
                 const existing = seen.get(key);
                 if (totalDelivered(item) > totalDelivered(existing)) {
                     seen.set(key, item);
@@ -135,20 +134,21 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
 
         // ── Column widths ─────────────────────────────────────────────────────
         ws.columns = [
-            { width: 24 },  // A – Name
-            { width: 20 },  // B – Description
-            { width: 14 },  // C – Del. Date
-            { width: 12 },  // D – Del. Qty
-            { width: 14 },  // E – Total Delivered
-            { width: 12 },  // F – Installed
-            { width: 16 },  // G – Remaining Inventory
-            { width: 20 },  // H – Remarks
+            { width: 16 },  // A - Category
+            { width: 22 },  // B - Name
+            { width: 18 },  // C - Description
+            { width: 14 },  // D - Del. Date
+            { width: 12 },  // E - Del. Qty
+            { width: 14 },  // F - Total Delivered
+            { width: 12 },  // G - Installed
+            { width: 16 },  // H - Remaining Inventory
+            { width: 18 },  // I - Remarks
         ];
 
         let r = 1;
 
         // ── 1. COMPANY HEADER ─────────────────────────────────────────────────
-        ws.mergeCells(`A${r}:H${r}`);
+        ws.mergeCells(`A${r}:I${r}`);
         const hdr = ws.getCell(`A${r}`);
         hdr.value = 'VISION INTERNATIONAL CONSTRUCTION OPC\n"You Envision, We Build"';
         sc(hdr, {
@@ -161,7 +161,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         r++;
 
         // ── 2. SUBTITLE ───────────────────────────────────────────────────────
-        ws.mergeCells(`A${r}:H${r}`);
+        ws.mergeCells(`A${r}:I${r}`);
         const sub = ws.getCell(`A${r}`);
         sub.value = 'MATERIALS MONITORING REPORT';
         sc(sub, {
@@ -185,14 +185,14 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         ];
 
         infoRows.forEach(([label, value]) => {
-            ws.mergeCells(`A${r}:B${r}`);
-            ws.mergeCells(`C${r}:H${r}`);
+            ws.mergeCells(`A${r}:C${r}`);
+            ws.mergeCells(`D${r}:I${r}`);
 
             const lc = ws.getCell(`A${r}`);
             lc.value = label;
             sc(lc, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
 
-            const vc = ws.getCell(`C${r}`);
+            const vc = ws.getCell(`D${r}`);
             vc.value = value;
             sc(vc, { font: font(), fill: fill(WHITE), alignment: lft, border: brd() });
 
@@ -204,7 +204,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         ws.getRow(r).height = 6; r++;
 
         // ── 4. TABLE HEADER ───────────────────────────────────────────────────
-        ws.mergeCells(`A${r}:H${r}`);
+        ws.mergeCells(`A${r}:I${r}`);
         const tblTitle = ws.getCell(`A${r}`);
         tblTitle.value = '📦  MATERIALS LIST';
         sc(tblTitle, {
@@ -217,7 +217,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         r++;
 
         const colHeaders = [
-            'NAME', 'DESCRIPTION', 'DELIVERY DATE', 'DEL. QTY',
+            'CATEGORY', 'NAME', 'DESCRIPTION', 'DELIVERY DATE', 'DEL. QTY',
             'TOTAL DELIVERED', 'INSTALLED', 'REMAINING INVENTORY', 'REMARKS',
         ];
         colHeaders.forEach((h, ci) => {
@@ -226,7 +226,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
             sc(c, {
                 font:      font({ bold: true, size: 9, color: WHITE }),
                 fill:      fill('FF2D2D44'),
-                alignment: ci < 2 ? lft : ctr,
+                alignment: ci < 3 ? lft : ctr,
                 border:    brd('FF000000'),
             });
         });
@@ -243,11 +243,11 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
             const remaining  = getRemainingInventory(item, currentDate);
             const rowBg      = idx % 2 === 0 ? WHITE : 'FFFAFAFA';
 
-            // Remaining inventory colour coding
             const remColor   = remaining <= 0 ? RED_FG : remaining < 10 ? ORANGE : GREEN;
             const remBg      = remaining <= 0 ? RED_BG : rowBg;
 
             const rowData = [
+                { val: item.product_category ?? '', al: lft },
                 { val: item.name        ?? '', al: lft },
                 { val: item.description ?? '', al: lft },
                 { val: lastDel.date     ?? '', al: ctr },
@@ -277,15 +277,15 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         const totalInst = uniqueItems.reduce((s, i) => s + getTotalInstalledUpToDate(i, currentDate), 0);
         const totalRem  = totalDel - totalInst;
 
-        ws.mergeCells(`A${r}:D${r}`);
+        ws.mergeCells(`A${r}:E${r}`);
         const sumLabel = ws.getCell(`A${r}`);
         sumLabel.value = `Total Items: ${uniqueItems.length}`;
         sc(sumLabel, { font: font({ bold: true, italic: true, color: DGRAY }), fill: fill(LGRAY), alignment: lft, border: brd() });
 
         const sumCells = [
-            { col: 5, val: totalDel  },
-            { col: 6, val: totalInst },
-            { col: 7, val: totalRem,  bold: true, color: totalRem <= 0 ? RED_FG : GREEN },
+            { col: 6, val: totalDel  },
+            { col: 7, val: totalInst },
+            { col: 8, val: totalRem,  bold: true, color: totalRem <= 0 ? RED_FG : GREEN },
         ];
         sumCells.forEach(({ col, val, bold: b, color: c }) => {
             const cell = ws.getCell(r, col);
@@ -297,8 +297,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                 border:    brd(),
             });
         });
-        // Fill remarks col
-        sc(ws.getCell(r, 8), { fill: fill(LGRAY), border: brd() });
+        sc(ws.getCell(r, 9), { fill: fill(LGRAY), border: brd() });
         ws.getRow(r).height = 18;
         r++;
 
@@ -306,7 +305,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         ws.getRow(r).height = 6; r++;
 
         // ── 7. FOOTER ─────────────────────────────────────────────────────────
-        ws.mergeCells(`A${r}:H${r}`);
+        ws.mergeCells(`A${r}:I${r}`);
         const footer = ws.getCell(`A${r}`);
         footer.value = `Generated on ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })} · Vision International Construction OPC`;
         sc(footer, {
@@ -320,7 +319,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         // ── Print settings ────────────────────────────────────────────────────
         ws.pageSetup = {
             paperSize:   9,
-            orientation: 'portrait',
+            orientation: 'landscape',
             fitToPage:   true,
             fitToWidth:  1,
             fitToHeight: 0,
@@ -409,6 +408,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                         <table className="mon-table">
                             <thead>
                                 <tr>
+                                    <th className="th-left" style={{ minWidth: 120 }}>CATEGORY</th>
                                     <th className="th-left" style={{ minWidth: 140 }}>NAME</th>
                                     <th style={{ minWidth: 120 }}>DESCRIPTION</th>
                                     <th>DELIVERY DATE</th>
@@ -423,7 +423,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                             <tbody>
                                 {displayItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={9} style={{ padding: 20, textAlign: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12 }}>
+                                        <td colSpan={10} style={{ padding: 20, textAlign: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 12 }}>
                                             No items yet. Items from the approved BOQ appear here automatically.
                                         </td>
                                     </tr>
@@ -439,6 +439,11 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
 
                                     return (
                                         <tr key={item.id} className={fromBoq ? 'mon-row-boq' : ''}>
+                                            <td className="td-left">
+                                                <span className="mon-category-badge">
+                                                    {item.product_category || '—'}
+                                                </span>
+                                            </td>
                                             <td className="td-left">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                                     {fromBoq && <span className="mon-boq-badge" title={item.boqKey}>BOQ</span>}

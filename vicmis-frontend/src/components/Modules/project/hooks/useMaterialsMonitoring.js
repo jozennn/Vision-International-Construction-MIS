@@ -40,6 +40,7 @@ const emptyItem = (id, overrides = {}) => ({
     id,
     name:          '',
     description:   '',
+    product_category: '', // 👈 ADDED
     unit:          'pcs',
     deliveries:    [{ date: today(), qty: 0 }],
     remarks:       '',
@@ -72,6 +73,9 @@ const sanitizeItemDates = (item) => ({
  * Merge saved items with BOQ rows.
  * Initial delivery qty is set to BOQ required quantity.
  */
+// src/hooks/useMaterialsMonitoring.js
+
+// Update the mergeBoqIntoItems function to include product_category
 const mergeBoqIntoItems = (existingItems, boqData) => {
     const boqRows = Object.values(boqData ?? {})
         .flat()
@@ -90,14 +94,13 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
         const boqQty = parseFloat(row.qty) || 0;
         
         if (byBoqKey[key]) {
-            // Preserve existing data
             const existing = byBoqKey[key];
-            // Only update first delivery if no deliveries exist yet
             const hasDeliveries = existing.deliveries?.some(d => Number(d.qty) > 0);
             return {
                 ...existing,
                 name: row.description || key,
                 description: row.description || '',
+                product_category: row.product_category || existing.product_category || '', // 👈 ADDED
                 unit: row.unit || 'pcs',
                 boqQty: boqQty,
                 deliveries: hasDeliveries 
@@ -105,11 +108,11 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
                     : [{ date: today(), qty: boqQty }],
             };
         }
-        // New BOQ item - set initial delivery to BOQ quantity
         return emptyItem(Date.now() + Math.random(), {
             boqKey: key,
             name: row.description || key,
             description: row.description || '',
+            product_category: row.product_category || '', // 👈 ADDED
             unit: row.unit || 'pcs',
             boqQty: boqQty,
             deliveries: [{ date: today(), qty: boqQty }],
@@ -122,6 +125,9 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
 
     return [...manualItems, ...boqItems, ...orphanedItems];
 };
+
+// Also update emptyItem to include product_category
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, boqData = null) => {

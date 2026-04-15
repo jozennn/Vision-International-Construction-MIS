@@ -32,81 +32,80 @@ const useMaterialRequest = ({ project, user, boqData }) => {
 
   const submitMaterialRequest = useCallback(async (currentUser) => {
     const validItems = requestItems.filter(
-      i => i.requestedQty && parseFloat(i.requestedQty) > 0
+        i => i.requestedQty && parseFloat(i.requestedQty) > 0
     );
 
     if (validItems.length === 0) {
-      alert('Please select at least one item and specify a quantity.');
-      return;
+        alert('Please select at least one item and specify a quantity.');
+        return;
     }
 
     setSubmittingRequest(true);
     try {
-      // 👇 Build items array with CORRECT field names
-      const items = validItems.map(i => {
-        const unitCost = parseFloat(i.unitCost) || 0;
-        const requestedQty = parseFloat(i.requestedQty) || 0;
-        const totalCost = unitCost * requestedQty;
-        
-        return {
-          description:   i.description || i.name || i.product_code || 'Material Item',
-          product_code:  i.product_code || '',
-          unit:          i.unit || 'pcs',
-          requested_qty: requestedQty,  // 👈 snake_case for backend
-          unit_cost:     unitCost,
-          total_cost:    totalCost,
+        const items = validItems.map(i => {
+            const unitCost = parseFloat(i.unitCost) || 0;
+            const requestedQty = parseFloat(i.requestedQty) || 0;
+            const totalCost = unitCost * requestedQty;
+            
+            return {
+                description:      i.description || i.name || i.product_code || 'Material Item',
+                product_code:     i.product_code || '',
+                product_category: i.product_category || '', // 👈 ADDED
+                unit:             i.unit || 'pcs',
+                requested_qty:    requestedQty,
+                unit_cost:        unitCost,
+                total_cost:       totalCost,
+            };
+        });
+
+        const payload = {
+            requested_by_name: currentUser?.name || user?.name || 'System User',
+            engineer_name: project?.assigned_engineers || currentUser?.name || '',
+            destination: project?.location || '',
+            items: items,
         };
-      });
 
-      // 👇 Build payload with CORRECT field names
-      const payload = {
-        requested_by_name: currentUser?.name || user?.name || 'System User',  // 👈 Correct field name
-        engineer_name: project?.assigned_engineers || currentUser?.name || '',
-        destination: project?.location || '',
-        items: items,  // 👈 Send as array, not JSON string
-      };
+        console.log('[MaterialRequest] Sending payload:', payload);
 
-      console.log('[MaterialRequest] Sending payload:', payload);
+        const response = await api.post(
+            `/projects/${project.id}/material-requests`,
+            payload,
+            { 
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                } 
+            }
+        );
 
-      const response = await api.post(
-        `/projects/${project.id}/material-requests`,
-        payload,
-        { 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          } 
-        }
-      );
+        console.log('[MaterialRequest] Success:', response.data);
 
-      console.log('[MaterialRequest] Success:', response.data);
+        const totalValue = items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
+        const valueStr = totalValue > 0 
+            ? `\nTotal value: ₱${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` 
+            : '';
 
-      const totalValue = items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
-      const valueStr = totalValue > 0 
-        ? `\nTotal value: ₱${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` 
-        : '';
-
-      setRequestItems([]);
-      setShowRequestModal(false);
-      alert(`✅ Material request sent to Logistics!${valueStr}`);
+        setRequestItems([]);
+        setShowRequestModal(false);
+        alert(`✅ Material request sent to Logistics!${valueStr}`);
     } catch (err) {
-      console.error('[MaterialRequest] Error:', err);
-      console.error('[MaterialRequest] Response data:', err.response?.data);
-      
-      if (err.response?.data?.errors) {
-        const errorMessages = Object.entries(err.response.data.errors)
-          .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-          .join('\n');
-        alert(`❌ Validation errors:\n${errorMessages}`);
-      } else {
-        const errorMsg = err.response?.data?.message || 'Failed to send material request.';
-        alert(`❌ ${errorMsg}`);
-      }
-      throw err;
+        console.error('[MaterialRequest] Error:', err);
+        console.error('[MaterialRequest] Response data:', err.response?.data);
+        
+        if (err.response?.data?.errors) {
+            const errorMessages = Object.entries(err.response.data.errors)
+                .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+                .join('\n');
+            alert(`❌ Validation errors:\n${errorMessages}`);
+        } else {
+            const errorMsg = err.response?.data?.message || 'Failed to send material request.';
+            alert(`❌ ${errorMsg}`);
+        }
+        throw err;
     } finally {
-      setSubmittingRequest(false);
+        setSubmittingRequest(false);
     }
-  }, [requestItems, project, user]);
+}, [requestItems, project, user]);
 
   const handleIssueSubmit = useCallback(async () => {
     if (!issueLog.problem?.trim()) {

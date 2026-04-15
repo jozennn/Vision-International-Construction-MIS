@@ -379,40 +379,49 @@ const PendingRequestsTab = ({
             )}
 
             {/* Items table */}
-            <table className="dl-req-items-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>Unit</th>
-                  <th className="text-right">Requested Qty</th>
-                  <th className="text-right">Current Stock</th>
-                  <th>Stock Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {itemsWithStock?.map((item, i) => (
-                  <tr key={i} className={!item.canFulfill ? 'dl-row-warning' : ''}>
-                    <td className="dl-code">{item.product_code || '—'}</td>
-                    <td>{item.description}</td>
-                    <td>{item.unit}</td>
-                    <td className="text-right">{item.requested_qty}</td>
-                    <td className="text-right">
-                      {item.current_stock != null ? item.current_stock : <span style={{ color: '#9ca3af' }}>—</span>}
-                    </td>
-                    <td>
-                      {item.stock_status === 'ON STOCK'  && <span className="wh-avail avail-on">ON STOCK</span>}
-                      {item.stock_status === 'LOW STOCK' && !item.isOutOfStock && <span className="wh-avail avail-low">LOW STOCK (Insufficient)</span>}
-                      {item.stock_status === 'LOW STOCK' && item.isOutOfStock === false && item.current_stock > 0 && 
+            // In DeliveryMat.jsx, update the PendingRequestsTab component's table
+
+{/* Items table */}
+<table className="dl-req-items-table">
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th>Code</th>
+            <th>Description</th>
+            <th>Unit</th>
+            <th className="text-right">Requested Qty</th>
+            <th className="text-right">Current Stock</th>
+            <th>Stock Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {itemsWithStock?.map((item, i) => (
+            <tr key={i} className={!item.canFulfill ? 'dl-row-warning' : ''}>
+                <td>
+                    <span className="dl-category-badge">
+                        {item.product_category || '—'}
+                    </span>
+                </td>
+                <td className="dl-code">{item.product_code || '—'}</td>
+                <td>{item.description}</td>
+                <td>{item.unit}</td>
+                <td className="text-right">{item.requested_qty}</td>
+                <td className="text-right">
+                    {item.current_stock != null ? item.current_stock : <span style={{ color: '#9ca3af' }}>—</span>}
+                </td>
+                <td>
+                    {item.stock_status === 'ON STOCK'  && <span className="wh-avail avail-on">ON STOCK</span>}
+                    {item.stock_status === 'LOW STOCK' && !item.isOutOfStock && <span className="wh-avail avail-low">LOW STOCK (Insufficient)</span>}
+                    {item.stock_status === 'LOW STOCK' && item.isOutOfStock === false && item.current_stock > 0 && 
                         <span className="wh-avail avail-low">LOW STOCK</span>
-                      }
-                      {item.stock_status === 'NO STOCK'  && <span className="wh-avail avail-no">NO STOCK</span>}
-                      {!item.stock_status && <span style={{ color: '#9ca3af' }}>—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    }
+                    {item.stock_status === 'NO STOCK'  && <span className="wh-avail avail-no">NO STOCK</span>}
+                    {!item.stock_status && <span style={{ color: '#9ca3af' }}>—</span>}
+                </td>
+            </tr>
+        ))}
+    </tbody>
+</table>
 
             {/* Actions */}
             {req.status === 'pending' && (

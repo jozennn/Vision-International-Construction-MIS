@@ -10,6 +10,8 @@ import '../css/PhaseCommandCenter.css';
 // Engineer selects items from the approved Final BOQ and specifies qty needed.
 // Inside PhaseCommandCenter.jsx, update the MaterialReqModal component
 
+// Inside PhaseCommandCenter.jsx, replace the MaterialReqModal component
+
 const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting, requesterName }) => (
   <div className="pm-modal-overlay">
     <div className="pm-modal-content pm-modal-orange large">
@@ -18,7 +20,7 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
         <button onClick={onClose} className="pm-close-btn">✕</button>
       </div>
 
-      {/* 👇 ADDED: Requester info */}
+      {/* Requester info */}
       <div className="pm-requester-info" style={{
         display: 'flex',
         alignItems: 'center',
@@ -48,7 +50,8 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
         <table className="pm-table text-center">
           <thead className="pm-thead-sticky">
             <tr>
-              <th className="text-left">Description</th>
+              <th className="text-left">Category</th>
+              <th className="text-left">Product Code</th>
               <th>Unit</th>
               <th>Unit Cost (₱)</th>
               <th>Needed Qty</th>
@@ -66,11 +69,16 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
+                  <td className="text-left">
+                    <span className="pm-category-badge">
+                      {item.product_category || '—'}
+                    </span>
+                  </td>
                   <td className="pm-td-bold text-left">
-                    {item.description || item.product_code || '—'}
-                    {item.product_code && item.description && (
+                    {item.product_code || '—'}
+                    {item.description && item.description !== item.product_code && (
                       <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
-                        Code: {item.product_code}
+                        {item.description}
                       </div>
                     )}
                   </td>

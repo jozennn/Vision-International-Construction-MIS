@@ -141,6 +141,9 @@ class LogisticsController extends Controller
     // =========================================================================
     // In LogisticsController.php, update the markDelivered method
 
+// In LogisticsController.php, update the markDelivered method
+// Add 'product_category' to the newRows array
+
 public function markDelivered(int $id): JsonResponse
 {
     $delivery = Logistics::findOrFail($id);
@@ -149,18 +152,15 @@ public function markDelivered(int $id): JsonResponse
 
     DB::transaction(function () use ($delivery) {
 
-        // ── 1. Mark the delivery ───────────────────────────────────────
         $delivery->update([
             'status'         => 'Delivered',
             'date_delivered' => now(),
         ]);
 
-        // ── 2. Find the associated material request (if any) ───────────
         $materialRequest = $delivery->material_request_id
             ? MaterialRequest::with('items')->find($delivery->material_request_id)
             : null;
 
-        // ── 3. Resolve the project ─────────────────────────────────────
         $projectId = $materialRequest?->project_id
             ?? Project::where('project_name', $delivery->project_name)->value('id');
 
@@ -168,7 +168,6 @@ public function markDelivered(int $id): JsonResponse
             $project     = Project::with('materials')->find($projectId);
             $matTracking = $project?->materials;
 
-            // Get existing material_items JSON array (or start fresh)
             $existingItems = [];
             if ($matTracking && $matTracking->material_items) {
                 $decoded = is_string($matTracking->material_items)
@@ -181,49 +180,46 @@ public function markDelivered(int $id): JsonResponse
             $newRows    = [];
 
             if ($materialRequest) {
-                // ── Request-based delivery: one row per requested item ──
                 foreach ($materialRequest->items as $item) {
                     $newRows[] = [
-                        'id'                => 'arrival_' . uniqid(),
-                        'name'              => $item->product_code
+                        'id'                  => 'arrival_' . uniqid(),
+                        'name'                => $item->product_code
                                                 ? "{$item->product_code} ({$item->description})"
                                                 : $item->description,
-                        'description'       => $item->description,
-                        'delivery_date'     => $delivery->date_of_delivery ?? $today,
-                        'qty'               => $item->requested_qty,
-                        'total'             => $item->requested_qty,
-                        'installed'         => 0,
+                        'description'         => $item->description,
+                        'product_category'    => $item->product_category ?? $inv->product_category ?? '', // 👈 ADDED
+                        'delivery_date'       => $delivery->date_of_delivery ?? $today,
+                        'qty'                 => $item->requested_qty,
+                        'total'               => $item->requested_qty,
+                        'installed'           => 0,
                         'remaining_inventory' => $item->requested_qty,
-                        'is_new_arrival'    => true,
-                        'logistics_id'      => $delivery->id,
+                        'is_new_arrival'      => true,
+                        'logistics_id'        => $delivery->id,
                         'material_request_id' => $delivery->material_request_id,
-                        'remarks'           => 'Auto-added from material request delivery',
+                        'remarks'             => 'Auto-added from material request delivery',
                     ];
                 }
                 
-                // Update material request status to delivered
                 $materialRequest->update(['status' => 'delivered']);
             } else {
-                // ── Manual delivery: single row ────────────────────────
                 $newRows[] = [
-                    'id'                => 'arrival_' . uniqid(),
-                    'name'              => $delivery->product_code,
-                    'description'       => null,
-                    'delivery_date'     => $delivery->date_of_delivery ?? $today,
-                    'qty'               => $delivery->quantity,
-                    'total'             => $delivery->quantity,
-                    'installed'         => 0,
+                    'id'                  => 'arrival_' . uniqid(),
+                    'name'                => $delivery->product_code,
+                    'description'         => null,
+                    'product_category'    => $delivery->product_category ?? '', // 👈 ADDED
+                    'delivery_date'       => $delivery->date_of_delivery ?? $today,
+                    'qty'                 => $delivery->quantity,
+                    'total'               => $delivery->quantity,
+                    'installed'           => 0,
                     'remaining_inventory' => $delivery->quantity,
-                    'is_new_arrival'    => true,
-                    'logistics_id'      => $delivery->id,
-                    'remarks'           => 'Auto-added from manual delivery',
+                    'is_new_arrival'      => true,
+                    'logistics_id'        => $delivery->id,
+                    'remarks'             => 'Auto-added from manual delivery',
                 ];
             }
 
-            // Merge new rows into existing tracking items
             $mergedItems = array_merge($existingItems, $newRows);
 
-            // Upsert the project_materials row
             if ($project) {
                 $project->materials()->updateOrCreate(
                     ['project_id' => $projectId],
@@ -231,7 +227,6 @@ public function markDelivered(int $id): JsonResponse
                 );
             }
 
-            // ── 4. Notify Engineering ──────────────────────────────────
             $projectName = $materialRequest?->project_name ?? $delivery->project_name;
             \App\Models\AppNotification::create([
                 'target_department' => 'Engineering',
@@ -241,8 +236,6 @@ public function markDelivered(int $id): JsonResponse
             ]);
         }
 
-        // ── 5. Decrement warehouse stock (only for manual deliveries) ──
-        // For request-based deliveries, stock was already decremented during dispatch
         if (!$materialRequest && $delivery->product_code) {
             $this->decrementStock($delivery->product_code, $delivery->quantity ?? 1);
         }

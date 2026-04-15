@@ -11,6 +11,7 @@ class MaterialRequestItem extends Model
         'material_request_id',
         'description',
         'product_code',
+        'product_category',
         'unit',
         'requested_qty',
         'unit_cost',      // 👈 Added
