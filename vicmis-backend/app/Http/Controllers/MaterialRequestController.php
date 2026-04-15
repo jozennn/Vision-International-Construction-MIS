@@ -35,11 +35,16 @@ class MaterialRequestController extends Controller
                     $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
                     
                     if (!empty($productCode)) {
-                        // Search by BOTH product_code AND product_category
+                        // Try exact match first (code + category)
                         $inv = WarehouseInventory::where('product_code', $productCode)
-                            ->where('product_category', $productCategory)
+                            ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
                             ->first();
-                        
+
+                        // Fallback: match by product_code only if category mismatch
+                        if (!$inv) {
+                            $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                        }
+
                         $currentStock = $inv->current_stock ?? 0;
                         $stockStatus = $inv->availability ?? 'NO STOCK';
                     } else {
@@ -95,11 +100,16 @@ class MaterialRequestController extends Controller
                         $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
                         
                         if (!empty($productCode)) {
-                            // Search by BOTH product_code AND product_category
+                            // Try exact match first (code + category)
                             $inv = WarehouseInventory::where('product_code', $productCode)
-                                ->where('product_category', $productCategory)
+                                ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
                                 ->first();
-                            
+
+                            // Fallback: match by product_code only if category mismatch
+                            if (!$inv) {
+                                $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                            }
+
                             $currentStock = $inv->current_stock ?? 0;
                             $stockStatus = $inv->availability ?? 'NO STOCK';
                         } else {
@@ -133,11 +143,16 @@ class MaterialRequestController extends Controller
                     $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
                     
                     if (!empty($productCode)) {
-                        // Search by BOTH product_code AND product_category
+                        // Try exact match first (code + category)
                         $inv = WarehouseInventory::where('product_code', $productCode)
-                            ->where('product_category', $productCategory)
+                            ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
                             ->first();
-                        
+
+                        // Fallback: match by product_code only if category mismatch
+                        if (!$inv) {
+                            $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                        }
+
                         $currentStock = $inv->current_stock ?? 0;
                         $stockStatus = $inv->availability ?? 'NO STOCK';
                     } else {
