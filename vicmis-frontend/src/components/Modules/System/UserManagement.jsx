@@ -158,7 +158,7 @@ const UserManagement = ({ user }) => {
   const ROLE_COLORS = {
     super_admin: '#DC2626', manager: '#7C3AED',
     dept_head: '#2563EB', sales_employee: '#059669', engineering_employee: '#0891B2',
-    logistics_employee: '#EA580C', procurement_employee: '#6366F1',
+    logistics_employee: '#EA580C', accounting_employee: '#6366F1',
   };
 
   // Helper to get available roles for the currently selected department in the form
@@ -238,7 +238,9 @@ const UserManagement = ({ user }) => {
                             borderColor: `${ROLE_COLORS[emp.role] || '#64748b'}30`,
                           }}
                         >
-                          {emp.role.replace(/_/g, ' ')}
+                            {emp.role === 'accounting_employee' 
+                                ? 'Procurement Employee' 
+                                  : emp.role.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td data-label="Actions" className="um-td-actions">
