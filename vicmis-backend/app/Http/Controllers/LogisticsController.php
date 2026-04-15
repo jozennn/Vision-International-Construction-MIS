@@ -180,7 +180,6 @@ public function markDelivered(int $id): JsonResponse
             $newRows = [];
 
             if ($materialRequest) {
-                // items is an array from JSON cast
                 $items = $materialRequest->items;
                 
                 foreach ($items as $item) {
@@ -198,42 +197,47 @@ public function markDelivered(int $id): JsonResponse
                     }
                     
                     $newRows[] = [
-                        'id'                  => 'arrival_' . time() . '_' . rand(1000, 9999),
-                        'name'                => $productCode ? "{$productCode} ({$item['description']})" : $item['description'],
-                        'description'         => $item['description'],
-                        'product_category'    => $productCategory ?: ($inv->product_category ?? ''),
-                        'delivery_date'       => $delivery->date_of_delivery ?? $today,
-                        'qty'                 => $item['requested_qty'],
-                        'total'               => $item['requested_qty'],
-                        'installed'           => 0,
-                        'remaining_inventory' => $item['requested_qty'],
-                        'is_new_arrival'      => true,
-                        'logistics_id'        => $delivery->id,
-                        'material_request_id' => $delivery->material_request_id,
-                        'remarks'             => 'Auto-added from material request delivery',
+                        'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                        'boqKey'           => $productCode,
+                        'name'             => $productCode ?: $item['description'],
+                        'description'      => $item['description'],
+                        'product_category' => $productCategory ?: ($inv->product_category ?? ''),
+                        'unit'             => $item['unit'] ?? 'Pcs',
+                        'deliveries'       => [
+                            [
+                                'date' => $delivery->date_of_delivery ?? $today,
+                                'qty'  => (int) $item['requested_qty'],
+                            ]
+                        ],
+                        'installed'        => [],
+                        'remarks'          => 'Auto-added from material request delivery',
+                        'is_new_arrival'   => true,
+                        'logistics_id'     => $delivery->id,
                     ];
                 }
                 
                 $materialRequest->update(['status' => 'delivered']);
             } else {
-                // Manual delivery
                 $inv = WarehouseInventory::where('product_code', $delivery->product_code)
                     ->where('product_category', $delivery->product_category)
                     ->first();
                 
                 $newRows[] = [
-                    'id'                  => 'arrival_' . time() . '_' . rand(1000, 9999),
-                    'name'                => $delivery->product_code,
-                    'description'         => null,
-                    'product_category'    => $delivery->product_category ?: ($inv->product_category ?? ''),
-                    'delivery_date'       => $delivery->date_of_delivery ?? $today,
-                    'qty'                 => $delivery->quantity,
-                    'total'               => $delivery->quantity,
-                    'installed'           => 0,
-                    'remaining_inventory' => $delivery->quantity,
-                    'is_new_arrival'      => true,
-                    'logistics_id'        => $delivery->id,
-                    'remarks'             => 'Auto-added from manual delivery',
+                    'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                    'name'             => $delivery->product_code,
+                    'description'      => null,
+                    'product_category' => $delivery->product_category ?: ($inv->product_category ?? ''),
+                    'unit'             => 'Pcs',
+                    'deliveries'       => [
+                        [
+                            'date' => $delivery->date_of_delivery ?? $today,
+                            'qty'  => (int) $delivery->quantity,
+                        ]
+                    ],
+                    'installed'        => [],
+                    'remarks'          => 'Auto-added from manual delivery',
+                    'is_new_arrival'   => true,
+                    'logistics_id'     => $delivery->id,
                 ];
             }
 
