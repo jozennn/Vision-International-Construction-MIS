@@ -196,11 +196,9 @@ const UserManagement = ({ user }) => {
             >
               <option value="All">All Departments</option>
               {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              
               <option value="Legacy/Archived">Legacy/Archived</option>
             </select>
           </div>
-
           <button className="vcc-btn-primary" onClick={openCreateModal}>
             <span>+</span> Create Account
           </button>
