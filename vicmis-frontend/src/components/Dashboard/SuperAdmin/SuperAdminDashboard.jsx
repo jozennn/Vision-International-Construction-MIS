@@ -182,17 +182,6 @@ const SuperAdminDashboard = ({ user }) => {
                 <div className="sa-progress-fill" style={{ width: `${Math.min(((stats?.bottlenecks?.logistics ?? 0) / (stats?.active_projects || 1)) * 100, 100)}%`, backgroundColor: '#10b981' }} />
               </div>
             </div>
-
-            <div className="sa-dept-row">
-              <div className="sa-dept-info">
-                <span className="sa-dept-name">Accounting & Finance</span>
-                <span className="sa-dept-count">{stats?.bottlenecks?.accounting ?? 0} Projects</span>
-              </div>
-              <div className="sa-progress-bar">
-                <div className="sa-progress-fill" style={{ width: `${Math.min(((stats?.bottlenecks?.accounting ?? 0) / (stats?.active_projects || 1)) * 100, 100)}%`, backgroundColor: '#C20100' }} />
-              </div>
-            </div>
-
           </div>
         </div>
 
