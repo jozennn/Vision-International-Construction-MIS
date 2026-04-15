@@ -52,7 +52,6 @@ class ProjectController extends Controller
     // Phases visible to Sales users (for their own projects only)
     private const SALES_PHASES = [
         'Floor Plan',
-        'Purchase Order',
         'P.O & Work Order',
         'Pending Work Order Verification',
         'Completed',
@@ -657,7 +656,7 @@ class ProjectController extends Controller
             'reviewed_at'   => now(),
         ]);
 
-        $project->update(['status' => 'Purchase Order']);
+        $project->update(['status' => 'P.O & Work Order']);
 
         $this->createNotification('Sales', null, $project->id,
             "✅ BOQ Approved for '{$project->project_name}'. Please prepare the P.O.");
