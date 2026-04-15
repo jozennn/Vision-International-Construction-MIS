@@ -95,43 +95,43 @@ public function getPending(Request $request): JsonResponse
             
             $result = [];
             foreach ($requests as $req) {
-                $reqArray = $req->toArray();
-                $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
+                $reqData = $req->toArray();
+                $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
                 
-                $itemsArray = [];
+                $itemsData = [];
                 foreach ($req->items as $item) {
-                    $itemArray = $item->toArray();
+                    $itemData = $item->toArray();
                     
                     $productCode = $item->product_code ?? null;
                     $productCategory = $item->product_category ?? null;
                     
-                    $itemArray['current_stock'] = 0;
-                    $itemArray['stock_status'] = 'NO STOCK';
+                    $itemData['current_stock'] = 0;
+                    $itemData['stock_status'] = 'NO STOCK';
                     
                     if (!empty($productCode)) {
-                        $query = WarehouseInventory::where('product_code', $productCode);
+                        $invQuery = WarehouseInventory::where('product_code', $productCode);
                         
                         if (!empty($productCategory)) {
-                            $query->where('product_category', $productCategory);
+                            $invQuery->where('product_category', $productCategory);
                         }
                         
-                        $inv = $query->first();
+                        $inv = $invQuery->first();
                         
                         if (!$inv && !empty($productCategory)) {
                             $inv = WarehouseInventory::where('product_code', $productCode)->first();
                         }
                         
                         if ($inv) {
-                            $itemArray['current_stock'] = $inv->current_stock ?? 0;
-                            $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
+                            $itemData['current_stock'] = $inv->current_stock ?? 0;
+                            $itemData['stock_status'] = $inv->availability ?? 'NO STOCK';
                         }
                     }
                     
-                    $itemsArray[] = $itemArray;
+                    $itemsData[] = $itemData;
                 }
                 
-                $reqArray['items'] = $itemsArray;
-                $result[] = $reqArray;
+                $reqData['items'] = $itemsData;
+                $result[] = $reqData;
             }
             
             return response()->json([
@@ -144,43 +144,43 @@ public function getPending(Request $request): JsonResponse
         
         $result = [];
         foreach ($paginated->items() as $req) {
-            $reqArray = $req->toArray();
-            $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
+            $reqData = $req->toArray();
+            $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
             
-            $itemsArray = [];
+            $itemsData = [];
             foreach ($req->items as $item) {
-                $itemArray = $item->toArray();
+                $itemData = $item->toArray();
                 
                 $productCode = $item->product_code ?? null;
                 $productCategory = $item->product_category ?? null;
                 
-                $itemArray['current_stock'] = 0;
-                $itemArray['stock_status'] = 'NO STOCK';
+                $itemData['current_stock'] = 0;
+                $itemData['stock_status'] = 'NO STOCK';
                 
                 if (!empty($productCode)) {
-                    $query = WarehouseInventory::where('product_code', $productCode);
+                    $invQuery = WarehouseInventory::where('product_code', $productCode);
                     
                     if (!empty($productCategory)) {
-                        $query->where('product_category', $productCategory);
+                        $invQuery->where('product_category', $productCategory);
                     }
                     
-                    $inv = $query->first();
+                    $inv = $invQuery->first();
                     
                     if (!$inv && !empty($productCategory)) {
                         $inv = WarehouseInventory::where('product_code', $productCode)->first();
                     }
                     
                     if ($inv) {
-                        $itemArray['current_stock'] = $inv->current_stock ?? 0;
-                        $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
+                        $itemData['current_stock'] = $inv->current_stock ?? 0;
+                        $itemData['stock_status'] = $inv->availability ?? 'NO STOCK';
                     }
                 }
                 
-                $itemsArray[] = $itemArray;
+                $itemsData[] = $itemData;
             }
             
-            $reqArray['items'] = $itemsArray;
-            $result[] = $reqArray;
+            $reqData['items'] = $itemsData;
+            $result[] = $reqData;
         }
 
         return response()->json([
