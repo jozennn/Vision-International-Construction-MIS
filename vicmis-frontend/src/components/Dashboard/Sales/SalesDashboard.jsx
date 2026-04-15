@@ -137,25 +137,25 @@ const LeadDetailModal = ({ lead, onClose, user }) => {
 // ── #1 Pipeline Funnel Card ───────────────────────────────────────────────────
 const PipelineFunnel = ({ leads }) => {
   const activeLeads = leads.filter(l => !l.is_trashed);
+  
+  // FIX: Use exact string matching (===) instead of .includes()
   const counts = PIPELINE_STAGES.map(stage => ({
     ...stage,
     count: activeLeads.filter(l =>
-      (l.status || '').toLowerCase().includes(stage.key)
+      (l.status || '').toLowerCase().trim() === stage.key
     ).length,
   }));
-  const maxCount = Math.max(1, ...counts.map(s => s.count));
 
   return (
     <div className="sd-funnel-wrap">
       {counts.map((stage, i) => {
-        const pct = Math.max(8, (stage.count / maxCount) * 100);
         return (
           <div key={stage.key} className="sd-funnel-stage">
             <div className="sd-funnel-bar-wrap">
               <div
                 className="sd-funnel-bar"
                 style={{
-                  width: `${pct}%`,
+                  width: '100%', // FIX: Set all bars to the exact same length size
                   background: stage.color,
                   opacity: 0.85 - i * 0.1,
                 }}
