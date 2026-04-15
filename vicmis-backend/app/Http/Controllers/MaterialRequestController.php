@@ -104,48 +104,51 @@ class MaterialRequestController extends Controller
             $requests->transform(function ($req) {
                 $req->requested_by_name = $req->requester_name ?? 'Unknown';
                 
-                // Process each item in the request
-                $items = $req->items ?? [];
+                // We must decode or access items as an array/collection
+                $items = is_string($req->items) ? json_decode($req->items, true) : $req->items;
+                $updatedItems = [];
+
                 foreach ($items as $item) {
-                    $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
-                    $description = is_object($item) ? $item->description : ($item['description'] ?? null);
+                    $itemObj = (object) $item;
+                    $productCode = $itemObj->product_code ?? null;
+                    $description = $itemObj->description ?? null;
                     
                     $inv = null;
 
-                    // 1. Search by Code first
+                    // 1. Precise Code Match
                     if (!empty($productCode)) {
                         $inv = WarehouseInventory::where('product_code', $productCode)->first();
                     }
 
-                    // 2. If not found by code, search by Description (matches 'product_name' in DB)
+                    // 2. Fallback to Description Match
                     if (!$inv && !empty($description)) {
                         $inv = WarehouseInventory::where('product_name', 'LIKE', '%' . $description . '%')
                             ->orWhere('product_code', $description)
                             ->first();
                     }
 
-                    // 3. Attach exact database values
+                    // FIX: We use 'current_stock' (300) instead of calculating reserves.
+                    // This ensures that even if items are reserved, the warehouse manager
+                    // can see the physical stock exists for dispatching.
                     $stockVal = $inv ? $inv->current_stock : 0;
-                    $statusVal = $inv ? $inv->availability : 'NO STOCK';
-                    $actualCode = $inv ? $inv->product_code : ($productCode ?? 'N/A');
-
-                    if (is_object($item)) {
-                        $item->current_stock = $stockVal;
-                        $item->stock_status = $statusVal;
-                        $item->product_code = $actualCode;
+                    
+                    // Logic for Stock Status Badge
+                    if (!$inv || $stockVal <= 0) {
+                        $statusVal = 'NO STOCK';
+                    } elseif ($stockVal < ($itemObj->requested_qty ?? 0)) {
+                        $statusVal = 'LOW STOCK';
                     } else {
-                        // If items is an array (JSON cast)
-                        $updatedItems = $req->items;
-                        foreach($updatedItems as &$it) {
-                            if(($it['product_code'] ?? '') == $productCode || ($it['description'] ?? '') == $description) {
-                                $it['current_stock'] = $stockVal;
-                                $it['stock_status'] = $statusVal;
-                                $it['product_code'] = $actualCode;
-                            }
-                        }
-                        $req->items = $updatedItems;
+                        $statusVal = 'ON STOCK';
                     }
+
+                    $updatedItems[] = array_merge($item, [
+                        'current_stock' => $stockVal,
+                        'stock_status'  => $statusVal,
+                        'product_code'  => $inv ? $inv->product_code : ($productCode ?? 'N/A')
+                    ]);
                 }
+
+                $req->items = $updatedItems;
                 return $req;
             });
 
