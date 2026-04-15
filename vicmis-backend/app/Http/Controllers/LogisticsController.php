@@ -181,13 +181,18 @@ public function markDelivered(int $id): JsonResponse
 
             if ($materialRequest) {
                 foreach ($materialRequest->items as $item) {
+                    // 👇 FIX: Define $inv before using it
+                    $inv = WarehouseInventory::where('product_code', $item->product_code)
+                        ->where('product_category', $item->product_category)
+                        ->first();
+                    
                     $newRows[] = [
-                        'id'                  => 'arrival_' . uniqid(),
+                        'id'                  => 'arrival_' . time() . '_' . rand(1000, 9999),
                         'name'                => $item->product_code
                                                 ? "{$item->product_code} ({$item->description})"
                                                 : $item->description,
                         'description'         => $item->description,
-                        'product_category'    => $item->product_category ?? $inv->product_category ?? '', // 👈 ADDED
+                        'product_category'    => $item->product_category ?? ($inv->product_category ?? ''),
                         'delivery_date'       => $delivery->date_of_delivery ?? $today,
                         'qty'                 => $item->requested_qty,
                         'total'               => $item->requested_qty,
@@ -202,11 +207,16 @@ public function markDelivered(int $id): JsonResponse
                 
                 $materialRequest->update(['status' => 'delivered']);
             } else {
+                // 👇 FIX: Define $inv for manual delivery too
+                $inv = WarehouseInventory::where('product_code', $delivery->product_code)
+                    ->where('product_category', $delivery->product_category)
+                    ->first();
+                
                 $newRows[] = [
-                    'id'                  => 'arrival_' . uniqid(),
+                    'id'                  => 'arrival_' . time() . '_' . rand(1000, 9999),
                     'name'                => $delivery->product_code,
                     'description'         => null,
-                    'product_category'    => $delivery->product_category ?? '', // 👈 ADDED
+                    'product_category'    => $delivery->product_category ?? ($inv->product_category ?? ''),
                     'delivery_date'       => $delivery->date_of_delivery ?? $today,
                     'qty'                 => $delivery->quantity,
                     'total'               => $delivery->quantity,
