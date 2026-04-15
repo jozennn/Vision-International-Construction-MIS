@@ -110,7 +110,6 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
   const codesForCategory = (cat) => inventory.filter(i => i.product_category === cat).map(i => i.product_code).filter(Boolean).sort();
   const itemForCode = (code) => inventory.find(i => i.product_code === code);
 
-  // ── Category change: reset code, unit, price, total ──────────────────────
   const handleCategoryChange = (idx, category) => {
     onChange(type, idx, 'product_category', category);
     onChange(type, idx, 'product_code', '');
@@ -119,23 +118,19 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
     onChange(type, idx, 'total', '');
   };
 
-  // ── Code change: auto-fill unit + price, recompute total ─────────────────
   const handleCodeChange = (idx, code) => {
     const item = itemForCode(code);
     onChange(type, idx, 'product_code', code);
     if (item) {
       onChange(type, idx, 'unit', item.unit || '');
-      // Auto-populate price from warehouse inventory
       const price = parseFloat(item.price_per_piece) || 0;
       onChange(type, idx, 'unitCost', price > 0 ? String(price) : '');
-      // Recompute total with existing qty
       const row = rows[idx];
       const qty = parseFloat(row?.qty) || 0;
       onChange(type, idx, 'total', price > 0 && qty > 0 ? String(qty * price) : '');
     }
   };
 
-  // ── Qty change: cap at stock, recompute total ─────────────────────────────
   const handleQtyChange = (idx, value, invItem) => {
     let qty = value;
     if (invItem?.current_stock !== undefined) {
@@ -148,7 +143,6 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
     onChange(type, idx, 'total', String((parseFloat(qty) || 0) * cost));
   };
 
-  // ── Unit cost change: recompute total ─────────────────────────────────────
   const handleUnitCostChange = (idx, value) => {
     onChange(type, idx, 'unitCost', value);
     const row = rows[idx];
@@ -157,10 +151,10 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
   };
 
   return (
-    <div className="boq-wrapper" style={{ width: '100%', minWidth: 0 }}>
+    <div className="boq-wrapper">
       {!readOnly && !loadingInv && <StockAlerts rows={rows} inventory={inventory} />}
 
-      <div className="boq-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+      <div className="boq-scroll">
         {loadingInv && !readOnly && (
           <div className="boq-loading-bar">
             <div className="boq-loading-inner" />
@@ -172,10 +166,16 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
           <thead>
             <tr>
               <th className="boq-th-category">Category</th>
-              <th className="boq-th-code">Code{!readOnly && <span className="boq-th-hint"> (inventory)</span>}</th>
+              <th className="boq-th-code">
+                Code{!readOnly && <span className="boq-th-hint"> (inventory)</span>}
+              </th>
               <th className="boq-th-unit">Unit</th>
               <th className="boq-th-qty">Qty</th>
-              <th className="boq-th-cost">Unit Cost (₱)</th>
+              <th className="boq-th-cost">
+                {/* Shorten label on small screens via CSS class */}
+                <span className="boq-th-label-full">Unit Cost (₱)</span>
+                <span className="boq-th-label-short">Cost (₱)</span>
+              </th>
               <th className="boq-th-total">Total (₱)</th>
               <th className="boq-th-stock">Stock</th>
               {!readOnly && <th className="boq-th-action">—</th>}
@@ -231,8 +231,8 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
 
                   {/* Unit (auto-filled, read-only) */}
                   <td>
-                    <input disabled value={row.unit || ''} className="pm-input text-center"
-                      style={{ margin: 0, background: 'var(--pm-input-disabled-bg, #f3f4f6)', cursor: 'not-allowed' }}
+                    <input disabled value={row.unit || ''} className="pm-input boq-unit-input"
+                      style={{ margin: 0, background: 'var(--pm-input-disabled-bg, #f3f4f6)', cursor: 'not-allowed', textAlign: 'center' }}
                       placeholder="—" readOnly />
                   </td>
 
@@ -241,10 +241,10 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                     <input disabled={readOnly} type="number" value={row.qty || ''}
                       min={0} max={maxQty ?? undefined}
                       onChange={e => handleQtyChange(idx, e.target.value, invItem)}
-                      className="pm-input text-center" style={{ margin: 0 }} placeholder="0" />
+                      className="pm-input boq-qty-input" style={{ margin: 0, textAlign: 'center' }} placeholder="0" />
                   </td>
 
-                  {/* Unit Cost — auto-filled from inventory, still editable */}
+                  {/* Unit Cost */}
                   <td>
                     <div style={{ position: 'relative' }}>
                       <input
@@ -252,27 +252,12 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                         type="number"
                         value={row.unitCost || ''}
                         onChange={e => handleUnitCostChange(idx, e.target.value)}
-                        className="pm-input text-center"
-                        style={{ margin: 0 }}
+                        className="pm-input boq-cost-input"
+                        style={{ margin: 0, textAlign: 'center' }}
                         placeholder="0.00"
                       />
-                      {/* Show a subtle "auto" badge when price was pulled from inventory */}
                       {invItem?.price_per_piece > 0 && row.unitCost === String(invItem.price_per_piece) && !readOnly && (
-                        <span style={{
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '2px',
-                          fontSize: '9px',
-                          fontWeight: 700,
-                          color: '#10B981',
-                          background: '#ecfdf5',
-                          borderRadius: '4px',
-                          padding: '1px 4px',
-                          letterSpacing: '.03em',
-                          pointerEvents: 'none',
-                        }}>
-                          auto
-                        </span>
+                        <span className="boq-auto-badge">auto</span>
                       )}
                     </div>
                   </td>
@@ -287,7 +272,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                     {stockCfg
                       ? <span className={`boq-stock-badge ${stockCfg.cls}`}>
                           <span className="boq-stock-dot" style={{ background: stockCfg.dot }} />
-                          {availability}
+                          <span className="boq-stock-badge-text">{availability}</span>
                         </span>
                       : <span className="boq-stock-badge boq-stock-unknown">—</span>
                     }
@@ -296,7 +281,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                   {/* Remove btn */}
                   {!readOnly && (
                     <td style={{ textAlign: 'center' }}>
-                      <button type="button" onClick={() => onRemove(type, idx)} className="pm-btn-icon-danger">✕</button>
+                      <button type="button" onClick={() => onRemove(type, idx)} className="pm-btn-icon-danger boq-remove-btn">✕</button>
                     </td>
                   )}
                 </tr>

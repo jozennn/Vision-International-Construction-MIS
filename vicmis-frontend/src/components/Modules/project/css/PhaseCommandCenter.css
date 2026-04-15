@@ -1,439 +1,443 @@
 /* ============================================================
-   PhaseCommandCenter.css — Scoped to .pm-cc-wrapper
-   All styles moved from inline JSX to this file.
+   PhaseCommandCenter.css
+   Vision International Construction OPC — Brand
+   Colors: #221F1F | #497B97 | #EBDBD6 | #FF1817 | #C20100
+   Font: DM Sans
    ============================================================ */
 
-/* ── Wrapper ── */
-.pm-cc-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 100%;
-}
+   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
-/* ── Main card ── */
-.pm-cc-wrapper .pm-card {
-  padding: 0 !important;
-  overflow: hidden !important;
-  display: flex;
-  flex-direction: column;
-  height: auto;
-  min-height: 0;
-  margin-bottom: 0;
-  transition: none;
-  cursor: default;
-}
-
-.pm-cc-wrapper .pm-card:hover {
-  transform: none;
-  box-shadow: var(--pm-shadow);
-  border-color: var(--pm-border-soft);
-}
-
-/* ── Navy header ── */
-.pm-cc-wrapper .pm-card > .pm-card-navy {
-  flex-shrink: 0;
-  border-radius: 0;
-}
-
-/* ── Command center nav header (flex row with badge) ── */
-.pm-cc-nav-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-/* ── Logistics orange header ── */
-.pm-navy-orange {
-  background: #f97316 !important;
-}
-
-/* ── In-progress badge ── */
-.pm-in-progress-badge {
-  background: #16a34a;
-  color: white;
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-weight: 900;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-/* ── Tabs ── */
-.pm-cc-wrapper .pm-tabs-wrapper {
-  flex-shrink: 0;
-  display: flex;
-  width: 100%;
-}
-
-.pm-cc-wrapper .pm-tab-btn {
-  flex: 1;
-  text-align: center;
-}
-
-/* ── Body (replaces inline padding: 30px) ── */
-.pm-cc-body {
-  padding: 30px;
-  height: auto;
-  overflow: visible;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* ── Section cards ── */
-.pm-cc-wrapper .pm-card-gray,
-.pm-cc-wrapper .pm-card-cream,
-.pm-cc-wrapper .pm-card-red {
-  margin-bottom: 0;
-  height: auto;
-  overflow: visible;
-}
-
-/* ── Logistics cream card ── */
-.pm-cream-orange {
-  background: #fff7ed !important;
-  border-color: #fdba74 !important;
-}
-
-/* ── Checklist orange variant ── */
-.pm-checklist-orange {
-  border-color: #fed7aa !important;
-}
-
-/* ── Text colour helpers ── */
-.pm-text-white      { color: white; margin: 0; }
-.pm-text-orange     { color: var(--pm-orange); margin: 0; }
-.pm-text-orange-dark{ color: #c2410c; }
-.pm-text-blue       { color: var(--pm-blue); }
-.pm-text-red        { color: var(--pm-red); }
-.pm-text-green      { color: #16a34a; }
-.pm-text-navy       { color: var(--pm-navy); }
-.pm-no-margin       { margin: 0; }
-
-/* ── Tab toolbar (header row with buttons) ── */
-.pm-tab-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-/* ── Button rows ── */
-.pm-btn-row {
-  display: flex;
-  gap: 10px;
-}
-
-/* ── Date input row (materials tab) ── */
-.pm-date-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.pm-date-input {
-  width: auto !important;
-  margin: 0 !important;
-  padding: 10px !important;
-}
-
-/* ── Ghost button (show/hide) ── */
-.pm-btn-ghost {
-  background: transparent;
-  border: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--pm-blue);
-  cursor: pointer;
-  padding: 4px 0;
-}
-
-/* ── Muted button variant ── */
-.pm-btn-muted {
-  color: var(--pm-text-muted) !important;
-  border-color: var(--pm-text-muted) !important;
-}
-
-/* ── Input helpers ── */
-.pm-input-flush  { margin: 0 !important; }
-.pm-input-sm     { margin: 0 !important; padding: 5px !important; font-size: 12px !important; }
-.pm-input-readonly { background: #f1f5f9 !important; }
-
-/* ── Completion % input (large red number) ── */
-.pm-completion-input {
-  font-size: 24px !important;
-  color: var(--pm-red) !important;
-}
-
-/* ── Consumed cell input ── */
-.pm-consumed-input {
-  color: var(--pm-red) !important;
-  font-weight: 900 !important;
-}
-
-/* ── Table helpers ── */
-.pm-table-wide   { min-width: max-content; }
-.pm-mb-24        { margin-bottom: 24px !important; }
-
-/* ── Table header variants ── */
-.pm-th-cream { background: var(--pm-cream) !important; }
-.pm-th-md    { font-size: 14px !important; }
-.pm-th-lg    { font-size: 16px !important; }
-
-/* Date column header (red tint) */
-.pm-th-date-col {
-  background: #fef2f2 !important;
-  color: var(--pm-red) !important;
-}
-
-/* ── Table cell helpers ── */
-.pm-td-bold         { font-weight: 900; }
-.pm-td-project-name { font-weight: 900; color: var(--pm-navy); }
-.pm-td-duration     { font-weight: 900; color: var(--pm-red); }
-.pm-td-percent      { background: #f0fdf4; }
-
-/* Group rows (timeline + inspection) */
-.pm-tr-group { background: #f1f5f9; }
-
-/* Selected row in modal */
-.pm-tr-selected { background: rgba(249,115,22,0.05); }
-
-/* ── Photo row (Photo 1 / Photo 2 strip) ── */
-.pm-photo-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 20px;
-  background: #f8f9fa;
-}
-
-.pm-file-input-compact {
-  margin: 0 !important;
-  padding: 10px !important;
-}
-
-/* ── Add row footer ── */
-.pm-add-row-footer {
-  padding: 15px;
-}
-
-/* ── History section ── */
-.pm-history-section {
-  border-top: 2px solid var(--pm-border-soft);
-  padding-top: 30px;
-  margin-top: 20px;
-}
-
-/* ── History controls ── */
-.pm-history-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.pm-filter-input {
-  width: 200px !important;
-  margin: 0 !important;
-  padding: 10px !important;
-  display: inline-block !important;
-}
-
-/* ── Log card wrap variant ── */
-.pm-log-card-wrap {
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-/* ── Log stats line ── */
-.pm-log-stats {
-  font-weight: bold;
-  margin: 5px 0;
-}
-
-/* ── Requisition items list ── */
-.pm-req-items-list {
-  font-weight: bold;
-  color: var(--pm-navy);
-  margin: 0;
-  padding-left: 0;
-  list-style: none;
-}
-
-/* ── Requisition status badge variants ── */
-.pm-req-status-dispatched {
-  background: #dcfce7 !important;
-  color: #16a34a !important;
-}
-.pm-req-status-denied {
-  background: #fef2f2 !important;
-  color: #c1121f !important;
-}
-.pm-req-status-pending {
-  background: var(--pm-cream) !important;
-  color: var(--pm-navy) !important;
-}
-
-/* ── % Done cell ── */
-.pm-percent-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  color: #16a34a;
-}
-
-.pm-percent-input {
-  margin: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  width: 60px !important;
-  padding: 5px !important;
-}
-
-/* ── Timeline add-row bar ── */
-.pm-timeline-add-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-/* ── Issues: solution card ── */
-.pm-card-solution {
-  background: #f0fdf4 !important;
-  border: 2px solid #bbf7d0 !important;
-}
-
-.pm-label-green { color: #16a34a !important; }
-
-/* ── Issue card problem block ── */
-.pm-issue-problem-block {
-  border-bottom: 1px solid var(--pm-border-soft);
-  padding-bottom: 15px;
-  margin-bottom: 15px;
-}
-
-/* ── Section divider ── */
-.pm-section-divider {
-  border: none;
-  border-top: 2px dashed var(--pm-border-soft);
-  margin: 40px 0;
-}
-
-/* ── Inspection card ── */
-.pm-insp-card {
-  overflow: visible !important;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-.pm-insp-card > .pm-card-navy {
-  border-radius: 0;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.pm-insp-card-footer {
-  display: flex;
-  gap: 10px;
-  padding: 15px;
-  background: #fff;
-}
-
-/* ── Inspection inputs ── */
-.pm-insp-title-input {
-  background: transparent !important;
-  border: none !important;
-  color: white !important;
-  font-weight: 900 !important;
-  text-transform: uppercase !important;
-  text-align: center !important;
-  width: 100% !important;
-  padding: 10px !important;
-  margin: 0 !important;
-}
-
-.pm-th-check-item {
-  text-align: left !important;
-  width: 35% !important;
-}
-
-.pm-insp-group-input {
-  margin: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  text-transform: uppercase !important;
-  font-weight: 900 !important;
-}
-
-.pm-insp-cell-input {
-  margin: 0 !important;
-  background: transparent !important;
-  border: none !important;
-}
-
-.pm-insp-score-input {
-  margin: 0 !important;
-  padding: 5px !important;
-  background: transparent !important;
-  border: none !important;
-}
-
-/* ── Attachments section ── */
-.pm-insp-attach-header span {
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: white;
-}
-
-.pm-insp-attach-body {
-  padding: 30px;
-}
-
-/* ── Modal ── */
-.pm-modal-orange {
-  border-top-color: var(--pm-orange) !important;
-}
-
-.pm-modal-table-scroll {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.pm-thead-sticky {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--pm-surface-2);
-}
-
-.pm-req-qty-input {
-  width: 80px !important;
-  margin: 0 auto !important;
-  padding: 8px !important;
-}
-
-.pm-req-qty-active {
-  border-color: var(--pm-orange) !important;
-}
-
-.pm-req-checkbox {
-  width: 22px;
-  height: 22px;
-  accent-color: var(--pm-orange);
-  cursor: pointer;
-}
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .pm-cc-body        { padding: 18px 16px 24px; }
-  .pm-photo-row      { grid-template-columns: 1fr; }
-  .pm-tab-toolbar    { flex-direction: column; align-items: flex-start; }
-  .pm-cc-nav-header  { flex-direction: column; align-items: flex-start; }
-}
+   *, *::before, *::after { box-sizing: border-box; }
+   
+   /* ── Variables ── */
+   :root {
+     --cc-navy:     #1A1A2E;
+     --cc-blue:     #497B97;
+     --cc-red:      #FF1817;
+     --cc-red-dark: #C20100;
+     --cc-cream:    #EBDBD6;
+     --cc-black:    #221F1F;
+     --cc-green:    #16a34a;
+     --cc-border:   #D9CBC5;
+     --cc-surface:  #F5F2F0;
+     --cc-white:    #FFFFFF;
+     --cc-radius:   8px;
+     --cc-shadow:   0 2px 12px rgba(34,31,31,0.10);
+     --cc-font:     'DM Sans', sans-serif;
+   }
+   
+   /* ── Command center wrapper ── */
+   .pm-cc-wrapper {
+     display: flex;
+     flex-direction: column;
+     gap: 16px;
+     width: 100%;
+     min-width: 0;
+     font-family: var(--cc-font);
+   }
+   
+   /* ── Card ── */
+   .pm-card {
+     background: var(--cc-white);
+     border: 1px solid var(--cc-border);
+     border-radius: var(--cc-radius);
+     overflow: hidden;
+     box-shadow: var(--cc-shadow);
+     min-width: 0;
+   }
+   
+   .pm-cc-body {
+     padding: 14px;
+     display: flex;
+     flex-direction: column;
+     gap: 16px;
+   }
+   
+   /* ── Tabs ── */
+   .pm-tabs-wrapper {
+     display: flex;
+     flex-wrap: nowrap;
+     overflow-x: auto;
+     -webkit-overflow-scrolling: touch;
+     scrollbar-width: none;
+     border-bottom: 2px solid var(--cc-border);
+     background: var(--cc-white);
+   }
+   .pm-tabs-wrapper::-webkit-scrollbar { display: none; }
+   
+   .pm-tab-btn {
+     flex-shrink: 0;
+     white-space: nowrap;
+     padding: 10px 14px;
+     font-size: 11px;
+     font-weight: 700;
+     letter-spacing: 0.04em;
+     text-transform: uppercase;
+     border: none;
+     border-bottom: 3px solid transparent;
+     background: transparent;
+     cursor: pointer;
+     transition: all 0.18s;
+     color: #6b7280;
+     font-family: var(--cc-font);
+   }
+   .pm-tab-btn:hover { color: var(--cc-navy); background: rgba(26,26,46,0.04); }
+   .pm-tab-btn.active {
+     color: var(--cc-red-dark);
+     border-bottom-color: var(--cc-red-dark);
+     background: rgba(194,1,0,0.04);
+   }
+   
+   /* ── Section divider ── */
+   .pm-section-divider {
+     border: none;
+     border-top: 1px solid var(--cc-border);
+     margin: 0;
+   }
+   
+   /* ── Fade-in animation ── */
+   .pm-animate-fadein {
+     animation: cc-fadein 0.22s ease;
+   }
+   @keyframes cc-fadein {
+     from { opacity: 0; transform: translateY(4px); }
+     to   { opacity: 1; transform: translateY(0); }
+   }
+   
+   /* ── Action cards grid — 1 col mobile → 3 col desktop ── */
+   .pm-action-cards-grid {
+     display: grid;
+     grid-template-columns: 1fr;
+     gap: 12px;
+   }
+   
+   .pm-action-card {
+     background: var(--cc-white);
+     border: 1px solid var(--cc-border);
+     border-radius: var(--cc-radius);
+     padding: 16px;
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+     min-width: 0;
+   }
+   
+   .pm-action-card[data-variant="orange"] { border-top: 3px solid #f97316; }
+   .pm-action-card[data-variant="blue"]   { border-top: 3px solid var(--cc-blue); }
+   .pm-action-card[data-variant="red"]    { border-top: 3px solid var(--cc-red-dark); }
+   
+   .pm-action-title {
+     font-size: 13px;
+     font-weight: 700;
+     color: var(--cc-black);
+     margin: 0;
+   }
+   
+   /* ── Issues grid — stacks on mobile ── */
+   .pm-issues-grid {
+     display: grid;
+     grid-template-columns: 1fr;
+     gap: 12px;
+     margin-bottom: 12px;
+   }
+   
+   /* ── Checklist grid ── */
+   .pm-checklist-grid {
+     display: grid;
+     grid-template-columns: 1fr;
+     gap: 10px;
+     margin-bottom: 16px;
+   }
+   
+   .pm-checklist-item {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     padding: 10px 14px;
+     background: #fffbf5;
+     border: 1px solid #fed7aa;
+     border-radius: 8px;
+     cursor: pointer;
+     font-size: 13px;
+     font-weight: 500;
+     font-family: var(--cc-font);
+   }
+   .pm-checklist-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; }
+   
+   /* ── Modal overlay ── */
+   .pm-modal-overlay {
+     position: fixed;
+     inset: 0;
+     background: rgba(0,0,0,0.55);
+     display: flex;
+     align-items: flex-start;
+     justify-content: center;
+     padding: 12px;
+     z-index: 1000;
+     overflow-y: auto;
+     -webkit-overflow-scrolling: touch;
+   }
+   
+   .pm-modal-content {
+     background: var(--cc-white);
+     border-radius: 10px;
+     padding: 20px 16px;
+     width: 100%;
+     max-width: 960px;
+     margin: auto;
+     position: relative;
+     min-width: 0;
+   }
+   
+   .pm-modal-header {
+     display: flex;
+     align-items: flex-start;
+     justify-content: space-between;
+     gap: 8px;
+     margin-bottom: 12px;
+     flex-wrap: wrap;
+   }
+   
+   .pm-modal-desc { margin-bottom: 12px; font-size: 13px; }
+   
+   /* ── Requester info ── */
+   .pm-requester-info {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     padding: 10px 14px;
+     background: #f0f9ff;
+     border: 1px solid #bae6fd;
+     border-radius: 8px;
+     margin-bottom: 12px;
+     flex-wrap: wrap;
+   }
+   .pm-requester-icon  { font-size: 18px; flex-shrink: 0; }
+   .pm-requester-label {
+     font-size: 10px;
+     font-weight: 700;
+     text-transform: uppercase;
+     letter-spacing: 0.05em;
+     color: #0369a1;
+     display: block;
+   }
+   .pm-requester-name  { font-size: 14px; font-weight: 600; color: #0c4a6e; }
+   
+   /* ── Modal table scroll ── */
+   .pm-modal-table-scroll {
+     width: 100%;
+     max-width: 100%;
+     overflow-x: auto;
+     -webkit-overflow-scrolling: touch;
+     border: 1px solid #e5e7eb;
+     border-radius: 6px;
+     margin-bottom: 12px;
+   }
+   
+   /* ── Modal table ── */
+   .pm-table {
+     width: 100%;
+     border-collapse: collapse;
+     font-size: 12px;
+     min-width: 560px;
+   }
+   .pm-table thead th {
+     padding: 9px 10px;
+     font-size: 9px;
+     font-weight: 800;
+     letter-spacing: 0.06em;
+     text-transform: uppercase;
+     white-space: nowrap;
+     background: #1a1a2e;
+     color: rgba(255,255,255,0.85);
+     border-right: 1px solid rgba(255,255,255,0.08);
+   }
+   .pm-table thead th:last-child { border-right: none; }
+   .pm-table thead th.text-left  { text-align: left; }
+   .pm-thead-sticky th { position: sticky; top: 0; z-index: 2; }
+   
+   .pm-table tbody tr { border-bottom: 1px solid #e5e7eb; transition: background 0.12s; }
+   .pm-table tbody tr:last-child { border-bottom: none; }
+   .pm-table tbody tr:hover { background: #fafafa; }
+   .pm-table tbody tr.pm-tr-selected { background: #f0fdf4; }
+   
+   .pm-table tbody td { padding: 8px 10px; vertical-align: middle; }
+   .pm-table tbody td.text-left  { text-align: left; }
+   .pm-table tbody td.pm-td-bold { font-weight: 600; }
+   .pm-td-sub  { font-size: 11px; color: #6b7280; font-weight: 400; margin-top: 2px; }
+   .pm-td-total-active { font-weight: 500; color: #15803d; }
+   
+   /* ── Category badge ── */
+   .pm-category-badge {
+     display: inline-block;
+     padding: 2px 7px;
+     background: #f3f4f6;
+     color: #374151;
+     border: 1px solid #d1d5db;
+     border-radius: 4px;
+     font-size: 10px;
+     font-weight: 600;
+     text-transform: uppercase;
+     letter-spacing: 0.04em;
+     white-space: nowrap;
+     max-width: 120px;
+     overflow: hidden;
+     text-overflow: ellipsis;
+     vertical-align: middle;
+   }
+   
+   /* ── Qty input ── */
+   .pm-req-qty-input {
+     min-width: 60px;
+     max-width: 90px;
+     width: 100%;
+     padding: 5px 8px;
+     border: 1.5px solid #e5e7eb;
+     border-radius: 5px;
+     font-size: 12px;
+     text-align: center;
+     outline: none;
+     font-family: var(--cc-font);
+   }
+   .pm-req-qty-input:focus      { border-color: var(--cc-blue); }
+   .pm-req-qty-input:disabled   { background: #f9fafb; cursor: not-allowed; }
+   .pm-req-qty-active            { border-color: #16a34a !important; background: #f0fdf4; }
+   
+   .pm-req-checkbox {
+     width: 18px;
+     height: 18px;
+     cursor: pointer;
+   }
+   
+   /* ── Modal actions ── */
+   .pm-modal-actions {
+     display: grid;
+     grid-template-columns: 1fr 1fr;
+     gap: 10px;
+     margin-top: 8px;
+   }
+   
+   /* ── Req sent banner ── */
+   .pm-req-sent-banner {
+     display: flex;
+     align-items: flex-start;
+     gap: 12px;
+     padding: 14px 16px;
+     background: #f0fdf4;
+     border: 1.5px solid #86efac;
+     border-radius: 8px;
+     font-size: 13px;
+     flex-wrap: wrap;
+   }
+   .pm-req-sent-icon { font-size: 18px; flex-shrink: 0; }
+   .pm-req-sent-body { flex: 1; min-width: 0; }
+   .pm-req-sent-msg  { margin: 4px 0 0; font-size: 12px; color: #6b7280; }
+   
+   /* ── Close button ── */
+   .pm-close-btn {
+     background: none;
+     border: none;
+     cursor: pointer;
+     font-size: 14px;
+     color: #6b7280;
+     padding: 2px 6px;
+     border-radius: 4px;
+     flex-shrink: 0;
+     transition: background 0.15s;
+     font-family: var(--cc-font);
+   }
+   .pm-close-btn:hover { background: #f3f4f6; }
+   
+   /* ── History section ── */
+   .pm-history-section {
+     margin-top: 16px;
+     display: flex;
+     flex-direction: column;
+     gap: 10px;
+   }
+   
+   /* ── Shared text helpers ── */
+   .pm-text-muted   { font-size: 13px; color: #6b7280; margin: 0; }
+   .pm-text-white   { color: #fff; }
+   .pm-text-orange  { color: #ea580c; }
+   .pm-text-orange-dark { color: #9a3412; }
+   .pm-no-margin    { margin: 0; }
+   .pm-title-lg     { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+   .pm-title-md     { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+   .pm-label        { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+   .pm-label-red    { color: #991b1b; }
+   .pm-label-green  { color: #166534; }
+   .pm-textarea     { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 6px; font-family: var(--cc-font); font-size: 13px; resize: vertical; outline: none; }
+   .pm-textarea:focus { border-color: var(--cc-blue); }
+   
+   .pm-card-red {
+     background: #fff1f1;
+     border: 1.5px solid #fecaca;
+     border-radius: 8px;
+     padding: 14px;
+   }
+   .pm-card.pm-card-solution {
+     background: #f0fdf4;
+     border: 1.5px solid #86efac;
+     border-radius: 8px;
+     padding: 14px;
+   }
+   .pm-card-navy    { background: var(--cc-navy); padding: 14px 16px; }
+   .pm-card-cream   { background: #fffbf5; padding: 14px; border-radius: 8px; }
+   .pm-navy-orange  { border-bottom: 3px solid #f97316; }
+   .pm-cream-orange { border: 1px solid #fed7aa; }
+   
+   /* ── Buttons ── */
+   .pm-btn {
+     display: inline-flex;
+     align-items: center;
+     justify-content: center;
+     padding: 10px 16px;
+     border-radius: 6px;
+     font-family: var(--cc-font);
+     font-size: 13px;
+     font-weight: 600;
+     cursor: pointer;
+     border: none;
+     transition: all 0.18s;
+   }
+   .pm-btn-outline {
+     background: transparent;
+     border: 1.5px solid #d1d5db;
+     color: #374151;
+   }
+   .pm-btn-outline:hover:not(:disabled) { border-color: #9ca3af; background: #f9fafb; }
+   .pm-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+   
+   /* ============================================================
+      RESPONSIVE
+      ============================================================ */
+   
+   /* ── ≥ 600px: tabs show full labels, issues go 2-col ── */
+   @media (min-width: 600px) {
+     .pm-issues-grid    { grid-template-columns: 1fr 1fr; }
+     .pm-checklist-grid { grid-template-columns: repeat(3, 1fr); }
+     .pm-tab-btn        { font-size: 12px; padding: 10px 16px; }
+   }
+   
+   /* ── ≥ 768px: modal gets more padding ── */
+   @media (min-width: 768px) {
+     .pm-cc-body        { padding: 20px; }
+     .pm-modal-content  { padding: 24px; }
+     .pm-action-cards-grid { grid-template-columns: repeat(3, 1fr); }
+   }
+   
+   /* ── ≥ 1024px ── */
+   @media (min-width: 1024px) {
+     .pm-cc-body { padding: 24px; }
+   }
+   
+   /* ── ≤ 480px ── */
+   @media (max-width: 480px) {
+     .pm-tab-btn         { padding: 9px 10px; font-size: 10px; letter-spacing: 0.02em; }
+     .pm-modal-content   { padding: 14px 12px; }
+     .pm-modal-actions   { grid-template-columns: 1fr; }
+     .pm-modal-header h3 { font-size: 14px; }
+     .pm-req-sent-banner { flex-direction: column; }
+     .pm-action-cards-grid { grid-template-columns: 1fr; }
+   }

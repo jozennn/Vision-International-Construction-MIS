@@ -7,42 +7,24 @@ import SiteInspectionReport from './SiteInspectionReport.jsx';
 import '../css/PhaseCommandCenter.css';
 
 // ─── Material Requisition Modal ───────────────────────────────────────────────
-// Engineer selects items from the approved Final BOQ and specifies qty needed.
-// Inside PhaseCommandCenter.jsx, update the MaterialReqModal component
-
-// Inside PhaseCommandCenter.jsx, replace the MaterialReqModal component
-
 const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting, requesterName }) => (
   <div className="pm-modal-overlay">
     <div className="pm-modal-content pm-modal-orange large">
-      <div className="pm-flex-between mb-4">
+      <div className="pm-modal-header">
         <h3 className="pm-title-lg pm-text-orange">📦 Material Requisition Alert</h3>
         <button onClick={onClose} className="pm-close-btn">✕</button>
       </div>
 
       {/* Requester info */}
-      <div className="pm-requester-info" style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '10px 14px',
-        background: '#f0f9ff',
-        border: '1px solid #bae6fd',
-        borderRadius: '8px',
-        marginBottom: '16px'
-      }}>
-        <span style={{ fontSize: '18px' }}>👤</span>
+      <div className="pm-requester-info">
+        <span className="pm-requester-icon">👤</span>
         <div>
-          <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', display: 'block' }}>
-            Requested By
-          </span>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e' }}>
-            {requesterName || '—'}
-          </span>
+          <span className="pm-requester-label">Requested By</span>
+          <span className="pm-requester-name">{requesterName || '—'}</span>
         </div>
       </div>
 
-      <p className="pm-text-muted">
+      <p className="pm-text-muted pm-modal-desc">
         Select items from the approved Final BOQ to request delivery from Logistics.
       </p>
 
@@ -61,25 +43,21 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
           </thead>
           <tbody>
             {finalBOQ.map((item, idx) => {
-              const isSel     = requestItems.some(i => i.product_code === item.product_code);
-              const cur       = requestItems.find(i => i.product_code === item.product_code);
-              const unitCost  = parseFloat(item.unitCost) || 0;
-              const qty       = parseFloat(cur?.requestedQty) || 0;
-              const total     = unitCost * qty;
+              const isSel    = requestItems.some(i => i.product_code === item.product_code);
+              const cur      = requestItems.find(i => i.product_code === item.product_code);
+              const unitCost = parseFloat(item.unitCost) || 0;
+              const qty      = parseFloat(cur?.requestedQty) || 0;
+              const total    = unitCost * qty;
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
                   <td className="text-left">
-                    <span className="pm-category-badge">
-                      {item.product_category || '—'}
-                    </span>
+                    <span className="pm-category-badge">{item.product_category || '—'}</span>
                   </td>
                   <td className="pm-td-bold text-left">
                     {item.product_code || '—'}
                     {item.description && item.description !== item.product_code && (
-                      <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
-                        {item.description}
-                      </div>
+                      <div className="pm-td-sub">{item.description}</div>
                     )}
                   </td>
                   <td>{item.unit || '—'}</td>
@@ -99,12 +77,7 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
                       disabled={!isSel}
                     />
                   </td>
-                  <td
-                    style={{
-                      fontWeight: 500,
-                      color: isSel && total > 0 ? '#15803d' : 'inherit',
-                    }}
-                  >
+                  <td className={isSel && total > 0 ? 'pm-td-total-active' : ''}>
                     {isSel && total > 0
                       ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '—'}
@@ -124,7 +97,7 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
         </table>
       </div>
 
-      <div className="pm-grid-2 mt-4">
+      <div className="pm-modal-actions">
         <button className="pm-btn pm-btn-outline" onClick={onClose} disabled={submitting}>
           Cancel
         </button>
@@ -135,13 +108,14 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
     </div>
   </div>
 );
+
 // ─── Request Sent Confirmation Banner ─────────────────────────────────────────
 const RequestSentBanner = ({ onDismiss }) => (
   <div className="pm-req-sent-banner">
     <span className="pm-req-sent-icon">✅</span>
-    <div>
+    <div className="pm-req-sent-body">
       <strong>Material request sent to Logistics!</strong>
-      <p className="pm-text-muted" style={{ margin: 0 }}>
+      <p className="pm-text-muted pm-req-sent-msg">
         Logistics will verify stock and schedule a delivery. You'll see new arrivals reflected in Materials Monitoring once delivered.
       </p>
     </div>
@@ -165,7 +139,7 @@ const LogisticsDispatch = ({ onAdvance }) => {
           <div className="pm-card-cream pm-cream-orange">
             <h4 className="pm-title-lg pm-text-orange-dark">Dispatch Preparation Checklist</h4>
 
-            <div className="pm-grid-3 mb-4">
+            <div className="pm-checklist-grid">
               {Object.entries({
                 inventory: '📦 Pulled from Inventory',
                 transport: '🚚 Transport Assigned',
@@ -198,11 +172,11 @@ const LogisticsDispatch = ({ onAdvance }) => {
 
 // ─── Tab Config ────────────────────────────────────────────────────────────────
 const TABS = [
-  { key: 'installers', label: '📋 INSTALLER MONITORING' },
-  { key: 'timeline',   label: '⏳ PROJECT TIMELINE'     },
-  { key: 'materials',  label: '📦 MATERIALS MONITORING' },
-  { key: 'issues',     label: '⚠️ ISSUES & SOLUTIONS'   },
-  { key: 'inspection', label: '✅ SITE INSPECTION'       },
+  { key: 'installers', label: '📋 Installers'  },
+  { key: 'timeline',   label: '⏳ Timeline'    },
+  { key: 'materials',  label: '📦 Materials'   },
+  { key: 'issues',     label: '⚠️ Issues'      },
+  { key: 'inspection', label: '✅ Inspection'  },
 ];
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -250,7 +224,6 @@ const PhaseCommandCenter = ({
     return <LogisticsDispatch onAdvance={onAdvance} />;
   }
 
-  // ── Wrap submit so we can show the success banner ──────────────────────────
   const handleSubmitRequest = async () => {
     await submitMaterialRequest(user);
     setShowRequestModal(false);
@@ -296,7 +269,7 @@ const PhaseCommandCenter = ({
         return (
           <div key="issues" className="pm-animate-fadein">
             <h4 className="pm-title-lg">Problem Encountered & Solution Log</h4>
-            <div className="pm-grid-2 mb-4">
+            <div className="pm-issues-grid">
               <div className="pm-card-red pm-no-margin">
                 <label className="pm-label pm-label-red">⚠️ Problem Encountered *</label>
                 <textarea
@@ -368,7 +341,7 @@ const PhaseCommandCenter = ({
           onSubmit={handleSubmitRequest}
           onClose={() => setShowRequestModal(false)}
           submitting={submittingRequest}
-          requesterName={user?.name || user?.username || 'Unknown'}  // 👈 ADD THIS
+          requesterName={user?.name || user?.username || 'Unknown'}
         />
       )}
 
@@ -378,6 +351,7 @@ const PhaseCommandCenter = ({
       )}
 
       <div className="pm-card">
+        {/* Tabs — horizontally scrollable on mobile */}
         <div className="pm-tabs-wrapper">
           {TABS.map(({ key, label }) => (
             <button
@@ -397,7 +371,8 @@ const PhaseCommandCenter = ({
 
           <hr className="pm-section-divider" />
 
-          <div className="pm-grid-3">
+          {/* Action cards — responsive grid */}
+          <div className="pm-action-cards-grid">
             <div className="pm-action-card" data-variant="orange">
               <h4 className="pm-action-title">Material Requisition</h4>
               <p className="pm-text-muted">Out of stock? Submit requisition to Logistics.</p>
