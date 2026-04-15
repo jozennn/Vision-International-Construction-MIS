@@ -812,6 +812,29 @@
   white-space: nowrap;
 }
 
+/* Add to Delivery.css */
+
+.dl-req-stock-ok {
+  background: #ecfdf5 !important;
+  color: #065f46 !important;
+  border-left: 3px solid #10b981 !important;
+}
+
+.dl-row-warning {
+  background: #fffbeb !important;
+}
+
+.dl-dispatch-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #9ca3af !important;
+}
+
+.dl-dispatch-action-btn:disabled:hover {
+  background: #9ca3af !important;
+  transform: none;
+}
+
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════════════ */

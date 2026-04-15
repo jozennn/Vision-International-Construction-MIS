@@ -117,10 +117,10 @@ const Pagination = ({ currentPage, lastPage, from, to, total, perPage, onPageCha
   );
 };
 
-// ─── Reorder Modal ─────────────────────────────────────────────────────────────
+// ─── Reorder Modal (triggered from a pending request that has no stock) ────────
 const ReorderFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
-  const [notes, setNotes]         = useState('');
-  const [qtyNeeded, setQtyNeeded] = useState(request?.items?.[0]?.requested_qty || '');
+  const [notes, setNotes]           = useState('');
+  const [qtyNeeded, setQtyNeeded]   = useState(request?.items?.[0]?.requested_qty || '');
 
   return (
     <div className="dl-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -186,7 +186,7 @@ const ReorderFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
   );
 };
 
-// ─── Dispatch Modal ────────────────────────────────────────────────────────────
+// ─── Convert Request → Delivery Modal ─────────────────────────────────────────
 const DispatchFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
   const [form, setForm] = useState({
     trucking_service: '',
@@ -211,6 +211,7 @@ const DispatchFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
         </div>
 
         <div className="dl-form" style={{ padding: '1.5rem' }}>
+          {/* Request summary */}
           <div className="dl-req-detail-card">
             <div className="dl-req-detail-row">
               <span className="dl-req-detail-label">Requested by</span>
@@ -275,30 +276,9 @@ const DispatchFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
   );
 };
 
-// ─── Stock Status Helpers ──────────────────────────────────────────────────────
-
-/**
- * Returns true if every item in the request has sufficient stock to dispatch.
- * Rules:
- *   - stock_status === 'NO STOCK'                          → block
- *   - stock_status === 'LOW STOCK' AND
- *     current_stock < requested_qty                        → block
- *   - stock_status === 'ON STOCK' OR
- *     (LOW STOCK but current_stock >= requested_qty)       → allow
- *   - stock_status is null / unknown (—)                   → block (safe default)
- */
-const itemHasInsufficientStock = (item) => {
-  const status       = item.stock_status;
-  const currentStock = item.current_stock ?? 0;
-  const requestedQty = parseFloat(item.requested_qty) || 0;
-
-  if (!status)                   return true;  // unknown → block
-  if (status === 'NO STOCK')     return true;
-  if (status === 'LOW STOCK' && currentStock < requestedQty) return true;
-  return false;
-};
-
 // ─── Pending Requests Tab ──────────────────────────────────────────────────────
+// Replace the PendingRequestsTab component with this updated version
+
 const PendingRequestsTab = ({
   requests,
   loading,
@@ -326,28 +306,37 @@ const PendingRequestsTab = ({
   return (
     <div className="dl-requests-list">
       {requests.map(req => {
-        // ── Per-request stock analysis ──────────────────────────────────────
-        // hasInsufficientStock: ANY item cannot be fulfilled (NO STOCK or qty > stock)
-        const hasInsufficientStock = req.items?.some(itemHasInsufficientStock) ?? false;
+        // Check stock status for EACH item
+        const itemsWithStock = req.items?.map(item => {
+          const currentStock = item.current_stock ?? 0;
+          const requestedQty = parseFloat(item.requested_qty) || 0;
+          const isOutOfStock = currentStock <= 0;
+          const isInsufficientStock = currentStock > 0 && currentStock < requestedQty;
+          const stockStatus = isOutOfStock ? 'NO STOCK' 
+            : isInsufficientStock ? 'LOW STOCK' 
+            : 'ON STOCK';
+          
+          return {
+            ...item,
+            current_stock: currentStock,
+            stock_status: stockStatus,
+            isOutOfStock,
+            isInsufficientStock,
+            canFulfill: currentStock >= requestedQty
+          };
+        });
 
-        // hasLowStockWarning: any item is LOW STOCK but quantity IS still sufficient
-        const hasLowStockWarning   = !hasInsufficientStock &&
-          req.items?.some(i => i.stock_status === 'LOW STOCK') === true;
-
-        // hasNoStock: stricter check — at least one item is completely out
-        const hasNoStock           = req.items?.some(i => i.stock_status === 'NO STOCK') ?? false;
-
-        // canDispatch: all items have sufficient stock
-        const canDispatch          = req.status === 'pending' && !hasInsufficientStock;
-
-        // needsReorder: dispatch is blocked due to stock issues
-        const needsReorder         = req.status === 'pending' && hasInsufficientStock;
+        // Check if ANY item cannot be fulfilled
+        const hasNoStock = itemsWithStock?.some(i => i.stock_status === 'NO STOCK');
+        const hasInsufficientStock = itemsWithStock?.some(i => i.stock_status === 'LOW STOCK' && i.current_stock < i.requested_qty);
+        const canDispatchAll = itemsWithStock?.every(i => i.canFulfill);
+        
+        // Determine if dispatch should be allowed
+        const canDispatch = req.status === 'pending' && canDispatchAll;
+        const needsReorder = req.status === 'pending' && (hasNoStock || hasInsufficientStock);
 
         return (
-          <div
-            key={req.id}
-            className={`dl-req-card ${needsReorder ? 'dl-req-card-danger' : hasLowStockWarning ? 'dl-req-card-warn' : ''}`}
-          >
+          <div key={req.id} className={`dl-req-card ${needsReorder ? 'dl-req-card-danger' : hasInsufficientStock ? 'dl-req-card-warn' : ''}`}>
             {/* Header */}
             <div className="dl-req-card-header">
               <div className="dl-req-card-meta">
@@ -366,26 +355,26 @@ const PendingRequestsTab = ({
 
             {/* Requested by */}
             <p className="dl-req-by">
-              <strong>Requested by:</strong> {req.requested_by_name} · {req.engineer_name}
+              <strong>Requested by:</strong> {req.requested_by_name} {req.engineer_name && `· ${req.engineer_name}`}
             </p>
 
-            {/* Stock warning banners */}
-            {needsReorder && hasNoStock && (
+            {/* Stock warning banner */}
+            {hasNoStock && (
               <div className="dl-req-stock-warn dl-req-stock-danger">
                 <AlertCircle size={14} />
-                <strong>No Stock</strong> — one or more items are out of stock. Reorder from Procurement before dispatching.
+                <strong>No Stock</strong> — one or more items are completely out of stock. Reorder from Procurement before dispatching.
               </div>
             )}
-            {needsReorder && !hasNoStock && (
-              <div className="dl-req-stock-warn dl-req-stock-danger">
-                <AlertCircle size={14} />
-                <strong>Insufficient Stock</strong> — requested quantity exceeds available stock. Reorder from Procurement before dispatching.
-              </div>
-            )}
-            {hasLowStockWarning && (
+            {!hasNoStock && hasInsufficientStock && (
               <div className="dl-req-stock-warn dl-req-stock-low">
                 <AlertTriangle size={14} />
-                <strong>Low Stock</strong> — some items are running low but quantity is sufficient. Verify before dispatching.
+                <strong>Insufficient Stock</strong> — requested quantity exceeds available stock for some items.
+              </div>
+            )}
+            {canDispatchAll && !hasNoStock && !hasInsufficientStock && (
+              <div className="dl-req-stock-warn dl-req-stock-ok">
+                <CheckCircle size={14} />
+                <strong>Stock Available</strong> — all items can be fulfilled.
               </div>
             )}
 
@@ -402,57 +391,47 @@ const PendingRequestsTab = ({
                 </tr>
               </thead>
               <tbody>
-                {req.items?.map((item, i) => {
-                  const insufficient = itemHasInsufficientStock(item);
-                  return (
-                    <tr key={i} className={insufficient ? 'dl-row-insufficient' : ''}>
-                      <td className="dl-code">{item.product_code || '—'}</td>
-                      <td>{item.description}</td>
-                      <td>{item.unit}</td>
-                      <td className="text-right">{item.requested_qty}</td>
-                      <td className="text-right">
-                        {item.current_stock != null
-                          ? <span style={{ color: insufficient ? '#ef4444' : 'inherit', fontWeight: insufficient ? 600 : 'normal' }}>
-                              {item.current_stock}
-                            </span>
-                          : <span style={{ color: '#9ca3af' }}>—</span>}
-                      </td>
-                      <td>
-                        {item.stock_status === 'ON STOCK'  && <span className="wh-avail avail-on">ON STOCK</span>}
-                        {item.stock_status === 'LOW STOCK' && <span className="wh-avail avail-low">LOW STOCK</span>}
-                        {item.stock_status === 'NO STOCK'  && <span className="wh-avail avail-no">NO STOCK</span>}
-                        {!item.stock_status                && <span style={{ color: '#9ca3af' }}>—</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {itemsWithStock?.map((item, i) => (
+                  <tr key={i} className={!item.canFulfill ? 'dl-row-warning' : ''}>
+                    <td className="dl-code">{item.product_code || '—'}</td>
+                    <td>{item.description}</td>
+                    <td>{item.unit}</td>
+                    <td className="text-right">{item.requested_qty}</td>
+                    <td className="text-right">
+                      {item.current_stock != null ? item.current_stock : <span style={{ color: '#9ca3af' }}>—</span>}
+                    </td>
+                    <td>
+                      {item.stock_status === 'ON STOCK'  && <span className="wh-avail avail-on">ON STOCK</span>}
+                      {item.stock_status === 'LOW STOCK' && !item.isOutOfStock && <span className="wh-avail avail-low">LOW STOCK (Insufficient)</span>}
+                      {item.stock_status === 'LOW STOCK' && item.isOutOfStock === false && item.current_stock > 0 && 
+                        <span className="wh-avail avail-low">LOW STOCK</span>
+                      }
+                      {item.stock_status === 'NO STOCK'  && <span className="wh-avail avail-no">NO STOCK</span>}
+                      {!item.stock_status && <span style={{ color: '#9ca3af' }}>—</span>}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
 
             {/* Actions */}
             {req.status === 'pending' && (
               <div className="dl-req-actions">
-                {/* Reorder button — shown whenever dispatch is blocked */}
                 {needsReorder && (
                   <button className="dl-reorder-action-btn" onClick={() => onReorder(req)}>
                     <RotateCcw size={13} /> Request Reorder
                   </button>
                 )}
-
-                {/* Dispatch button — only shown when all items have sufficient stock */}
-                {canDispatch && !hasLowStockWarning && (
+                {canDispatch && (
                   <button className="dl-dispatch-action-btn" onClick={() => onDispatch(req)}>
                     <Truck size={13} /> Dispatch Now
                   </button>
                 )}
-
-                {/* Dispatch Anyway — low stock but qty is still sufficient */}
-                {canDispatch && hasLowStockWarning && (
-                  <button className="dl-dispatch-action-btn dl-dispatch-warn" onClick={() => onDispatch(req)}>
-                    <Truck size={13} /> Dispatch Anyway (Low Stock)
+                {!canDispatch && !needsReorder && hasInsufficientStock && (
+                  <button className="dl-dispatch-action-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                    <Truck size={13} /> Insufficient Stock
                   </button>
                 )}
-
                 <button className="dl-reject-action-btn" onClick={() => onReject(req.id)}>
                   <X size={13} /> Reject
                 </button>
@@ -478,7 +457,7 @@ const PendingRequestsTab = ({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
-  const [activeMainTab, setActiveMainTab] = useState('deliveries');
+  const [activeMainTab, setActiveMainTab] = useState('deliveries'); // 'requests' | 'deliveries'
 
   const [deliveries, setDeliveries]       = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -486,35 +465,41 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [markLoading, setMarkLoading]     = useState(null);
   const [saveLoading, setSaveLoading]     = useState(false);
 
-  const [requests, setRequests]               = useState([]);
+  // Pending material requests
+  const [requests, setRequests]           = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [dispatchTarget, setDispatchTarget]   = useState(null);
   const [reorderTarget, setReorderTarget]     = useState(null);
   const [dispatchLoading, setDispatchLoading] = useState(false);
   const [reorderLoading, setReorderLoading]   = useState(false);
 
-  const [globalCounts, setGlobalCounts] = useState({ inTransit: 0, delivered: 0, pending: 0 });
+  // Global counts
+  const [globalCounts, setGlobalCounts]   = useState({ inTransit: 0, delivered: 0, pending: 0 });
 
-  const [categories, setCategories]           = useState([]);
-  const [products, setProducts]               = useState({});
-  const [projects, setProjects]               = useState([]);
+  // Meta for manual delivery form
+  const [categories, setCategories]       = useState([]);
+  const [products, setProducts]           = useState({});
+  const [projects, setProjects]           = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
-  const [codesForCat, setCodesForCat]         = useState([]);
-  const [lowStockWarn, setLowStockWarn]       = useState(false);
+  const [codesForCat, setCodesForCat]     = useState([]);
+  const [lowStockWarn, setLowStockWarn]   = useState(false);
 
-  const [search, setSearch]             = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter]     = useState('all');
+  // Filters (deliveries tab)
+  const [search, setSearch]               = useState('');
+  const [statusFilter, setStatusFilter]   = useState('all');
+  const [typeFilter, setTypeFilter]       = useState('all');
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lastPage, setLastPage]       = useState(1);
-  const [total, setTotal]             = useState(0);
-  const [from, setFrom]               = useState(0);
-  const [to, setTo]                   = useState(0);
-  const [perPage, setPerPage]         = useState(10);
+  // Pagination
+  const [currentPage, setCurrentPage]     = useState(1);
+  const [lastPage, setLastPage]           = useState(1);
+  const [total, setTotal]                 = useState(0);
+  const [from, setFrom]                   = useState(0);
+  const [to, setTo]                       = useState(0);
+  const [perPage, setPerPage]             = useState(10);
 
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData]   = useState({ ...EMPTY_FORM });
+  // Manual delivery modal
+  const [showModal, setShowModal]         = useState(false);
+  const [formData, setFormData]           = useState({ ...EMPTY_FORM });
 
   // ── Meta ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -538,7 +523,7 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
         api.get('/inventory/logistics', { params: { per_page: 9999, page: 1 } }),
         api.get('/inventory/material-requests', { params: { per_page: 9999, status: 'pending' } }),
       ]);
-      const all  = delRes.data.data || [];
+      const all = delRes.data.data || [];
       const reqs = reqRes.data.data || [];
       setGlobalCounts({
         inTransit: all.filter(d => d.status === 'In Transit').length,
@@ -556,6 +541,7 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const fetchRequests = useCallback(async (silent = false) => {
     if (!silent) setRequestsLoading(true);
     try {
+      // Backend enriches each item with stock_status + current_stock from warehouse
       const res = await api.get('/inventory/material-requests');
       setRequests(res.data.data || res.data || []);
     } catch (err) {
@@ -640,26 +626,43 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
-  // ── Mark delivered ────────────────────────────────────────────────────────
-  const handleDelivered = async (id) => {
-    if (!window.confirm('Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring.')) return;
-    setMarkLoading(id);
-    try {
-      await api.patch(`/inventory/logistics/${id}/delivered`);
-      fetchDeliveries(true);
-      fetchRequests(true);
-      fetchGlobalCounts();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update delivery status.');
-    } finally {
-      setMarkLoading(null);
-    }
-  };
+  // ── Mark delivered → triggers backend to push new arrival to MaterialsMonitoring ──
+  // Replace the handleDelivered function with this updated version
 
-  // ── Dispatch from request ─────────────────────────────────────────────────
+const handleDelivered = async (id) => {
+  const delivery = deliveries.find(d => d.id === id);
+  
+  // Show appropriate confirmation message
+  const confirmMessage = delivery?.material_request_id
+    ? 'Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring.\n\nNote: Stock has already been reserved when the request was dispatched.'
+    : 'Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring and update warehouse stock.';
+  
+  if (!window.confirm(confirmMessage)) return;
+  
+  setMarkLoading(id);
+  try {
+    const response = await api.patch(`/inventory/logistics/${id}/delivered`);
+    
+    // Show success message
+    alert(response.data?.message || 'Delivery marked as delivered successfully.');
+    
+    fetchDeliveries(true);
+    fetchRequests(true);
+    fetchGlobalCounts();
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || 'Failed to update delivery status.';
+    console.error('Delivery error:', err.response?.data);
+    alert(errorMsg);
+  } finally {
+    setMarkLoading(null);
+  }
+};
+
+  // ── Dispatch from request ──────────────────────────────────────────────────
   const handleDispatchConfirm = async (form) => {
     setDispatchLoading(true);
     try {
+      // POST: converts the pending request into a delivery record (status → dispatched)
       await api.post(`/inventory/material-requests/${dispatchTarget.id}/dispatch`, form);
       setDispatchTarget(null);
       fetchRequests(true);
@@ -672,10 +675,11 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
-  // ── Reorder from request ──────────────────────────────────────────────────
+  // ── Reorder from request ───────────────────────────────────────────────────
   const handleReorderConfirm = async ({ notes, quantity_needed }) => {
     setReorderLoading(true);
     try {
+      // PATCH: marks request as 'reordering' + sends reorder to Procurement
       await api.post(`/inventory/material-requests/${reorderTarget.id}/reorder`, {
         notes,
         quantity_needed: parseInt(quantity_needed, 10) || null,
@@ -690,7 +694,7 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   };
 
-  // ── Reject request ────────────────────────────────────────────────────────
+  // ── Reject request ─────────────────────────────────────────────────────────
   const handleReject = async (id) => {
     if (!window.confirm('Reject this material request?')) return;
     try {
@@ -791,6 +795,7 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       {/* ── Deliveries Tab ── */}
       {activeMainTab === 'deliveries' && (
         <>
+          {/* Filter Bar */}
           <div className="dl-filters">
             <div className="dl-type-toggle">
               {[{ val: 'all', label: 'All' }, { val: 'In Transit', label: 'In Transit' }, { val: 'Delivered', label: 'Delivered' }].map(({ val, label }) => (
@@ -817,6 +822,7 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
             </div>
           </div>
 
+          {/* Deliveries Table */}
           <div className="dl-table-wrap">
             <table className="dl-table">
               <thead>
@@ -868,6 +874,7 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                         : <span className="dl-tba">—</span>}
                     </td>
                     <td>
+                      {/* Shows whether this delivery came from a material request */}
                       {d.material_request_id
                         ? <span className="dl-source-pill dl-source-req">From Request</span>
                         : <span className="dl-source-pill dl-source-manual">Manual</span>}

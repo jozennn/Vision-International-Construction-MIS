@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\DB;
 class LogisticsController extends Controller
 {
     // =========================================================================
-    // GET /api/inventory/logistics — UNCHANGED
+    // GET /api/inventory/logistics
+    // Paginated list with optional filters — UNCHANGED
     // =========================================================================
     public function index(Request $request): JsonResponse
     {
@@ -123,148 +124,137 @@ class LogisticsController extends Controller
     }
 
     // =========================================================================
-    // PATCH /api/inventory/logistics/{id}/delivered
+    // PATCH /api/inventory/logistics/{id}/delivered  ← UPDATED
     //
-    // Fixes applied:
-    //   1. data_get() for safe item access (handles both Eloquent models & arrays)
-    //   2. Guard against double-processing when multiple Logistics rows share
-    //      the same material_request_id (dispatch creates one row per item).
-    //      Only the FIRST row marked delivered triggers material injection &
-    //      stock decrement; subsequent rows just flip their status.
-    //   3. Notification + material injection still fire exactly once per request.
+    // Original: just set status = Delivered.
+    //
+    // NEW side effects (all in one DB transaction):
+    //   1. status → 'Delivered', date_delivered → now()
+    //   2. If delivery came from a material request:
+    //        - Inject one new arrival row per item into project_materials.material_items (JSON)
+    //        - Each row gets is_new_arrival: true  →  frontend badge
+    //        - Decrement warehouse stock per item
+    //   3. If manual delivery (no material_request_id):
+    //        - Inject single new arrival row for the delivery's product_code
+    //        - Decrement warehouse stock
+    //   4. Notify Engineering that materials have arrived
     // =========================================================================
-    public function markDelivered(int $id): JsonResponse
-    {
-        $delivery = Logistics::findOrFail($id);
+    // In LogisticsController.php, update the markDelivered method
 
-        abort_if($delivery->status === 'Delivered', 422, 'Already marked as delivered.');
+public function markDelivered(int $id): JsonResponse
+{
+    $delivery = Logistics::findOrFail($id);
 
-        DB::transaction(function () use ($delivery) {
+    abort_if($delivery->status === 'Delivered', 422, 'Already marked as delivered.');
 
-            // ── 1. Mark this delivery record ───────────────────────────────
-            $delivery->update([
-                'status'         => 'Delivered',
-                'date_delivered' => now(),
-            ]);
+    DB::transaction(function () use ($delivery) {
 
-            // ── 2. Resolve associated material request (if any) ────────────
-            $materialRequest = $delivery->material_request_id
-                ? MaterialRequest::with('items')->find($delivery->material_request_id)
-                : null;
+        // ── 1. Mark the delivery ───────────────────────────────────────
+        $delivery->update([
+            'status'         => 'Delivered',
+            'date_delivered' => now(),
+        ]);
 
-            // ── 3. Guard: if another sibling delivery for the same request
-            //       has already been marked Delivered, skip side-effects to
-            //       prevent duplicate material injection & double stock deduct.
-            if ($materialRequest) {
-                $alreadyProcessed = Logistics::where('material_request_id', $materialRequest->id)
-                    ->where('id', '!=', $delivery->id)
-                    ->where('status', 'Delivered')
-                    ->exists();
+        // ── 2. Find the associated material request (if any) ───────────
+        $materialRequest = $delivery->material_request_id
+            ? MaterialRequest::with('items')->find($delivery->material_request_id)
+            : null;
 
-                if ($alreadyProcessed) {
-                    // Just mark delivered — no further side effects needed.
-                    return;
-                }
+        // ── 3. Resolve the project ─────────────────────────────────────
+        $projectId = $materialRequest?->project_id
+            ?? Project::where('project_name', $delivery->project_name)->value('id');
+
+        if ($projectId) {
+            $project     = Project::with('materials')->find($projectId);
+            $matTracking = $project?->materials;
+
+            // Get existing material_items JSON array (or start fresh)
+            $existingItems = [];
+            if ($matTracking && $matTracking->material_items) {
+                $decoded = is_string($matTracking->material_items)
+                    ? json_decode($matTracking->material_items, true)
+                    : $matTracking->material_items;
+                $existingItems = is_array($decoded) ? $decoded : [];
             }
 
-            // ── 4. Resolve the project ─────────────────────────────────────
-            $projectId = $materialRequest?->project_id
-                ?? Project::where('project_name', $delivery->project_name)->value('id');
+            $today      = now()->toDateString();
+            $newRows    = [];
 
-            if ($projectId) {
-                $project     = Project::with('materials')->find($projectId);
-                $matTracking = $project?->materials;
-
-                // Get existing material_items JSON array (or start fresh)
-                $existingItems = [];
-                if ($matTracking && $matTracking->material_items) {
-                    $decoded       = is_string($matTracking->material_items)
-                        ? json_decode($matTracking->material_items, true)
-                        : $matTracking->material_items;
-                    $existingItems = is_array($decoded) ? $decoded : [];
-                }
-
-                $today   = now()->toDateString();
-                $newRows = [];
-
-                if ($materialRequest) {
-                    // ── Request-based: one row per item ────────────────────
-                    foreach ($materialRequest->items as $item) {
-                        // Safe access for both Eloquent models and plain arrays
-                        $productCode  = data_get($item, 'product_code');
-                        $description  = data_get($item, 'description') ?? $productCode;
-                        $requestedQty = (float) (data_get($item, 'requested_qty') ?? data_get($item, 'quantity') ?? 1);
-
-                        $newRows[] = [
-                            'name'                => $productCode
-                                                     ? "{$productCode} ({$description})"
-                                                     : $description,
-                            'description'         => $description,
-                            'delivery_date'       => $delivery->date_of_delivery ?? $today,
-                            'qty'                 => $requestedQty,
-                            'total'               => $requestedQty,
-                            'installed'           => 0,
-                            'remaining_inventory' => $requestedQty,
-                            'is_new_arrival'      => true,
-                            'logistics_id'        => $delivery->id,
-                            'remarks'             => 'Auto-added from material request delivery',
-                        ];
-                    }
-                } else {
-                    // ── Manual delivery: single row ────────────────────────
+            if ($materialRequest) {
+                // ── Request-based delivery: one row per requested item ──
+                foreach ($materialRequest->items as $item) {
                     $newRows[] = [
-                        'name'                => $delivery->product_code,
-                        'description'         => null,
-                        'delivery_date'       => $delivery->date_of_delivery ?? $today,
-                        'qty'                 => $delivery->quantity,
-                        'total'               => $delivery->quantity,
-                        'installed'           => 0,
-                        'remaining_inventory' => $delivery->quantity,
-                        'is_new_arrival'      => true,
-                        'logistics_id'        => $delivery->id,
-                        'remarks'             => 'Auto-added from manual delivery',
+                        'id'                => 'arrival_' . uniqid(),
+                        'name'              => $item->product_code
+                                                ? "{$item->product_code} ({$item->description})"
+                                                : $item->description,
+                        'description'       => $item->description,
+                        'delivery_date'     => $delivery->date_of_delivery ?? $today,
+                        'qty'               => $item->requested_qty,
+                        'total'             => $item->requested_qty,
+                        'installed'         => 0,
+                        'remaining_inventory' => $item->requested_qty,
+                        'is_new_arrival'    => true,
+                        'logistics_id'      => $delivery->id,
+                        'material_request_id' => $delivery->material_request_id,
+                        'remarks'           => 'Auto-added from material request delivery',
                     ];
                 }
-
-                // Merge and save
-                if ($project) {
-                    $project->materials()->updateOrCreate(
-                        ['project_id' => $projectId],
-                        ['material_items' => json_encode(array_merge($existingItems, $newRows))]
-                    );
-                }
-
-                // ── 5. Notify Engineering ──────────────────────────────────
-                $projectName = $materialRequest?->project_name ?? $delivery->project_name;
-                \App\Models\AppNotification::create([
-                    'target_department' => 'Engineering',
-                    'target_role'       => null,
-                    'project_id'        => $projectId,
-                    'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals. Check Materials Monitoring.",
-                ]);
+                
+                // Update material request status to delivered
+                $materialRequest->update(['status' => 'delivered']);
+            } else {
+                // ── Manual delivery: single row ────────────────────────
+                $newRows[] = [
+                    'id'                => 'arrival_' . uniqid(),
+                    'name'              => $delivery->product_code,
+                    'description'       => null,
+                    'delivery_date'     => $delivery->date_of_delivery ?? $today,
+                    'qty'               => $delivery->quantity,
+                    'total'             => $delivery->quantity,
+                    'installed'         => 0,
+                    'remaining_inventory' => $delivery->quantity,
+                    'is_new_arrival'    => true,
+                    'logistics_id'      => $delivery->id,
+                    'remarks'           => 'Auto-added from manual delivery',
+                ];
             }
 
-            // ── 6. Decrement warehouse stock ───────────────────────────────
-            if ($materialRequest) {
-                foreach ($materialRequest->items as $item) {
-                    $productCode  = data_get($item, 'product_code');
-                    $requestedQty = (float) (data_get($item, 'requested_qty') ?? data_get($item, 'quantity') ?? 1);
+            // Merge new rows into existing tracking items
+            $mergedItems = array_merge($existingItems, $newRows);
 
-                    if ($productCode) {
-                        $this->decrementStock($productCode, $requestedQty);
-                    }
-                }
-            } elseif ($delivery->product_code) {
-                $this->decrementStock($delivery->product_code, $delivery->quantity ?? 1);
+            // Upsert the project_materials row
+            if ($project) {
+                $project->materials()->updateOrCreate(
+                    ['project_id' => $projectId],
+                    ['material_items' => json_encode($mergedItems)]
+                );
             }
-        });
 
-        return response()->json([
-            'message' => 'Marked as delivered. Materials Monitoring has been updated.',
-            'data'    => $delivery->fresh(),
-        ]);
-    }
+            // ── 4. Notify Engineering ──────────────────────────────────
+            $projectName = $materialRequest?->project_name ?? $delivery->project_name;
+            \App\Models\AppNotification::create([
+                'target_department' => 'Engineering',
+                'target_role'       => null,
+                'project_id'        => $projectId,
+                'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals. Check Materials Monitoring.",
+            ]);
+        }
 
+        // ── 5. Decrement warehouse stock (only for manual deliveries) ──
+        // For request-based deliveries, stock was already decremented during dispatch
+        if (!$materialRequest && $delivery->product_code) {
+            $this->decrementStock($delivery->product_code, $delivery->quantity ?? 1);
+        }
+    });
+
+    return response()->json([
+        'message' => $delivery->material_request_id 
+            ? 'Marked as delivered. Materials have been added to project monitoring.'
+            : 'Marked as delivered. Stock updated and materials added to project monitoring.',
+        'data'    => $delivery->fresh(),
+    ]);
+}
     // =========================================================================
     // DELETE /api/inventory/logistics/{id} — UNCHANGED
     // =========================================================================
@@ -277,7 +267,10 @@ class LogisticsController extends Controller
     // =========================================================================
     // PRIVATE HELPER — Decrement stock and re-derive availability
     //
-    // Thresholds:  0 → NO STOCK | 1–10 → LOW STOCK | 11+ → ON STOCK
+    // Thresholds match your existing BoqTable.jsx logic:
+    //   0       → NO STOCK
+    //   1 – 10  → LOW STOCK
+    //   11+     → ON STOCK
     // =========================================================================
     private function decrementStock(string $productCode, float $qty): void
     {
