@@ -56,8 +56,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- PROJECTS (read) ---
     Route::get('/projects',      [ProjectController::class, 'index']);
+    Route::get('/projects/trashed', [ProjectController::class, 'trashed']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
-    Route::get('/projects/trashed', [ProjectController::class, 'trashed']); // 👈 ADDED
+ // 👈 ADDED
 
     // Site Inspection (read)
     Route::get('/projects/{id}/site-inspection',         [ProjectController::class, 'getSiteInspection']);
