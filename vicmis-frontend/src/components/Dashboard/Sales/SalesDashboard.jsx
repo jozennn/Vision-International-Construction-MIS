@@ -509,7 +509,7 @@ const SalesDashboard = ({ user }) => {
                 <span className="sd-stat-label">Total Leads</span>
                 <div className="sd-stat-tags">
                   <span className="sd-tag sd-tag--green">{activeCount} Active</span>
-                  <span className="sd-tag sd-tag--red">{trashedCount} Trashed</span>
+                  <span className="sd-tag sd-tag--red">{trashedCount} Trash</span>
                 </div>
               </div>
               <span className="sd-card-hint">Click to filter</span>
