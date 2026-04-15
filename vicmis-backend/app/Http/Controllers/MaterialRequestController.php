@@ -95,35 +95,43 @@ public function getPending(Request $request): JsonResponse
             
             $result = [];
             foreach ($requests as $req) {
-                $reqData = $req->toArray();
-                $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
+                $reqArray = $req->toArray();
+                $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
                 
-                $itemsData = [];
+                $itemsArray = [];
                 foreach ($req->items as $item) {
-                    $itemData = $item->toArray();
+                    $itemArray = $item->toArray();
                     
                     $productCode = $item->product_code ?? null;
                     $productCategory = $item->product_category ?? null;
                     
-                    $itemData['current_stock'] = 0;
-                    $itemData['stock_status'] = 'NO STOCK';
+                    $itemArray['current_stock'] = 0;
+                    $itemArray['stock_status'] = 'NO STOCK';
                     
                     if (!empty($productCode)) {
-                        $inv = WarehouseInventory::where('product_code', $productCode)
-                            ->where('product_category', $productCategory)
-                            ->first();
+                        $query = WarehouseInventory::where('product_code', $productCode);
+                        
+                        if (!empty($productCategory)) {
+                            $query->where('product_category', $productCategory);
+                        }
+                        
+                        $inv = $query->first();
+                        
+                        if (!$inv && !empty($productCategory)) {
+                            $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                        }
                         
                         if ($inv) {
-                            $itemData['current_stock'] = $inv->current_stock ?? 0;
-                            $itemData['stock_status'] = $inv->availability ?? 'NO STOCK';
+                            $itemArray['current_stock'] = $inv->current_stock ?? 0;
+                            $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
                         }
                     }
                     
-                    $itemsData[] = $itemData;
+                    $itemsArray[] = $itemArray;
                 }
                 
-                $reqData['items'] = $itemsData;
-                $result[] = $reqData;
+                $reqArray['items'] = $itemsArray;
+                $result[] = $reqArray;
             }
             
             return response()->json([
@@ -136,35 +144,43 @@ public function getPending(Request $request): JsonResponse
         
         $result = [];
         foreach ($paginated->items() as $req) {
-            $reqData = $req->toArray();
-            $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
+            $reqArray = $req->toArray();
+            $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
             
-            $itemsData = [];
+            $itemsArray = [];
             foreach ($req->items as $item) {
-                $itemData = $item->toArray();
+                $itemArray = $item->toArray();
                 
                 $productCode = $item->product_code ?? null;
                 $productCategory = $item->product_category ?? null;
                 
-                $itemData['current_stock'] = 0;
-                $itemData['stock_status'] = 'NO STOCK';
+                $itemArray['current_stock'] = 0;
+                $itemArray['stock_status'] = 'NO STOCK';
                 
                 if (!empty($productCode)) {
-                    $inv = WarehouseInventory::where('product_code', $productCode)
-                        ->where('product_category', $productCategory)
-                        ->first();
+                    $query = WarehouseInventory::where('product_code', $productCode);
+                    
+                    if (!empty($productCategory)) {
+                        $query->where('product_category', $productCategory);
+                    }
+                    
+                    $inv = $query->first();
+                    
+                    if (!$inv && !empty($productCategory)) {
+                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
+                    }
                     
                     if ($inv) {
-                        $itemData['current_stock'] = $inv->current_stock ?? 0;
-                        $itemData['stock_status'] = $inv->availability ?? 'NO STOCK';
+                        $itemArray['current_stock'] = $inv->current_stock ?? 0;
+                        $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
                     }
                 }
                 
-                $itemsData[] = $itemData;
+                $itemsArray[] = $itemArray;
             }
             
-            $reqData['items'] = $itemsData;
-            $result[] = $reqData;
+            $reqArray['items'] = $itemsArray;
+            $result[] = $reqArray;
         }
 
         return response()->json([
@@ -179,7 +195,12 @@ public function getPending(Request $request): JsonResponse
         
     } catch (\Exception $e) {
         \Log::error('getPending Error: ' . $e->getMessage());
-        return response()->json(['data' => [], 'total' => 0]);
+        return response()->json([
+            'data' => [],
+            'total' => 0,
+            'current_page' => 1,
+            'last_page' => 1,
+        ]);
     }
 }
 
@@ -187,70 +208,71 @@ public function getPending(Request $request): JsonResponse
     // POST /projects/{id}/material-requests
     // =========================================================================
     public function store(Request $request, int $id): JsonResponse
-    {
-        $project = Project::findOrFail($id);
+{
+    $project = Project::findOrFail($id);
 
-        $validated = $request->validate([
-            'requested_by_name'        => 'required|string|max:255',
-            'engineer_name'            => 'nullable|string|max:255',
-            'destination'              => 'nullable|string|max:255',
-            'items'                    => 'required|array|min:1',
-            'items.*.description'      => 'required|string|max:255',
-            'items.*.product_code'     => 'nullable|string|max:100',
-            'items.*.product_category' => 'nullable|string|max:255',
-            'items.*.unit'             => 'nullable|string|max:50',
-            'items.*.requested_qty'    => 'required|numeric|min:0.01',
-            'items.*.unit_cost'        => 'nullable|numeric|min:0',
-            'items.*.total_cost'       => 'nullable|numeric|min:0',
-        ]);
+    $validated = $request->validate([
+        'requested_by_name'        => 'required|string|max:255',
+        'engineer_name'            => 'nullable|string|max:255',
+        'destination'              => 'nullable|string|max:255',
+        'items'                    => 'required|array|min:1',
+        'items.*.description'      => 'required|string|max:255',
+        'items.*.product_code'     => 'nullable|string|max:100',
+        'items.*.product_category' => 'nullable|string|max:255',
+        'items.*.unit'             => 'nullable|string|max:50',
+        'items.*.requested_qty'    => 'required|numeric|min:0.01',
+        'items.*.unit_cost'        => 'nullable|numeric|min:0',
+        'items.*.total_cost'       => 'nullable|numeric|min:0',
+    ]);
 
-        try {
-            $materialRequest = DB::transaction(function () use ($validated, $project) {
-                $req = MaterialRequest::create([
-                    'project_id'     => $project->id,
-                    'project_name'   => $project->project_name,
-                    'requester_name' => $validated['requested_by_name'],
-                    'status'         => 'pending',
-                    'items'          => $validated['items'],
-                ]);
-
-                foreach ($validated['items'] as $item) {
-                    $req->items()->create([
-                        'description'      => $item['description'],
-                        'product_code'     => $item['product_code']  ?? null,
-                        'product_category' => $item['product_category'] ?? null,
-                        'unit'             => $item['unit']          ?? null,
-                        'requested_qty'    => $item['requested_qty'],
-                        'unit_cost'        => $item['unit_cost']     ?? null,
-                        'total_cost'       => $item['total_cost']    ?? null,
-                    ]);
-                }
-
-                return $req;
-            });
-
-            $totalValue = collect($validated['items'])->sum('total_cost');
-            $valueStr = $totalValue > 0 
-                ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
-                : '';
-
-            \App\Models\AppNotification::create([
-                'target_department' => 'Logistics',
-                'target_role'       => null,
-                'project_id'        => $project->id,
-                'message'           => "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}.",
+    try {
+        $materialRequest = DB::transaction(function () use ($validated, $project) {
+            // 👇 ONLY use fields that exist in the table
+            $req = MaterialRequest::create([
+                'project_id'     => $project->id,
+                'project_name'   => $project->project_name,
+                'requester_name' => $validated['requested_by_name'],
+                'status'         => 'pending',
+                // 'items' is a JSON column - store the items array directly
+                'items'          => $validated['items'],
             ]);
 
-            return response()->json($materialRequest->load('items'), 201);
-            
-        } catch (\Exception $e) {
-            \Log::error('Material Request Store Error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Server Error: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
+            foreach ($validated['items'] as $item) {
+                $req->items()->create([
+                    'description'      => $item['description'],
+                    'product_code'     => $item['product_code']  ?? null,
+                    'product_category' => $item['product_category'] ?? null,
+                    'unit'             => $item['unit']          ?? null,
+                    'requested_qty'    => $item['requested_qty'],
+                    'unit_cost'        => $item['unit_cost']     ?? null,
+                    'total_cost'       => $item['total_cost']    ?? null,
+                ]);
+            }
 
+            return $req;
+        });
+
+        $totalValue = collect($validated['items'])->sum('total_cost');
+        $valueStr = $totalValue > 0 
+            ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
+            : '';
+
+        \App\Models\AppNotification::create([
+            'target_department' => 'Logistics',
+            'target_role'       => null,
+            'project_id'        => $project->id,
+            'message'           => "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}.",
+        ]);
+
+        return response()->json($materialRequest->load('items'), 201);
+        
+    } catch (\Exception $e) {
+        \Log::error('Material Request Store Error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Server Error: ' . $e->getMessage(),
+        ], 500);
+    }
+}
     // =========================================================================
     // PATCH /material-requests/{id}
     // =========================================================================

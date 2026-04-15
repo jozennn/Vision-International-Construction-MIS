@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/api/axios';
+import materialRequestService from '@/api/materialRequestService';
 import {
   Plus, X, Loader2, RefreshCw, Truck,
   ChevronDown, ChevronLeft, ChevronRight,
@@ -545,17 +546,16 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
   // ── Fetch pending requests ────────────────────────────────────────────────
   const fetchRequests = useCallback(async (silent = false) => {
-    if (!silent) setRequestsLoading(true);
-    try {
-      // Backend enriches each item with stock_status + current_stock from warehouse
-      const res = await api.get('/inventory/material-requests');
-      setRequests(res.data.data || res.data || []);
-    } catch (err) {
-      console.error('Failed to load requests:', err);
-    } finally {
-      setRequestsLoading(false);
-    }
-  }, []);
+  if (!silent) setRequestsLoading(true);
+  try {
+    const res = await materialRequestService.getPending({ per_page: 9999 });
+    setRequests(res.data.data || res.data || []);
+  } catch (err) {
+    console.error('Failed to load requests:', err);
+  } finally {
+    setRequestsLoading(false);
+  }
+}, []);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
@@ -665,52 +665,49 @@ const handleDelivered = async (id) => {
 };
 
   // ── Dispatch from request ──────────────────────────────────────────────────
-  const handleDispatchConfirm = async (form) => {
-    setDispatchLoading(true);
-    try {
-      // POST: converts the pending request into a delivery record (status → dispatched)
-      await api.post(`/inventory/material-requests/${dispatchTarget.id}/dispatch`, form);
-      setDispatchTarget(null);
-      fetchRequests(true);
-      fetchDeliveries(true);
-      fetchGlobalCounts();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to dispatch.');
-    } finally {
-      setDispatchLoading(false);
-    }
-  };
+const handleDispatchConfirm = async (form) => {
+  setDispatchLoading(true);
+  try {
+    await materialRequestService.dispatch(dispatchTarget.id, form);
+    setDispatchTarget(null);
+    fetchRequests(true);
+    fetchDeliveries(true);
+    fetchGlobalCounts();
+  } catch (err) {
+    alert(err.response?.data?.message || 'Failed to dispatch.');
+  } finally {
+    setDispatchLoading(false);
+  }
+};
 
   // ── Reorder from request ───────────────────────────────────────────────────
   const handleReorderConfirm = async ({ notes, quantity_needed }) => {
-    setReorderLoading(true);
-    try {
-      // PATCH: marks request as 'reordering' + sends reorder to Procurement
-      await api.post(`/inventory/material-requests/${reorderTarget.id}/reorder`, {
-        notes,
-        quantity_needed: parseInt(quantity_needed, 10) || null,
-      });
-      setReorderTarget(null);
-      fetchRequests(true);
-      fetchGlobalCounts();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to send reorder request.');
-    } finally {
-      setReorderLoading(false);
-    }
-  };
-
+  setReorderLoading(true);
+  try {
+    await materialRequestService.reorder(reorderTarget.id, {
+      notes,
+      quantity_needed: parseInt(quantity_needed, 10) || null,
+    });
+    setReorderTarget(null);
+    fetchRequests(true);
+    fetchGlobalCounts();
+  } catch (err) {
+    alert(err.response?.data?.message || 'Failed to send reorder request.');
+  } finally {
+    setReorderLoading(false);
+  }
+};
   // ── Reject request ─────────────────────────────────────────────────────────
   const handleReject = async (id) => {
-    if (!window.confirm('Reject this material request?')) return;
-    try {
-      await api.patch(`/inventory/material-requests/${id}/reject`);
-      fetchRequests(true);
-      fetchGlobalCounts();
-    } catch {
-      alert('Failed to reject request.');
-    }
-  };
+  if (!window.confirm('Reject this material request?')) return;
+  try {
+    await materialRequestService.reject(id);
+    fetchRequests(true);
+    fetchGlobalCounts();
+  } catch {
+    alert('Failed to reject request.');
+  }
+};
 
   const closeModal = () => {
     setShowModal(false);
