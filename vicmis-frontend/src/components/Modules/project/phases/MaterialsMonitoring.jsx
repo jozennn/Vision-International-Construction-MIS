@@ -429,7 +429,8 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                     </tr>
                                 )}
                                 {displayItems.map(item => {
-                                    const delivered          = totalDelivered(item);
+                                     const delivered = totalDelivered(item);
+                                    console.log('Item:', item.name, 'Deliveries:', item.deliveries, 'Total:', delivered);
                                     const lastDel            = item.deliveries?.[item.deliveries.length - 1] ?? {};
                                     const fromBoq            = Boolean(item.boqKey);
                                     const installedToday     = item.installed?.[currentDate] ?? 0;
