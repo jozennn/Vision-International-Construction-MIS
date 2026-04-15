@@ -303,11 +303,62 @@ public function dispatch(Request $request, int $id): JsonResponse
     // =========================================================================
     // POST /inventory/material-requests/{id}/reorder
     // =========================================================================
-    public function reorder(Request $request, int $id): JsonResponse
-    {
-        $req = MaterialRequest::with('items')->findOrFail($id);
-        return $this->handleReorder($request, $req);
+    // In MaterialRequestController.php, update the reorder method
+
+public function reorder(Request $request, int $id): JsonResponse
+{
+    $req = MaterialRequest::with('items')->findOrFail($id);
+    
+    $validated = $request->validate([
+        'quantity_needed' => 'nullable|integer|min:1',
+        'notes'           => 'nullable|string|max:1000',
+    ]);
+
+    try {
+        DB::transaction(function () use ($req, $validated) {
+            $items = $req->items ?? [];
+            
+            foreach ($items as $item) {
+                $productCode = is_array($item) ? ($item['product_code'] ?? null) : ($item->product_code ?? null);
+                $description = is_array($item) ? ($item['description'] ?? '') : ($item->description ?? '');
+                $unit = is_array($item) ? ($item['unit'] ?? 'Pcs') : ($item->unit ?? 'Pcs');
+                $requestedQty = is_array($item) ? ($item['requested_qty'] ?? 1) : ($item->requested_qty ?? 1);
+                
+                $inv = $productCode
+                    ? WarehouseInventory::where('product_code', $productCode)->first()
+                    : null;
+
+                ReorderRequest::create([
+                    'warehouse_inventory_id' => $inv?->id,
+                    'product_category'       => $inv?->product_category ?? $description,
+                    'product_code'           => $productCode ?? $description,
+                    'current_stock'          => $inv?->current_stock ?? 0,
+                    'unit'                   => $unit,
+                    'availability'           => $inv?->availability ?? 'NO STOCK',
+                    'quantity_needed'        => $validated['quantity_needed'] ?? (int) $requestedQty,
+                    'notes'                  => $validated['notes'] ?? null,
+                ]);
+            }
+
+            $req->update(['status' => 'reordering']);
+
+            \App\Models\AppNotification::create([
+                'target_department' => 'Accounting/Procurement',
+                'target_role'       => 'dept_head',
+                'project_id'        => $req->project_id,
+                'message'           => "⚠️ Reorder Required: '{$req->project_name}' needs stock replenishment.",
+            ]);
+        });
+
+        return response()->json(['message' => 'Reorder request sent to Procurement.']);
+        
+    } catch (\Exception $e) {
+        \Log::error('Reorder Error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Failed to send reorder request: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     // =========================================================================
     // PATCH /inventory/material-requests/{id}/reject
@@ -390,34 +441,44 @@ public function dispatch(Request $request, int $id): JsonResponse
     // =========================================================================
     // PRIVATE — handleReorder
     // =========================================================================
-    private function handleReorder(Request $request, MaterialRequest $req): JsonResponse
-    {
-        abort_if($req->status !== 'pending', 422, 'Only pending requests can trigger a reorder.');
+    // In MaterialRequestController.php, replace the handleReorder method
 
-        $validated = $request->validate([
-            'quantity_needed' => 'nullable|integer|min:1',
-            'notes'           => 'nullable|string|max:1000',
-        ]);
+private function handleReorder(Request $request, MaterialRequest $req): JsonResponse
+{
+    abort_if($req->status !== 'pending', 422, 'Only pending requests can trigger a reorder.');
 
+    $validated = $request->validate([
+        'quantity_needed' => 'nullable|integer|min:1',
+        'notes'           => 'nullable|string|max:1000',
+    ]);
+
+    try {
         DB::transaction(function () use ($req, $validated) {
-            foreach ($req->items as $item) {
-                $inv = $item->product_code
-                    ? WarehouseInventory::where('product_code', $item->product_code)->first()
+            $items = $req->items ?? [];
+            
+            foreach ($items as $item) {
+                // Handle both object and array formats
+                $productCode = is_array($item) ? ($item['product_code'] ?? null) : ($item->product_code ?? null);
+                $description = is_array($item) ? ($item['description'] ?? '') : ($item->description ?? '');
+                $unit = is_array($item) ? ($item['unit'] ?? 'Pcs') : ($item->unit ?? 'Pcs');
+                $requestedQty = is_array($item) ? ($item['requested_qty'] ?? 1) : ($item->requested_qty ?? 1);
+                
+                // Try to find inventory item
+                $inv = $productCode
+                    ? WarehouseInventory::where('product_code', $productCode)->first()
                     : null;
 
-                if (!$inv || $inv->availability === 'NO STOCK' || $inv->availability === 'LOW STOCK') {
-                    ReorderRequest::create([
-                        'warehouse_inventory_id' => $inv?->id,
-                        'material_request_id'    => $req->id,
-                        'product_category'       => $inv?->product_category ?? '',
-                        'product_code'           => $item->product_code    ?? '',
-                        'current_stock'          => $inv?->current_stock   ?? 0,
-                        'unit'                   => $item->unit            ?? '',
-                        'availability'           => $inv?->availability    ?? 'NO STOCK',
-                        'quantity_needed'        => $validated['quantity_needed'] ?? (int) $item->requested_qty,
-                        'notes'                  => $validated['notes']    ?? null,
-                    ]);
-                }
+                // Create reorder request with EXACT same fields as ConstructionMat.jsx uses
+                ReorderRequest::create([
+                    'warehouse_inventory_id' => $inv?->id,
+                    'product_category'       => $inv?->product_category ?? $description,
+                    'product_code'           => $productCode ?? $description,
+                    'current_stock'          => $inv?->current_stock ?? 0,
+                    'unit'                   => $unit,
+                    'availability'           => $inv?->availability ?? 'NO STOCK',
+                    'quantity_needed'        => $validated['quantity_needed'] ?? (int) $requestedQty,
+                    'notes'                  => $validated['notes'] ?? null,
+                ]);
             }
 
             $req->update(['status' => 'reordering']);
@@ -431,8 +492,14 @@ public function dispatch(Request $request, int $id): JsonResponse
         });
 
         return response()->json(['message' => 'Reorder request sent to Procurement.']);
+        
+    } catch (\Exception $e) {
+        \Log::error('Reorder Error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Failed to send reorder request: ' . $e->getMessage(),
+        ], 500);
     }
-
+}
     // =========================================================================
     // PRIVATE — handleReject
     // =========================================================================
