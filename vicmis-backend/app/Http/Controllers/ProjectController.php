@@ -1132,6 +1132,102 @@ class ProjectController extends Controller
         return response()->json(['message' => 'Draft saved.']);
     }
 
+
+    // =========================================================================
+// 17. SOFT DELETE / ARCHIVE METHODS
+// =========================================================================
+
+/**
+ * GET /projects/trashed
+ * Get all soft-deleted (archived) projects
+ */
+public function trashed(): JsonResponse
+{
+    $user = request()->user();
+    if (!$user) {
+        return response()->json(['message' => 'Not Authenticated'], 401);
+    }
+
+    $projects = Project::onlyTrashed()
+        ->with(self::EAGER)
+        ->latest('deleted_at')
+        ->get()
+        ->map(fn($p) => $this->formatProject($p));
+    
+    return response()->json($projects);
+}
+
+/**
+ * DELETE /projects/{id}
+ * Soft delete (archive) a project
+ */
+public function destroy(int $id): JsonResponse
+{
+    $project = Project::findOrFail($id);
+    $projectName = $project->project_name;
+    
+    $project->delete();
+    
+    \App\Models\AppNotification::create([
+        'target_department' => 'Management',
+        'target_role'       => 'dept_head',
+        'project_id'        => $id,
+        'message'           => "📦 Project '{$projectName}' has been archived.",
+    ]);
+    
+    return response()->json([
+        'message' => 'Project archived successfully.',
+        'project' => $this->formatProject($project),
+    ]);
+}
+
+/**
+ * POST /projects/{id}/restore
+ * Restore a soft-deleted project
+ */
+public function restore(int $id): JsonResponse
+{
+    $project = Project::withTrashed()->findOrFail($id);
+    $projectName = $project->project_name;
+    
+    $project->restore();
+    
+    \App\Models\AppNotification::create([
+        'target_department' => 'Management',
+        'target_role'       => 'dept_head',
+        'project_id'        => $id,
+        'message'           => "🔄 Project '{$projectName}' has been restored from archive.",
+    ]);
+    
+    return response()->json([
+        'message' => 'Project restored successfully.',
+        'project' => $this->formatProject($project),
+    ]);
+}
+
+/**
+ * DELETE /projects/{id}/force
+ * Permanently delete a project (cannot be restored)
+ */
+public function forceDelete(int $id): JsonResponse
+{
+    $project = Project::withTrashed()->findOrFail($id);
+    $projectName = $project->project_name;
+    
+    // Optional: Delete related data
+    // $project->materials()->delete();
+    // $project->boqPlan()->delete();
+    // $project->boqActual()->delete();
+    // $project->siteInspection()->delete();
+    // $project->mobilization()->delete();
+    
+    $project->forceDelete();
+    
+    return response()->json([
+        'message' => "Project '{$projectName}' permanently deleted.",
+    ]);
+}
+
     public function saveMobilizationDraftRoster(Request $request, int $id): JsonResponse
     {
         $project = Project::findOrFail($id);
