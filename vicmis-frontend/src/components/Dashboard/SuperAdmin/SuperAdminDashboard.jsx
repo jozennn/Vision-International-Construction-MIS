@@ -232,7 +232,7 @@ const SuperAdminDashboard = ({ user }) => {
               <div className="sa-bar-fill" style={{ height: `${Math.max(5, (trashedLeads / maxGraphValue) * 100)}%`, backgroundColor: '#ef4444' }}>
                 <span className="sa-bar-val">{trashedLeads}</span>
               </div>
-              <span className="sa-bar-label">Trashed<br/>Leads</span>
+              <span className="sa-bar-label">Trash<br/>Leads</span>
             </div>
           </div>
         </div>
