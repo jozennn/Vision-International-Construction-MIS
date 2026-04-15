@@ -36,7 +36,8 @@ const UserManagement = ({ user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(''); // 2. Search state added
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDept, setFilterDept] = useState('All'); // Added Department Filter state
   
   const [formData, setFormData] = useState({
     name: '', email: '', password: '', role: 'sales_employee', department: 'Sales',
@@ -59,7 +60,7 @@ const UserManagement = ({ user }) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // 3. Auto-filter roles when department changes
+    // Auto-filter roles when department changes
     if (name === 'department') {
       const availableRoles = ROLE_MAPPING[value] || [];
       const firstRole = availableRoles.length > 0 ? availableRoles[0].value : '';
@@ -122,15 +123,25 @@ const UserManagement = ({ user }) => {
     }
   };
 
-  // 4. Filter users based on search query before grouping
+  // Filter users based on search query AND department filter
   const filteredUsers = users.filter(u => {
+    // 1. Search Logic
     const term = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       (u.name && u.name.toLowerCase().includes(term)) ||
       (u.email && u.email.toLowerCase().includes(term)) ||
       (u.role && u.role.toLowerCase().includes(term)) ||
       (u.department && u.department.toLowerCase().includes(term))
     );
+
+    // 2. Department Filter Logic (including legacy mapping logic)
+    let dept = u.department || 'Unassigned';
+    if (dept === 'Accounting/Procurement') dept = 'Procurement';
+    if (dept === 'IT' || dept === 'HR') dept = 'Legacy/Archived';
+    
+    const matchesDept = filterDept === 'All' || dept === filterDept;
+
+    return matchesSearch && matchesDept;
   });
 
   const groupedUsers = filteredUsers.reduce((acc, u) => {
@@ -163,8 +174,9 @@ const UserManagement = ({ user }) => {
           </p>
         </div>
         
-        {/* Search Bar & Action Button */}
+        {/* Search Bar, Filter & Action Button */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>⚲</span>
             <input 
@@ -175,6 +187,20 @@ const UserManagement = ({ user }) => {
               style={{ padding: '10px 12px 10px 32px', borderRadius: '8px', border: '1px solid #e2e8f0', width: '220px', fontSize: '0.875rem' }}
             />
           </div>
+
+          <div className="um-filter-wrap">
+            <select
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value)}
+              style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.875rem', outline: 'none', background: '#fff', cursor: 'pointer' }}
+            >
+              <option value="All">All Departments</option>
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              <option value="Unassigned">Unassigned</option>
+              <option value="Legacy/Archived">Legacy/Archived</option>
+            </select>
+          </div>
+
           <button className="vcc-btn-primary" onClick={openCreateModal}>
             <span>+</span> Create Account
           </button>
@@ -185,7 +211,7 @@ const UserManagement = ({ user }) => {
         <div className="vcc-loader"><div className="vcc-spinner" /></div>
       ) : Object.keys(groupedUsers).length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-          <p>No users found matching "{searchQuery}"</p>
+          <p>No users found matching your search and filter criteria.</p>
         </div>
       ) : (
         <div className="um-dept-grid">
@@ -203,9 +229,9 @@ const UserManagement = ({ user }) => {
                 <tbody>
                   {members.map(emp => (
                     <tr key={emp.id}>
-                      <td className="um-td-name">{emp.name}</td>
-                      <td className="um-td-email">{emp.email}</td>
-                      <td>
+                      <td data-label="Name" className="um-td-name">{emp.name}</td>
+                      <td data-label="Email" className="um-td-email">{emp.email}</td>
+                      <td data-label="Role">
                         <span
                           className="um-role-badge"
                           style={{
@@ -217,7 +243,7 @@ const UserManagement = ({ user }) => {
                           {emp.role.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td className="um-td-actions">
+                      <td data-label="Actions" className="um-td-actions">
                         <button className="um-btn-edit" onClick={() => openEditModal(emp)}>Edit</button>
                         {emp.id !== user?.id && (
                           <button className="um-btn-delete" onClick={() => handleDeleteUser(emp.id, emp.name)}>Delete</button>

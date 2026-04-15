@@ -196,39 +196,60 @@
   .um-modal      { max-width: 100%; }
   .um-field.half { min-width: 100%; }
 
-  /* FIX: Apply ActivityTracker stacking logic to the table */
-  .um-table, .um-table tbody { 
+  /* Refined Mobile Table Layout using Data Labels */
+  .um-table, .um-table tbody, .um-table tr { 
     display: block; 
     width: 100%; 
   }
   
-  /* Hide the table headers since we are stacking the layout */
+  /* Hide the table headers completely */
   .um-table thead { 
     display: none; 
   }
 
-  /* Make each row look like a timeline card */
+  /* Make each row look like a structured card */
   .um-table tr {
-    display: flex;
-    flex-direction: column;
-    gap: 10px; /* Gives elements breathing room */
-    padding: 16px 0;
-    border-bottom: 1px solid #e8eaed;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    border: 1px solid #e8eaed;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .um-table tr:last-child {
+    margin-bottom: 0;
   }
 
-  /* Push each piece of data to its own line */
+  /* Format TD cells to align properly with injected pseudo-labels */
   .um-table td {
     display: flex;
-    padding: 0;
-    border-bottom: none;
+    justify-content: space-between;
     align-items: center;
-    width: 100%;
-    box-sizing: border-box;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: right;
+  }
+  .um-table td:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
   }
 
-  /* Adjust spacing for the actions buttons */
+  /* Inject Data Labels to substitute hidden table headers */
+  .um-table td::before {
+    content: attr(data-label);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-right: 15px;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  /* Adjust action buttons spacing */
   .um-td-actions {
-    margin-top: 4px;
+    justify-content: flex-end;
+    margin-top: 0;
   }
 
   /* Form and Modal Adjustments */
@@ -242,13 +263,12 @@
 
 /* Small mobile (≤480px) */
 @media (max-width: 480px) {
-  /* Reclaim horizontal space and shrink fonts like Activity Tracker */
   .um-role-badge { font-size: 0.68rem; padding: 2px 7px; }
   .um-td-name    { font-size: 0.82rem; }
-  .um-td-email   { font-size: 0.78rem; word-break: break-all; } /* Prevents super long emails from breaking the box */
+  .um-td-email   { font-size: 0.78rem; word-break: break-all; } 
   
   .um-btn-edit, 
-  .um-btn-delete { padding: 6px 12px; font-size: 0.75rem; } /* Buttons get a little thicker for touch targets */
+  .um-btn-delete { padding: 6px 12px; font-size: 0.75rem; } 
 
   .um-modal-head h3 { font-size: 1rem; }
   .um-dept-count { font-size: 0.7rem; }
