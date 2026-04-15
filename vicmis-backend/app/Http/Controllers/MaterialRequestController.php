@@ -74,7 +74,7 @@ class MaterialRequestController extends Controller
     // GET /material-requests/pending
     // GET /inventory/material-requests
     // =========================================================================
-    public function getPending(Request $request): JsonResponse
+public function getPending(Request $request): JsonResponse
 {
     try {
         $status = $request->filled('status')
@@ -100,22 +100,24 @@ class MaterialRequestController extends Controller
                 
                 $itemsArray = [];
                 foreach ($req->items as $item) {
-                    // Convert item to array
                     $itemArray = $item->toArray();
                     
                     $productCode = $item->product_code ?? null;
                     $productCategory = $item->product_category ?? null;
                     
-                    // Default values
                     $itemArray['current_stock'] = 0;
                     $itemArray['stock_status'] = 'NO STOCK';
                     
                     if (!empty($productCode)) {
-                        $inv = WarehouseInventory::where('product_code', $productCode)
-                            ->where('product_category', $productCategory)
-                            ->first();
+                        $query = WarehouseInventory::where('product_code', $productCode);
                         
-                        if (!$inv) {
+                        if (!empty($productCategory)) {
+                            $query->where('product_category', $productCategory);
+                        }
+                        
+                        $inv = $query->first();
+                        
+                        if (!$inv && !empty($productCategory)) {
                             $inv = WarehouseInventory::where('product_code', $productCode)->first();
                         }
                         
@@ -156,11 +158,15 @@ class MaterialRequestController extends Controller
                 $itemArray['stock_status'] = 'NO STOCK';
                 
                 if (!empty($productCode)) {
-                    $inv = WarehouseInventory::where('product_code', $productCode)
-                        ->where('product_category', $productCategory)
-                        ->first();
+                    $query = WarehouseInventory::where('product_code', $productCode);
                     
-                    if (!$inv) {
+                    if (!empty($productCategory)) {
+                        $query->where('product_category', $productCategory);
+                    }
+                    
+                    $inv = $query->first();
+                    
+                    if (!$inv && !empty($productCategory)) {
                         $inv = WarehouseInventory::where('product_code', $productCode)->first();
                     }
                     
