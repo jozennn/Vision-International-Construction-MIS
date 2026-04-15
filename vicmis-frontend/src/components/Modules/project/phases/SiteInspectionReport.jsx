@@ -28,7 +28,7 @@ const SiteInspectionReport = ({ project, user }) => {
         selectedDate,
         setSelectedDate,
         currentReport,
-        availableDates,
+        availableDates,  // 👈 ADDED THIS
         loading,
         saving,
         saveStatus,
@@ -56,7 +56,7 @@ const SiteInspectionReport = ({ project, user }) => {
         month: 'short', day: 'numeric', year: 'numeric',
     });
 
-    const hasExistingReport = availableDates.includes(selectedDate);
+    const hasExistingReport = availableDates.includes(selectedDate); // 👈 Check if report exists
 
     const handleSave = async () => {
         try {
@@ -322,33 +322,33 @@ const SiteInspectionReport = ({ project, user }) => {
     if (loading) return <div className="cc-loading">Loading inspection data...</div>;
 
     return (
-        <div className="cc-section" style={{ minWidth: 0, width: '100%', overflowX: 'hidden' }}>
+        <div className="cc-section">
             {error && <div className="pm-card-red"><p className="pm-text-muted">{error}</p></div>}
 
             {/* Project Meta */}
-            <div className="pm-card-gray cc-insp-meta" style={{ width: '100%', padding: '16px', overflow: 'hidden' }}>
-                <div className="cc-meta-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
+            <div className="pm-card-gray cc-insp-meta">
+                <div className="cc-meta-grid-4">
                     {[['Project', projectName], ['Location', location],
                       ['Requirement', requirement], ['Lead Installer', leadMan]].map(([l, v]) => (
-                        <div key={l} style={{ minWidth: 0 }}>
-                            <span className="cc-meta-label" style={{ display: 'block', fontSize: '10px', color: '#6b7280', textTransform: 'uppercase' }}>{l}</span>
-                            <span className="cc-meta-value" style={{ display: 'block', fontWeight: 600, wordBreak: 'break-word' }}>{v || '—'}</span>
+                        <div key={l}>
+                            <span className="cc-meta-label">{l}</span>
+                            <span className="cc-meta-value">{v || '—'}</span>
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* Date Selector with Save Status */}
-            <div className="cc-date-selector-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
-                <div className="cc-date-selector-group" style={{ flex: '1 1 min-content' }}>
+            <div className="cc-date-selector-row">
+                <div className="cc-date-selector-group">
                     <label className="pm-label">📅 Inspection Date</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <input 
                             type="date" 
                             value={selectedDate}
                             onChange={e => setSelectedDate(e.target.value)}
                             className="pm-input"
-                            style={{ width: '100%', maxWidth: '200px' }}
+                            style={{ width: '180px' }}
                         />
                         <span className={`cc-date-status ${hasExistingReport ? 'exists' : 'new'}`}>
                             {hasExistingReport ? '✅ Report exists' : '🆕 New report'}
@@ -356,22 +356,21 @@ const SiteInspectionReport = ({ project, user }) => {
                         <SaveIndicator status={saveStatus} />
                     </div>
                 </div>
-                <div className="cc-date-hint" style={{ width: '100%' }}>
+                <div className="cc-date-hint">
                     Showing report for {currentDateLabel}
                 </div>
             </div>
 
-            {/* Available Dates Chips */}
+            {/* 👇 ADDED: Available Dates Chips */}
             {availableDates.length > 0 && (
-                <div className="cc-available-dates" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                    <span className="cc-dates-label" style={{ fontSize: '12px', fontWeight: 'bold' }}>📋 Saved reports:</span>
-                    <div className="cc-dates-chips" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                <div className="cc-available-dates">
+                    <span className="cc-dates-label">📋 Saved reports:</span>
+                    <div className="cc-dates-chips">
                         {availableDates.map(date => (
                             <button
                                 key={date}
                                 className={`cc-date-chip ${date === selectedDate ? 'active' : ''}`}
                                 onClick={() => setSelectedDate(date)}
-                                style={{ padding: '4px 10px', borderRadius: '16px', border: '1px solid #ccc', background: date === selectedDate ? '#e0f2fe' : '#fff', cursor: 'pointer' }}
                             >
                                 {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { 
                                     month: 'short', 
@@ -384,7 +383,7 @@ const SiteInspectionReport = ({ project, user }) => {
             )}
 
             {/* Form Meta */}
-            <div className="cc-insp-form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', margin: '16px 0' }}>
+            <div className="cc-insp-form-row">
                 <div>
                     <label className="pm-label">Inspection Time</label>
                     <input 
@@ -392,7 +391,6 @@ const SiteInspectionReport = ({ project, user }) => {
                         value={currentReport.time}
                         onChange={e => updateReport('time', e.target.value)}
                         className="pm-input" 
-                        style={{ width: '100%' }}
                     />
                 </div>
                 <div>
@@ -403,7 +401,6 @@ const SiteInspectionReport = ({ project, user }) => {
                         onChange={e => updateReport('preparedBy', e.target.value)}
                         className="pm-input" 
                         placeholder="Inspector name" 
-                        style={{ width: '100%' }}
                     />
                 </div>
                 <div>
@@ -414,7 +411,6 @@ const SiteInspectionReport = ({ project, user }) => {
                         onChange={e => updateReport('position', e.target.value)}
                         className="pm-input" 
                         placeholder="Position" 
-                        style={{ width: '100%' }}
                     />
                 </div>
                 <div>
@@ -425,7 +421,6 @@ const SiteInspectionReport = ({ project, user }) => {
                         onChange={e => updateReport('checkedBy', e.target.value)}
                         className="pm-input" 
                         placeholder="PM name" 
-                        style={{ width: '100%' }}
                     />
                 </div>
             </div>
@@ -438,12 +433,20 @@ const SiteInspectionReport = ({ project, user }) => {
                     onChange={e => updateReport('observation', e.target.value)}
                     className="pm-textarea cc-insp-textarea"
                     rows={6}
-                    style={{ width: '100%' }}
                     placeholder="Describe site observation, conditions, scope of work completed..." />
             </div>
 
             {/* Problem / Solution */}
-            <div className="cc-insp-block" style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px', background: '#f9fafb' }}>
+            <div className="cc-insp-block">
+                <div className="cc-insp-ps-header">
+                    <div className="cc-insp-block-header cc-insp-header-red cc-insp-col-header">
+                        ⚠️ PROBLEM ENCOUNTERED
+                    </div>
+                    <div className="cc-insp-block-header cc-insp-header-green cc-insp-col-header">
+                        ✅ SOLUTION
+                    </div>
+                </div>
+
                 {currentReport.problems.length === 0 && (
                     <div className="cc-insp-empty-state">
                         No problems logged yet. Click below to add one.
@@ -451,38 +454,35 @@ const SiteInspectionReport = ({ project, user }) => {
                 )}
 
                 {currentReport.problems.map((p, idx) => (
-                    <div key={p.id} className="cc-insp-ps-row" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px dashed #d1d5db' }}>
-                        <div style={{ fontWeight: 'bold' }}>Problem {idx + 1}</div>
+                    <div key={p.id} className="cc-insp-ps-row">
+                        <div className="cc-insp-ps-num">{idx + 1}</div>
                         <textarea
                             value={p.problem}
                             onChange={e => updateProblem(p.id, 'problem', e.target.value)}
                             className="pm-textarea cc-insp-ps-area"
-                            rows={3}
-                            style={{ width: '100%' }}
+                            rows={4}
                             placeholder="Describe the problem encountered on site..." />
                         <textarea
                             value={p.solution}
                             onChange={e => updateProblem(p.id, 'solution', e.target.value)}
                             className="pm-textarea cc-insp-ps-area"
-                            rows={3}
-                            style={{ width: '100%' }}
+                            rows={4}
                             placeholder="Describe the solution or corrective action taken..." />
                         <button
                             className="cc-remove-btn cc-ps-remove"
-                            style={{ alignSelf: 'flex-end', padding: '6px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                            onClick={() => removeProblem(p.id)}>✕ Remove</button>
+                            onClick={() => removeProblem(p.id)}>✕</button>
                     </div>
                 ))}
 
-                <button className="cc-add-problem-btn" onClick={addProblem} style={{ width: '100%', padding: '10px', background: '#e0f2fe', color: '#0284c7', border: '1px dashed #bae6fd', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                <button className="cc-add-problem-btn" onClick={addProblem}>
                     + Add Problem / Solution Row
                 </button>
             </div>
 
             {/* Photo */}
-            <div className="pm-card-gray cc-insp-photo-block" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="pm-card-gray cc-insp-photo-block">
                 <label className="pm-label">📸 Site Photo (optional)</label>
-                <label className={`cc-upload-zone ${photoFile ? 'cc-upload-has-file' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', border: '1.5px dashed #d1d5db', borderRadius: '8px', background: '#fff', cursor: 'pointer', wordBreak: 'break-word' }}>
+                <label className={`cc-upload-zone ${photoFile ? 'cc-upload-has-file' : ''}`}>
                     <span className="cc-upload-icon">{photoFile ? '✅' : '📎'}</span>
                     <span>{photoFile ? photoFile.name : 'Click to choose inspection photo'}</span>
                     <input 
@@ -491,17 +491,16 @@ const SiteInspectionReport = ({ project, user }) => {
                         ref={photoRef}
                         onChange={e => setPhotoFile(e.target.files[0])}
                         className="cc-file-hidden" 
-                        style={{ display: 'none' }}
                     />
                 </label>
             </div>
 
             {/* Actions */}
-            <div className="cc-action-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '16px' }}>
-                <PrimaryButton variant="navy" onClick={handleSave} disabled={saving} style={{ flex: '1 1 140px' }}>
+            <div className="cc-action-row">
+                <PrimaryButton variant="navy" onClick={handleSave} disabled={saving}>
                     {saving ? 'Saving...' : '💾 Save Report'}
                 </PrimaryButton>
-                <button className="pm-btn-success-sm" onClick={exportExcel} style={{ flex: '1 1 140px', padding: '10px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', borderRadius: '6px' }}>
+                <button className="pm-btn-success-sm" onClick={exportExcel}>
                     ⬇️ Download Excel
                 </button>
             </div>

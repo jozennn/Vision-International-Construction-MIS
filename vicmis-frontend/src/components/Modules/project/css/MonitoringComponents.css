@@ -43,7 +43,6 @@
   gap: 0;
   width: 100%;           /* Ensures it fits parent container */
   max-width: 100%;       /* Prevents overflow */
-  min-width: 0;          /* CRITICAL FIX: Allows container to shrink below content width */
   font-family: var(--m-font);
   color: var(--m-black);
   animation: mon-fadein 0.25s ease;
@@ -68,7 +67,6 @@
   border-bottom: 3px solid var(--m-red);
   flex-wrap: wrap; /* Allows stacking on mobile */
   width: 100%;
-  min-width: 0;
 }
 
 .mon-header-meta {
@@ -85,7 +83,6 @@
   gap: 1px;
   min-width: 80px;
   max-width: 100%;
-  flex: 1 1 100px; /* Responsive fix */
 }
 
 .mon-header-label {
@@ -101,7 +98,6 @@
   font-weight: 600;
   color: rgba(255,255,255,0.92);
   word-wrap: break-word; /* Prevents long unbreakable strings from spilling */
-  word-break: break-word;
 }
 
 .mon-header-actions {
@@ -158,7 +154,6 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
-  min-width: 0; /* Responsive fix */
 }
 
 /* ============================================================
@@ -237,7 +232,6 @@
   border: 1px solid var(--m-border);
   border-radius: var(--m-radius);
   width: 100%;
-  min-width: 0; /* Responsive fix */
 }
 
 .mon-top-field {
@@ -454,7 +448,6 @@
   box-shadow: var(--m-shadow-xs);
   width: 100%;
   max-width: 100%; /* forces card to respect parent boundary */
-  min-width: 0;    /* CRITICAL FIX: Allows container to shrink below content width */
 }
 
 .mon-table-toolbar {
@@ -466,7 +459,6 @@
   border-bottom: 2px solid var(--m-red);
   gap: 8px;
   flex-wrap: wrap; /* Safe wrapping for long titles */
-  min-width: 0;
 }
 
 .mon-table-title {
@@ -618,7 +610,6 @@
   border-radius: var(--m-radius);
   overflow: hidden;
   width: 100%;
-  min-width: 0;
 }
 
 .mon-photo-grid {
@@ -649,7 +640,6 @@
   cursor: pointer;
   transition: var(--m-transition);
   max-width: 100%; /* protects flex items */
-  word-break: break-all;
 }
 .mon-upload-trigger:hover     { border-color: var(--m-blue); background: var(--m-blue-bg); }
 .mon-upload-trigger.has-file  { border-color: var(--m-green); border-style: solid; background: var(--m-green-bg); }

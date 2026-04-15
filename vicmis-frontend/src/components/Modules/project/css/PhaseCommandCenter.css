@@ -32,7 +32,7 @@
      flex-direction: column;
      gap: 16px;
      width: 100%;
-     min-width: 0; /* CRITICAL FIX: Stops blowout */
+     min-width: 0;
      font-family: var(--cc-font);
    }
    
@@ -43,7 +43,7 @@
      border-radius: var(--cc-radius);
      overflow: hidden;
      box-shadow: var(--cc-shadow);
-     min-width: 0; /* CRITICAL FIX */
+     min-width: 0;
    }
    
    .pm-cc-body {
@@ -51,7 +51,6 @@
      display: flex;
      flex-direction: column;
      gap: 16px;
-     min-width: 0; /* CRITICAL FIX */
    }
    
    /* ── Tabs ── */
@@ -63,7 +62,6 @@
      scrollbar-width: none;
      border-bottom: 2px solid var(--cc-border);
      background: var(--cc-white);
-     width: 100%;
    }
    .pm-tabs-wrapper::-webkit-scrollbar { display: none; }
    
@@ -121,7 +119,7 @@
      display: flex;
      flex-direction: column;
      gap: 8px;
-     min-width: 0; /* CRITICAL FIX */
+     min-width: 0;
    }
    
    .pm-action-card[data-variant="orange"] { border-top: 3px solid #f97316; }
@@ -188,7 +186,7 @@
      max-width: 960px;
      margin: auto;
      position: relative;
-     min-width: 0; /* CRITICAL FIX */
+     min-width: 0;
    }
    
    .pm-modal-header {
@@ -212,8 +210,7 @@
      border: 1px solid #bae6fd;
      border-radius: 8px;
      margin-bottom: 12px;
-     flex-wrap: wrap; /* CRITICAL FIX */
-     min-width: 0; /* CRITICAL FIX */
+     flex-wrap: wrap;
    }
    .pm-requester-icon  { font-size: 18px; flex-shrink: 0; }
    .pm-requester-label {
@@ -224,7 +221,7 @@
      color: #0369a1;
      display: block;
    }
-   .pm-requester-name  { font-size: 14px; font-weight: 600; color: #0c4a6e; word-break: break-word; }
+   .pm-requester-name  { font-size: 14px; font-weight: 600; color: #0c4a6e; }
    
    /* ── Modal table scroll ── */
    .pm-modal-table-scroll {
