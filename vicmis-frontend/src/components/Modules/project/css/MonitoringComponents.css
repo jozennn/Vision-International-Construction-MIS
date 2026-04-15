@@ -794,6 +794,29 @@
   font-weight: 600;
 }
 
+
+.mon-category-badge {
+    display: inline-block;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.mon-row-boq .mon-category-badge {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
 /* ============================================================
    LOADING
    ============================================================ */

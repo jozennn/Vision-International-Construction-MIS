@@ -104,6 +104,15 @@ class ProjectController extends Controller
                 $this->createNotification('Logistics', null, $project->id, $msg);
                 break;
 
+            // ── NEW: When engineer hits "Request Materials" the notification
+            //         is handled inside MaterialRequestController::store() directly,
+            //         so we don't double-notify here. The phase transition notification
+            //         below is for when the project STATUS itself moves to these phases.
+            case 'Material Request Submitted':
+                $this->createNotification('Logistics', null, $project->id,
+                    "📦 Material Request: '{$project->project_name}' has a pending material request.");
+                break;
+
             case 'Bidding of Project':
             case 'Awarding of Project':
                 $this->createNotification('Management', null, $project->id, $msg);
@@ -473,7 +482,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 7. MOBILIZATION ENDPOINTS
+    // 7. MOBILIZATION ENDPOINTS — UNCHANGED
     // =========================================================================
 
     public function getMobilization(int $id): JsonResponse
@@ -586,7 +595,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 8. BOQ SUBMIT ENDPOINTS
+    // 8. BOQ SUBMIT ENDPOINTS — UNCHANGED
     // =========================================================================
 
     public function submitPlanData(Request $request, $id): JsonResponse
@@ -657,7 +666,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 9. SITE INSPECTION
+    // 9. SITE INSPECTION — UNCHANGED
     // =========================================================================
 
     public function submitSiteInspection(Request $request, $id): JsonResponse
@@ -670,37 +679,30 @@ class ProjectController extends Controller
             'checklist'       => 'required|string',
         ]);
 
-        $project = Project::findOrFail($id);
-        
-        // Get existing inspection or create new
+        $project    = Project::findOrFail($id);
         $inspection = $project->siteInspection;
         $existingChecklist = $inspection?->checklist ?? ['inspections' => []];
-        
-        // New inspection data for this date
-        $newInspection = json_decode($request->checklist, true);
-        $date = $request->inspection_date;
-        
-        // Handle photo upload
+        $newInspection     = json_decode($request->checklist, true);
+        $date              = $request->inspection_date;
+
         $photoPath = $existingChecklist['inspections'][$date]['photo'] ?? null;
         if ($request->hasFile('site_inspection_photo')) {
             $photoPath = $request->file('site_inspection_photo')
                 ->store('project_documents', 'public');
         }
-        
-        // Merge with existing inspections
+
         $existingChecklist['inspections'][$date] = array_merge(
             $newInspection,
             [
-                'time' => $request->inspection_time,
+                'time'           => $request->inspection_time,
                 'inspector_name' => $request->inspector_name,
-                'position' => $request->position,
-                'photo' => $photoPath,
+                'position'       => $request->position,
+                'photo'          => $photoPath,
             ]
         );
-        
-        // Keep track of latest inspection date for quick reference
+
         $existingChecklist['latest_date'] = $date;
-        
+
         $project->siteInspection()->updateOrCreate(
             ['project_id' => $project->id],
             [
@@ -719,30 +721,29 @@ class ProjectController extends Controller
         );
 
         return response()->json([
-            'message' => 'Site inspection saved.',
-            'inspection' => $project->siteInspection->fresh()
+            'message'    => 'Site inspection saved.',
+            'inspection' => $project->siteInspection->fresh(),
         ]);
     }
 
-    // Add endpoint to get inspection by date (optional)
     public function getSiteInspectionByDate(Request $request, $id): JsonResponse
     {
-        $project = Project::findOrFail($id);
+        $project    = Project::findOrFail($id);
         $inspection = $project->siteInspection;
-        $date = $request->query('date', today());
-        
+        $date       = $request->query('date', today());
+
         if (!$inspection) {
             return response()->json(['data' => null]);
         }
-        
+
         $checklist = $inspection->checklist ?? ['inspections' => []];
-        $dateData = $checklist['inspections'][$date] ?? null;
-        
+        $dateData  = $checklist['inspections'][$date] ?? null;
+
         return response()->json([
             'data' => $dateData ? array_merge($dateData, [
                 'inspector_name' => $inspection->inspector_name,
-                'position' => $inspection->position,
-            ]) : null
+                'position'       => $inspection->position,
+            ]) : null,
         ]);
     }
 
@@ -755,7 +756,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 10. DAILY LOGS & ISSUES
+    // 10. DAILY LOGS & ISSUES — UNCHANGED
     // =========================================================================
 
     public function getDailyLogs($id): JsonResponse
@@ -771,13 +772,11 @@ class ProjectController extends Controller
     {
         $request->validate(['log_date' => 'required|date']);
 
-        // ── Photo upload (only replace stored path if a new file is uploaded) ─
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photoPath = $request->file('photo')->store('daily_logs', 'public');
         }
 
-        // ── Per-installer photo uploads ───────────────────────────────────────
         $installersData = json_decode($request->installers_data, true) ?? [];
         foreach ($installersData as $key => &$installer) {
             if ($request->hasFile("installer_photo_$key")) {
@@ -787,7 +786,6 @@ class ProjectController extends Controller
         }
         unset($installer);
 
-        // ── Columns to upsert ─────────────────────────────────────────────────
         $data = [
             'client_start_date'      => $request->client_start_date ?: null,
             'client_end_date'        => $request->client_end_date   ?: null,
@@ -801,15 +799,10 @@ class ProjectController extends Controller
             'remarks'                => $request->remarks,
         ];
 
-        // Only overwrite photo_path when a new file was actually uploaded
         if ($photoPath !== null) {
             $data['photo_path'] = $photoPath;
         }
 
-        // ── UPSERT keyed on project_id + log_date ─────────────────────────────
-        // FIX: was DailySiteLog::create() which always INSERTed a new row,
-        // causing the log history to grow by 1 on every auto-save.
-        // updateOrCreate ensures only ONE row exists per project per date.
         $log = DailySiteLog::updateOrCreate(
             [
                 'project_id' => $id,
@@ -846,7 +839,85 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 11. SALES STATS
+    // 11. MATERIALS MONITORING — NEW METHODS
+    //
+    // These live here because materials tracking is stored on project_materials
+    // (the 'materials' relationship on Project), consistent with how
+    // saveTrackingMaterials already works.
+    // =========================================================================
+
+    /**
+     * PATCH /projects/{id}/material-items/{itemIndex}/acknowledge
+     *
+     * Called when the engineer clicks "Acknowledge" on a "🆕 New Arrival" row
+     * in the Materials Monitoring table.
+     *
+     * Sets is_new_arrival = false on that specific item in the JSON array,
+     * so the badge disappears.
+     *
+     * Route to add in api.php:
+     * Route::patch('/projects/{id}/material-items/{itemIndex}/acknowledge',
+     *              [ProjectController::class, 'acknowledgeNewArrival']);
+     */
+    public function acknowledgeNewArrival(Request $request, int $id, int $itemIndex): JsonResponse
+    {
+        $project     = Project::with('materials')->findOrFail($id);
+        $matTracking = $project->materials;
+
+        if (!$matTracking || !$matTracking->material_items) {
+            return response()->json(['message' => 'No material items found.'], 404);
+        }
+
+        $items = is_string($matTracking->material_items)
+            ? json_decode($matTracking->material_items, true)
+            : $matTracking->material_items;
+
+        if (!isset($items[$itemIndex])) {
+            return response()->json(['message' => 'Item index not found.'], 404);
+        }
+
+        $items[$itemIndex]['is_new_arrival'] = false;
+
+        $matTracking->update(['material_items' => json_encode($items)]);
+
+        return response()->json(['message' => 'New arrival acknowledged.']);
+    }
+
+    /**
+     * PATCH /projects/{id}/material-items/acknowledge-all
+     *
+     * Acknowledges ALL new arrival items at once.
+     * Useful if the engineer wants to dismiss all badges in one click.
+     *
+     * Route to add in api.php:
+     * Route::patch('/projects/{id}/material-items/acknowledge-all',
+     *              [ProjectController::class, 'acknowledgeAllNewArrivals']);
+     */
+    public function acknowledgeAllNewArrivals(int $id): JsonResponse
+    {
+        $project     = Project::with('materials')->findOrFail($id);
+        $matTracking = $project->materials;
+
+        if (!$matTracking || !$matTracking->material_items) {
+            return response()->json(['message' => 'No material items found.'], 404);
+        }
+
+        $items = is_string($matTracking->material_items)
+            ? json_decode($matTracking->material_items, true)
+            : $matTracking->material_items;
+
+        $items = array_map(function ($item) {
+            $item['is_new_arrival'] = false;
+            return $item;
+        }, $items);
+
+        $matTracking->update(['material_items' => json_encode($items)]);
+
+        return response()->json(['message' => 'All new arrivals acknowledged.']);
+    }
+
+    // =========================================================================
+    // 12. SALES STATS — UNCHANGED
     // =========================================================================
 
     public function getSalesStats(): JsonResponse
@@ -865,7 +936,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 12. IMAGE FETCH HELPER
+    // 13. IMAGE FETCH HELPER — UNCHANGED
     // =========================================================================
 
     public function fetchImage(Request $request): JsonResponse
@@ -889,7 +960,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 13. TRACKING SAVE ENDPOINTS
+    // 14. TRACKING SAVE ENDPOINTS — UNCHANGED
     // =========================================================================
 
     public function saveTrackingLegacy(Request $request, $id): JsonResponse
@@ -943,7 +1014,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 14. QA CHECKS
+    // 15. QA CHECKS — UNCHANGED
     // =========================================================================
 
     public function saveQaChecks(Request $request, $id): JsonResponse
@@ -974,7 +1045,7 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 15. PRIVATE HELPERS
+    // 16. PRIVATE HELPERS — UNCHANGED
     // =========================================================================
 
     private function storePhaseFile(Project $project, string $field, string $path): void
@@ -1018,12 +1089,7 @@ class ProjectController extends Controller
     {
         $project = Project::findOrFail($id);
 
-        // Plan fields
-        if (
-            $request->has('plan_measurement') ||
-            $request->has('plan_sqm') ||
-            $request->has('plan_boq')
-        ) {
+        if ($request->has('plan_measurement') || $request->has('plan_sqm') || $request->has('plan_boq')) {
             $planRows = $request->filled('plan_boq')
                 ? (json_decode($request->plan_boq, true) ?? [])
                 : null;
@@ -1039,19 +1105,11 @@ class ProjectController extends Controller
 
             if (!empty($planData)) {
                 $planData['submitted_by'] = $planData['submitted_by'] ?? Auth::id();
-                $project->boqPlan()->updateOrCreate(
-                    ['project_id' => $project->id],
-                    $planData
-                );
+                $project->boqPlan()->updateOrCreate(['project_id' => $project->id], $planData);
             }
         }
 
-        // Actual fields
-        if (
-            $request->has('actual_measurement') ||
-            $request->has('actual_sqm') ||
-            $request->has('final_boq')
-        ) {
+        if ($request->has('actual_measurement') || $request->has('actual_sqm') || $request->has('final_boq')) {
             $actualRows = $request->filled('final_boq')
                 ? (json_decode($request->final_boq, true) ?? [])
                 : null;
@@ -1068,10 +1126,7 @@ class ProjectController extends Controller
 
             if (!empty($actualData)) {
                 $actualData['submitted_by'] = $actualData['submitted_by'] ?? Auth::id();
-                $project->boqActual()->updateOrCreate(
-                    ['project_id' => $project->id],
-                    $actualData
-                );
+                $project->boqActual()->updateOrCreate(['project_id' => $project->id], $actualData);
             }
         }
 
@@ -1104,7 +1159,6 @@ class ProjectController extends Controller
         $boqActual = $project->boqActual;
 
         return [
-            // Core
             'id'                    => $project->id,
             'lead_id'               => $project->lead_id,
             'project_name'          => $project->project_name,
@@ -1116,33 +1170,21 @@ class ProjectController extends Controller
             'contract_amount'       => $project->contract_amount,
             'floor_plan_image'      => $project->floor_plan_image,
             'created_at'            => $project->created_at,
-
-            // Personnel
             'created_by'            => $project->created_by,
             'created_by_name'       => $project->created_by_name,
             'assigned_engineers'    => $project->assigned_engineers,
             'assigned_engineer_ids' => $project->assigned_engineer_ids,
-
-            // Rejection
             'rejection_notes'       => $project->rejection_notes,
-
-            // BOQ Plan
             'plan_measurement'      => $boqPlan?->plan_measurement,
             'plan_sqm'              => $boqPlan?->plan_sqm,
             'plan_boq'              => $boqPlan?->boq_rows ? json_encode($boqPlan->boq_rows) : null,
-
-            // BOQ Actual
             'actual_measurement'    => $boqActual?->actual_measurement,
             'actual_sqm'            => $boqActual?->actual_sqm,
             'final_boq'             => $boqActual?->boq_rows ? json_encode($boqActual->boq_rows) : null,
             'is_phase1_approved'    => $boqActual?->review_status === 'approved',
-
-            // PO
             'po_document'           => $po?->po_document,
             'work_order_document'   => $po?->work_order_document,
-
-            // Site inspection
-            'site_inspection_photo'  => $si?->inspection_photo,
+            'site_inspection_photo' => $si?->inspection_photo,
             'site_inspection_report' => $si ? [
                 'inspector_name'  => $si->inspector_name,
                 'position'        => $si->position,
@@ -1150,33 +1192,21 @@ class ProjectController extends Controller
                 'checklist'       => $si->checklist,
                 'notes_remarks'   => $si->notes_remarks,
             ] : null,
-
-            // Materials
             'delivery_receipt_document' => $mat?->delivery_receipt_document,
             'bidding_document'          => $mat?->bidding_document,
-
-            // Mobilization
-            'subcontractor_name'               => $mob?->subcontractor_name
-                                                  ?? $mat?->subcontractor_name
-                                                  ?? $project->subcontractor_name,
+            'subcontractor_name'               => $mob?->subcontractor_name ?? $mat?->subcontractor_name ?? $project->subcontractor_name,
             'subcontractor_agreement_document' => $mob?->subcontractor_agreement_document,
             'mobilization_photo'               => $mob?->mobilization_photo,
             'installer_roster'                 => $mob?->installer_roster ?? [],
             'installer_count'                  => $mob?->installer_count ?? 0,
-
-            // QA / Handover
             'qa_photo'               => $qa?->qa_photo,
             'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
             'coc_document'           => $qa?->coc_document,
             'qa_check_boq'           => (bool) ($qa?->qa_check_boq    ?? false),
             'qa_check_debris'        => (bool) ($qa?->qa_check_debris ?? false),
             'qa_check_defect'        => (bool) ($qa?->qa_check_defect ?? false),
-
-            // Billing
             'billing_invoice_document' => $project->progressBilling?->invoice_document,
             'final_invoice_document'   => $project->finalBilling?->invoice_document,
-
-            // Tracking
             'material_items'    => $mat?->material_items,
             'timeline_tracking' => $mat?->timeline_tracking,
         ];

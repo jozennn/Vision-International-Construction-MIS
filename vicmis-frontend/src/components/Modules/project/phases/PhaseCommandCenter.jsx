@@ -6,12 +6,40 @@ import MaterialsMonitoring from './MaterialsMonitoring.jsx';
 import SiteInspectionReport from './SiteInspectionReport.jsx';
 import '../css/PhaseCommandCenter.css';
 
-const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose }) => (
+// ─── Material Requisition Modal ───────────────────────────────────────────────
+// Engineer selects items from the approved Final BOQ and specifies qty needed.
+// Inside PhaseCommandCenter.jsx, update the MaterialReqModal component
+
+// Inside PhaseCommandCenter.jsx, replace the MaterialReqModal component
+
+const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting, requesterName }) => (
   <div className="pm-modal-overlay">
     <div className="pm-modal-content pm-modal-orange large">
       <div className="pm-flex-between mb-4">
         <h3 className="pm-title-lg pm-text-orange">📦 Material Requisition Alert</h3>
         <button onClick={onClose} className="pm-close-btn">✕</button>
+      </div>
+
+      {/* Requester info */}
+      <div className="pm-requester-info" style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 14px',
+        background: '#f0f9ff',
+        border: '1px solid #bae6fd',
+        borderRadius: '8px',
+        marginBottom: '16px'
+      }}>
+        <span style={{ fontSize: '18px' }}>👤</span>
+        <div>
+          <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', display: 'block' }}>
+            Requested By
+          </span>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e' }}>
+            {requesterName || '—'}
+          </span>
+        </div>
       </div>
 
       <p className="pm-text-muted">
@@ -22,30 +50,64 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
         <table className="pm-table text-center">
           <thead className="pm-thead-sticky">
             <tr>
-              <th className="text-left">Description</th>
+              <th className="text-left">Category</th>
+              <th className="text-left">Product Code</th>
               <th>Unit</th>
+              <th>Unit Cost (₱)</th>
               <th>Needed Qty</th>
+              <th>Total (₱)</th>
               <th>Select</th>
             </tr>
           </thead>
           <tbody>
             {finalBOQ.map((item, idx) => {
-              const isSel = requestItems.some(i => i.description === item.description);
-              const cur = requestItems.find(i => i.description === item.description);
+              const isSel     = requestItems.some(i => i.product_code === item.product_code);
+              const cur       = requestItems.find(i => i.product_code === item.product_code);
+              const unitCost  = parseFloat(item.unitCost) || 0;
+              const qty       = parseFloat(cur?.requestedQty) || 0;
+              const total     = unitCost * qty;
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
-                  <td className="pm-td-bold text-left">{item.description}</td>
-                  <td>{item.unit}</td>
+                  <td className="text-left">
+                    <span className="pm-category-badge">
+                      {item.product_category || '—'}
+                    </span>
+                  </td>
+                  <td className="pm-td-bold text-left">
+                    {item.product_code || '—'}
+                    {item.description && item.description !== item.product_code && (
+                      <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
+                        {item.description}
+                      </div>
+                    )}
+                  </td>
+                  <td>{item.unit || '—'}</td>
+                  <td>
+                    {unitCost > 0
+                      ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'}
+                  </td>
                   <td>
                     <input
                       type="number"
                       placeholder="Qty"
+                      min={0}
                       className={`pm-input pm-req-qty-input text-center ${isSel ? 'pm-req-qty-active' : ''}`}
                       value={cur ? cur.requestedQty : ''}
                       onChange={e => onQtyChange(item, e.target.value)}
                       disabled={!isSel}
                     />
+                  </td>
+                  <td
+                    style={{
+                      fontWeight: 500,
+                      color: isSel && total > 0 ? '#15803d' : 'inherit',
+                    }}
+                  >
+                    {isSel && total > 0
+                      ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'}
                   </td>
                   <td>
                     <input
@@ -63,13 +125,31 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
       </div>
 
       <div className="pm-grid-2 mt-4">
-        <button className="pm-btn pm-btn-outline" onClick={onClose}>Cancel</button>
-        <PrimaryButton variant="orange" onClick={onSubmit}>🚀 Send Request</PrimaryButton>
+        <button className="pm-btn pm-btn-outline" onClick={onClose} disabled={submitting}>
+          Cancel
+        </button>
+        <PrimaryButton variant="orange" onClick={onSubmit} disabled={submitting}>
+          {submitting ? '⏳ Sending…' : '🚀 Send Request'}
+        </PrimaryButton>
       </div>
     </div>
   </div>
 );
+// ─── Request Sent Confirmation Banner ─────────────────────────────────────────
+const RequestSentBanner = ({ onDismiss }) => (
+  <div className="pm-req-sent-banner">
+    <span className="pm-req-sent-icon">✅</span>
+    <div>
+      <strong>Material request sent to Logistics!</strong>
+      <p className="pm-text-muted" style={{ margin: 0 }}>
+        Logistics will verify stock and schedule a delivery. You'll see new arrivals reflected in Materials Monitoring once delivered.
+      </p>
+    </div>
+    <button className="pm-close-btn" onClick={onDismiss}>✕</button>
+  </div>
+);
 
+// ─── Logistics Dispatch View ───────────────────────────────────────────────────
 const LogisticsDispatch = ({ onAdvance }) => {
   const [checks, setChecks] = useState({ inventory: false, transport: false, notified: false });
   const ready = checks.inventory && checks.transport && checks.notified;
@@ -89,7 +169,7 @@ const LogisticsDispatch = ({ onAdvance }) => {
               {Object.entries({
                 inventory: '📦 Pulled from Inventory',
                 transport: '🚚 Transport Assigned',
-                notified: '📱 Eng Team Notified',
+                notified:  '📱 Eng Team Notified',
               }).map(([key, label]) => (
                 <label key={key} className="pm-checklist-item pm-checklist-orange">
                   <input
@@ -116,6 +196,7 @@ const LogisticsDispatch = ({ onAdvance }) => {
   );
 };
 
+// ─── Tab Config ────────────────────────────────────────────────────────────────
 const TABS = [
   { key: 'installers', label: '📋 INSTALLER MONITORING' },
   { key: 'timeline',   label: '⏳ PROJECT TIMELINE'     },
@@ -124,6 +205,7 @@ const TABS = [
   { key: 'inspection', label: '✅ SITE INSPECTION'       },
 ];
 
+// ─── Main Component ────────────────────────────────────────────────────────────
 const PhaseCommandCenter = ({
   project,
   cc,
@@ -132,7 +214,8 @@ const PhaseCommandCenter = ({
   isLogistics,
   user,
 }) => {
-  const [activeTab, setActiveTab] = useState('installers');
+  const [activeTab, setActiveTab]         = useState('installers');
+  const [reqSentBanner, setReqSentBanner] = useState(false);
 
   const { status } = project;
 
@@ -143,6 +226,7 @@ const PhaseCommandCenter = ({
     handleRequestQtyChange,
     handleRequestToggle,
     submitMaterialRequest,
+    submittingRequest,
     issueLog,
     setIssueLog,
     issuesHistory,
@@ -150,8 +234,6 @@ const PhaseCommandCenter = ({
     handleIssueSubmit,
   } = cc;
 
-  // ── boqData is used both for the Material Requisition modal
-  // and passed down to MaterialsMonitoring so BOQ items auto-populate.
   const { boqData } = tracking;
 
   const timelineTrackingData = useMemo(() => {
@@ -167,6 +249,13 @@ const PhaseCommandCenter = ({
   if (status === 'Request Materials Needed' && isLogistics) {
     return <LogisticsDispatch onAdvance={onAdvance} />;
   }
+
+  // ── Wrap submit so we can show the success banner ──────────────────────────
+  const handleSubmitRequest = async () => {
+    await submitMaterialRequest(user);
+    setShowRequestModal(false);
+    setReqSentBanner(true);
+  };
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -198,7 +287,7 @@ const PhaseCommandCenter = ({
             project={project}
             user={user}
             trackingData={tracking}
-            boqData={boqData}   // ← FIX: pass boqData so approved BOQ items auto-populate
+            boqData={boqData}
             onSave={() => {}}
           />
         );
@@ -268,15 +357,24 @@ const PhaseCommandCenter = ({
 
   return (
     <div className="pm-cc-wrapper">
+
+      {/* ── Material Request Modal ── */}
       {showRequestModal && (
         <MaterialReqModal
           finalBOQ={boqData?.finalBOQ ?? []}
           requestItems={requestItems}
           onQtyChange={handleRequestQtyChange}
           onToggle={handleRequestToggle}
-          onSubmit={() => submitMaterialRequest(user)}
+          onSubmit={handleSubmitRequest}
           onClose={() => setShowRequestModal(false)}
+          submitting={submittingRequest}
+          requesterName={user?.name || user?.username || 'Unknown'}  // 👈 ADD THIS
         />
+      )}
+
+      {/* ── Success Banner ── */}
+      {reqSentBanner && (
+        <RequestSentBanner onDismiss={() => setReqSentBanner(false)} />
       )}
 
       <div className="pm-card">

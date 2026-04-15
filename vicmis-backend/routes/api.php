@@ -13,8 +13,8 @@ use App\Http\Controllers\{
     IncomingShipmentController,
     LogisticsController,
     AdminUserController,
-    DatabaseBackupController, 
-    ReorderRequestController,   
+    DatabaseBackupController,
+    ReorderRequestController,
 };
 
 /*
@@ -26,13 +26,12 @@ Route::middleware('throttle:10,1')->group(function () {
     Route::post('/login',      [AuthController::class, 'login']);
     Route::post('/verify-2fa', [AuthController::class, 'verify2FA']);
     Route::post('/refresh',    [AuthController::class, 'refresh']);
-    //Reset password
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
 
 /*
 |--------------------------------------------------------------------------
-| Protected Routes (Sanctum + Rate Limited)
+| Protected Routes — Read (Sanctum + Read Rate Limit)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
@@ -40,7 +39,6 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     // --- USER & AUTH ---
     Route::get('/user', function (Request $request) {
         $user = $request->user();
-
         return response()->json([
             'id'          => $user->id,
             'name'        => $user->name,
@@ -53,24 +51,25 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // --- NOTIFICATIONS ---
-    Route::get('/notifications',             [ProjectController::class, 'getNotifications']);
-    Route::post('/notifications/{id}/read',  [ProjectController::class, 'markNotificationRead']);
+    Route::get('/notifications',            [ProjectController::class, 'getNotifications']);
+    Route::post('/notifications/{id}/read', [ProjectController::class, 'markNotificationRead']);
 
     // --- PROJECTS (read) ---
     Route::get('/projects',      [ProjectController::class, 'index']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
 
     // Site Inspection (read)
-    Route::get('/projects/{id}/site-inspection', [ProjectController::class, 'getSiteInspection']);
+    Route::get('/projects/{id}/site-inspection',         [ProjectController::class, 'getSiteInspection']);
+    Route::get('/projects/{id}/site-inspection-by-date', [ProjectController::class, 'getSiteInspectionByDate']);
 
     // Mobilization (read)
     Route::get('/projects/{id}/mobilization', [ProjectController::class, 'getMobilization']);
 
     // Command Center (read)
-    Route::get('/projects/{id}/daily-logs',  [ProjectController::class, 'getDailyLogs']);
-    Route::get('/projects/{id}/issues',      [ProjectController::class, 'getIssues']);
+    Route::get('/projects/{id}/daily-logs', [ProjectController::class, 'getDailyLogs']);
+    Route::get('/projects/{id}/issues',     [ProjectController::class, 'getIssues']);
 
-    // Material Requests (read)
+    // ── Material Requests (read) ──────────────────────────────────────────────
     Route::get('/projects/{id}/material-requests', [MaterialRequestController::class, 'getProjectRequests']);
     Route::get('/material-requests/pending',        [MaterialRequestController::class, 'getPending']);
 
@@ -101,6 +100,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
         Route::get('/shipments',         [IncomingShipmentController::class, 'getShipments']);
         Route::get('/logistics/meta',    [LogisticsController::class, 'meta']);
         Route::get('/logistics',         [LogisticsController::class, 'index']);
+        Route::get('/material-requests', [MaterialRequestController::class, 'getPending']);
     });
 
     // --- WAREHOUSE INVENTORY (read) ---
@@ -121,7 +121,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Protected Mutating Routes (Sanctum + Write Rate Limit + Origin Check)
+| Protected Routes — Write (Sanctum + Write Rate Limit)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
@@ -132,17 +132,17 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     Route::patch('/projects/{id}/status', [ProjectController::class, 'updateStatus']);
     Route::post('/projects/{id}/status',  [ProjectController::class, 'updateStatus']);
     Route::post('/projects/{id}/mobilization/draft-roster', [ProjectController::class, 'saveMobilizationDraftRoster']);
+
     // BOQ
     Route::post('/projects/{id}/submit-plan',   [ProjectController::class, 'submitPlanData']);
     Route::post('/projects/{id}/submit-actual', [ProjectController::class, 'submitActualData']);
-    Route::patch('/projects/{id}/boq-draft', [ProjectController::class, 'saveBOQDraft']);
+    Route::patch('/projects/{id}/boq-draft',    [ProjectController::class, 'saveBOQDraft']);
     Route::middleware('can:manager-action')->group(function () {
         Route::post('/projects/{id}/approve-boq', [ProjectController::class, 'approveBOQ']);
     });
 
     // Site Inspection
     Route::post('/projects/{id}/site-inspection', [ProjectController::class, 'submitSiteInspection']);
-    Route::get('/projects/{id}/site-inspection-by-date', [ProjectController::class, 'getSiteInspectionByDate']);
 
     // Mobilization
     Route::post('/projects/{id}/mobilization/contract', [ProjectController::class, 'saveMobilizationContract']);
@@ -158,9 +158,24 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     Route::post('/projects/{id}/issues',     [ProjectController::class, 'storeIssue']);
     Route::patch('/projects/{id}/qa-checks', [ProjectController::class, 'saveQaChecks']);
 
-    // Material Requests (write)
+    // ── Material Requests (write) ─────────────────────────────────────────────
     Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
     Route::patch('/material-requests/{id}',         [MaterialRequestController::class, 'updateStatus']);
+    
+    // 👇 ADDED: Logistics dispatch/reorder/reject endpoints
+    Route::post('/inventory/material-requests/{id}/dispatch', [MaterialRequestController::class, 'dispatch']);
+    Route::post('/inventory/material-requests/{id}/reorder',  [MaterialRequestController::class, 'reorder']);
+    Route::patch('/inventory/material-requests/{id}/reject',  [MaterialRequestController::class, 'reject']);
+
+    // ── New Arrival Acknowledgement (write) ───────────────────────────────────
+    Route::patch(
+        '/projects/{id}/material-items/{itemIndex}/acknowledge',
+        [ProjectController::class, 'acknowledgeNewArrival']
+    );
+    Route::patch(
+        '/projects/{id}/material-items/acknowledge-all',
+        [ProjectController::class, 'acknowledgeAllNewArrivals']
+    );
 
     // --- ENGINEERING (write) ---
     Route::prefix('engineering')->middleware('can:engineering-action')->group(function () {
@@ -205,7 +220,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::delete('/{id}', [WarehouseInventoryController::class, 'destroy']);
     });
 
-    // --- ADMIN (write — admin only) ---
+    // --- ADMIN (write) ---
     Route::middleware('can:admin-action')->group(function () {
         Route::post('/admin/users',        [AdminUserController::class, 'store']);
         Route::put('/admin/users/{id}',    [AdminUserController::class, 'update']);
@@ -222,8 +237,6 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
             Route::post('/schedules',            [DatabaseBackupController::class, 'storeSchedule']);
             Route::patch('/schedules/{id}',      [DatabaseBackupController::class, 'updateSchedule']);
             Route::delete('/schedules/{id}',     [DatabaseBackupController::class, 'destroySchedule']);
-
-            
         });
     });
 });

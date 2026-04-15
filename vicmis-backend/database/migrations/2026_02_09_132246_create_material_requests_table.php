@@ -6,25 +6,37 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::create('material_requests', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('project_id'); // <-- Ensure this line is here!
+
+            // Project context
+            $table->unsignedBigInteger('project_id');
             $table->string('project_name');
-            $table->string('requester_name');
-            $table->json('items');
-            $table->string('status')->default('Pending');
+            $table->string('location')->nullable();
+            $table->string('destination')->nullable(); // site address — pre-fills the delivery dispatch form
+
+            // Who submitted the request
+            $table->unsignedBigInteger('requested_by_id')->nullable();
+            $table->string('requested_by_name');
+            $table->string('engineer_name')->nullable();
+
+            // Lifecycle:
+            // pending    → just submitted by engineer, waiting for logistics review
+            // reordering → logistics found no stock, reorder sent to procurement
+            // dispatched → logistics confirmed stock and created delivery record(s)
+            // rejected   → logistics rejected the request
+            $table->enum('status', ['pending', 'reordering', 'dispatched', 'rejected'])
+                  ->default('pending');
+
+            $table->text('reject_reason')->nullable();
             $table->timestamps();
+
+            $table->foreign('project_id')->references('id')->on('projects')->onDelete('cascade');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('material_requests');
