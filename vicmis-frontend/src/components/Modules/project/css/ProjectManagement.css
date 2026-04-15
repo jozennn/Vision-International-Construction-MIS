@@ -30,6 +30,19 @@
   --v-transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+
+
+/* ── Page shell ── */
+.pm-page {
+  min-height: 100vh;
+  background: var(--v-surface);
+  font-family: var(--v-font-body);
+  color: var(--v-black);
+}
+
+/* Add to the end of ProjectManagement.css */
+
+/* View toggle buttons */
 .pm-view-toggle {
     padding: 8px 16px;
     background: rgba(255,255,255,0.08);
@@ -116,14 +129,6 @@
     background: var(--v-red-dark);
 }
 
-/* ── Page shell ── */
-.pm-page {
-  min-height: 100vh;
-  background: var(--v-surface);
-  font-family: var(--v-font-body);
-  color: var(--v-black);
-}
-
 /* ── Page header ── */
 .pm-page-header {
   background: var(--v-navy);
@@ -135,7 +140,6 @@
   gap: 20px;
 }
 
-.pm-page-header-left {}
 
 .pm-page-eyebrow {
   font-size: 10px;

@@ -1151,10 +1151,12 @@ public function trashed(): JsonResponse
     $projects = Project::onlyTrashed()
         ->with(self::EAGER)
         ->latest('deleted_at')
-        ->get()
-        ->map(fn($p) => $this->formatProject($p));
+        ->get();
     
-    return response()->json($projects);
+    // Format the projects
+    $formatted = $projects->map(fn($p) => $this->formatProject($p));
+    
+    return response()->json($formatted);
 }
 
 /**

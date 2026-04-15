@@ -151,19 +151,29 @@ const ProjectManagement = ({
     }
 
     // ── Error ──
-    if (error) {
-        return (
-            <div className="pm-page">
-                <div className="pm-page-header">
-                    <div className="pm-page-header-left">
-                        <span className="pm-page-eyebrow">Vision International Construction</span>
-                        <h1 className="pm-page-title">Project <span>Management</span></h1>
-                    </div>
+if (error) {
+    return (
+        <div className="pm-page">
+            <div className="pm-page-header">
+                <div className="pm-page-header-left">
+                    <span className="pm-page-eyebrow">Vision International Construction</span>
+                    <h1 className="pm-page-title">Project <span>Management</span></h1>
                 </div>
-                <div className="pm-error">⚠️ {error}</div>
+                <button 
+                    className="pm-back-btn"
+                    onClick={() => {
+                        setError(null);
+                        setViewMode('active');
+                        fetchProjects();
+                    }}
+                >
+                    ← Back to Active Projects
+                </button>
             </div>
-        );
-    }
+            <div className="pm-error">⚠️ {error}</div>
+        </div>
+    );
+}
 
     // ── Main ──
     return (
