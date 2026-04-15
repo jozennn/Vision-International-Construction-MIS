@@ -309,23 +309,25 @@ const PendingRequestsTab = ({
       {requests.map(req => {
         // Check stock status for EACH item
         const itemsWithStock = req.items?.map(item => {
-          const currentStock = item.current_stock ?? 0;
-          const requestedQty = parseFloat(item.requested_qty) || 0;
-          const isOutOfStock = currentStock <= 0;
-          const isInsufficientStock = currentStock > 0 && currentStock < requestedQty;
-          const stockStatus = isOutOfStock ? 'NO STOCK' 
-            : isInsufficientStock ? 'LOW STOCK' 
-            : 'ON STOCK';
-          
-          return {
-            ...item,
-            current_stock: currentStock,
-            stock_status: stockStatus,
-            isOutOfStock,
-            isInsufficientStock,
-            canFulfill: currentStock >= requestedQty
-          };
-        });
+  // Ensure we treat the stock as a number
+            const physicalStock = Number(item.current_stock) || 0;
+            const requestedQty = Number(item.requested_qty) || 0;
+            
+            // FIX: allow fulfillment if physical stock covers the request
+            const canFulfill = physicalStock >= requestedQty;
+            
+            // Determine status based on physical stock, not "After Reserve" balance
+            const stockStatus = physicalStock <= 0 ? 'NO STOCK' 
+              : !canFulfill ? 'LOW STOCK' 
+              : 'ON STOCK';
+            
+            return {
+              ...item,
+              current_stock: physicalStock,
+              stock_status: stockStatus,
+              canFulfill: canFulfill
+            };
+          });
 
         // Check if ANY item cannot be fulfilled
         const hasNoStock = itemsWithStock?.some(i => i.stock_status === 'NO STOCK');
