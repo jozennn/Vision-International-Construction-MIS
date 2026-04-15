@@ -16,6 +16,60 @@ use Illuminate\Support\Facades\DB;
 class MaterialRequestController extends Controller
 {
     // =========================================================================
+    // PRIVATE HELPER — Enrich a single item (Eloquent model or array) with
+    // current_stock and stock_status from WarehouseInventory.
+    // Returns the mutated Eloquent model (array items must be rebuilt by caller).
+    // =========================================================================
+    private function enrichItemWithStock($item): mixed
+    {
+        $productCode = data_get($item, 'product_code');
+
+        if (!empty($productCode)) {
+            $inv          = WarehouseInventory::where('product_code', $productCode)->first();
+            $currentStock = $inv->current_stock ?? 0;
+            $stockStatus  = $inv->availability  ?? 'NO STOCK';
+        } else {
+            $currentStock = 0;
+            $stockStatus  = 'NO STOCK';
+        }
+
+        if (is_object($item)) {
+            $item->current_stock = $currentStock;
+            $item->stock_status  = $stockStatus;
+        }
+        // Array items are value-typed — caller must handle via map/rebuild
+
+        return $item;
+    }
+
+    // =========================================================================
+    // PRIVATE HELPER — Enrich all items on a MaterialRequest using setRelation
+    // so the mutated values actually appear in the JSON response.
+    // =========================================================================
+    private function enrichRequestItems(MaterialRequest $req): MaterialRequest
+    {
+        $enriched = $req->items->map(function ($item) {
+            $productCode  = data_get($item, 'product_code');
+
+            if (!empty($productCode)) {
+                $inv          = WarehouseInventory::where('product_code', $productCode)->first();
+                $currentStock = $inv->current_stock ?? 0;
+                $stockStatus  = $inv->availability  ?? 'NO STOCK';
+            } else {
+                $currentStock = 0;
+                $stockStatus  = 'NO STOCK';
+            }
+
+            $item->current_stock = $currentStock;
+            $item->stock_status  = $stockStatus;
+            return $item;
+        });
+
+        $req->setRelation('items', $enriched);
+        return $req;
+    }
+
+    // =========================================================================
     // GET /projects/{id}/material-requests
     // =========================================================================
     public function getProjectRequests(int $id): JsonResponse
@@ -26,34 +80,13 @@ class MaterialRequestController extends Controller
                 ->latest()
                 ->get();
 
-            $requests->each(function ($req) {
+            $requests->transform(function ($req) {
                 $req->requested_by_name = $req->requester_name ?? 'Unknown';
-                
-                $items = $req->items ?? [];
-                foreach ($items as $item) {
-                    $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
-                    
-                    if (!empty($productCode)) {
-                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
-                        $currentStock = $inv->current_stock ?? 0;
-                        $stockStatus = $inv->availability ?? 'NO STOCK';
-                    } else {
-                        $currentStock = 0;
-                        $stockStatus = 'NO STOCK';
-                    }
-                    
-                    if (is_object($item)) {
-                        $item->current_stock = $currentStock;
-                        $item->stock_status = $stockStatus;
-                    } else {
-                        $item['current_stock'] = $currentStock;
-                        $item['stock_status'] = $stockStatus;
-                    }
-                }
+                return $this->enrichRequestItems($req);
             });
 
             return response()->json($requests);
-            
+
         } catch (\Exception $e) {
             \Log::error('getProjectRequests Error: ' . $e->getMessage());
             return response()->json([]);
@@ -72,7 +105,7 @@ class MaterialRequestController extends Controller
                 : ['pending', 'reordering'];
 
             $perPage = $request->input('per_page', 20);
-            
+
             $query = MaterialRequest::with('items')
                 ->whereIn('status', $status)
                 ->when($request->project_id, fn($q, $p) => $q->where('project_id', $p))
@@ -80,35 +113,12 @@ class MaterialRequestController extends Controller
 
             if ($perPage >= 9999) {
                 $requests = $query->get();
-                
+
                 $requests->transform(function ($req) {
                     $req->requested_by_name = $req->requester_name ?? 'Unknown';
-                    
-                    $items = $req->items ?? [];
-                    foreach ($items as $item) {
-                        $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
-                        
-                        if (!empty($productCode)) {
-                            $inv = WarehouseInventory::where('product_code', $productCode)->first();
-                            $currentStock = $inv->current_stock ?? 0;
-                            $stockStatus = $inv->availability ?? 'NO STOCK';
-                        } else {
-                            $currentStock = 0;
-                            $stockStatus = 'NO STOCK';
-                        }
-                        
-                        if (is_object($item)) {
-                            $item->current_stock = $currentStock;
-                            $item->stock_status = $stockStatus;
-                        } else {
-                            $item['current_stock'] = $currentStock;
-                            $item['stock_status'] = $stockStatus;
-                        }
-                    }
-                    
-                    return $req;
+                    return $this->enrichRequestItems($req);
                 });
-                
+
                 return response()->json(['data' => $requests, 'total' => $requests->count()]);
             }
 
@@ -116,34 +126,11 @@ class MaterialRequestController extends Controller
 
             $paginated->getCollection()->transform(function ($req) {
                 $req->requested_by_name = $req->requester_name ?? 'Unknown';
-                
-                $items = $req->items ?? [];
-                foreach ($items as $item) {
-                    $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
-                    
-                    if (!empty($productCode)) {
-                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
-                        $currentStock = $inv->current_stock ?? 0;
-                        $stockStatus = $inv->availability ?? 'NO STOCK';
-                    } else {
-                        $currentStock = 0;
-                        $stockStatus = 'NO STOCK';
-                    }
-                    
-                    if (is_object($item)) {
-                        $item->current_stock = $currentStock;
-                        $item->stock_status = $stockStatus;
-                    } else {
-                        $item['current_stock'] = $currentStock;
-                        $item['stock_status'] = $stockStatus;
-                    }
-                }
-                
-                return $req;
+                return $this->enrichRequestItems($req);
             });
 
             return response()->json($paginated);
-            
+
         } catch (\Exception $e) {
             \Log::error('getPending Error: ' . $e->getMessage());
             return response()->json(['data' => [], 'total' => 0]);
@@ -195,8 +182,8 @@ class MaterialRequestController extends Controller
             });
 
             $totalValue = collect($validated['items'])->sum('total_cost');
-            $valueStr = $totalValue > 0 
-                ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
+            $valueStr   = $totalValue > 0
+                ? ' (Total: ₱' . number_format($totalValue, 2) . ')'
                 : '';
 
             \App\Models\AppNotification::create([
@@ -207,12 +194,10 @@ class MaterialRequestController extends Controller
             ]);
 
             return response()->json($materialRequest->load('items'), 201);
-            
+
         } catch (\Exception $e) {
             \Log::error('Material Request Store Error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Server Error: ' . $e->getMessage(),
-            ], 500);
+            return response()->json(['message' => 'Server Error: ' . $e->getMessage()], 500);
         }
     }
 
@@ -221,7 +206,7 @@ class MaterialRequestController extends Controller
     // =========================================================================
     public function updateStatus(Request $request, int $id): JsonResponse
     {
-        $req = MaterialRequest::with('items')->findOrFail($id);
+        $req    = MaterialRequest::with('items')->findOrFail($id);
         $action = $request->input('action');
 
         return match ($action) {
@@ -235,70 +220,16 @@ class MaterialRequestController extends Controller
     // =========================================================================
     // POST /inventory/material-requests/{id}/dispatch
     // =========================================================================
-public function dispatch(Request $request, int $id): JsonResponse
-{
-    try {
-        $req = MaterialRequest::findOrFail($id);
-        
-        if ($req->status !== 'pending') {
-            return response()->json(['message' => 'Only pending requests can be dispatched.'], 422);
+    public function dispatch(Request $request, int $id): JsonResponse
+    {
+        try {
+            $req = MaterialRequest::with('items')->findOrFail($id);
+            return $this->handleDispatch($request, $req);
+        } catch (\Exception $e) {
+            \Log::error('Dispatch Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Dispatch Error: ' . $e->getMessage()], 500);
         }
-
-        $validated = $request->validate([
-            'trucking_service' => 'required|string|max:255',
-            'driver_name'      => 'required|string|max:255',
-            'destination'      => 'required|string|max:255',
-            'date_of_delivery' => 'required|date',
-        ]);
-
-        // Get items as array
-        $items = $req->items ?? [];
-        
-        DB::transaction(function () use ($req, $validated, $items) {
-            foreach ($items as $item) {
-                // 👇 Use array syntax, not object syntax
-                $productCode = $item['product_code'] ?? $item['description'] ?? '';
-                
-                $inv = !empty($productCode)
-                    ? WarehouseInventory::where('product_code', $productCode)->first()
-                    : null;
-
-                Logistics::create([
-                    'material_request_id' => $req->id,
-                    'trucking_service'    => $validated['trucking_service'],
-                    'product_category'    => $inv->product_category ?? '',
-                    'product_code'        => $productCode,
-                    'is_consumable'       => $inv->is_consumable ?? false,
-                    'project_name'        => $req->project_name,
-                    'driver_name'         => $validated['driver_name'],
-                    'destination'         => $validated['destination'],
-                    'quantity'            => $item['requested_qty'] ?? $item['quantity'] ?? 1,
-                    'date_of_delivery'    => $validated['date_of_delivery'],
-                    'status'              => 'In Transit',
-                ]);
-            }
-
-            $req->update(['status' => 'dispatched']);
-        });
-
-        \App\Models\AppNotification::create([
-            'target_department' => 'Engineering',
-            'target_role'       => null,
-            'project_id'        => $req->project_id,
-            'message'           => "🚚 Materials dispatched for '{$req->project_name}'. Delivery is In Transit.",
-        ]);
-
-        return response()->json([
-            'message' => 'Request dispatched successfully.',
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Dispatch Error: ' . $e->getMessage());
-        return response()->json([
-            'message' => 'Dispatch Error: ' . $e->getMessage(),
-        ], 500);
     }
-}
 
     // =========================================================================
     // POST /inventory/material-requests/{id}/reorder
@@ -320,73 +251,93 @@ public function dispatch(Request $request, int $id): JsonResponse
 
     // =========================================================================
     // PRIVATE — handleDispatch
+    // Validates stock before dispatching: blocks if any item has NO STOCK or
+    // requested qty exceeds current stock (LOW STOCK scenario).
     // =========================================================================
-   private function handleDispatch(Request $request, MaterialRequest $req): JsonResponse
-{
-    abort_if($req->status !== 'pending', 422, 'Only pending requests can be dispatched.');
+    private function handleDispatch(Request $request, MaterialRequest $req): JsonResponse
+    {
+        abort_if($req->status !== 'pending', 422, 'Only pending requests can be dispatched.');
 
-    $validated = $request->validate([
-        'trucking_service' => 'required|string|max:255',
-        'driver_name'      => 'required|string|max:255',
-        'destination'      => 'required|string|max:255',
-        'date_of_delivery' => 'required|date',
-    ]);
+        $validated = $request->validate([
+            'trucking_service' => 'required|string|max:255',
+            'driver_name'      => 'required|string|max:255',
+            'destination'      => 'required|string|max:255',
+            'date_of_delivery' => 'required|date',
+        ]);
 
-    try {
-        $items = $req->items ?? [];
-        
-        $deliveries = DB::transaction(function () use ($req, $validated, $items) {
-            $created = [];
+        // ── Stock validation before creating any delivery record ──────────────
+        foreach ($req->items as $item) {
+            $productCode  = data_get($item, 'product_code');
+            $requestedQty = (float) (data_get($item, 'requested_qty') ?? data_get($item, 'quantity') ?? 1);
 
-            foreach ($items as $item) {
-                // 👇 Use array syntax
-                $productCode = $item['product_code'] ?? $item['description'] ?? '';
-                
-                $inv = !empty($productCode)
-                    ? WarehouseInventory::where('product_code', $productCode)->first()
-                    : null;
+            if (!empty($productCode)) {
+                $inv          = WarehouseInventory::where('product_code', $productCode)->first();
+                $currentStock = $inv->current_stock ?? 0;
+                $availability = $inv->availability  ?? 'NO STOCK';
 
-                $delivery = Logistics::create([
-                    'material_request_id' => $req->id,
-                    'trucking_service'    => $validated['trucking_service'],
-                    'product_category'    => $inv->product_category ?? '',
-                    'product_code'        => $productCode,
-                    'is_consumable'       => $inv->is_consumable ?? false,
-                    'project_name'        => $req->project_name,
-                    'driver_name'         => $validated['driver_name'],
-                    'destination'         => $validated['destination'],
-                    'quantity'            => $item['requested_qty'] ?? 1,
-                    'date_of_delivery'    => $validated['date_of_delivery'],
-                    'status'              => 'In Transit',
+                if ($availability === 'NO STOCK' || $currentStock < $requestedQty) {
+                    $description = data_get($item, 'description') ?? $productCode;
+                    return response()->json([
+                        'message' => "Insufficient stock for \"{$description}\". "
+                                   . "Requested: {$requestedQty}, Available: {$currentStock}. "
+                                   . "Please send a reorder request first.",
+                    ], 422);
+                }
+            }
+        }
+
+        try {
+            $deliveries = DB::transaction(function () use ($req, $validated) {
+                $created = [];
+
+                foreach ($req->items as $item) {
+                    $productCode  = data_get($item, 'product_code') ?? data_get($item, 'description') ?? '';
+                    $requestedQty = data_get($item, 'requested_qty') ?? 1;
+
+                    $inv = !empty($productCode)
+                        ? WarehouseInventory::where('product_code', $productCode)->first()
+                        : null;
+
+                    $delivery = Logistics::create([
+                        'material_request_id' => $req->id,
+                        'trucking_service'    => $validated['trucking_service'],
+                        'product_category'    => $inv->product_category ?? '',
+                        'product_code'        => $productCode,
+                        'is_consumable'       => $inv->is_consumable ?? false,
+                        'project_name'        => $req->project_name,
+                        'driver_name'         => $validated['driver_name'],
+                        'destination'         => $validated['destination'],
+                        'quantity'            => $requestedQty,
+                        'date_of_delivery'    => $validated['date_of_delivery'],
+                        'status'              => 'In Transit',
+                    ]);
+
+                    $created[] = $delivery;
+                }
+
+                $req->update(['status' => 'dispatched']);
+
+                \App\Models\AppNotification::create([
+                    'target_department' => 'Engineering',
+                    'target_role'       => null,
+                    'project_id'        => $req->project_id,
+                    'message'           => "🚚 Materials dispatched for '{$req->project_name}'. Delivery is In Transit.",
                 ]);
 
-                $created[] = $delivery;
-            }
+                return $created;
+            });
 
-            $req->update(['status' => 'dispatched']);
-
-            \App\Models\AppNotification::create([
-                'target_department' => 'Engineering',
-                'target_role'       => null,
-                'project_id'        => $req->project_id,
-                'message'           => "🚚 Materials dispatched for '{$req->project_name}'. Delivery is In Transit.",
+            return response()->json([
+                'message'    => 'Request dispatched. Delivery records created.',
+                'deliveries' => $deliveries,
             ]);
 
-            return $created;
-        });
-
-        return response()->json([
-            'message'    => 'Request dispatched. Delivery records created.',
-            'deliveries' => $deliveries,
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Dispatch Error: ' . $e->getMessage());
-        return response()->json([
-            'message' => 'Dispatch Error: ' . $e->getMessage(),
-        ], 500);
+        } catch (\Exception $e) {
+            \Log::error('Dispatch Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Dispatch Error: ' . $e->getMessage()], 500);
+        }
     }
-}
+
     // =========================================================================
     // PRIVATE — handleReorder
     // =========================================================================
@@ -401,21 +352,22 @@ public function dispatch(Request $request, int $id): JsonResponse
 
         DB::transaction(function () use ($req, $validated) {
             foreach ($req->items as $item) {
-                $inv = $item->product_code
-                    ? WarehouseInventory::where('product_code', $item->product_code)->first()
+                $productCode = data_get($item, 'product_code');
+                $inv = $productCode
+                    ? WarehouseInventory::where('product_code', $productCode)->first()
                     : null;
 
-                if (!$inv || $inv->availability === 'NO STOCK' || $inv->availability === 'LOW STOCK') {
+                if (!$inv || in_array($inv->availability, ['NO STOCK', 'LOW STOCK'])) {
                     ReorderRequest::create([
                         'warehouse_inventory_id' => $inv?->id,
                         'material_request_id'    => $req->id,
                         'product_category'       => $inv?->product_category ?? '',
-                        'product_code'           => $item->product_code    ?? '',
-                        'current_stock'          => $inv?->current_stock   ?? 0,
-                        'unit'                   => $item->unit            ?? '',
-                        'availability'           => $inv?->availability    ?? 'NO STOCK',
-                        'quantity_needed'        => $validated['quantity_needed'] ?? (int) $item->requested_qty,
-                        'notes'                  => $validated['notes']    ?? null,
+                        'product_code'           => $productCode             ?? '',
+                        'current_stock'          => $inv?->current_stock    ?? 0,
+                        'unit'                   => data_get($item, 'unit') ?? '',
+                        'availability'           => $inv?->availability     ?? 'NO STOCK',
+                        'quantity_needed'        => $validated['quantity_needed'] ?? (int) data_get($item, 'requested_qty'),
+                        'notes'                  => $validated['notes'] ?? null,
                     ]);
                 }
             }
