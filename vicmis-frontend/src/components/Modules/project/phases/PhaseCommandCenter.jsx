@@ -1,641 +1,623 @@
-import React, { useState, useMemo } from 'react';
-import PrimaryButton from '../components/PrimaryButton.jsx';
-import InstallerMonitoring from './InstallerMonitoring.jsx';
-import TimelineGantt from './TimelineGantt.jsx';
-import MaterialsMonitoring from './MaterialsMonitoring.jsx';
-import SiteInspectionReport from './SiteInspectionReport.jsx';
-import '../css/PhaseCommandCenter.css';
+// src/phases/InstallerMonitoring.jsx
+import React, { useRef, useState } from 'react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { useInstallerMonitoring, resolveRoster } from '../hooks/useInstallerMonitoring.js';
+import '../css/MonitoringComponents.css';
 
-// ─── Material Requisition Modal ────────────────────────────────────────────────
-const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting, requesterName }) => (
-  <div className="pm-modal-overlay">
-    <div className="pm-modal-content pm-modal-orange large">
-      <div className="pm-flex-between mb-4">
-        <h3 className="pm-title-lg pm-text-orange">📦 Material Requisition Alert</h3>
-        <button onClick={onClose} className="pm-close-btn">✕</button>
-      </div>
+const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
 
-      {/* Requester info */}
-      <div className="pm-requester-info" style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '10px 14px',
-        background: '#f0f9ff',
-        border: '1px solid #bae6fd',
-        borderRadius: '8px',
-        marginBottom: '16px'
-      }}>
-        <span style={{ fontSize: '18px' }}>👤</span>
-        <div>
-          <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', display: 'block' }}>
-            Requested By
-          </span>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e' }}>
-            {requesterName || '—'}
-          </span>
-        </div>
-      </div>
+// ─── Save Indicator ───────────────────────────────────────────────────────────
+const SaveIndicator = ({ status }) => {
+    if (!status) return null;
+    const styles = {
+        saving: { color: '#6b7280', fontSize: '0.75rem' },
+        saved:  { color: '#16a34a', fontSize: '0.75rem' },
+        error:  { color: '#dc2626', fontSize: '0.75rem' },
+    };
+    const labels = { saving: '● Saving…', saved: '✓ Auto-saved', error: '✗ Auto-save failed' };
+    return <span style={styles[status]}>{labels[status]}</span>;
+};
 
-      <p className="pm-text-muted">
-        Select items from the approved Final BOQ to request delivery from Logistics.
-      </p>
+const InstallerMonitoring = ({ project, user }) => {
+    const roster = resolveRoster(project);
 
-      <div className="pm-modal-table-scroll">
-        <table className="pm-table text-center">
-          <thead className="pm-thead-sticky">
-            <tr>
-              <th className="text-left">Category</th>
-              <th className="text-left">Product Code</th>
-              <th>Unit</th>
-              <th>Unit Cost (₱)</th>
-              <th>Needed Qty</th>
-              <th>Total (₱)</th>
-              <th>Select</th>
-            </tr>
-          </thead>
-          <tbody>
-            {finalBOQ.map((item, idx) => {
-              const isSel    = requestItems.some(i => i.product_code === item.product_code);
-              const cur      = requestItems.find(i => i.product_code === item.product_code);
-              const unitCost = parseFloat(item.unitCost) || 0;
-              const qty      = parseFloat(cur?.requestedQty) || 0;
-              const total    = unitCost * qty;
+    const {
+        selectedDate, setSelectedDate,
+        currentLog,   setCurrentLog,
+        allLogs,
+        loading, saving, saveStatus, error,
+        addRow, removeRow, updateRow,
+        saveLog,
+    } = useInstallerMonitoring(project?.id, roster);
 
-              return (
-                <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
-                  <td className="text-left">
-                    <span className="pm-category-badge">
-                      {item.product_category || '—'}
-                    </span>
-                  </td>
-                  <td className="pm-td-bold text-left">
-                    {item.product_code || '—'}
-                    {item.description && item.description !== item.product_code && (
-                      <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
-                        {item.description}
-                      </div>
-                    )}
-                  </td>
-                  <td>{item.unit || '—'}</td>
-                  <td>
-                    {unitCost > 0
-                      ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : '—'}
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      placeholder="Qty"
-                      min={0}
-                      className={`pm-input pm-req-qty-input text-center ${isSel ? 'pm-req-qty-active' : ''}`}
-                      value={cur ? cur.requestedQty : ''}
-                      onChange={e => onQtyChange(item, e.target.value)}
-                      disabled={!isSel}
-                    />
-                  </td>
-                  <td style={{ fontWeight: 500, color: isSel && total > 0 ? '#15803d' : 'inherit' }}>
-                    {isSel && total > 0
-                      ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : '—'}
-                  </td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      className="pm-req-checkbox"
-                      checked={isSel}
-                      onChange={e => onToggle(item, e.target.checked)}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    const [showHistory, setShowHistory] = useState(false);
+    const [photoMain,   setPhotoMain]   = useState(null);
+    const [photo1,      setPhoto1]      = useState(null);
+    const [photo2,      setPhoto2]      = useState(null);
+    const fileMainRef = useRef();
+    const file1Ref    = useRef();
+    const file2Ref    = useRef();
 
-      <div className="pm-grid-2 mt-4">
-        <button className="pm-btn pm-btn-outline" onClick={onClose} disabled={submitting}>
-          Cancel
-        </button>
-        <PrimaryButton variant="orange" onClick={onSubmit} disabled={submitting}>
-          {submitting ? '⏳ Sending…' : '🚀 Send Request'}
-        </PrimaryButton>
-      </div>
-    </div>
-  </div>
-);
+    const projectName = project?.project_name ?? '';
+    const location    = project?.location     ?? '';
+    const requirement = project?.project_type ?? '';
+    const leadMan     = roster.find(i => i.position === 'Lead Installer')?.name
+                     ?? roster[0]?.name ?? '—';
+    const logExists   = allLogs.some(l => l.log_date === selectedDate);
 
-// ─── Progress Billing Modal ────────────────────────────────────────────────────
-const ProgressBillingModal = ({ project, boqData, user, onClose }) => {
-  const items = boqData?.finalBOQ ?? [];
-  const grandTotal = items.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
-  const today = new Date().toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+    const handleSave = async () => {
+        try {
+            await saveLog({ photoMain, photo1, photo2 });
+            setPhotoMain(null); setPhoto1(null); setPhoto2(null);
+            [fileMainRef, file1Ref, file2Ref].forEach(r => { if (r.current) r.current.value = ''; });
+        } catch {}
+    };
 
-  return (
-    <div className="pm-modal-overlay">
-      <div className="pm-modal-content pm-modal-navy large">
+    // ─── Export to Excel ──────────────────────────────────────────────────────
+    const exportExcel = async () => {
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Daily Monitoring');
 
-        {/* Header */}
-        <div className="pm-flex-between mb-4">
-          <div>
-            <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#94a3b8' }}>
-              Progress Billing
-            </p>
-            <h3 className="pm-title-lg" style={{ margin: '4px 0 0' }}>
-              💸 BOQ Cost Summary
-            </h3>
-          </div>
-          <button onClick={onClose} className="pm-close-btn">✕</button>
-        </div>
+        // ── Palette ───────────────────────────────────────────────────────────
+        const NAVY   = 'FF1A1A2E';
+        const CREAM  = 'FFF5EDE8';
+        const LGRAY  = 'FFF2F2F2';
+        const MGRAY  = 'FFE0E0E0';
+        const DGRAY  = 'FF4A4A4A';
+        const WHITE  = 'FFFFFFFF';
 
-        {/* Meta info bar */}
-        <div style={{
-          display: 'flex',
-          gap: '24px',
-          flexWrap: 'wrap',
-          padding: '12px 16px',
-          background: '#f8fafc',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          border: '1px solid #e2e8f0',
-        }}>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Project
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {project?.project_name || '—'}
-            </span>
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Engineer
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {user?.name || user?.username || '—'}
-            </span>
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Date Generated
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {today}
-            </span>
-          </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Location
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {project?.location || '—'}
-            </span>
-          </div>
-          <div style={{ marginLeft: 'auto' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Status
-            </span>
-            <span style={{
-              display: 'inline-block',
-              marginTop: '2px',
-              fontSize: '12px',
-              fontWeight: 600,
-              padding: '2px 10px',
-              borderRadius: '6px',
-              background: '#fef9c3',
-              color: '#854d0e',
-            }}>
-              {project?.status || 'In Progress'}
-            </span>
-          </div>
-        </div>
+        // ── Helpers ───────────────────────────────────────────────────────────
+        const fill  = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+        const thin  = (argb = 'FFB0B0B0') => ({ style: 'thin',   color: { argb } });
+        const thick = (argb = 'FF1A1A2E') => ({ style: 'medium', color: { argb } });
+        const brd   = (c = 'FFB0B0B0') => ({ top: thin(c), bottom: thin(c), left: thin(c), right: thin(c) });
+        const brdThick = () => ({ top: thick(), bottom: thick(), left: thick(), right: thick() });
+        const ctr   = { horizontal: 'center',  vertical: 'middle', wrapText: true };
+        const lft   = { horizontal: 'left',    vertical: 'middle', wrapText: true };
 
-        {/* Read-only BOQ table */}
-        <div className="pm-modal-table-scroll">
-          <table className="pm-table text-center">
-            <thead className="pm-thead-sticky">
-              <tr>
-                <th className="text-left">Category</th>
-                <th className="text-left">Product Code</th>
-                <th>Unit</th>
-                <th>Qty</th>
-                <th>Unit Cost (₱)</th>
-                <th>Total (₱)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontStyle: 'italic' }}>
-                    No BOQ items found for this project.
-                  </td>
-                </tr>
-              )}
-              {items.map((item, idx) => {
-                const unitCost = parseFloat(item.unitCost) || 0;
-                const total    = parseFloat(item.total) || 0;
-                return (
-                  <tr key={idx}>
-                    <td className="text-left">
-                      <span className="pm-category-badge">
-                        {item.product_category || '—'}
-                      </span>
-                    </td>
-                    <td className="pm-td-bold text-left">
-                      {item.product_code || '—'}
-                      {item.description && item.description !== item.product_code && (
-                        <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
-                          {item.description}
+        const font = (opts = {}) => ({
+            name:   'Arial',
+            size:   opts.size  ?? 10,
+            bold:   opts.bold  ?? false,
+            color:  { argb: opts.color ?? 'FF000000' },
+            italic: opts.italic ?? false,
+        });
+
+        const style = (cell, opts = {}) => {
+            if (opts.font)      cell.font      = opts.font;
+            if (opts.fill)      cell.fill      = opts.fill;
+            if (opts.alignment) cell.alignment = opts.alignment;
+            if (opts.border)    cell.border    = opts.border;
+        };
+
+        // ── Column widths ─────────────────────────────────────────────────────
+        ws.columns = [
+            { width: 5  },  // A – row #
+            { width: 26 },  // B – name / label
+            { width: 16 },  // C – position / value
+            { width: 16 },  // D – time in
+            { width: 16 },  // E – time out
+            { width: 32 },  // F – remarks / value
+        ];
+
+        let r = 1;
+
+        // ── 1. COMPANY HEADER ────────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const hdr = ws.getCell(`A${r}`);
+        hdr.value = 'VISION INTERNATIONAL CONSTRUCTION OPC\n"You Envision, We Build"';
+        style(hdr, {
+            font:      font({ size: 14, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: ctr,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 48;
+        r++;
+
+        // ── 2. SUBTITLE ──────────────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const sub = ws.getCell(`A${r}`);
+        sub.value = "INSTALLER'S DAILY MONITORING ON SITE";
+        style(sub, {
+            font:      font({ size: 11, bold: true }),
+            fill:      fill(CREAM),
+            alignment: ctr,
+            border:    brd(),
+        });
+        ws.getRow(r).height = 22;
+        r++;
+
+        // ── 3. PROJECT INFO BLOCK ────────────────────────────────────────────
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const dt = new Date(d + 'T00:00:00');
+            return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        };
+
+        const infoRows = [
+            ['Project',              projectName],
+            ['Location',             location],
+            ['Requirement',          requirement],
+            ['Installer (Lead Man)', leadMan],
+            ['Total Area Logged',    currentLog.totalArea || '—'],
+            ['Date',                 fmtDate(currentLog.date)],
+        ];
+
+        infoRows.forEach(([label, value]) => {
+            ws.mergeCells(`A${r}:B${r}`);
+            ws.mergeCells(`C${r}:F${r}`);
+
+            const lc = ws.getCell(`A${r}`);
+            lc.value = label;
+            style(lc, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
+
+            const vc = ws.getCell(`C${r}`);
+            vc.value = value;
+            style(vc, { font: font(), fill: fill(WHITE), alignment: lft, border: brd() });
+
+            ws.getRow(r).height = 18;
+            r++;
+        });
+
+        // Status / Remarks
+        ws.mergeCells(`A${r}:B${r}`);
+        ws.mergeCells(`C${r}:F${r}`);
+        const sLbl = ws.getCell(`A${r}`);
+        sLbl.value = 'Status / Remarks';
+        style(sLbl, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
+        const sVal = ws.getCell(`C${r}`);
+        sVal.value = currentLog.remarks || '—';
+        style(sVal, { font: font(), fill: fill(WHITE), alignment: lft, border: brd() });
+        ws.getRow(r).height = 32;
+        r++;
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 4. TIMELINE LOGS SECTION ─────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const tlHdr = ws.getCell(`A${r}`);
+        tlHdr.value = 'TIMELINE LOGS';
+        style(tlHdr, {
+            font:      font({ size: 10, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: lft,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 20;
+        r++;
+
+        // Sub-headers
+        const tlSubHeaders = ['', 'From Client — Start', 'Actual Start', '', 'From Client — End', 'Actual End'];
+        ['A','B','C','D','E','F'].forEach((col, i) => {
+            const c = ws.getCell(`${col}${r}`);
+            c.value = tlSubHeaders[i];
+            style(c, { font: font({ bold: true, size: 9 }), fill: fill(MGRAY), alignment: ctr, border: brd() });
+        });
+        ws.getRow(r).height = 16;
+        r++;
+
+        // Values
+        const tlValues = [
+            '', fmtDate(currentLog.clientStart), fmtDate(currentLog.actualStart),
+            '', fmtDate(currentLog.clientEnd),   fmtDate(currentLog.actualEnd),
+        ];
+        ['A','B','C','D','E','F'].forEach((col, i) => {
+            const c = ws.getCell(`${col}${r}`);
+            c.value = tlValues[i];
+            style(c, { font: font(), fill: fill(WHITE), alignment: ctr, border: brd() });
+        });
+        ws.getRow(r).height = 18;
+        r++;
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 5. INSTALLER TABLE ───────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const instHdr = ws.getCell(`A${r}`);
+        instHdr.value = `INSTALLERS  —  ${selectedDate}`;
+        style(instHdr, {
+            font:      font({ size: 10, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: lft,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 20;
+        r++;
+
+        // Table column headers
+        const tblHeaders = ['#', 'Name', 'Position', 'Time In', 'Time Out', 'Remarks'];
+        ['A','B','C','D','E','F'].forEach((col, i) => {
+            const c = ws.getCell(`${col}${r}`);
+            c.value = tblHeaders[i];
+            style(c, {
+                font:      font({ bold: true, size: 9, color: WHITE }),
+                fill:      fill('FF2D2D44'),
+                alignment: i === 0 ? ctr : lft,
+                border:    brd('FF000000'),
+            });
+        });
+        ws.getRow(r).height = 18;
+        r++;
+
+        // Installer rows
+        const fmt12hr = (t) => {
+            if (!t) return '—';
+            const [h, m] = t.split(':');
+            const hh   = parseInt(h);
+            const ampm = hh >= 12 ? 'PM' : 'AM';
+            const disp = hh % 12 || 12;
+            return `${disp}:${m} ${ampm}`;
+        };
+
+        (currentLog.rows || []).forEach((row, idx) => {
+            const rowFill = idx % 2 === 0 ? WHITE : 'FFFAFAFA';
+            const cells = [
+                [idx + 1,            ctr],
+                [row.name     || '—', lft],
+                [row.position || '—', lft],
+                [fmt12hr(row.timeIn),  ctr],
+                [fmt12hr(row.timeOut), ctr],
+                [row.remarks  || '',  lft],
+            ];
+            ['A','B','C','D','E','F'].forEach((col, i) => {
+                const c = ws.getCell(`${col}${r}`);
+                c.value = cells[i][0];
+                style(c, { font: font(), fill: fill(rowFill), alignment: cells[i][1], border: brd() });
+            });
+            ws.getRow(r).height = 18;
+            r++;
+        });
+
+        // Roster summary row
+        const rosterSummary = ['Lead Installer', 'Installer', 'Helper', 'Supervisor']
+            .map(pos => {
+                const count = (currentLog.rows || []).filter(row => row.position === pos).length;
+                return count > 0 ? `${count} ${pos}` : null;
+            })
+            .filter(Boolean)
+            .join('   •   ');
+
+        if (rosterSummary) {
+            ws.mergeCells(`A${r}:F${r}`);
+            const sumCell = ws.getCell(`A${r}`);
+            sumCell.value = rosterSummary;
+            style(sumCell, {
+                font:      font({ size: 9, italic: true, color: DGRAY }),
+                fill:      fill(LGRAY),
+                alignment: lft,
+                border:    brd(),
+            });
+            ws.getRow(r).height = 16;
+            r++;
+        }
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 6. PHOTO ATTACHMENTS ─────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const photoHdr = ws.getCell(`A${r}`);
+        photoHdr.value = 'PHOTO ATTACHMENTS';
+        style(photoHdr, {
+            font:      font({ size: 10, bold: true, color: WHITE }),
+            fill:      fill(NAVY),
+            alignment: lft,
+            border:    brdThick(),
+        });
+        ws.getRow(r).height = 20;
+        r++;
+
+        const photoEntries = [
+            ['Main Progress Photo', photoMain],
+            ['Team Photo 1',        photo1],
+            ['Team Photo 2',        photo2],
+        ];
+
+        for (const [label, fileObj] of photoEntries) {
+            ws.mergeCells(`A${r}:B${r}`);
+            ws.mergeCells(`C${r}:F${r}`);
+
+            const lc = ws.getCell(`A${r}`);
+            lc.value = label;
+            style(lc, { font: font({ bold: true }), fill: fill(LGRAY), alignment: lft, border: brd() });
+
+            const vc = ws.getCell(`C${r}`);
+
+            if (fileObj) {
+                try {
+                    const buf  = await fileObj.arrayBuffer();
+                    const ext  = fileObj.name.split('.').pop().toLowerCase();
+                    const mime = ext === 'png' ? 'png' : 'jpeg';
+                    const b64  = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                    const imgId = wb.addImage({ base64: b64, extension: mime });
+                    ws.getRow(r).height = 80;
+                    ws.addImage(imgId, {
+                        tl: { col: 2, row: r - 1 },
+                        br: { col: 6, row: r },
+                        editAs: 'oneCell',
+                    });
+                    vc.value = '';
+                } catch {
+                    vc.value = `[Image: ${fileObj.name}]`;
+                    ws.getRow(r).height = 18;
+                }
+            } else {
+                vc.value = '(no photo attached)';
+                ws.getRow(r).height = 18;
+            }
+
+            style(vc, { font: font({ italic: true, color: DGRAY }), fill: fill(WHITE), alignment: lft, border: brd() });
+            r++;
+        }
+
+        // Spacer
+        ws.getRow(r).height = 6; r++;
+
+        // ── 7. FOOTER ─────────────────────────────────────────────────────────
+        ws.mergeCells(`A${r}:F${r}`);
+        const footer = ws.getCell(`A${r}`);
+        footer.value = `Generated on ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })} · Vision International Construction OPC`;
+        style(footer, {
+            font:      font({ size: 8, italic: true, color: DGRAY }),
+            fill:      fill(LGRAY),
+            alignment: ctr,
+            border:    brd(),
+        });
+        ws.getRow(r).height = 14;
+
+        // ── Print settings ────────────────────────────────────────────────────
+        ws.pageSetup = {
+            paperSize:   9,
+            orientation: 'portrait',
+            fitToPage:   true,
+            fitToWidth:  1,
+            fitToHeight: 0,
+            margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+        };
+
+        // ── Save ──────────────────────────────────────────────────────────────
+        const buf = await wb.xlsx.writeBuffer();
+        const dateStr = new Date(currentLog.date + 'T00:00:00')
+            .toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+            .replace(/ /g, '-');
+        saveAs(
+            new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `${projectName}_DailyLog_${dateStr}.xlsx`
+        );
+    };
+
+    if (loading) return <div className="mon-loading">⏳ Loading logs...</div>;
+
+    return (
+        <div className="mon-section" style={{ minWidth: 0, width: '100%', overflowX: 'hidden' }}>
+            {/* Header */}
+            <div className="mon-page-header">
+                <div className="mon-header-meta">
+                    {[['Project', projectName], ['Location', location],
+                      ['Requirement', requirement], ['Lead Installer', leadMan]].map(([l, v]) => (
+                        <div key={l} className="mon-header-field">
+                            <span className="mon-header-label">{l}</span>
+                            <span className="mon-header-value">{v}</span>
                         </div>
-                      )}
-                    </td>
-                    <td>{item.unit || '—'}</td>
-                    <td>{item.qty || '—'}</td>
-                    <td>
-                      {unitCost > 0
-                        ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : '—'}
-                    </td>
-                    <td style={{ fontWeight: 600, color: total > 0 ? '#15803d' : 'inherit' }}>
-                      {total > 0
-                        ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            {items.length > 0 && (
-              <tfoot>
-                <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      textAlign: 'right',
-                      fontWeight: 600,
-                      padding: '12px 8px',
-                      borderTop: '2px solid #e2e8f0',
-                      color: '#374151',
-                    }}
-                  >
-                    Grand Total Budget:
-                  </td>
-                  <td
-                    style={{
-                      fontWeight: 700,
-                      fontSize: '15px',
-                      color: '#0f172a',
-                      padding: '12px 8px',
-                      borderTop: '2px solid #e2e8f0',
-                    }}
-                  >
-                    ₱{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+                    ))}
+                </div>
+                <div className="mon-header-actions">
+                    <SaveIndicator status={saveStatus} />
+                    <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
+                    <button className="mon-btn mon-btn-navy" onClick={handleSave} disabled={saving}>
+                        {saving ? 'Saving…' : '💾 Save'}
+                    </button>
+                </div>
+            </div>
 
-        {/* Footer */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '16px',
-          flexWrap: 'wrap',
-          gap: '10px',
-          paddingTop: '12px',
-          borderTop: '1px solid #e2e8f0',
-        }}>
-          <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
-            📋 View only · No billing request is triggered from this screen.
-          </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="pm-btn pm-btn-outline" onClick={() => window.print()}>
-              🖨️ Print / Export
-            </button>
-            <button className="pm-btn pm-btn-outline" onClick={onClose}>
-              ✕ Close
-            </button>
-          </div>
-        </div>
+            {/* Body */}
+            <div className="mon-body">
+                {error && <div className="mon-error">⚠️ {error}</div>}
 
-      </div>
-    </div>
-  );
+                {/* Top info row */}
+                <div className="mon-top-row">
+                    <div className="mon-top-field">
+                        <span className="mon-input-label">Total Area Logged</span>
+                        <input type="text" value={currentLog.totalArea}
+                            onChange={e => setCurrentLog({ ...currentLog, totalArea: e.target.value })}
+                            className="mon-input" placeholder="e.g. 134 Lm" />
+                    </div>
+                    <div className="mon-top-field mon-top-remarks">
+                        <span className="mon-input-label">Status / Remarks</span>
+                        <textarea value={currentLog.remarks}
+                            onChange={e => setCurrentLog({ ...currentLog, remarks: e.target.value })}
+                            className="mon-textarea mon-textarea-sm"
+                            rows={2} placeholder="Describe current site status..." />
+                    </div>
+                    <div className="mon-top-datepicker">
+                        <span className="mon-input-label">📅 Log Date</span>
+                        <input type="date" value={selectedDate}
+                            onChange={e => setSelectedDate(e.target.value)}
+                            className="mon-date-input-inline" style={{ width: '100%', maxWidth: '100%' }} />
+                        <span className={`mon-date-status ${logExists ? 'exists' : 'new'}`}>
+                            {logExists ? '✅ Log exists' : '🆕 New entry'}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Timeline logs */}
+                <div className="mon-timeline-block">
+                    <div className="mon-block-header">
+                        <span className="mon-block-title">📅 Timeline Logs</span>
+                    </div>
+                    <div className="mon-timeline-paired" style={{ flexWrap: 'wrap' }}>
+                        <div className="mon-timeline-col">
+                            <div className="mon-input-group">
+                                <span className="mon-input-label">From Client — Start</span>
+                                <input type="date" value={currentLog.clientStart}
+                                    onChange={e => setCurrentLog({ ...currentLog, clientStart: e.target.value })}
+                                    className="mon-input" />
+                            </div>
+                            <div className="mon-input-group">
+                                <span className="mon-input-label">Actual Start</span>
+                                <input type="date" value={currentLog.actualStart}
+                                    onChange={e => setCurrentLog({ ...currentLog, actualStart: e.target.value })}
+                                    className="mon-input mon-input-actual" />
+                            </div>
+                        </div>
+                        <div className="mon-timeline-col">
+                            <div className="mon-input-group">
+                                <span className="mon-input-label">From Client — End</span>
+                                <input type="date" value={currentLog.clientEnd}
+                                    onChange={e => setCurrentLog({ ...currentLog, clientEnd: e.target.value })}
+                                    className="mon-input" />
+                            </div>
+                            <div className="mon-input-group">
+                                <span className="mon-input-label">Actual End</span>
+                                <input type="date" value={currentLog.actualEnd}
+                                    onChange={e => setCurrentLog({ ...currentLog, actualEnd: e.target.value })}
+                                    className="mon-input mon-input-actual" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Installer Table */}
+                <div className="mon-table-card">
+                    <div className="mon-table-toolbar">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span className="mon-table-title">👷 Installers — {selectedDate}</span>
+                            {roster.length > 0 && (
+                                <span className="mon-roster-badge">{roster.length} from roster</span>
+                            )}
+                        </div>
+                        <button className="mon-add-btn" onClick={addRow}>+ Add Row</button>
+                    </div>
+                    <div className="mon-table-scroll">
+                        <table className="mon-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: 36, minWidth: 36 }}>#</th>
+                                    <th className="th-left" style={{ minWidth: 120 }}>Name</th>
+                                    <th className="th-left" style={{ minWidth: 100 }}>Position</th>
+                                    <th style={{ minWidth: 80 }}>Time In</th>
+                                    <th style={{ minWidth: 80 }}>Time Out</th>
+                                    <th style={{ minWidth: 100 }}>Remarks</th>
+                                    <th style={{ width: 36, minWidth: 36 }}></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {currentLog.rows.map((row, idx) => (
+                                    <tr key={row.id} className={row.name ? 'row-filled' : ''}>
+                                        <td className="td-num">{idx + 1}</td>
+                                        <td className="td-left">
+                                            <input type="text" value={row.name}
+                                                onChange={e => updateRow(row.id, 'name', e.target.value)}
+                                                className="mon-cell-input input-wide" placeholder="Full name" />
+                                        </td>
+                                        <td className="td-left">
+                                            <select value={row.position}
+                                                onChange={e => updateRow(row.id, 'position', e.target.value)}
+                                                className="mon-cell-select">
+                                                <option value="">— Select —</option>
+                                                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="time" value={row.timeIn}
+                                                onChange={e => updateRow(row.id, 'timeIn', e.target.value)}
+                                                className="mon-cell-input" />
+                                        </td>
+                                        <td>
+                                            <input type="time" value={row.timeOut}
+                                                onChange={e => updateRow(row.id, 'timeOut', e.target.value)}
+                                                className="mon-cell-input" />
+                                        </td>
+                                        <td>
+                                            <input type="text" value={row.remarks}
+                                                onChange={e => updateRow(row.id, 'remarks', e.target.value)}
+                                                className="mon-cell-input input-wide" placeholder="Notes…" />
+                                        </td>
+                                        <td>
+                                            <button className="mon-remove-btn"
+                                                onClick={() => removeRow(row.id)}
+                                                disabled={currentLog.rows.length <= 1}>✕</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {roster.length > 0 && (
+                        <div className="mon-roster-summary" style={{ flexWrap: 'wrap' }}>
+                            {['Lead Installer', 'Installer', 'Helper', 'Supervisor'].map(pos => {
+                                const count = roster.filter(r => r.position === pos).length;
+                                return count > 0 ? (
+                                    <span key={pos} className="mon-roster-pill">{count} {pos}</span>
+                                ) : null;
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Photo Uploads */}
+                <div className="mon-photo-section">
+                    <div className="mon-block-header">
+                        <span className="mon-block-title">📸 Photo Attachments</span>
+                    </div>
+                    <div className="mon-photo-grid">
+                        {[['Main Progress Photo', photoMain, setPhotoMain, fileMainRef],
+                          ['Team Photo 1',        photo1,    setPhoto1,    file1Ref],
+                          ['Team Photo 2',        photo2,    setPhoto2,    file2Ref]
+                        ].map(([label, state, setter, ref]) => (
+                            <div key={label} className="mon-photo-item" style={{ minWidth: 0 }}>
+                                <span className="mon-photo-label">{label}</span>
+                                <label className={`mon-upload-trigger ${state ? 'has-file' : ''}`} style={{ flexWrap: 'wrap' }}>
+                                    <span className="mon-upload-icon">{state ? '✅' : '📎'}</span>
+                                    <span className="mon-upload-name" style={{ wordBreak: 'break-word' }}>
+                                        {state ? state.name : 'Click to choose image…'}
+                                    </span>
+                                    <input type="file" accept="image/*" ref={ref}
+                                        onChange={e => setter(e.target.files[0])}
+                                        className="mon-file-hidden" />
+                                </label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* History */}
+                {allLogs.length > 0 && (
+                    <div className="mon-history">
+                        <div className="mon-history-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                                <span className="mon-history-title">Log History</span>
+                                <span className="mon-history-count">{allLogs.length}</span>
+                            </div>
+                            <button className="mon-toggle-btn" onClick={() => setShowHistory(!showHistory)}>
+                                {showHistory ? 'Hide' : 'Show all'}
+                            </button>
+                        </div>
+                        {showHistory && (
+                            <div className="mon-history-list">
+                                {allLogs.map(l => (
+                                    <div key={l.id} className="mon-history-item"
+                                        onClick={() => setSelectedDate(l.log_date)}>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                            <div className="mon-history-date">{l.log_date}</div>
+                                            <div className="mon-history-meta" style={{ wordBreak: 'break-word' }}>
+                                                {l.accomplishment_percent ?? 0}% · Area: {l.total_area ?? '—'}
+                                            </div>
+                                        </div>
+                                        <span className="mon-history-badge">View</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };
 
-// ─── Request Sent Confirmation Banner ─────────────────────────────────────────
-const RequestSentBanner = ({ onDismiss }) => (
-  <div className="pm-req-sent-banner">
-    <span className="pm-req-sent-icon">✅</span>
-    <div>
-      <strong>Material request sent to Logistics!</strong>
-      <p className="pm-text-muted" style={{ margin: 0 }}>
-        Logistics will verify stock and schedule a delivery. You'll see new arrivals reflected in Materials Monitoring once delivered.
-      </p>
-    </div>
-    <button className="pm-close-btn" onClick={onDismiss}>✕</button>
-  </div>
-);
-
-// ─── Logistics Dispatch View ───────────────────────────────────────────────────
-const LogisticsDispatch = ({ onAdvance }) => {
-  const [checks, setChecks] = useState({ inventory: false, transport: false, notified: false });
-  const ready = checks.inventory && checks.transport && checks.notified;
-
-  return (
-    <div className="pm-cc-wrapper">
-      <div className="pm-card">
-        <div className="pm-card-navy pm-navy-orange">
-          <h3 className="pm-title-md pm-text-white">🚚 Logistics: Material Dispatch Center</h3>
-        </div>
-
-        <div className="pm-cc-body">
-          <div className="pm-card-cream pm-cream-orange">
-            <h4 className="pm-title-lg pm-text-orange-dark">Dispatch Preparation Checklist</h4>
-
-            <div className="pm-grid-3 mb-4">
-              {Object.entries({
-                inventory: '📦 Pulled from Inventory',
-                transport: '🚚 Transport Assigned',
-                notified:  '📱 Eng Team Notified',
-              }).map(([key, label]) => (
-                <label key={key} className="pm-checklist-item pm-checklist-orange">
-                  <input
-                    type="checkbox"
-                    checked={checks[key]}
-                    onChange={e => setChecks(c => ({ ...c, [key]: e.target.checked }))}
-                  />
-                  <span className="pm-text-orange-dark">{label}</span>
-                </label>
-              ))}
-            </div>
-
-            <PrimaryButton
-              disabled={!ready}
-              variant="orange"
-              onClick={() => onAdvance('Site Inspection & Project Monitoring')}
-            >
-              ✓ Confirm Dispatch & Return to Engineer
-            </PrimaryButton>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Tab Config ────────────────────────────────────────────────────────────────
-const TABS = [
-  { key: 'installers', label: '📋 INSTALLER MONITORING' },
-  { key: 'timeline',   label: '⏳ PROJECT TIMELINE'     },
-  { key: 'materials',  label: '📦 MATERIALS MONITORING' },
-  { key: 'issues',     label: '⚠️ ISSUES & SOLUTIONS'   },
-  { key: 'inspection', label: '✅ SITE INSPECTION'       },
-];
-
-// ─── Main Component ────────────────────────────────────────────────────────────
-const PhaseCommandCenter = ({
-  project,
-  cc,
-  tracking,
-  onAdvance,
-  isLogistics,
-  user,
-}) => {
-  const [activeTab,          setActiveTab]          = useState('installers');
-  const [reqSentBanner,      setReqSentBanner]      = useState(false);
-  const [showBillingModal,   setShowBillingModal]   = useState(false);
-
-  const { status } = project;
-
-  const {
-    requestItems,
-    showRequestModal,
-    setShowRequestModal,
-    handleRequestQtyChange,
-    handleRequestToggle,
-    submitMaterialRequest,
-    submittingRequest,
-    issueLog,
-    setIssueLog,
-    issuesHistory,
-    isSubmittingIssue,
-    handleIssueSubmit,
-  } = cc;
-
-  const { boqData } = tracking;
-
-  const timelineTrackingData = useMemo(() => {
-    try {
-      return typeof tracking?.timeline_tracking === 'string'
-        ? JSON.parse(tracking.timeline_tracking)
-        : (tracking?.timeline_tracking ?? {});
-    } catch {
-      return {};
-    }
-  }, [tracking?.timeline_tracking]);
-
-  if (status === 'Request Materials Needed' && isLogistics) {
-    return <LogisticsDispatch onAdvance={onAdvance} />;
-  }
-
-  // ── Wrap submit so we can show the success banner ──────────────────────────
-  const handleSubmitRequest = async () => {
-    await submitMaterialRequest(user);
-    setShowRequestModal(false);
-    setReqSentBanner(true);
-  };
-
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case 'installers':
-        return (
-          <InstallerMonitoring
-            key="installers"
-            project={project}
-            user={user}
-            onLogSaved={() => {}}
-          />
-        );
-
-      case 'timeline':
-        return (
-          <TimelineGantt
-            key="timeline"
-            project={project}
-            user={user}
-            trackingData={timelineTrackingData}
-            onSave={() => {}}
-          />
-        );
-
-      case 'materials':
-        return (
-          <MaterialsMonitoring
-            key="materials"
-            project={project}
-            user={user}
-            trackingData={tracking}
-            boqData={boqData}
-            onSave={() => {}}
-          />
-        );
-
-      case 'issues':
-        return (
-          <div key="issues" className="pm-animate-fadein">
-            <h4 className="pm-title-lg">Problem Encountered & Solution Log</h4>
-            <div className="pm-grid-2 mb-4">
-              <div className="pm-card-red pm-no-margin">
-                <label className="pm-label pm-label-red">⚠️ Problem Encountered *</label>
-                <textarea
-                  value={issueLog.problem || ''}
-                  onChange={e => setIssueLog({ ...issueLog, problem: e.target.value })}
-                  className="pm-textarea"
-                  placeholder="Describe the issue..."
-                />
-              </div>
-
-              <div className="pm-card pm-card-solution pm-no-margin">
-                <label className="pm-label pm-label-green">✅ Solution / Action Taken</label>
-                <textarea
-                  value={issueLog.solution || ''}
-                  onChange={e => setIssueLog({ ...issueLog, solution: e.target.value })}
-                  className="pm-textarea"
-                  placeholder="Describe the action taken..."
-                />
-              </div>
-            </div>
-
-            <PrimaryButton
-              variant="navy"
-              onClick={handleIssueSubmit}
-              disabled={isSubmittingIssue}
-            >
-              {isSubmittingIssue ? 'Logging...' : '💾 Log Issue'}
-            </PrimaryButton>
-
-            {issuesHistory.length > 0 && (
-              <div className="pm-history-section">
-                <h4 className="pm-title-md">🕒 Issues History</h4>
-                {issuesHistory.map(issue => (
-                  <div key={issue.id} className="pm-card pm-no-margin">
-                    <p><strong>⚠️ Problem:</strong> {issue.problem}</p>
-                    <p><strong>✅ Solution:</strong> {issue.solution || 'No solution yet.'}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'inspection':
-        return (
-          <SiteInspectionReport
-            key="inspection"
-            project={project}
-            user={user}
-            onSave={() => {}}
-          />
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="pm-cc-wrapper">
-
-      {/* ── Material Request Modal ── */}
-      {showRequestModal && (
-        <MaterialReqModal
-          finalBOQ={boqData?.finalBOQ ?? []}
-          requestItems={requestItems}
-          onQtyChange={handleRequestQtyChange}
-          onToggle={handleRequestToggle}
-          onSubmit={handleSubmitRequest}
-          onClose={() => setShowRequestModal(false)}
-          submitting={submittingRequest}
-          requesterName={user?.name || user?.username || 'Unknown'}
-        />
-      )}
-
-      {/* ── Progress Billing Modal ── */}
-      {showBillingModal && (
-        <ProgressBillingModal
-          project={project}
-          boqData={boqData}
-          user={user}
-          onClose={() => setShowBillingModal(false)}
-        />
-      )}
-
-      {/* ── Success Banner ── */}
-      {reqSentBanner && (
-        <RequestSentBanner onDismiss={() => setReqSentBanner(false)} />
-      )}
-
-      <div className="pm-card">
-        <div className="pm-tabs-wrapper">
-          {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`pm-tab-btn ${activeTab === key ? 'active' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="pm-cc-body">
-          <div key={activeTab} className="pm-animate-fadein">
-            {renderActiveTab()}
-          </div>
-
-          <hr className="pm-section-divider" />
-
-          <div className="pm-grid-3">
-            <div className="pm-action-card" data-variant="orange">
-              <h4 className="pm-action-title">Material Requisition</h4>
-              <p className="pm-text-muted">Out of stock? Submit requisition to Logistics.</p>
-              <PrimaryButton variant="orange" onClick={() => setShowRequestModal(true)}>
-                📦 Request Materials
-              </PrimaryButton>
-            </div>
-
-            <div className="pm-action-card" data-variant="blue">
-              <h4 className="pm-action-title">Progress Billing</h4>
-              <p className="pm-text-muted">View BOQ cost summary for milestone billing reference.</p>
-              <PrimaryButton variant="navy" onClick={() => setShowBillingModal(true)}>
-                💸 View Billing Summary
-              </PrimaryButton>
-            </div>
-
-            <div className="pm-action-card" data-variant="red">
-              <h4 className="pm-action-title">Construction Complete</h4>
-              <p className="pm-text-muted">Proceed to final quality checking.</p>
-              <PrimaryButton
-                variant="red"
-                onClick={() => onAdvance('Site Inspection & Quality Checking')}
-              >
-                ✓ Initiate Final QC
-              </PrimaryButton>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default PhaseCommandCenter;
+export default InstallerMonitoring;

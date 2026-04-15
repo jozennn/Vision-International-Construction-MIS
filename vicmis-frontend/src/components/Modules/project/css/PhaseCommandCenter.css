@@ -32,7 +32,6 @@
      flex-direction: column;
      gap: 16px;
      width: 100%;
-     max-width: 100%; /* Protects against horizontal blowout */
      min-width: 0;
      font-family: var(--cc-font);
    }
@@ -45,7 +44,6 @@
      overflow: hidden;
      box-shadow: var(--cc-shadow);
      min-width: 0;
-     width: 100%;
    }
    
    .pm-cc-body {
@@ -64,7 +62,6 @@
      scrollbar-width: none;
      border-bottom: 2px solid var(--cc-border);
      background: var(--cc-white);
-     width: 100%;
    }
    .pm-tabs-wrapper::-webkit-scrollbar { display: none; }
    
@@ -134,7 +131,6 @@
      font-weight: 700;
      color: var(--cc-black);
      margin: 0;
-     word-wrap: break-word; /* Prevents long text from breaking flex container */
    }
    
    /* ── Issues grid — stacks on mobile ── */
@@ -165,7 +161,6 @@
      font-size: 13px;
      font-weight: 500;
      font-family: var(--cc-font);
-     word-break: break-word;
    }
    .pm-checklist-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; }
    
@@ -372,20 +367,7 @@
    .pm-label        { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 6px; }
    .pm-label-red    { color: #991b1b; }
    .pm-label-green  { color: #166534; }
-   
-   /* Prevents textarea from breaking flex containers */
-   .pm-textarea     { 
-     width: 100%; 
-     max-width: 100%;
-     min-height: 80px; 
-     padding: 10px 12px; 
-     border: 1.5px solid #e5e7eb; 
-     border-radius: 6px; 
-     font-family: var(--cc-font); 
-     font-size: 13px; 
-     resize: vertical; 
-     outline: none; 
-   }
+   .pm-textarea     { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 6px; font-family: var(--cc-font); font-size: 13px; resize: vertical; outline: none; }
    .pm-textarea:focus { border-color: var(--cc-blue); }
    
    .pm-card-red {
@@ -418,7 +400,6 @@
      cursor: pointer;
      border: none;
      transition: all 0.18s;
-     text-align: center;
    }
    .pm-btn-outline {
      background: transparent;
@@ -429,7 +410,7 @@
    .pm-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
    
    /* ============================================================
-      RESPONSIVE BREAKPOINTS
+      RESPONSIVE
       ============================================================ */
    
    /* ── ≥ 600px: tabs show full labels, issues go 2-col ── */
@@ -444,12 +425,6 @@
      .pm-cc-body        { padding: 20px; }
      .pm-modal-content  { padding: 24px; }
      .pm-action-cards-grid { grid-template-columns: repeat(3, 1fr); }
-     
-     /* Only enforce standard table layout on larger screens */
-     .pm-table { display: table; }
-     .pm-table thead { display: table-header-group; }
-     .pm-table tbody tr { display: table-row; }
-     .pm-table td, .pm-table th { display: table-cell; }
    }
    
    /* ── ≥ 1024px ── */
@@ -457,72 +432,7 @@
      .pm-cc-body { padding: 24px; }
    }
    
-   /* ── ≤ 767px Mobile Table Overrides ── */
-   @media (max-width: 767px) {
-      /* Remove scroll wrapper constraint and horizontal overflow */
-      .pm-modal-table-scroll {
-        border: none;
-        overflow-x: hidden;
-      }
-      
-      .pm-table {
-        min-width: 100%;
-      }
-
-      /* Hide traditional headers */
-      .pm-table thead {
-        display: none;
-      }
-
-      /* Make rows display as flex cards */
-      .pm-table tbody tr {
-        display: flex;
-        flex-direction: column;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        margin-bottom: 16px;
-        padding: 12px;
-        background: #fff;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-      }
-
-      /* Adjust cells to row layout with pseudo labels */
-      .pm-table tbody td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 0;
-        border-bottom: 1px solid #f3f4f6;
-        text-align: right;
-      }
-      .pm-table tbody td:last-child {
-        border-bottom: none;
-      }
-      
-      /* Ensure text alignments map properly to the flex layout */
-      .pm-table tbody td.text-left {
-         text-align: right; /* Force right alignment for the value side */
-      }
-
-      /* The dynamic data label injection */
-      .pm-table tbody td::before {
-        content: attr(data-label);
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #6b7280;
-        text-align: left;
-        margin-right: 12px;
-      }
-      
-      /* Adjust inputs and inner containers for mobile card view */
-      .pm-req-qty-input {
-         max-width: 80px;
-      }
-   }
-
-   /* ── ≤ 480px Core Mobile Adjustments ── */
+   /* ── ≤ 480px ── */
    @media (max-width: 480px) {
      .pm-tab-btn         { padding: 9px 10px; font-size: 10px; letter-spacing: 0.02em; }
      .pm-modal-content   { padding: 14px 12px; }
