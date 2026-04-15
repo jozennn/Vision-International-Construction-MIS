@@ -158,7 +158,7 @@ public function markDelivered(int $id): JsonResponse
         ]);
 
         $materialRequest = $delivery->material_request_id
-            ? MaterialRequest::with('items')->find($delivery->material_request_id)
+            ? MaterialRequest::find($delivery->material_request_id)
             : null;
 
         $projectId = $materialRequest?->project_id
@@ -176,45 +176,71 @@ public function markDelivered(int $id): JsonResponse
                 $existingItems = is_array($decoded) ? $decoded : [];
             }
 
-            $today      = now()->toDateString();
-            $newRows    = [];
+            $today   = now()->toDateString();
+            $newRows = [];
 
             if ($materialRequest) {
-                foreach ($materialRequest->items as $item) {
+                // items is an array from JSON cast
+                $items = $materialRequest->items;
+                
+                foreach ($items as $item) {
+                    $productCode = $item['product_code'] ?? null;
+                    $productCategory = $item['product_category'] ?? null;
+                    
+                    // Look up inventory to get category if missing
+                    $inv = null;
+                    if (!empty($productCode)) {
+                        $query = WarehouseInventory::where('product_code', $productCode);
+                        if (!empty($productCategory)) {
+                            $query->where('product_category', $productCategory);
+                        }
+                        $inv = $query->first();
+                    }
+                    
                     $newRows[] = [
-                        'id'                  => 'arrival_' . uniqid(),
-                        'name'                => $item->product_code
-                                                ? "{$item->product_code} ({$item->description})"
-                                                : $item->description,
-                        'description'         => $item->description,
-                        'product_category'    => $item->product_category ?? $inv->product_category ?? '', // 👈 ADDED
-                        'delivery_date'       => $delivery->date_of_delivery ?? $today,
-                        'qty'                 => $item->requested_qty,
-                        'total'               => $item->requested_qty,
-                        'installed'           => 0,
-                        'remaining_inventory' => $item->requested_qty,
-                        'is_new_arrival'      => true,
-                        'logistics_id'        => $delivery->id,
-                        'material_request_id' => $delivery->material_request_id,
-                        'remarks'             => 'Auto-added from material request delivery',
+                        'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                        'boqKey'           => $productCode,
+                        'name'             => $productCode ?: $item['description'],
+                        'description'      => $item['description'],
+                        'product_category' => $productCategory ?: ($inv->product_category ?? ''),
+                        'unit'             => $item['unit'] ?? 'Pcs',
+                        'deliveries'       => [
+                            [
+                                'date' => $delivery->date_of_delivery ?? $today,
+                                'qty'  => (int) $item['requested_qty'],
+                            ]
+                        ],
+                        'installed'        => [],
+                        'remarks'          => $item['remarks'] ?? 'Auto-added from material request delivery',
+                        'is_new_arrival'   => true,
+                        'logistics_id'     => $delivery->id,
                     ];
                 }
                 
                 $materialRequest->update(['status' => 'delivered']);
             } else {
+                // Manual delivery
+                $inv = WarehouseInventory::where('product_code', $delivery->product_code)
+                    ->where('product_category', $delivery->product_category)
+                    ->first();
+                
                 $newRows[] = [
-                    'id'                  => 'arrival_' . uniqid(),
-                    'name'                => $delivery->product_code,
-                    'description'         => null,
-                    'product_category'    => $delivery->product_category ?? '', // 👈 ADDED
-                    'delivery_date'       => $delivery->date_of_delivery ?? $today,
-                    'qty'                 => $delivery->quantity,
-                    'total'               => $delivery->quantity,
-                    'installed'           => 0,
-                    'remaining_inventory' => $delivery->quantity,
-                    'is_new_arrival'      => true,
-                    'logistics_id'        => $delivery->id,
-                    'remarks'             => 'Auto-added from manual delivery',
+                    'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                    'boqKey'           => $delivery->product_code,
+                    'name'             => $delivery->product_code,
+                    'description'      => null,
+                    'product_category' => $delivery->product_category ?: ($inv->product_category ?? ''),
+                    'unit'             => 'Pcs',
+                    'deliveries'       => [
+                        [
+                            'date' => $delivery->date_of_delivery ?? $today,
+                            'qty'  => (int) $delivery->quantity,
+                        ]
+                    ],
+                    'installed'        => [],
+                    'remarks'          => 'Auto-added from manual delivery',
+                    'is_new_arrival'   => true,
+                    'logistics_id'     => $delivery->id,
                 ];
             }
 

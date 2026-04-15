@@ -40,7 +40,7 @@ const emptyItem = (id, overrides = {}) => ({
     id,
     name:          '',
     description:   '',
-    product_category: '', // 👈 ADDED
+    product_category: '',
     unit:          'pcs',
     deliveries:    [{ date: today(), qty: 0 }],
     remarks:       '',
@@ -73,9 +73,6 @@ const sanitizeItemDates = (item) => ({
  * Merge saved items with BOQ rows.
  * Initial delivery qty is set to BOQ required quantity.
  */
-// src/hooks/useMaterialsMonitoring.js
-
-// Update the mergeBoqIntoItems function to include product_category
 const mergeBoqIntoItems = (existingItems, boqData) => {
     const boqRows = Object.values(boqData ?? {})
         .flat()
@@ -100,7 +97,7 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
                 ...existing,
                 name: row.description || key,
                 description: row.description || '',
-                product_category: row.product_category || existing.product_category || '', // 👈 ADDED
+                product_category: row.product_category || existing.product_category || '',
                 unit: row.unit || 'pcs',
                 boqQty: boqQty,
                 deliveries: hasDeliveries 
@@ -112,7 +109,7 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
             boqKey: key,
             name: row.description || key,
             description: row.description || '',
-            product_category: row.product_category || '', // 👈 ADDED
+            product_category: row.product_category || '',
             unit: row.unit || 'pcs',
             boqQty: boqQty,
             deliveries: [{ date: today(), qty: boqQty }],
@@ -125,9 +122,6 @@ const mergeBoqIntoItems = (existingItems, boqData) => {
 
     return [...manualItems, ...boqItems, ...orphanedItems];
 };
-
-// Also update emptyItem to include product_category
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, boqData = null) => {
@@ -145,25 +139,38 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // ── Fetch from server ─────────────────────────────────────────────────────
+    const fetchMaterials = useCallback(async () => {
+        if (!projectId) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await api.get(`/projects/${projectId}`);
+            const mat = res.data?.project?.material_items;
+            const parsed = safeParse(mat);
+            if (parsed && parsed.length > 0) {
+                const sanitized = parsed.map(sanitizeItemDates);
+                setItems(mergeBoqIntoItems(sanitized, boqData));
+            } else if (boqData) {
+                // No saved materials, but we have BOQ data
+                setItems(mergeBoqIntoItems([], boqData));
+            } else {
+                setItems([]);
+            }
+            hydrated.current = true;
+        } catch (e) {
+            setError(e.response?.data?.message ?? 'Failed to fetch materials.');
+        } finally {
+            setLoading(false);
+            setTimeout(() => { isFirstLoad.current = false; }, 300);
+        }
+    }, [projectId, boqData]);
+
     // ── Seed items when projectId changes ─────────────────────────────────────
     useEffect(() => {
-        hydrated.current = false;
-
-        const parsed = safeParse(initialMaterialItems);
-        const sanitized = parsed ? parsed.map(sanitizeItemDates) : null;
-
-        if (boqData) {
-            const base = (sanitized && sanitized.length > 0) ? sanitized : [];
-            setItems(mergeBoqIntoItems(base, boqData));
-        } else if (sanitized && sanitized.length > 0) {
-            setItems(sanitized);
-        } else {
-            setItems([]);
-        }
-
-        hydrated.current = true;
-        setTimeout(() => { isFirstLoad.current = false; }, 300);
-    }, [projectId]);
+        // Always fetch fresh data from server when project changes
+        fetchMaterials();
+    }, [projectId, fetchMaterials]);
 
     // ── Re-merge when BOQ data changes ────────────────────────────────────────
     useEffect(() => {
@@ -293,26 +300,6 @@ export const useMaterialsMonitoring = (projectId, initialMaterialItems = null, b
             setSaving(false);
         }
     };
-
-    // ── Fetch from server ─────────────────────────────────────────────────────
-    const fetchMaterials = useCallback(async () => {
-        if (!projectId) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await api.get(`/projects/${projectId}`);
-            const mat = res.data?.project?.material_items;
-            const parsed = safeParse(mat);
-            if (parsed && parsed.length > 0) {
-                const sanitized = parsed.map(sanitizeItemDates);
-                setItems(mergeBoqIntoItems(sanitized, boqData));
-            }
-        } catch (e) {
-            setError(e.response?.data?.message ?? 'Failed to fetch materials.');
-        } finally {
-            setLoading(false);
-        }
-    }, [projectId, boqData]);
 
     return {
         items,

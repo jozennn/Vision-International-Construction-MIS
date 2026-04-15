@@ -1,5 +1,5 @@
 // src/phases/MaterialsMonitoring.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import {
@@ -37,11 +37,19 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
         updateDelivery,
         updateInstalled,
         saveMaterials,
+        fetchMaterials,
     } = useMaterialsMonitoring(
         project?.id,
         trackingData?.material_items,
         boqData,
     );
+
+    // Fetch fresh data from server when component mounts or project changes
+    useEffect(() => {
+        if (project?.id) {
+            fetchMaterials();
+        }
+    }, [project?.id, fetchMaterials]);
 
     const projectName  = project?.project_name ?? '';
     const location     = project?.location     ?? '';

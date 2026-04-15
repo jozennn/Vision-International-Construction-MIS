@@ -429,7 +429,7 @@ const PhaseBOQReview = ({ project, boqData, onAdvance, onReject, renderDocumentL
 
       <PrimaryButton
         variant="green"
-        onClick={() => onAdvance('Purchase Order')}
+        onClick={() => onAdvance('P.O & Work Order')}
         style={{ flex: 1 }}
       >
         ✓ Approve BOQ &amp; Return to Sales

@@ -56,7 +56,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
 
     // --- PROJECTS (read) ---
     Route::get('/projects',      [ProjectController::class, 'index']);
+    Route::get('/projects/trashed', [ProjectController::class, 'trashed']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
+ // 👈 ADDED
 
     // Site Inspection (read)
     Route::get('/projects/{id}/site-inspection',         [ProjectController::class, 'getSiteInspection']);
@@ -158,11 +160,19 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     Route::post('/projects/{id}/issues',     [ProjectController::class, 'storeIssue']);
     Route::patch('/projects/{id}/qa-checks', [ProjectController::class, 'saveQaChecks']);
 
+    // ────────────────────────────────────────────────────────────────────────
+    // 👇 PROJECT SOFT DELETE & RESTORE ROUTES
+    // ────────────────────────────────────────────────────────────────────────
+    Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
+    Route::post('/projects/{id}/restore', [ProjectController::class, 'restore']);
+    Route::delete('/projects/{id}/force', [ProjectController::class, 'forceDelete']);
+    // ────────────────────────────────────────────────────────────────────────
+
     // ── Material Requests (write) ─────────────────────────────────────────────
     Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
     Route::patch('/material-requests/{id}',         [MaterialRequestController::class, 'updateStatus']);
     
-    // 👇 ADDED: Logistics dispatch/reorder/reject endpoints
+    // 👇 Logistics dispatch/reorder/reject endpoints
     Route::post('/inventory/material-requests/{id}/dispatch', [MaterialRequestController::class, 'dispatch']);
     Route::post('/inventory/material-requests/{id}/reorder',  [MaterialRequestController::class, 'reorder']);
     Route::patch('/inventory/material-requests/{id}/reject',  [MaterialRequestController::class, 'reject']);
