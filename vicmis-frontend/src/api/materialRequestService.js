@@ -2,7 +2,7 @@
  * materialRequestService.js
  *
  * Handles all API calls related to the engineer → logistics material request flow.
- * Routes match api.php: /projects/{id}/material-requests and /material-requests/{id}
+ * Routes match api.php: /projects/{id}/material-requests and /inventory/material-requests/{id}
  */
 import api from '@/api/axios';
 
@@ -11,22 +11,6 @@ const materialRequestService = {
    * Engineer submits a material request from the PhaseCommandCenter.
    *
    * POST /projects/{id}/material-requests
-   *
-   * Body: {
-   *   requested_by_name: string,
-   *   engineer_name:     string,
-   *   destination:       string,
-   *   items: [
-   *     {
-   *       description:   string,
-   *       product_code:  string,
-   *       unit:          string,
-   *       requested_qty: number,
-   *       unit_cost:     number,  // optional
-   *       total_cost:    number,  // optional
-   *     }
-   *   ]
-   * }
    */
   create: (projectId, payload) => 
     api.post(`/projects/${projectId}/material-requests`, payload),
@@ -42,20 +26,26 @@ const materialRequestService = {
   /**
    * Logistics fetches all pending requests across all projects.
    *
-   * GET /material-requests/pending
+   * GET /inventory/material-requests (or /material-requests/pending - both work)
    */
   getPending: (params = {}) => 
-    api.get('/material-requests/pending', { params }),
+    api.get('/inventory/material-requests', { params }),
 
   /**
    * Logistics updates a request status (dispatch, reorder, reject).
    *
-   * PATCH /material-requests/{id}
-   *
-   * Body: { action: 'dispatch' | 'reorder' | 'reject', ...other fields }
+   * POST /inventory/material-requests/{id}/dispatch
+   * POST /inventory/material-requests/{id}/reorder
+   * PATCH /inventory/material-requests/{id}/reject
    */
-  updateStatus: (id, payload) => 
-    api.patch(`/material-requests/${id}`, payload),
+  dispatch: (id, payload) => 
+    api.post(`/inventory/material-requests/${id}/dispatch`, payload),
+
+  reorder: (id, payload) => 
+    api.post(`/inventory/material-requests/${id}/reorder`, payload),
+
+  reject: (id, reason) => 
+    api.patch(`/inventory/material-requests/${id}/reject`, { reason }),
 };
 
 export default materialRequestService;
