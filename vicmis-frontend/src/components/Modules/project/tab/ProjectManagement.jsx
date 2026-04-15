@@ -320,7 +320,7 @@ if (error) {
                                                 onClick={(e) => { e.stopPropagation(); handleArchiveProject(proj.id, proj.project_name); }}
                                                 title="Archive Project"
                                             >
-                                                📦
+                                                Archive
                                             </button>
                                         </>
                                     )}
