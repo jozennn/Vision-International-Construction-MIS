@@ -1,6 +1,6 @@
 /* ============================================================
    BoqTable.css — Styles for the BOQ Table component
-   Fully Responsive (Scroll-wrapper method)
+   Fully Responsive (Desktop Grid + Mobile Card Layout)
    ============================================================ */
 
    .boq-wrapper, .boq-wrapper * {
@@ -14,7 +14,7 @@
     position: relative;
   }
   
-  /* ── Scroll container ── */
+  /* ── Scroll container (Only applies heavily on desktop now) ── */
   .boq-scroll {
     width: 100%;
     max-width: 100%;
@@ -28,7 +28,7 @@
   .boq-scroll::-webkit-scrollbar-track  { background: transparent; }
   .boq-scroll::-webkit-scrollbar-thumb  { background: var(--pm-border-dark, #ccc); border-radius: 10px; }
   
-  /* ── Table ── */
+  /* ── Table Base ── */
   .boq-table {
     width: 100%;
     border-collapse: collapse;
@@ -63,7 +63,6 @@
   }
   .boq-table thead th:last-child { border-right: none; }
   
-  /* Short/full label toggle — show full by default, hide short */
   .boq-th-label-short { display: none; }
   .boq-th-label-full  { display: inline; }
   
@@ -115,6 +114,7 @@
     padding: 1px 4px;
     letter-spacing: .03em;
     pointer-events: none;
+    z-index: 2;
   }
   
   /* ── Remove button ── */
@@ -158,17 +158,8 @@
     margin-top: 3px;
     flex-wrap: nowrap;
   }
-  .boq-stock-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .boq-stock-label {
-    font-size: 10px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
+  .boq-stock-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .boq-stock-label { font-size: 10px; font-weight: 600; white-space: nowrap; }
   .boq-stock-on  { color: #059669; }
   .boq-stock-low { color: #d97706; }
   .boq-stock-no  { color: #dc2626; }
@@ -190,186 +181,150 @@
   .boq-stock-unknown              { background: #f3f4f6; color: #9ca3af; }
   
   /* ── Total cell ── */
-  .boq-total-cell {
-    font-weight: 700;
-    color: var(--pm-black, #221f1f);
-    text-align: right;
-    white-space: nowrap;
-  }
+  .boq-total-cell { font-weight: 700; color: var(--pm-black, #221f1f); text-align: right; white-space: nowrap; }
   
   /* ── Footer ── */
-  .boq-table tfoot tr {
-    background: var(--pm-black, #221f1f);
-    border-top: 2px solid var(--pm-red, #C20100);
-  }
+  .boq-table tfoot tr { background: var(--pm-black, #221f1f); border-top: 2px solid var(--pm-red, #C20100); }
+  .pm-boq-total-label { padding: 12px !important; font-size: 16px !important; font-weight: 700 !important; letter-spacing: .05em !important; text-transform: uppercase !important; color: #ffffff !important; text-align: right !important; }
+  .pm-boq-total-val { padding: 12px !important; font-size: 16px !important; font-weight: 900 !important; color: #ffffff !important; white-space: nowrap !important; text-align: right !important; }
   
-  .pm-boq-total-label {
-    padding: 12px !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    letter-spacing: .05em !important;
-    text-transform: uppercase !important;
-    color: #ffffff !important;
-    text-align: right !important;
-  }
+  /* ── Utilities ── */
+  .boq-empty-row { text-align: center; color: #9ca3af; font-style: italic; padding: 24px !important; font-size: 13px; }
+  .boq-add-row { text-align: center; padding: 14px; background: #fff; border-top: 1px dashed var(--pm-border-soft, #e5e7eb); }
   
-  .pm-boq-total-val {
-    padding: 12px !important;
-    font-size: 16px !important;
-    font-weight: 900 !important;
-    color: #ffffff !important;
-    white-space: nowrap !important;
-    text-align: right !important;
-  }
+  /* ... [Keep your loading bar and alert banner styles exactly as they are] ... */
   
-  /* ── Empty row ── */
-  .boq-empty-row {
-    text-align: center;
-    color: #9ca3af;
-    font-style: italic;
-    padding: 24px !important;
-    font-size: 13px;
-  }
-  
-  /* ── Add item button row ── */
-  .boq-add-row {
-    text-align: center;
-    padding: 14px;
-    background: #fff;
-    border-top: 1px dashed var(--pm-border-soft, #e5e7eb);
-  }
-  
-  /* ── Loading bar ── */
-  .boq-loading-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: #f0f9ff;
-    border-bottom: 1px solid #bae6fd;
-    font-size: 12px;
-    color: #0369a1;
-    overflow: hidden;
-  }
-  .boq-loading-inner {
-    height: 3px;
-    flex: 1;
-    background: linear-gradient(90deg, #38bdf8 0%, #0ea5e9 50%, #38bdf8 100%);
-    background-size: 200% 100%;
-    animation: boq-shimmer 1.4s infinite;
-    border-radius: 2px;
-  }
-  @keyframes boq-shimmer {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-  
-  /* ── Stock alert banner ── */
-  .boq-alert-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 12px 16px;
-    background: #fffbeb;
-    border: 1.5px solid #fbbf24;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    width: 100%;
-    flex-wrap: wrap;
-  }
+  .boq-alert-banner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; background: #fffbeb; border: 1.5px solid #fbbf24; border-radius: 8px; margin-bottom: 10px; width: 100%; flex-wrap: wrap; }
   .boq-alert-icon { font-size: 18px; flex-shrink: 0; }
   .boq-alert-body { flex: 1; min-width: 0; }
   .boq-alert-title { font-size: 13px; font-weight: 700; color: #92400e; display: block; margin-bottom: 6px; }
   .boq-alert-list  { display: flex; flex-wrap: wrap; gap: 6px; }
-  .boq-alert-chip  {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
-  }
+  .boq-alert-chip  { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .chip-low { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
   .chip-no  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
   .boq-alert-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   
-  /* ── Dropdown ── */
   .boq-dd-wrap    { position: relative; width: 100%; }
   .boq-dd-trigger { min-height: 32px; width: 100%; }
   .boq-dd-disabled { opacity: .55; }
   
-  .boq-dd-panel {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 999;
-    width: 100%;
-    min-width: 180px;
-    max-width: min(280px, 90vw);
-    background: #fff;
-    border: 1.5px solid var(--pm-border-soft, #e5e7eb);
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0,0,0,.15);
-    overflow: hidden;
-  }
-  .boq-dd-search {
-    width: 100%;
-    border: none;
-    border-bottom: 1px solid var(--pm-border-soft, #e5e7eb);
-    padding: 10px;
-    font-size: 12px;
-    outline: none;
-  }
+  .boq-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 999; width: 100%; min-width: 180px; max-width: min(280px, 90vw); background: #fff; border: 1.5px solid var(--pm-border-soft, #e5e7eb); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,.15); overflow: hidden; }
+  .boq-dd-search { width: 100%; border: none; border-bottom: 1px solid var(--pm-border-soft, #e5e7eb); padding: 10px; font-size: 12px; outline: none; }
   .boq-dd-list  { max-height: 200px; overflow-y: auto; }
-  .boq-dd-item  {
-    padding: 10px 12px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background .1s;
-    word-break: break-word;
-  }
+  .boq-dd-item  { padding: 10px 12px; font-size: 12px; cursor: pointer; transition: background .1s; word-break: break-word; }
   .boq-dd-item:hover  { background: #f0f4f8; }
   .boq-dd-item.active { background: #e0edff; font-weight: 600; color: var(--pm-blue, #497B97); }
   .boq-dd-empty { padding: 10px 12px; font-size: 12px; color: #9ca3af; font-style: italic; }
   
+  
   /* ============================================================
-     RESPONSIVE BREAKPOINTS
+     RESPONSIVE BREAKPOINTS: The Card Layout Conversion
      ============================================================ */
   
-  /* ── ≤ 768px ── */
   @media (max-width: 768px) {
-    .boq-table         { min-width: 650px; }
-    .boq-alert-banner  { flex-direction: column; }
+    /* Override Table Defaults */
+    .boq-table, .boq-table.boq-table--readonly { 
+      min-width: 100%; 
+      border: none;
+      background: transparent;
+    }
+  
+    /* Hide Desktop Headers completely */
+    .boq-table thead { 
+      display: none; 
+    }
+  
+    /* Force elements to behave as blocks/flex */
+    .boq-table tbody, .boq-table tfoot { 
+      display: block; 
+      width: 100%; 
+    }
+  
+    /* Transform Rows into Cards */
+    .boq-table tbody tr {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+      background: #fff;
+      border: 1px solid var(--pm-border-soft, #e5e7eb);
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      padding: 8px 0;
+    }
+  
+    /* Transform Cells inside Cards */
+    .boq-table tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px !important;
+      border-bottom: 1px solid #f3f4f6;
+      text-align: right;
+    }
+    .boq-table tbody td:last-child { 
+      border-bottom: none; 
+    }
+  
+    /* Inject Labels dynamically via data-label */
+    .boq-table tbody td::before {
+      content: attr(data-label);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--pm-text-muted, #6b7280);
+      margin-right: 15px;
+      text-align: left;
+      flex-shrink: 0;
+      width: 35%;
+    }
+  
+    /* Restrict input widths so labels aren't pushed out */
+    .boq-dd-wrap {
+      flex-grow: 1;
+      max-width: 220px;
+    }
+    .boq-unit-input, .boq-qty-input, .boq-cost-input {
+      width: auto;
+      flex-grow: 1;
+      max-width: 120px;
+      text-align: right !important;
+    }
+    
+    .boq-stock-inline { justify-content: flex-end; }
+    .boq-readonly-cell { text-align: right; }
+  
+    /* Adjust Action cell logic */
+    .boq-table tbody td[data-label="Action"] {
+      justify-content: flex-end;
+    }
+  
+    /* Responsive Footer */
+    .boq-table tfoot tr {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 8px;
+      padding: 0 10px;
+    }
+    .boq-tfoot-empty { display: none !important; }
+    
+    .pm-boq-total-label { 
+      text-align: left !important; 
+      font-size: 14px !important;
+      padding: 12px 10px !important;
+    }
+    .pm-boq-total-val { 
+      text-align: right !important; 
+      font-size: 15px !important;
+      padding: 12px 10px !important;
+    }
+    
+    .boq-alert-banner { flex-direction: column; }
   }
   
-  /* ── ≤ 640px ── */
-  @media (max-width: 640px) {
-    .boq-table                   { min-width: 560px; }
-    .boq-table.boq-table--readonly { min-width: 480px; }
-  
-    .boq-table thead th          { padding: 8px 8px; font-size: 9px; }
-    .boq-table tbody td          { padding: 7px 8px; }
-  
-    /* Switch to short column label */
-    .boq-th-label-full  { display: none; }
-    .boq-th-label-short { display: inline; }
-  
-    /* Tighten column min-widths */
-    .boq-th-category { min-width: 120px; }
-    .boq-th-code     { min-width: 110px; }
-    .boq-th-cost     { min-width: 85px; }
-    .boq-th-total    { min-width: 85px; }
-    .boq-th-stock    { min-width: 85px; }
-  
-    /* Hide the inline stock text on very small screens — badge in column still shows */
-    .boq-stock-badge-text { display: none; }
-  
-    .boq-readonly-cell { font-size: 11px; }
-    .boq-stock-label   { font-size: 9px; }
-    .boq-stock-badge   { font-size: 10px; padding: 2px 6px; gap: 3px; }
-  
-    .pm-boq-total-label { font-size: 12px !important; padding: 8px !important; }
-    .pm-boq-total-val   { font-size: 13px !important; padding: 8px !important; }
-  }
-  
-  /* ── ≤ 380px ── */
-  @media (max-width: 380px) {
-    .boq-wrapper { overflow: hidden; }
-    .boq-table   { min-width: 500px; }
+  @media (max-width: 480px) {
+    /* Minor tweaks for very small screens */
+    .boq-table tbody td::before { width: 45%; }
+    .boq-dd-wrap { max-width: 100%; }
   }

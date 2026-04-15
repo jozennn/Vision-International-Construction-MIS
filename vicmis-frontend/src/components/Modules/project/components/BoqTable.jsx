@@ -8,6 +8,8 @@ const STOCK_CFG = {
   'NO STOCK':  { cls: 'boq-stock-no',  dot: '#EF4444' },
 };
 
+// ... [Keep your InlineSelect and StockAlerts components exactly as they are] ...
+
 const InlineSelect = ({ value, options, placeholder, onChange, disabled }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -166,13 +168,10 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
           <thead>
             <tr>
               <th className="boq-th-category">Category</th>
-              <th className="boq-th-code">
-                Code{!readOnly && <span className="boq-th-hint"> (inventory)</span>}
-              </th>
+              <th className="boq-th-code">Code{!readOnly && <span className="boq-th-hint"> (inventory)</span>}</th>
               <th className="boq-th-unit">Unit</th>
               <th className="boq-th-qty">Qty</th>
               <th className="boq-th-cost">
-                {/* Shorten label on small screens via CSS class */}
                 <span className="boq-th-label-full">Unit Cost (₱)</span>
                 <span className="boq-th-label-short">Cost (₱)</span>
               </th>
@@ -200,8 +199,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
 
               return (
                 <tr key={idx} className={isLowOrNo ? 'boq-row-warn' : ''}>
-                  {/* Category */}
-                  <td>
+                  <td data-label="Category">
                     {readOnly
                       ? <span className="boq-readonly-cell">{row.product_category || '—'}</span>
                       : <InlineSelect value={row.product_category || ''} options={categories}
@@ -210,8 +208,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                     }
                   </td>
 
-                  {/* Code + stock inline hint */}
-                  <td>
+                  <td data-label="Code">
                     {readOnly
                       ? <span className="boq-readonly-cell boq-code-chip">{row.product_code || '—'}</span>
                       : <InlineSelect value={row.product_code || ''} options={codesAvail}
@@ -229,31 +226,28 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                     )}
                   </td>
 
-                  {/* Unit (auto-filled, read-only) */}
-                  <td>
+                  <td data-label="Unit">
                     <input disabled value={row.unit || ''} className="pm-input boq-unit-input"
                       style={{ margin: 0, background: 'var(--pm-input-disabled-bg, #f3f4f6)', cursor: 'not-allowed', textAlign: 'center' }}
                       placeholder="—" readOnly />
                   </td>
 
-                  {/* Qty */}
-                  <td>
+                  <td data-label="Qty">
                     <input disabled={readOnly} type="number" value={row.qty || ''}
                       min={0} max={maxQty ?? undefined}
                       onChange={e => handleQtyChange(idx, e.target.value, invItem)}
                       className="pm-input boq-qty-input" style={{ margin: 0, textAlign: 'center' }} placeholder="0" />
                   </td>
 
-                  {/* Unit Cost */}
-                  <td>
-                    <div style={{ position: 'relative' }}>
+                  <td data-label="Unit Cost (₱)">
+                    <div style={{ position: 'relative', width: '100%' }}>
                       <input
                         disabled={readOnly}
                         type="number"
                         value={row.unitCost || ''}
                         onChange={e => handleUnitCostChange(idx, e.target.value)}
                         className="pm-input boq-cost-input"
-                        style={{ margin: 0, textAlign: 'center' }}
+                        style={{ margin: 0, textAlign: 'center', width: '100%' }}
                         placeholder="0.00"
                       />
                       {invItem?.price_per_piece > 0 && row.unitCost === String(invItem.price_per_piece) && !readOnly && (
@@ -262,13 +256,11 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                     </div>
                   </td>
 
-                  {/* Total */}
-                  <td className="boq-total-cell">
+                  <td data-label="Total (₱)" className="boq-total-cell">
                     ₱{(parseFloat(row.total) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
 
-                  {/* Stock badge */}
-                  <td style={{ textAlign: 'center' }}>
+                  <td data-label="Stock" style={{ textAlign: 'center' }}>
                     {stockCfg
                       ? <span className={`boq-stock-badge ${stockCfg.cls}`}>
                           <span className="boq-stock-dot" style={{ background: stockCfg.dot }} />
@@ -278,9 +270,8 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                     }
                   </td>
 
-                  {/* Remove btn */}
                   {!readOnly && (
-                    <td style={{ textAlign: 'center' }}>
+                    <td data-label="Action" style={{ textAlign: 'center' }}>
                       <button type="button" onClick={() => onRemove(type, idx)} className="pm-btn-icon-danger boq-remove-btn">✕</button>
                     </td>
                   )}
@@ -296,7 +287,7 @@ const BoqTable = ({ type, boqData, readOnly, onAdd, onRemove, onChange }) => {
                 <td className="pm-boq-total-val">
                   ₱{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
-                <td colSpan={readOnly ? 1 : 2} />
+                <td colSpan={readOnly ? 1 : 2} className="boq-tfoot-empty" />
               </tr>
             </tfoot>
           )}
