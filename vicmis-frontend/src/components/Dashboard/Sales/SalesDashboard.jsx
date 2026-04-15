@@ -54,10 +54,10 @@ const CARD_FILTERS = {
 
 // Pipeline stages for funnel
 const PIPELINE_STAGES = [
-  { key: 'To be Contacted', label: 'To Be Contact', color: '#94a3b8', bg: '#f1f5f9' },
-  { key: 'Contacted',       label: 'Contacted',  color: '#3b82f6', bg: '#eff6ff' },
-  { key: 'For Fresentation',label: 'Presenting', color: '#f59e0b', bg: '#fffbeb' },
-  { key: 'Ready for Creating Project', label: 'Ready', color: '#10b981', bg: '#ecfdf5' },
+  { key: 'to be contacted', label: 'To Be Contact', color: '#94a3b8', bg: '#f1f5f9' },
+  { key: 'contacted',       label: 'Contacted',  color: '#3b82f6', bg: '#eff6ff' },
+  { key: 'for presentation',label: 'Presenting', color: '#f59e0b', bg: '#fffbeb' },
+  { key: 'ready for creating project', label: 'Ready', color: '#10b981', bg: '#ecfdf5' },
 ];
 
 // Monthly goal — adjust as needed
