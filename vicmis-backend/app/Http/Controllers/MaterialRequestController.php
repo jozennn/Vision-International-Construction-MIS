@@ -74,7 +74,7 @@ class MaterialRequestController extends Controller
     // GET /material-requests/pending
     // GET /inventory/material-requests
     // =========================================================================
-   public function getPending(Request $request): JsonResponse
+public function getPending(Request $request): JsonResponse
 {
     try {
         $status = $request->filled('status')
@@ -85,29 +85,28 @@ class MaterialRequestController extends Controller
         
         $query = MaterialRequest::with('items')
             ->whereIn('status', $status)
-            ->when($request->project_id, fn($q, $p) => $q->where('project_id', $p))
+            ->when($request->project_id, function($q) use ($request) {
+                return $q->where('project_id', $request->project_id);
+            })
             ->latest();
 
         if ($perPage >= 9999) {
             $requests = $query->get();
             
-            // Build completely new array instead of modifying models
             $result = [];
             foreach ($requests as $req) {
-                $reqArray = $req->toArray();
-                $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
+                $reqData = $req->toArray();
+                $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
                 
-                // Enrich each item with stock info
-                $itemsArray = [];
+                $itemsData = [];
                 foreach ($req->items as $item) {
-                    $itemArray = $item->toArray();
+                    $itemData = $item->toArray();
                     
                     $productCode = $item->product_code ?? null;
                     $productCategory = $item->product_category ?? null;
                     
-                    // Default values
-                    $itemArray['current_stock'] = 0;
-                    $itemArray['stock_status'] = 'NO STOCK';
+                    $itemData['current_stock'] = 0;
+                    $itemData['stock_status'] = 'NO STOCK';
                     
                     if (!empty($productCode)) {
                         $inv = WarehouseInventory::where('product_code', $productCode)
@@ -115,16 +114,16 @@ class MaterialRequestController extends Controller
                             ->first();
                         
                         if ($inv) {
-                            $itemArray['current_stock'] = $inv->current_stock ?? 0;
-                            $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
+                            $itemData['current_stock'] = $inv->current_stock ?? 0;
+                            $itemData['stock_status'] = $inv->availability ?? 'NO STOCK';
                         }
                     }
                     
-                    $itemsArray[] = $itemArray;
+                    $itemsData[] = $itemData;
                 }
                 
-                $reqArray['items'] = $itemsArray;
-                $result[] = $reqArray;
+                $reqData['items'] = $itemsData;
+                $result[] = $reqData;
             }
             
             return response()->json([
@@ -135,21 +134,20 @@ class MaterialRequestController extends Controller
 
         $paginated = $query->paginate($perPage);
         
-        // Transform the paginated items
         $result = [];
         foreach ($paginated->items() as $req) {
-            $reqArray = $req->toArray();
-            $reqArray['requested_by_name'] = $req->requester_name ?? 'Unknown';
+            $reqData = $req->toArray();
+            $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
             
-            $itemsArray = [];
+            $itemsData = [];
             foreach ($req->items as $item) {
-                $itemArray = $item->toArray();
+                $itemData = $item->toArray();
                 
                 $productCode = $item->product_code ?? null;
                 $productCategory = $item->product_category ?? null;
                 
-                $itemArray['current_stock'] = 0;
-                $itemArray['stock_status'] = 'NO STOCK';
+                $itemData['current_stock'] = 0;
+                $itemData['stock_status'] = 'NO STOCK';
                 
                 if (!empty($productCode)) {
                     $inv = WarehouseInventory::where('product_code', $productCode)
@@ -157,19 +155,18 @@ class MaterialRequestController extends Controller
                         ->first();
                     
                     if ($inv) {
-                        $itemArray['current_stock'] = $inv->current_stock ?? 0;
-                        $itemArray['stock_status'] = $inv->availability ?? 'NO STOCK';
+                        $itemData['current_stock'] = $inv->current_stock ?? 0;
+                        $itemData['stock_status'] = $inv->availability ?? 'NO STOCK';
                     }
                 }
                 
-                $itemsArray[] = $itemArray;
+                $itemsData[] = $itemData;
             }
             
-            $reqArray['items'] = $itemsArray;
-            $result[] = $reqArray;
+            $reqData['items'] = $itemsData;
+            $result[] = $reqData;
         }
 
-        // Return with same structure as Laravel paginator
         return response()->json([
             'data' => $result,
             'current_page' => $paginated->currentPage(),
@@ -178,22 +175,11 @@ class MaterialRequestController extends Controller
             'total' => $paginated->total(),
             'from' => $paginated->firstItem(),
             'to' => $paginated->lastItem(),
-            'first_page_url' => $paginated->url(1),
-            'last_page_url' => $paginated->url($paginated->lastPage()),
-            'next_page_url' => $paginated->nextPageUrl(),
-            'prev_page_url' => $paginated->previousPageUrl(),
-            'path' => $paginated->path(),
-            'links' => $paginated->linkCollection()->toArray(),
         ]);
         
     } catch (\Exception $e) {
-        \Log::error('getPending Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-        return response()->json([
-            'data' => [],
-            'total' => 0,
-            'current_page' => 1,
-            'last_page' => 1,
-        ]);
+        \Log::error('getPending Error: ' . $e->getMessage());
+        return response()->json(['data' => [], 'total' => 0]);
     }
 }
 
