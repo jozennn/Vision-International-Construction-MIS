@@ -364,7 +364,6 @@ const Customer = ({ user }) => {
             : '<span style="color:#94a3b8">—</span>')
         : (lead.contact_no || '—');
       return `<tr>
-        <td>#${lead.id}</td>
         <td><strong>${lead.client_name}</strong></td>
         <td>${lead.project_name}</td>
         <td>${lead.location}</td>
@@ -428,10 +427,10 @@ const Customer = ({ user }) => {
       <div class="sec-title">${tabLabel}</div>
       <table>
         <thead><tr>
-          <th>ID</th><th>Client</th><th>Project</th><th>Location</th>
+          <th>Client</th><th>Project</th><th>Location</th>
           <th>Lead Status</th><th>${lastCol}</th><th>Date Added</th>
         </tr></thead>
-        <tbody>${rows || `<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8">No records found.</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8">No records found.</td></tr>`}</tbody>
       </table>
       <div class="footer">
         <span>VICMIS — Confidential · Do not distribute</span>
