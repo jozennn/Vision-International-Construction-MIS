@@ -27,8 +27,6 @@ const PROD_STATUS_CLASS = {
 };
 
 // ─── Shipment Timeline Stepper ────────────────────────────────────────────────
-// Maps the three shipment_status values to a 4-step visual pipeline.
-// The current step and all prior steps are filled; future steps are hollow.
 const TIMELINE_STEPS = [
   { key: 'ORDERED',   label: 'Ordered'   },
   { key: 'WAITING',   label: 'In Prod.'  },
@@ -36,7 +34,6 @@ const TIMELINE_STEPS = [
   { key: 'ARRIVED',   label: 'Arrived'   },
 ];
 
-// Map shipment_status → which step index is active (0-based)
 const statusToStep = (status) => {
   if (status === 'ARRIVED')   return 3;
   if (status === 'DEPARTURE') return 2;
@@ -71,10 +68,6 @@ const ShipmentTimeline = ({ shipment }) => {
 };
 
 // ─── Arrival Status Badge ─────────────────────────────────────────────────────
-// Compares tentative_arrival (date string) against:
-//   - date_delivered / shipment_status=ARRIVED → actual date
-//   - today → if not yet arrived
-// Returns a coloured badge: On Time · Delayed X days · Overdue X days
 const ArrivalBadge = ({ shipment }) => {
   if (!shipment.tentative_arrival) return <span className="is-tba">TBA</span>;
 
@@ -83,7 +76,6 @@ const ArrivalBadge = ({ shipment }) => {
   today.setHours(0, 0, 0, 0);
 
   const isArrived   = shipment.shipment_status === 'ARRIVED';
-  // Use date_delivered if available, otherwise today for in-progress shipments
   const compareDate = isArrived && shipment.date_delivered
     ? new Date(shipment.date_delivered)
     : today;
@@ -91,7 +83,6 @@ const ArrivalBadge = ({ shipment }) => {
   const diffMs   = compareDate - tentative;
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
-  // Formatted tentative date always shown
   const formattedTentative = tentative.toLocaleDateString('en-PH', {
     month: 'short', day: 'numeric', year: 'numeric',
   });
@@ -114,9 +105,7 @@ const ArrivalBadge = ({ shipment }) => {
     );
   }
 
-  // Not yet arrived
   if (diffDays > 0) {
-    // Past tentative date but not yet arrived → overdue
     return (
       <div className="is-arrival-wrap">
         <span className="is-date-badge">{formattedTentative}</span>
@@ -125,7 +114,6 @@ const ArrivalBadge = ({ shipment }) => {
     );
   }
 
-  // Still upcoming
   return <span className="is-date-badge">{formattedTentative}</span>;
 };
 
@@ -201,13 +189,14 @@ const ReceivedStockPanel = ({ shipments, onClose, onAddToInventory, onReportRetu
 // ─── Detail inside panel ──────────────────────────────────────────────────────
 const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) => {
   const isReserve = !shipment.shipment_purpose || shipment.shipment_purpose === 'RESERVE_FOR_PROJECT';
+  const projects = Array.isArray(shipment.projects) ? shipment.projects : [];
 
   return (
     <div className="is-detail-wrap">
       <div className="is-detail-meta">
         <div className="is-detail-meta-item">
           <span className="is-detail-label">SHIPMENT NO.</span>
-          <span className="is-detail-value">{shipment.shipment_number}</span>
+          <span className="is-detail-value">{shipment.shipment_number || '—'}</span>
         </div>
         <div className="is-detail-meta-item">
           <span className="is-detail-label">TYPE</span>
@@ -219,7 +208,7 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
         </div>
         <div className="is-detail-meta-item">
           <span className="is-detail-label">CONTAINER</span>
-          <span className="is-detail-value">{shipment.container_type}</span>
+          <span className="is-detail-value">{shipment.container_type || '—'}</span>
         </div>
         <div className="is-detail-meta-item">
           <span className="is-detail-label">PURPOSE</span>
@@ -244,30 +233,40 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
             </tr>
           </thead>
           <tbody>
-            {shipment.projects?.map((p, i) => (
-              <tr key={i}>
-                {isReserve && <td className="is-proj-name">{p.project_name || '—'}</td>}
-                <td className="is-proj-cat">{p.product_category || '—'}</td>
-                <td className="is-proj-code">{p.product_code || '—'}</td>
-                <td className="is-proj-unit">{p.unit || '—'}</td>
-                <td className="text-right is-proj-num">{parseInt(p.quantity || 0).toLocaleString()}</td>
-                {isReserve && <td className="text-right is-proj-num">{parseFloat(p.coverage_sqm || 0).toLocaleString()}</td>}
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="is-mini-total">
-              <td colSpan={isReserve ? 4 : 3}>Total Volume</td>
-              <td className="text-right">
-                {shipment.projects?.reduce((s, p) => s + parseInt(p.quantity || 0), 0).toLocaleString()} pcs
-              </td>
-              {isReserve && (
-                <td className="text-right">
-                  {shipment.projects?.reduce((s, p) => s + parseFloat(p.coverage_sqm || 0), 0).toLocaleString()} SQM
+            {projects.length === 0 ? (
+              <tr>
+                <td colSpan={isReserve ? 6 : 5} style={{ textAlign: 'center', padding: '1.5rem', color: '#9ca3af' }}>
+                  No items found for this shipment.
                 </td>
-              )}
-            </tr>
-          </tfoot>
+              </tr>
+            ) : (
+              projects.map((p, i) => (
+                <tr key={i}>
+                  {isReserve && <td className="is-proj-name">{p.project_name || '—'}</td>}
+                  <td className="is-proj-cat">{p.product_category || '—'}</td>
+                  <td className="is-proj-code">{p.product_code || '—'}</td>
+                  <td className="is-proj-unit">{p.unit || '—'}</td>
+                  <td className="text-right is-proj-num">{parseInt(p.quantity || 0).toLocaleString()}</td>
+                  {isReserve && <td className="text-right is-proj-num">{parseFloat(p.coverage_sqm || 0).toLocaleString()}</td>}
+                </tr>
+              ))
+            )}
+          </tbody>
+          {projects.length > 0 && (
+            <tfoot>
+              <tr className="is-mini-total">
+                <td colSpan={isReserve ? 4 : 3}>Total Volume</td>
+                <td className="text-right">
+                  {projects.reduce((s, p) => s + parseInt(p.quantity || 0), 0).toLocaleString()} pcs
+                </td>
+                {isReserve && (
+                  <td className="text-right">
+                    {projects.reduce((s, p) => s + parseFloat(p.coverage_sqm || 0), 0).toLocaleString()} SQM
+                  </td>
+                )}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
@@ -294,10 +293,12 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
 
 // ─── Report / Return Modal ────────────────────────────────────────────────────
 const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
+  const projects = Array.isArray(shipment.projects) ? shipment.projects : [];
+  
   const [reports, setReports] = useState(
-    (shipment.projects || []).map(p => ({
-      product_category: p.product_category,
-      product_code:     p.product_code,
+    projects.map(p => ({
+      product_category: p.product_category || '',
+      product_code:     p.product_code || '',
       issue:            '',
       condition:        'Damaged',
       selected:         false,
@@ -325,37 +326,41 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
         <div className="is-modal-body" style={{ padding: '1rem 1.2rem' }}>
           <p className="is-report-hint">Check the items you want to report or return.</p>
           <div className="is-report-items">
-            {reports.map((row, i) => (
-              <div key={i} className={`is-report-item ${row.selected ? 'selected' : ''}`}>
-                <label className="is-report-check-label">
-                  <input type="checkbox" checked={row.selected} onChange={() => toggle(i)} />
-                  <span className="is-report-item-name">
-                    <span className="is-proj-cat">{row.product_category}</span>
-                    <span className="is-proj-code" style={{ marginLeft: 6 }}>{row.product_code}</span>
-                  </span>
-                </label>
-                {row.selected && (
-                  <div className="is-report-fields">
-                    <div className="is-field">
-                      <label>Issue / Reason</label>
-                      <input className="is-input" placeholder="Describe the issue…" value={row.issue} onChange={e => update(i, 'issue', e.target.value)} />
-                    </div>
-                    <div className="is-field">
-                      <label>Condition</label>
-                      <div className="is-select-wrap">
-                        <select className="is-input" value={row.condition} onChange={e => update(i, 'condition', e.target.value)}>
-                          <option value="Damaged">Damaged</option>
-                          <option value="Returned">Returned</option>
-                          <option value="Defective">Defective</option>
-                          <option value="Wrong Item">Wrong Item</option>
-                        </select>
-                        <ChevronDown size={13} className="is-select-icon" />
+            {reports.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#9ca3af', padding: '1rem' }}>No items to report.</p>
+            ) : (
+              reports.map((row, i) => (
+                <div key={i} className={`is-report-item ${row.selected ? 'selected' : ''}`}>
+                  <label className="is-report-check-label">
+                    <input type="checkbox" checked={row.selected} onChange={() => toggle(i)} />
+                    <span className="is-report-item-name">
+                      <span className="is-proj-cat">{row.product_category}</span>
+                      <span className="is-proj-code" style={{ marginLeft: 6 }}>{row.product_code}</span>
+                    </span>
+                  </label>
+                  {row.selected && (
+                    <div className="is-report-fields">
+                      <div className="is-field">
+                        <label>Issue / Reason</label>
+                        <input className="is-input" placeholder="Describe the issue…" value={row.issue} onChange={e => update(i, 'issue', e.target.value)} />
+                      </div>
+                      <div className="is-field">
+                        <label>Condition</label>
+                        <div className="is-select-wrap">
+                          <select className="is-input" value={row.condition} onChange={e => update(i, 'condition', e.target.value)}>
+                            <option value="Damaged">Damaged</option>
+                            <option value="Returned">Returned</option>
+                            <option value="Defective">Defective</option>
+                            <option value="Wrong Item">Wrong Item</option>
+                          </select>
+                          <ChevronDown size={13} className="is-select-icon" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -376,7 +381,7 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
   );
 };
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
   const [shipments, setShipments]                   = useState([]);
   const [loading, setLoading]                       = useState(true);
@@ -395,9 +400,22 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);
       const res = await api.get('/inventory/shipments');
-      setShipments(res.data);
-    } catch (err) { console.error('Fetch error:', err); }
-    finally { setLoading(false); setIsRefreshing(false); }
+      const data = res.data || [];
+      
+      // Ensure each shipment has a projects array
+      const shipmentsWithProjects = data.map(s => ({
+        ...s,
+        projects: Array.isArray(s.projects) ? s.projects : []
+      }));
+      
+      setShipments(shipmentsWithProjects);
+    } catch (err) { 
+      console.error('Fetch error:', err); 
+    }
+    finally { 
+      setLoading(false); 
+      setIsRefreshing(false); 
+    }
   };
 
   useEffect(() => { fetchShipments(); }, []);
@@ -414,8 +432,12 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       });
       if (onStockArrival) onStockArrival(shipment);
       fetchShipments(true);
-    } catch { alert('Failed to mark as received.'); }
-    finally { setReceiveLoading(null); }
+    } catch { 
+      alert('Failed to mark as received.'); 
+    }
+    finally { 
+      setReceiveLoading(null); 
+    }
   };
 
   const handleAddToInventory = async (shipment) => {
@@ -427,7 +449,9 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       alert(`Shipment ${shipment.shipment_number} has been added to inventory successfully.`);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to add to inventory.');
-    } finally { setAddingToInventory(false); }
+    } finally { 
+      setAddingToInventory(false); 
+    }
   };
 
   const handleReportSubmit = async (shipment, selectedItems) => {
@@ -448,7 +472,9 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       alert('Report submitted. The procurement team has been notified.');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to submit report.');
-    } finally { setReportSubmitting(false); }
+    } finally { 
+      setReportSubmitting(false); 
+    }
   };
 
   const handleUpdateSubmit = async (e) => {
@@ -458,12 +484,16 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       await api.put(`/inventory/shipments/${selectedShipment.id}`, selectedShipment);
       setIsEditModalOpen(false);
       fetchShipments(true);
-    } catch { alert('Update failed.'); }
-    finally { setUpdateLoading(false); }
+    } catch { 
+      alert('Update failed.'); 
+    }
+    finally { 
+      setUpdateLoading(false); 
+    }
   };
 
   const isReserveShipment = (s) => !s?.shipment_purpose || s?.shipment_purpose === 'RESERVE_FOR_PROJECT';
-  const arrivedPending    = shipments.filter(s => s.shipment_status === 'ARRIVED' && !s.added_to_inventory);
+  const arrivedPending = shipments.filter(s => s.shipment_status === 'ARRIVED' && !s.added_to_inventory);
 
   return (
     <div className="is-wrapper">
@@ -529,23 +559,18 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                     {s.origin_type === 'INTERNATIONAL' ? <><Globe size={11} /> Intl</> : <><Building2 size={11} /> Local</>}
                   </span>
                 </td>
-                <td className="is-container">{s.container_type}</td>
+                <td className="is-container">{s.container_type || '—'}</td>
                 <td>
                   <button className="is-project-btn" onClick={() => { setSelectedShipment(s); setIsProjectModalOpen(true); }}>
                     <Package size={13} /> {s.projects?.length || 0} {isReserveShipment(s) ? 'Project' : 'Item'}{s.projects?.length !== 1 ? 's' : ''}
                   </button>
                 </td>
                 <td>
-                  <span className={`is-prod-tag ${PROD_STATUS_CLASS[s.status] || 'prod-ongoing'}`}>{s.status}</span>
+                  <span className={`is-prod-tag ${PROD_STATUS_CLASS[s.status] || 'prod-ongoing'}`}>{s.status || '—'}</span>
                 </td>
                 <td className="is-location">{s.location || '—'}</td>
-
-                {/* ── Arrival badge (new) ── */}
                 <td><ArrivalBadge shipment={s} /></td>
-
-                {/* ── Timeline stepper (new) ── */}
                 <td className="is-timeline-cell"><ShipmentTimeline shipment={s} /></td>
-
                 <td>
                   <span className={`is-pill ${STATUS_CLASS[s.shipment_status] || 'pill-waiting'}`}>{s.shipment_status}</span>
                 </td>
@@ -600,7 +625,9 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                 <thead>
                   <tr>
                     {isReserveShipment(selectedShipment) && <th>Project Name</th>}
-                    <th>Product Category</th><th>Product Code</th><th>Unit</th>
+                    <th>Product Category</th>
+                    <th>Product Code</th>
+                    <th>Unit</th>
                     <th className="text-right">Qty</th>
                     {isReserveShipment(selectedShipment) && <th className="text-right">Area (SQM)</th>}
                   </tr>
@@ -616,14 +643,23 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                       {isReserveShipment(selectedShipment) && <td className="text-right is-proj-num">{parseFloat(p.coverage_sqm || 0).toLocaleString()}</td>}
                     </tr>
                   ))}
+                  {(!selectedShipment.projects || selectedShipment.projects.length === 0) && (
+                    <tr>
+                      <td colSpan={isReserveShipment(selectedShipment) ? 6 : 5} style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>
+                        No items found for this shipment.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
-                <tfoot>
-                  <tr className="is-mini-total">
-                    <td colSpan={isReserveShipment(selectedShipment) ? 4 : 3}>Total Volume</td>
-                    <td className="text-right">{selectedShipment.projects?.reduce((s, p) => s + parseInt(p.quantity || 0), 0).toLocaleString()} pcs</td>
-                    {isReserveShipment(selectedShipment) && <td className="text-right">{selectedShipment.projects?.reduce((s, p) => s + parseFloat(p.coverage_sqm || 0), 0).toLocaleString()} SQM</td>}
-                  </tr>
-                </tfoot>
+                {selectedShipment.projects && selectedShipment.projects.length > 0 && (
+                  <tfoot>
+                    <tr className="is-mini-total">
+                      <td colSpan={isReserveShipment(selectedShipment) ? 4 : 3}>Total Volume</td>
+                      <td className="text-right">{selectedShipment.projects?.reduce((s, p) => s + parseInt(p.quantity || 0), 0).toLocaleString()} pcs</td>
+                      {isReserveShipment(selectedShipment) && <td className="text-right">{selectedShipment.projects?.reduce((s, p) => s + parseFloat(p.coverage_sqm || 0), 0).toLocaleString()} SQM</td>}
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
@@ -645,7 +681,7 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                 <div className="is-field">
                   <label>Shipment Status</label>
                   <div className="is-select-wrap">
-                    <select className="is-input" value={selectedShipment.shipment_status}
+                    <select className="is-input" value={selectedShipment.shipment_status || ''}
                       onChange={e => setSelectedShipment({ ...selectedShipment, shipment_status: e.target.value })}>
                       <option value="WAITING">WAITING</option>
                       <option value="DEPARTURE">DEPARTURE</option>

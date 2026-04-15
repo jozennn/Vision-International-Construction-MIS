@@ -378,9 +378,6 @@ const PendingRequestsTab = ({
               </div>
             )}
 
-            {/* Items table */}
-            // In DeliveryMat.jsx, update the PendingRequestsTab component's table
-
 {/* Items table */}
 <table className="dl-req-items-table">
     <thead>

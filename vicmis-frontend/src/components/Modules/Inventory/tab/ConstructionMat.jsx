@@ -21,10 +21,6 @@ const EMPTY_FORM = {
   unit:             '',
   price_per_piece:  '',
   current_stock:    '',
-  delivery_in:      '',
-  delivery_out:     '',
-  return_out:       '',
-  return_in:        '',
   reserve:          '',
   condition:        'Good',
   is_consumable:    false,
@@ -396,20 +392,20 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   useEffect(() => { setCurrentPage(1); }, [typeFilter, categoryFilter, search, perPage]);
 
   // ── New arrival ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (newArrivalData?.projects?.length > 0) {
-      const proj = newArrivalData.projects[0];
-      setIsNewArrival(true);
-      setFormData({
-        ...EMPTY_FORM,
-        product_category: proj.product_category || '',
-        product_code:     newArrivalData.shipment_number || '',
-        current_stock:    proj.quantity || '',
-        is_consumable:    proj.product_category === 'CONSUMABLES',
-      });
-      setIsModalOpen(true);
-    }
-  }, [newArrivalData]);
+  // useEffect(() => {
+  //   if (newArrivalData?.projects?.length > 0) {
+  //     const proj = newArrivalData.projects[0];
+  //     setIsNewArrival(true);
+  //     setFormData({
+  //       ...EMPTY_FORM,
+  //       product_category: proj.product_category || '',
+  //       product_code:     newArrivalData.shipment_number || '',
+  //       current_stock:    proj.quantity || '',
+  //       is_consumable:    proj.product_category === 'CONSUMABLES',
+  //     });
+  //     setIsModalOpen(true);
+  //   }
+  // }, [newArrivalData]);
 
   // ── Category change ────────────────────────────────────────────────────────
   const handleCategoryChange = (cat) => {
@@ -434,39 +430,34 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async (e) => {
-    e.preventDefault();
-    setSaveLoading(true);
-    try {
-      const stockInt = parseInt(formData.current_stock, 10) || 0;
-      const payload = {
-        ...formData,
-        current_stock:   stockInt,
-        price_per_piece: parseFloat(formData.price_per_piece) || 0,
-        delivery_in:     parseInt(formData.delivery_in,  10) || 0,
-        delivery_out:    parseInt(formData.delivery_out, 10) || 0,
-        return_out:      parseInt(formData.return_out,   10) || 0,
-        return_in:       parseInt(formData.return_in,    10) || 0,
-        reserve:         parseInt(formData.reserve,      10) || 0,
-        availability:    deriveAvailability(stockInt),
-      };
+  e.preventDefault();
+  setSaveLoading(true);
+  try {
+    const stockInt = parseInt(formData.current_stock, 10) || 0;
+    const payload = {
+      ...formData,
+      current_stock:   stockInt,
+      price_per_piece: parseFloat(formData.price_per_piece) || 0,
+      reserve:         parseInt(formData.reserve, 10) || 0,
+      availability:    deriveAvailability(stockInt),
+    };
 
-      // Remove undefined/null keys so backend doesn't reject missing fields
-      const cleanPayload = Object.fromEntries(
-        Object.entries(payload).filter(([_, v]) => v !== undefined && v !== null && v !== '')
-      );
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
 
-      if (isEditing) await warehouseInventoryService.update(currentId, cleanPayload);
-      else           await warehouseInventoryService.create(payload);
-      closeModal();
-      fetchItems();
-      fetchStockCounts();
-    } catch (err) {
-      console.error('Save error:', err.response?.data || err);
-      alert(err.response?.data?.message || 'Failed to save. Please check all fields.');
-    } finally {
-      setSaveLoading(false);
-    }
-  };
+    if (isEditing) await warehouseInventoryService.update(currentId, cleanPayload);
+    else           await warehouseInventoryService.create(payload);
+    closeModal();
+    fetchItems();
+    fetchStockCounts();
+  } catch (err) {
+    console.error('Save error:', err.response?.data || err);
+    alert(err.response?.data?.message || 'Failed to save. Please check all fields.');
+  } finally {
+    setSaveLoading(false);
+  }
+};
 
   // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = async (id) => {
@@ -658,170 +649,150 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="wh-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div className="wh-modal">
-            <div className="wh-modal-header">
-              <div className="wh-modal-title-row">
-                {isNewArrival && <PackageCheck size={20} className="wh-modal-icon" />}
-                <h2 className="wh-modal-title">
-                  {isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}
-                </h2>
-              </div>
-              <button className="wh-modal-close" onClick={closeModal}><X size={18} /></button>
+  <div className="wh-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+    <div className="wh-modal">
+      <div className="wh-modal-header">
+        <div className="wh-modal-title-row">
+          {isNewArrival && <PackageCheck size={20} className="wh-modal-icon" />}
+          <h2 className="wh-modal-title">
+            {isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}
+          </h2>
+        </div>
+        <button className="wh-modal-close" onClick={closeModal}><X size={18} /></button>
+      </div>
+
+      <form onSubmit={handleSave} className="wh-form">
+        <div className="wh-form-row">
+          <div className="wh-form-group">
+            <label>Product Category <span className="req">*</span></label>
+            <div className="wh-select-wrap">
+              <select required value={formData.product_category} onChange={e => handleCategoryChange(e.target.value)}>
+                <option value="">— Select Category —</option>
+                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <ChevronDown size={13} className="wh-select-icon" />
             </div>
-
-            <form onSubmit={handleSave} className="wh-form">
-              <div className="wh-form-row">
-                <div className="wh-form-group">
-                  <label>Product Category <span className="req">*</span></label>
-                  <div className="wh-select-wrap">
-                    <select required value={formData.product_category} onChange={e => handleCategoryChange(e.target.value)}>
-                      <option value="">— Select Category —</option>
-                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
-                    <ChevronDown size={13} className="wh-select-icon" />
-                  </div>
-                </div>
-                <div className="wh-form-group">
-                  <label>Unit <span className="req">*</span></label>
-                  <input
-                    type="text" required
-                    value={formData.unit}
-                    onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))}
-                    placeholder="e.g. Rolls, Pcs, Bags"
-                  />
-                </div>
-              </div>
-
-              <div className="wh-form-group">
-                <div className="wh-label-row">
-                  <label>Product Code <span className="req">*</span></label>
-                  {codesForCategory.length > 0 && (
-                    <button type="button" className="wh-toggle-code-btn" onClick={() => setCustomCode(v => !v)}>
-                      {customCode ? 'Pick from list' : 'Enter custom code'}
-                    </button>
-                  )}
-                </div>
-                {(!customCode && codesForCategory.length > 0) ? (
-                  <div className="wh-select-wrap">
-                    <select required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}>
-                      <option value="">— Select Code —</option>
-                      {codesForCategory.map(({ code }) => <option key={code} value={code}>{code}</option>)}
-                    </select>
-                    <ChevronDown size={13} className="wh-select-icon" />
-                  </div>
-                ) : (
-                  <input
-                    type="text" required
-                    value={formData.product_code}
-                    onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}
-                    placeholder="e.g. 182062 or 182062 - New"
-                  />
-                )}
-                <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
-              </div>
-
-              <div className="wh-form-row wh-form-row-3">
-                <div className="wh-form-group">
-                  <div className="wh-label-row">
-                    <label>Current Stock <span className="req">*</span></label>
-                    {formData.current_stock !== '' && (
-                      <AvailPreview stock={formData.current_stock} />
-                    )}
-                  </div>
-                  <input
-                    type="number" min="0" required
-                    value={formData.current_stock}
-                    onChange={e => handleStockChange(e.target.value)}
-                    placeholder="0"
-                  />
-                  <p className="wh-hint" style={{ marginTop: 3 }}>
-                    0 = No Stock · 1–10 = Low Stock · 11+ = On Stock
-                  </p>
-                </div>
-
-                {/* ── Price per piece ── */}
-                <div className="wh-form-group">
-                  <label>Price per Piece <span className="wh-optional">(₱)</span></label>
-                  <input
-                    type="number" min="0" step="0.01"
-                    value={formData.price_per_piece}
-                    onChange={e => setFormData(f => ({ ...f, price_per_piece: e.target.value }))}
-                    placeholder="0.00"
-                  />
-                  {/* Live total value preview */}
-                  {formData.price_per_piece > 0 && formData.current_stock > 0 && (
-                    <p className="wh-hint" style={{ marginTop: 3, color: '#059669', fontWeight: 600 }}>
-                      Total value: {fmtPrice(parseFloat(formData.price_per_piece) * parseInt(formData.current_stock || 0))}
-                    </p>
-                  )}
-                </div>
-
-                <div className="wh-form-group">
-                  <label>Reserve</label>
-                  <input type="number" min="0" value={formData.reserve} onChange={e => setFormData(f => ({ ...f, reserve: e.target.value }))} placeholder="0" />
-                </div>
-              </div>
-
-              <div className="wh-form-row wh-form-row-3">
-                <div className="wh-form-group">
-                  <label>Delivery In</label>
-                  <input type="number" min="0" value={formData.delivery_in}  onChange={e => setFormData(f => ({ ...f, delivery_in:  e.target.value }))} placeholder="0" />
-                </div>
-                <div className="wh-form-group">
-                  <label>Delivery Out</label>
-                  <input type="number" min="0" value={formData.delivery_out} onChange={e => setFormData(f => ({ ...f, delivery_out: e.target.value }))} placeholder="0" />
-                </div>
-                <div className="wh-form-group">
-                  <label>Return Out</label>
-                  <input type="number" min="0" value={formData.return_out} onChange={e => setFormData(f => ({ ...f, return_out: e.target.value }))} placeholder="0" />
-                </div>
-              </div>
-
-              <div className="wh-form-row">
-                <div className="wh-form-group">
-                  <label>Return In</label>
-                  <input type="number" min="0" value={formData.return_in} onChange={e => setFormData(f => ({ ...f, return_in: e.target.value }))} placeholder="0" />
-                </div>
-                <div className="wh-form-group">
-                  <label>Condition</label>
-                  <div className="wh-select-wrap">
-                    <select value={formData.condition} onChange={e => setFormData(f => ({ ...f, condition: e.target.value }))}>
-                      <option>Good</option><option>Damaged</option><option>Returned</option>
-                    </select>
-                    <ChevronDown size={13} className="wh-select-icon" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="wh-form-group wh-checkbox-group">
-                <label className="wh-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_consumable}
-                    onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
-                  />
-                  <span>Mark as Consumable</span>
-                </label>
-              </div>
-
-              <div className="wh-form-group">
-                <label>Notes <span className="wh-optional">(optional)</span></label>
-                <textarea rows={2} value={formData.notes} onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))} placeholder="Any remarks…" />
-              </div>
-
-              <div className="wh-modal-footer">
-                <button type="button" className="wh-btn-cancel" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="wh-btn-save" disabled={saveLoading}>
-                  {saveLoading
-                    ? <><Loader2 size={15} className="wh-spinner" /> Saving…</>
-                    : isEditing ? 'Update Product' : 'Save Product'}
-                </button>
-              </div>
-            </form>
+          </div>
+          <div className="wh-form-group">
+            <label>Unit <span className="req">*</span></label>
+            <input
+              type="text" required
+              value={formData.unit}
+              onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))}
+              placeholder="e.g. Rolls, Pcs, Bags"
+            />
           </div>
         </div>
-      )}
+
+        <div className="wh-form-group">
+          <div className="wh-label-row">
+            <label>Product Code <span className="req">*</span></label>
+            {codesForCategory.length > 0 && (
+              <button type="button" className="wh-toggle-code-btn" onClick={() => setCustomCode(v => !v)}>
+                {customCode ? 'Pick from list' : 'Enter custom code'}
+              </button>
+            )}
+          </div>
+          {(!customCode && codesForCategory.length > 0) ? (
+            <div className="wh-select-wrap">
+              <select required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}>
+                <option value="">— Select Code —</option>
+                {codesForCategory.map(({ code }) => <option key={code} value={code}>{code}</option>)}
+              </select>
+              <ChevronDown size={13} className="wh-select-icon" />
+            </div>
+          ) : (
+            <input
+              type="text" required
+              value={formData.product_code}
+              onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}
+              placeholder="e.g. 182062 or 182062 - New"
+            />
+          )}
+          <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
+        </div>
+
+        <div className="wh-form-row wh-form-row-3">
+          <div className="wh-form-group">
+            <div className="wh-label-row">
+              <label>Current Stock <span className="req">*</span></label>
+              {formData.current_stock !== '' && (
+                <AvailPreview stock={formData.current_stock} />
+              )}
+            </div>
+            <input
+              type="number" min="0" required
+              value={formData.current_stock}
+              onChange={e => handleStockChange(e.target.value)}
+              placeholder="0"
+            />
+            <p className="wh-hint" style={{ marginTop: 3 }}>
+              0 = No Stock · 1–10 = Low Stock · 11+ = On Stock
+            </p>
+          </div>
+
+          {/* ── Price per piece ── */}
+          <div className="wh-form-group">
+            <label>Price per Piece <span className="wh-optional">(₱)</span></label>
+            <input
+              type="number" min="0" step="0.01"
+              value={formData.price_per_piece}
+              onChange={e => setFormData(f => ({ ...f, price_per_piece: e.target.value }))}
+              placeholder="0.00"
+            />
+            {formData.price_per_piece > 0 && formData.current_stock > 0 && (
+              <p className="wh-hint" style={{ marginTop: 3, color: '#059669', fontWeight: 600 }}>
+                Total value: {fmtPrice(parseFloat(formData.price_per_piece) * parseInt(formData.current_stock || 0))}
+              </p>
+            )}
+          </div>
+
+          <div className="wh-form-group">
+            <label>Reserve</label>
+            <input type="number" min="0" value={formData.reserve} onChange={e => setFormData(f => ({ ...f, reserve: e.target.value }))} placeholder="0" />
+          </div>
+        </div>
+
+        <div className="wh-form-row">
+          <div className="wh-form-group">
+            <label>Condition</label>
+            <div className="wh-select-wrap">
+              <select value={formData.condition} onChange={e => setFormData(f => ({ ...f, condition: e.target.value }))}>
+                <option>Good</option><option>Damaged</option><option>Returned</option>
+              </select>
+              <ChevronDown size={13} className="wh-select-icon" />
+            </div>
+          </div>
+        </div>
+
+        <div className="wh-form-group wh-checkbox-group">
+          <label className="wh-checkbox-label">
+            <input
+              type="checkbox"
+              checked={formData.is_consumable}
+              onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
+            />
+            <span>Mark as Consumable</span>
+          </label>
+        </div>
+
+        <div className="wh-form-group">
+          <label>Notes <span className="wh-optional">(optional)</span></label>
+          <textarea rows={2} value={formData.notes} onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))} placeholder="Any remarks…" />
+        </div>
+
+        <div className="wh-modal-footer">
+          <button type="button" className="wh-btn-cancel" onClick={closeModal}>Cancel</button>
+          <button type="submit" className="wh-btn-save" disabled={saveLoading}>
+            {saveLoading
+              ? <><Loader2 size={15} className="wh-spinner" /> Saving…</>
+              : isEditing ? 'Update Product' : 'Save Product'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  )}
     </div>
   );
 };

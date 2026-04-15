@@ -8,8 +8,15 @@ class Shipment extends Model
 {
     // These are the fields we allow React to fill
     protected $fillable = [
-        'origin_type', 'shipment_number', 
-        'container_type', 'tentative_arrival', 'status', 'location', 'shipment_status'
+        'origin_type',
+        'shipment_purpose',        // 👈 ADDED
+        'shipment_number', 
+        'container_type',
+        'tentative_arrival',
+        'status',
+        'location',
+        'shipment_status',
+        'added_to_inventory',       // 👈 ADDED
     ];
 
     // This defines that one Shipment has many Projects inside it
