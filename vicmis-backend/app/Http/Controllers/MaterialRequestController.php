@@ -95,78 +95,67 @@ class MaterialRequestController extends Controller
                 ? (is_array($request->status) ? $request->status : [$request->status])
                 : ['pending', 'reordering'];
 
-            $perPage = $request->input('per_page', 20);
-            
             $query = MaterialRequest::with('items')
                 ->whereIn('status', $status)
-                ->when($request->project_id, fn($q, $p) => $q->where('project_id', $p))
                 ->latest();
 
-            // Function to process items and attach stock values
-            $processItems = function ($req) {
+            $requests = $query->get();
+
+            $requests->transform(function ($req) {
                 $req->requested_by_name = $req->requester_name ?? 'Unknown';
                 
+                // Process each item in the request
                 $items = $req->items ?? [];
                 foreach ($items as $item) {
-                    $productCode = is_object($item) ? ($item->product_code ?? null) : ($item['product_code'] ?? null);
-                    $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
-                    $description = is_object($item) ? ($item->description ?? null) : ($item['description'] ?? null);
+                    $productCode = is_object($item) ? $item->product_code : ($item['product_code'] ?? null);
+                    $description = is_object($item) ? $item->description : ($item['description'] ?? null);
                     
                     $inv = null;
 
+                    // 1. Search by Code first
                     if (!empty($productCode)) {
-                        $inv = WarehouseInventory::where('product_code', $productCode)
-                            ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
-                            ->first();
-
-                        if (!$inv) {
-                            $inv = WarehouseInventory::where('product_code', $productCode)->first();
-                        }
+                        $inv = WarehouseInventory::where('product_code', $productCode)->first();
                     }
 
+                    // 2. If not found by code, search by Description (matches 'product_name' in DB)
                     if (!$inv && !empty($description)) {
-                        $inv = WarehouseInventory::where('product_name', $description)
+                        $inv = WarehouseInventory::where('product_name', 'LIKE', '%' . $description . '%')
                             ->orWhere('product_code', $description)
                             ->first();
                     }
 
-                    $currentStock = $inv->current_stock ?? 0;
-                    $stockStatus = $inv->availability ?? 'NO STOCK';
-                    
+                    // 3. Attach exact database values
+                    $stockVal = $inv ? $inv->current_stock : 0;
+                    $statusVal = $inv ? $inv->availability : 'NO STOCK';
+                    $actualCode = $inv ? $inv->product_code : ($productCode ?? 'N/A');
+
                     if (is_object($item)) {
-                        $item->current_stock = $currentStock;
-                        $item->stock_status = $stockStatus;
-                        if (empty($item->product_code) && $inv) {
-                            $item->product_code = $inv->product_code; 
-                        }
+                        $item->current_stock = $stockVal;
+                        $item->stock_status = $statusVal;
+                        $item->product_code = $actualCode;
                     } else {
-                        $item['current_stock'] = $currentStock;
-                        $item['stock_status'] = $stockStatus;
-                        if (empty($item['product_code']) && $inv) {
-                            $item['product_code'] = $inv->product_code;
+                        // If items is an array (JSON cast)
+                        $updatedItems = $req->items;
+                        foreach($updatedItems as &$it) {
+                            if(($it['product_code'] ?? '') == $productCode || ($it['description'] ?? '') == $description) {
+                                $it['current_stock'] = $stockVal;
+                                $it['stock_status'] = $statusVal;
+                                $it['product_code'] = $actualCode;
+                            }
                         }
+                        $req->items = $updatedItems;
                     }
                 }
                 return $req;
-            };
+            });
 
-            if ($perPage >= 9999) {
-                $requests = $query->get();
-                $requests->transform($processItems);
-                return response()->json(['data' => $requests, 'total' => $requests->count()]);
-            }
-
-            $paginated = $query->paginate($perPage);
-            $paginated->getCollection()->transform($processItems);
-
-            return response()->json($paginated);
+            return response()->json(['data' => $requests, 'total' => $requests->count()]);
             
         } catch (\Exception $e) {
             \Log::error('getPending Error: ' . $e->getMessage());
             return response()->json(['data' => [], 'total' => 0]);
         }
     }
-
     // =========================================================================
     // POST /projects/{id}/material-requests
     // =========================================================================
