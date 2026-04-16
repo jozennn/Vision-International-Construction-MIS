@@ -207,6 +207,20 @@ const Project = ({ user, projects, setProjects }) => {
 
   const isWaitingOnlyPhase = WAITING_ONLY_PHASES.has(status);
 
+  const SHOW_BACK_BUTTON_FOR = [
+  'Measurement based on Plan',
+  'Actual Measurement',
+  'Pending Head Review',
+  'Initial Site Inspection',
+  'Checking of Delivery of Materials',
+  'Pending DR Verification',
+  'Deployment and Orientation of Installers',
+  'Site Inspection & Quality Checking',
+  'Pending QA Verification',
+  'Final Site Inspection with the Client',
+  'Signing of COC',
+];
+
   return (
     <div className="pm-container">
 
@@ -228,8 +242,7 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {/* Hide back button when project is Completed or Archived */}
-          {previousPhase && !isWaitingOnlyPhase && status !== 'Completed' && status !== 'Archived' && (
+          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
