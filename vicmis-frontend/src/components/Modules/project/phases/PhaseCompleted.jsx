@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseCompleted.css';
 
@@ -117,8 +117,29 @@ const InstallerPanel = ({ project, trackingData }) => {
 
 // ─── PANEL 2: Timeline / Gantt Summary ────────────────────────────────────────
 const TimelinePanel = ({ project, trackingData }) => {
-  const tasks = trackingData?.timeline_tasks ?? [];
+  // Extract tasks from trackingData.timeline_tasks
+  // The data structure from the backend stores tasks in timeline_tracking JSON
+  const getTasks = () => {
+    // Check multiple possible locations for timeline data
+    if (trackingData?.timeline_tasks && Array.isArray(trackingData.timeline_tasks)) {
+      return trackingData.timeline_tasks;
+    }
+    if (trackingData?.timeline_tracking && typeof trackingData.timeline_tracking === 'object') {
+      if (Array.isArray(trackingData.timeline_tracking.tasks)) {
+        return trackingData.timeline_tracking.tasks;
+      }
+      if (Array.isArray(trackingData.timeline_tracking)) {
+        return trackingData.timeline_tracking;
+      }
+    }
+    if (trackingData?.tasks && Array.isArray(trackingData.tasks)) {
+      return trackingData.tasks;
+    }
+    return [];
+  };
 
+  const tasks = getTasks();
+  
   const regularTasks = tasks.filter(t => t.type !== 'group');
   const groups = tasks.filter(t => t.type === 'group');
 
@@ -133,7 +154,7 @@ const TimelinePanel = ({ project, trackingData }) => {
 
   // Compute percent done per task
   const getTaskPercent = (task) => {
-    if (task.percent != null) return Number(task.percent);
+    if (task.percent != null && !isNaN(parseFloat(task.percent))) return Number(task.percent);
     if (task.actualDates) {
       const ts = parseDate(task.start);
       const te = parseDate(task.end);
@@ -157,7 +178,7 @@ const TimelinePanel = ({ project, trackingData }) => {
           <h4 className="pc-panel-title">Project Timeline</h4>
           <p className="pc-panel-sub">
             {totalDays > 0 ? `${totalDays}-day project` : 'Duration not set'}
-            {projectStart && ` · ${fmtDate(projectStart.toISOString().slice(0,10))} → ${fmtDate(projectEnd.toISOString().slice(0,10))}`}
+            {projectStart && projectEnd && ` · ${fmtDate(projectStart.toISOString().slice(0,10))} → ${fmtDate(projectEnd.toISOString().slice(0,10))}`}
           </p>
         </div>
         <div className="pc-panel-badge" style={{ background: overallPercent >= 100 ? '#16a34a' : '#C20100' }}>
@@ -234,7 +255,21 @@ const TimelinePanel = ({ project, trackingData }) => {
 
 // ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
 const MaterialsPanel = ({ project, trackingData }) => {
-  const items = trackingData?.material_items ?? [];
+  // Extract material items from multiple possible locations
+  const getMaterialItems = () => {
+    if (trackingData?.material_items && Array.isArray(trackingData.material_items)) {
+      return trackingData.material_items;
+    }
+    if (trackingData?.materials_tracking && Array.isArray(trackingData.materials_tracking)) {
+      return trackingData.materials_tracking;
+    }
+    if (project?.material_items && Array.isArray(project.material_items)) {
+      return project.material_items;
+    }
+    return [];
+  };
+
+  const items = getMaterialItems();
 
   // Deduplicate by name+description
   const deduped = (() => {
@@ -256,8 +291,18 @@ const MaterialsPanel = ({ project, trackingData }) => {
   const totalDelivered = (item) =>
     (item.deliveries ?? []).reduce((s, d) => s + Number(d.qty ?? 0), 0);
 
-  const totalInstalled = (item) =>
-    Object.values(item.installed ?? {}).reduce((s, v) => s + Number(v ?? 0), 0);
+  const totalInstalled = (item) => {
+    // installed can be an object keyed by date, or an array, or a number
+    const installed = item.installed;
+    if (!installed) return 0;
+    
+    if (typeof installed === 'number') return installed;
+    if (Array.isArray(installed)) return installed.reduce((s, v) => s + (Number(v) || 0), 0);
+    if (typeof installed === 'object') {
+      return Object.values(installed).reduce((s, v) => s + (Number(v) || 0), 0);
+    }
+    return 0;
+  };
 
   const grandDelivered = deduped.reduce((s, i) => s + totalDelivered(i), 0);
   const grandInstalled = deduped.reduce((s, i) => s + totalInstalled(i), 0);
@@ -326,9 +371,9 @@ const MaterialsPanel = ({ project, trackingData }) => {
               <thead>
                 <tr>
                   <th className="th-left">Material</th>
-                  <th>Del.</th>
+                  <th>Delivered</th>
                   <th>Installed</th>
-                  <th>Left</th>
+                  <th>Remaining</th>
                 </tr>
               </thead>
               <tbody>
@@ -372,6 +417,11 @@ const PhaseCompleted = ({ project, onAdvance, trackingData }) => {
     setShowArchiveModal(false);
     onAdvance('Archived');
   };
+
+  // Log the tracking data structure for debugging
+  console.log('Tracking Data in PhaseCompleted:', trackingData);
+  console.log('Timeline tasks:', trackingData?.timeline_tasks);
+  console.log('Material items:', trackingData?.material_items);
 
   return (
     <div className="pc-wrapper">
