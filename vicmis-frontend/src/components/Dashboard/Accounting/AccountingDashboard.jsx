@@ -3,7 +3,7 @@ import api from '@/api/axios';
 import {
   Truck, Ship, Plus, Loader2, RefreshCw, Layers,
   Trash2, Globe, Building2, Package, ChevronDown,
-  Box, FolderOpen, AlertTriangle, RotateCcw, CheckCircle
+  Box, FolderOpen, AlertTriangle, RotateCcw, CheckCircle, XCircle
 } from 'lucide-react';
 import './AccountingDashboard.css';
 
@@ -37,7 +37,6 @@ const buildEmptyForm = () => ({
   status:           'ONGOING PRODUCTION',
   location:         '',
   shipment_status:  'WAITING',
-  tentative_arrival: '',
 });
 
 const STATUS_CLASS = {
@@ -60,7 +59,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, loading
           <h3 className="ac-confirm-title">{title}</h3>
         </div>
         <div className="ac-confirm-body">
-          <p style={{ whiteSpace: 'pre-line' }}>{message}</p>
+          <div className="ac-confirm-message">{message}</div>
         </div>
         <div className="ac-confirm-footer">
           <button className="ac-confirm-cancel" onClick={onClose} disabled={loading}>
@@ -75,30 +74,34 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, loading
   );
 };
 
-// ─── Error Modal ──────────────────────────────────────────────────────────────
-const ErrorModal = ({ isOpen, onClose, errors, title = 'Validation Error' }) => {
+// ─── Error Modal with better styling ──────────────────────────────────────────
+const ErrorModal = ({ isOpen, onClose, errors, title = 'Cannot Register Shipment' }) => {
   if (!isOpen) return null;
+  
+  const errorList = Array.isArray(errors) ? errors : [errors];
   
   return (
     <div className="ac-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="ac-error-modal">
         <div className="ac-error-header">
           <div className="ac-error-icon">
-            <AlertTriangle size={20} />
+            <XCircle size={28} />
           </div>
           <h3 className="ac-error-title">{title}</h3>
+          <button className="ac-error-close-btn" onClick={onClose}>✕</button>
         </div>
         <div className="ac-error-body">
           <ul className="ac-error-list">
-            {Array.isArray(errors) ? errors.map((err, i) => (
-              <li key={i}>{err}</li>
-            )) : (
-              <li>{errors}</li>
-            )}
+            {errorList.map((err, i) => (
+              <li key={i}>
+                <span className="ac-error-bullet">•</span>
+                <span>{err}</span>
+              </li>
+            ))}
           </ul>
         </div>
         <div className="ac-error-footer">
-          <button className="ac-error-close" onClick={onClose}>
+          <button className="ac-error-button" onClick={onClose}>
             Got it
           </button>
         </div>
@@ -429,7 +432,7 @@ const AccountingDashboard = ({ user }) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);
       const [delRes, shipRes, reportRes, reorderRes] = await Promise.all([
-        api.get('/inventory/logistics'),
+        api.get('/inventory/logistics').catch(() => ({ data: [] })),
         api.get('/inventory/shipments'),
         api.get('/inventory/shipments/reports').catch(() => ({ data: [] })),
         api.get('/inventory/reorder-requests').catch(() => ({ data: [] })),
@@ -528,7 +531,6 @@ const AccountingDashboard = ({ user }) => {
     setShowConfirmModal(false);
     
     try {
-      // Clean up the payload - remove UI-specific fields
       const payload = {
         origin_type: form.origin_type,
         shipment_purpose: form.shipment_purpose,
@@ -537,7 +539,6 @@ const AccountingDashboard = ({ user }) => {
         status: form.status,
         location: form.location || null,
         shipment_status: form.shipment_status,
-        tentative_arrival: form.tentative_arrival || null,
         projects: form.projects.map(({ _catMode, _codeMode, ...rest }) => rest),
       };
       
@@ -555,32 +556,28 @@ const AccountingDashboard = ({ user }) => {
       const errorData = err.response?.data;
       const statusCode = err.response?.status;
       
-      if (statusCode === 422) {
+      if (statusCode === 422 && errorData?.errors) {
         const serverErrors = [];
-        const errors = errorData?.errors || {};
-        Object.keys(errors).forEach(key => {
-          if (Array.isArray(errors[key])) {
-            serverErrors.push(`${key}: ${errors[key].join(', ')}`);
+        Object.keys(errorData.errors).forEach(key => {
+          if (Array.isArray(errorData.errors[key])) {
+            serverErrors.push(`${key.replace('projects.', 'Item ')}: ${errorData.errors[key].join(', ')}`);
           } else {
-            serverErrors.push(errors[key]);
+            serverErrors.push(errorData.errors[key]);
           }
         });
-        if (serverErrors.length === 0 && errorData?.message) {
-          serverErrors.push(errorData.message);
-        }
         setValidationErrors(serverErrors);
         setShowErrorModal(true);
-      } else if (statusCode === 500) {
-        setValidationErrors([
-          'Internal server error. Please check:',
-          '1. All required fields are filled',
-          '2. Product category and code exist in inventory',
-          '3. Shipment number is unique',
-          'If problem persists, contact support.'
-        ]);
+      } else if (errorData?.message) {
+        setValidationErrors([errorData.message]);
         setShowErrorModal(true);
       } else {
-        setValidationErrors([errorData?.message || 'Failed to register shipment. Please try again.']);
+        setValidationErrors([
+          'Unable to register shipment. Please check:',
+          '• All fields are filled correctly',
+          '• Product codes exist in inventory',
+          '• Shipment number is unique',
+          'Contact support if issue persists.'
+        ]);
         setShowErrorModal(true);
       }
     } finally {
@@ -646,7 +643,6 @@ const AccountingDashboard = ({ user }) => {
         isOpen={showErrorModal}
         onClose={() => setShowErrorModal(false)}
         errors={validationErrors}
-        title="Cannot Register Shipment"
       />
 
       <header className="ac-header">
@@ -791,13 +787,6 @@ const AccountingDashboard = ({ user }) => {
                     value={form.location}
                     onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
                 </div>
-              </div>
-
-              <div className="ac-form-group">
-                <label className="ac-label">Tentative Arrival Date</label>
-                <input type="date" className="ac-input"
-                  value={form.tentative_arrival}
-                  onChange={e => setForm(f => ({ ...f, tentative_arrival: e.target.value }))} />
               </div>
 
               <div className="ac-form-group">
