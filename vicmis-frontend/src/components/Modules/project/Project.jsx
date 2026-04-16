@@ -228,7 +228,8 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && !isWaitingOnlyPhase && (
+          {/* Hide back button when project is Completed or Archived */}
+          {previousPhase && !isWaitingOnlyPhase && status !== 'Completed' && status !== 'Archived' && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
