@@ -756,6 +756,56 @@
   display: none;
 }
 
+/* BOQ Total Card */
+.pc-boq-total-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 0 16px 16px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pc-boq-total-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+
+.pc-boq-total-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.5px;
+}
+
+/* Material Table Footer */
+.pc-mat-footer {
+  background: #f3f4f6;
+  border-top: 2px solid #e5e7eb;
+}
+
+.pc-footer-label {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.pc-footer-value {
+  font-weight: 800;
+  color: #fbbf24;
+  font-size: 14px;
+  text-align: right;
+}
+
+.td-right {
+  text-align: right;
+  padding-right: 16px;
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */

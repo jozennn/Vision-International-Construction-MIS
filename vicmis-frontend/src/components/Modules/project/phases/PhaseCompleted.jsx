@@ -35,6 +35,15 @@ const parseDate = (str) => {
   return isNaN(d) ? null : d;
 };
 
+const formatCurrency = (amount) => {
+  if (!amount || amount === 0) return '₱0.00';
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 2,
+  }).format(amount);
+};
+
 // ─── PANEL 1: Installer Summary ────────────────────────────────────────────────
 const InstallerPanel = ({ project }) => {
   const resolveRoster = () => {
@@ -99,7 +108,7 @@ const InstallerPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 2: Timeline Summary (No Progress Bars) ─────────────────────────────
+// ─── PANEL 2: Timeline Summary ─────────────────────────────────────────────
 const TimelinePanel = ({ project }) => {
   const getTasks = () => {
     if (project?.timeline_tracking) {
@@ -131,7 +140,6 @@ const TimelinePanel = ({ project }) => {
   
   const regularTasks = tasks.filter(t => t.type !== 'group');
   
-  // Compute overall project dates
   const allStarts = regularTasks.map(t => parseDate(t.start)).filter(Boolean);
   const allEnds   = regularTasks.map(t => parseDate(t.end)).filter(Boolean);
   const projectStart = allStarts.length > 0 ? new Date(Math.min(...allStarts)) : null;
@@ -140,16 +148,13 @@ const TimelinePanel = ({ project }) => {
     ? Math.round((projectEnd - projectStart) / 86400000) + 1
     : 0;
 
-  // Get actual completion date for a task
   const getActualCompletionDate = (task) => {
     if (task.actualDates) {
-      // Find the last date that was marked as complete
       const completedDates = Object.entries(task.actualDates)
         .filter(([, completed]) => completed === true)
         .map(([date]) => date);
       
       if (completedDates.length > 0) {
-        // Return the latest completion date
         completedDates.sort();
         return completedDates[completedDates.length - 1];
       }
@@ -157,7 +162,6 @@ const TimelinePanel = ({ project }) => {
     return null;
   };
 
-  // Get actual start date for a task
   const getActualStartDate = (task) => {
     if (task.actualDates) {
       const startedDates = Object.entries(task.actualDates)
@@ -256,7 +260,7 @@ const TimelinePanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
+// ─── PANEL 3: Materials Summary with BOQ Grand Total ───────────────────────────
 const MaterialsPanel = ({ project }) => {
   const getMaterialItems = () => {
     if (project?.material_items) {
@@ -276,6 +280,41 @@ const MaterialsPanel = ({ project }) => {
   };
 
   const items = getMaterialItems();
+
+  // Get BOQ grand total from project (actual BOQ if approved, otherwise plan BOQ)
+  const getBoqGrandTotal = () => {
+    // First check if there's an approved actual BOQ
+    if (project?.final_boq) {
+      let boq = project.final_boq;
+      if (typeof boq === 'string') {
+        try {
+          boq = JSON.parse(boq);
+        } catch (e) {
+          return 0;
+        }
+      }
+      if (Array.isArray(boq)) {
+        return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
+      }
+    }
+    
+    // Check plan BOQ
+    if (project?.plan_boq) {
+      let boq = project.plan_boq;
+      if (typeof boq === 'string') {
+        try {
+          boq = JSON.parse(boq);
+        } catch (e) {
+          return 0;
+        }
+      }
+      if (Array.isArray(boq)) {
+        return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
+      }
+    }
+    
+    return 0;
+  };
 
   const deduped = (() => {
     const seen = new Map();
@@ -312,6 +351,8 @@ const MaterialsPanel = ({ project }) => {
   const grandInstalled = deduped.reduce((s, i) => s + totalInstalled(i), 0);
   const grandRemaining = grandDelivered - grandInstalled;
   const installPct = grandDelivered > 0 ? Math.round((grandInstalled / grandDelivered) * 100) : 0;
+  
+  const boqTotal = getBoqGrandTotal();
 
   return (
     <div className="pc-panel">
@@ -328,6 +369,14 @@ const MaterialsPanel = ({ project }) => {
           {installPct}%
         </div>
       </div>
+
+      {/* BOQ Grand Total Card */}
+      {boqTotal > 0 && (
+        <div className="pc-boq-total-card">
+          <span className="pc-boq-total-label">Total Contract Value (BOQ)</span>
+          <span className="pc-boq-total-value">{formatCurrency(boqTotal)}</span>
+        </div>
+      )}
 
       <div className="pc-mat-chips">
         <div className="pc-mat-chip chip-delivered">
@@ -400,6 +449,16 @@ const MaterialsPanel = ({ project }) => {
                   );
                 })}
               </tbody>
+              {boqTotal > 0 && (
+                <tfoot>
+                  <tr className="pc-mat-footer">
+                    <td className="td-left pc-footer-label">BOQ Grand Total</td>
+                    <td colSpan="3" className="td-right pc-footer-value">
+                      {formatCurrency(boqTotal)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
