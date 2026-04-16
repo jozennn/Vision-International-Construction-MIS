@@ -745,6 +745,12 @@
   .pc-archive-card   { padding: 20px 16px; flex-direction: column; align-items: flex-start; }
 }
 
+
+.pc-wrapper ~ button:contains("Back to Request Billing"),
+button:has(svg):contains("Request Billing") {
+  display: none !important;
+}
+
 /* ============================================================
    PRINT
    ============================================================ */
