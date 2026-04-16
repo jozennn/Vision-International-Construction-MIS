@@ -291,19 +291,19 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
   );
 };
 
-// ─── Report / Return Modal ────────────────────────────────────────────────────
+// ─── Report / Return Modal (FIXED) ────────────────────────────────────────────
 const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
   const projects = Array.isArray(shipment.projects) ? shipment.projects : [];
 
   const [reports, setReports] = useState(
     projects.map(p => ({
       product_category:  p.product_category || '',
-      product_code:      p.product_code     || '',   // ← FIX: always default to '' not undefined
+      product_code:      p.product_code     || '',
       unit:              p.unit             || 'Pcs',
       max_quantity:      parseInt(p.quantity || 0),
       issue:             '',
       condition:         'Damaged',
-      quantity_affected: 1,
+      quantity_affected: '',  // Start empty - user must enter quantity
       selected:          false,
     }))
   );
@@ -320,12 +320,15 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
 
   const selected = reports.filter(r => r.selected);
 
-  // Disable submit if: nothing selected, or any selected row has empty issue or empty product_code
+  // Validation: requires quantity_affected to be a valid positive number and issue not empty
   const isSubmitDisabled =
     selected.length === 0 ||
     submitting ||
     selected.some(r => !r.issue.trim()) ||
-    selected.some(r => !r.product_code.trim());
+    selected.some(r => {
+      const qty = parseInt(r.quantity_affected);
+      return isNaN(qty) || qty < 1;
+    });
 
   return (
     <div className="is-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -363,10 +366,9 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
 
                   {row.selected && (
                     <div className="is-report-fields">
-
                       {/* ── Quantity Affected ── */}
                       <div className="is-field">
-                        <label>Quantity Affected</label>
+                        <label>Quantity Affected <span className="is-required">*</span></label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input
                             type="number"
@@ -374,22 +376,27 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
                             min={1}
                             max={row.max_quantity || undefined}
                             value={row.quantity_affected}
-                            onChange={e =>
-                              update(i, 'quantity_affected',
-                                Math.max(1, Math.min(parseInt(e.target.value) || 1, row.max_quantity || Infinity))
-                              )
-                            }
+                            onChange={e => {
+                              const val = e.target.value;
+                              update(i, 'quantity_affected', val === '' ? '' : Math.min(parseInt(val) || 1, row.max_quantity || Infinity));
+                            }}
                             style={{ width: 90 }}
+                            placeholder="Enter qty"
                           />
                           <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
                             / {row.max_quantity} {row.unit}
                           </span>
                         </div>
+                        {(!row.quantity_affected || row.quantity_affected === '') && (
+                          <p style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: 4 }}>
+                            Please enter quantity affected
+                          </p>
+                        )}
                       </div>
 
-                      {/* ── Issue / Reason — textarea ── */}
+                      {/* ── Issue / Reason ── */}
                       <div className="is-field">
-                        <label>Issue / Reason</label>
+                        <label>Issue / Reason <span className="is-required">*</span></label>
                         <textarea
                           className="is-input"
                           rows={3}
@@ -398,6 +405,11 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
                           onChange={e => update(i, 'issue', e.target.value)}
                           style={{ resize: 'vertical', minHeight: 72 }}
                         />
+                        {!row.issue.trim() && (
+                          <p style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: 4 }}>
+                            Please describe the issue
+                          </p>
+                        )}
                       </div>
 
                       {/* ── Condition ── */}
@@ -417,7 +429,6 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
                           <ChevronDown size={13} className="is-select-icon" />
                         </div>
                       </div>
-
                     </div>
                   )}
                 </div>
@@ -464,7 +475,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       const res  = await api.get('/inventory/shipments');
       const data = res.data || [];
 
-      // Ensure each shipment has a projects array
       const shipmentsWithProjects = data.map(s => ({
         ...s,
         projects: Array.isArray(s.projects) ? s.projects : [],
@@ -514,7 +524,7 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
     }
   };
 
-  // ─── FIX: include quantity_affected in payload ────────────────────────────
+  // Handle report submission - includes quantity_affected
   const handleReportSubmit = async (shipment, selectedItems) => {
     setReportSubmitting(true);
     try {
@@ -526,7 +536,7 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
           product_code,
           issue,
           condition,
-          quantity_affected,
+          quantity_affected: parseInt(quantity_affected) || 0,
         })),
       };
       await api.post('/inventory/shipments/report', payload);
