@@ -238,7 +238,9 @@ const UserManagement = ({ user }) => {
                             borderColor: `${ROLE_COLORS[emp.role] || '#64748b'}30`,
                           }}
                         >
-                          {emp.role.replace(/_/g, ' ')}
+                            {emp.role === 'accounting_employee' 
+                                ? 'Procurement Employee' 
+                                  : emp.role.replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td data-label="Actions" className="um-td-actions">

@@ -393,7 +393,7 @@ const InstallerMonitoring = ({ project, user }) => {
     if (loading) return <div className="mon-loading">⏳ Loading logs...</div>;
 
     return (
-        <div className="mon-section">
+        <div className="mon-section" style={{ minWidth: 0, width: '100%', overflowX: 'hidden' }}>
             {/* Header */}
             <div className="mon-page-header">
                 <div className="mon-header-meta">
@@ -437,7 +437,7 @@ const InstallerMonitoring = ({ project, user }) => {
                         <span className="mon-input-label">📅 Log Date</span>
                         <input type="date" value={selectedDate}
                             onChange={e => setSelectedDate(e.target.value)}
-                            className="mon-date-input-inline" />
+                            className="mon-date-input-inline" style={{ width: '100%', maxWidth: '100%' }} />
                         <span className={`mon-date-status ${logExists ? 'exists' : 'new'}`}>
                             {logExists ? '✅ Log exists' : '🆕 New entry'}
                         </span>
@@ -449,7 +449,7 @@ const InstallerMonitoring = ({ project, user }) => {
                     <div className="mon-block-header">
                         <span className="mon-block-title">📅 Timeline Logs</span>
                     </div>
-                    <div className="mon-timeline-paired">
+                    <div className="mon-timeline-paired" style={{ flexWrap: 'wrap' }}>
                         <div className="mon-timeline-col">
                             <div className="mon-input-group">
                                 <span className="mon-input-label">From Client — Start</span>
@@ -496,13 +496,13 @@ const InstallerMonitoring = ({ project, user }) => {
                         <table className="mon-table">
                             <thead>
                                 <tr>
-                                    <th style={{ width: 36 }}>#</th>
+                                    <th style={{ width: 36, minWidth: 36 }}>#</th>
                                     <th className="th-left" style={{ minWidth: 120 }}>Name</th>
                                     <th className="th-left" style={{ minWidth: 100 }}>Position</th>
                                     <th style={{ minWidth: 80 }}>Time In</th>
                                     <th style={{ minWidth: 80 }}>Time Out</th>
                                     <th style={{ minWidth: 100 }}>Remarks</th>
-                                    <th style={{ width: 36 }}></th>
+                                    <th style={{ width: 36, minWidth: 36 }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -548,7 +548,7 @@ const InstallerMonitoring = ({ project, user }) => {
                         </table>
                     </div>
                     {roster.length > 0 && (
-                        <div className="mon-roster-summary">
+                        <div className="mon-roster-summary" style={{ flexWrap: 'wrap' }}>
                             {['Lead Installer', 'Installer', 'Helper', 'Supervisor'].map(pos => {
                                 const count = roster.filter(r => r.position === pos).length;
                                 return count > 0 ? (
@@ -569,11 +569,11 @@ const InstallerMonitoring = ({ project, user }) => {
                           ['Team Photo 1',        photo1,    setPhoto1,    file1Ref],
                           ['Team Photo 2',        photo2,    setPhoto2,    file2Ref]
                         ].map(([label, state, setter, ref]) => (
-                            <div key={label} className="mon-photo-item">
+                            <div key={label} className="mon-photo-item" style={{ minWidth: 0 }}>
                                 <span className="mon-photo-label">{label}</span>
-                                <label className={`mon-upload-trigger ${state ? 'has-file' : ''}`}>
+                                <label className={`mon-upload-trigger ${state ? 'has-file' : ''}`} style={{ flexWrap: 'wrap' }}>
                                     <span className="mon-upload-icon">{state ? '✅' : '📎'}</span>
-                                    <span className="mon-upload-name">
+                                    <span className="mon-upload-name" style={{ wordBreak: 'break-word' }}>
                                         {state ? state.name : 'Click to choose image…'}
                                     </span>
                                     <input type="file" accept="image/*" ref={ref}
@@ -588,7 +588,7 @@ const InstallerMonitoring = ({ project, user }) => {
                 {/* History */}
                 {allLogs.length > 0 && (
                     <div className="mon-history">
-                        <div className="mon-history-header">
+                        <div className="mon-history-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
                             <div>
                                 <span className="mon-history-title">Log History</span>
                                 <span className="mon-history-count">{allLogs.length}</span>
@@ -602,9 +602,9 @@ const InstallerMonitoring = ({ project, user }) => {
                                 {allLogs.map(l => (
                                     <div key={l.id} className="mon-history-item"
                                         onClick={() => setSelectedDate(l.log_date)}>
-                                        <div>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
                                             <div className="mon-history-date">{l.log_date}</div>
-                                            <div className="mon-history-meta">
+                                            <div className="mon-history-meta" style={{ wordBreak: 'break-word' }}>
                                                 {l.accomplishment_percent ?? 0}% · Area: {l.total_area ?? '—'}
                                             </div>
                                         </div>

@@ -393,7 +393,7 @@ const Settings = ({ user }) => {
                     <option value="Sales">Sales</option>
                     <option value="Logistics">Logistics</option>
                     <option value="Engineering">Engineering</option>
-                    <option value="Accounting/Procurement">Accounting/Procurement</option>
+                    <option value="Procurement">Procurement</option>
                     <option value="HR">Human Resources</option>
                   </select>
                 </div>
@@ -407,7 +407,7 @@ const Settings = ({ user }) => {
                     <option value="sales_employee">Sales Employee</option>
                     <option value="engineering_employee">Engineering Employee</option>
                     <option value="logistics_employee">Logistics Employee</option>
-                    <option value="accounting_employee">Accounting Employee</option>
+                    <option value="accounting_employee">Procurement Employee</option>
                   </select>
                 </div>
               </div>

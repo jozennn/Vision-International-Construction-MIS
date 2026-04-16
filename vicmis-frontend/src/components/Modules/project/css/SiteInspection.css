@@ -38,6 +38,8 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0 0.5rem;
+  max-width: 100%;
+  min-width: 0; /* CRITICAL FIX */
 }
 
 /* ─── FORM CARD ──────────────────────────────────────────────── */
@@ -50,6 +52,7 @@
   position: relative;
   width: 100%;
   box-sizing: border-box;
+  min-width: 0; /* CRITICAL FIX */
 }
 
 /* Red accent bar at top */
@@ -69,6 +72,7 @@
   background: var(--si-white);
   border-bottom: 3px solid var(--si-black);
   position: relative;
+  flex-wrap: wrap; /* CRITICAL FIX */
 }
 
 .si-letterhead::after {
@@ -132,6 +136,7 @@
   letter-spacing: .06em;
   text-transform: uppercase;
   line-height: 1.1;
+  word-wrap: break-word;
 }
 
 .si-company-tagline {
@@ -165,6 +170,7 @@
   border-bottom: 3px solid var(--si-red);
   position: relative;
   overflow: hidden;
+  word-wrap: break-word;
 }
 
 .si-form-title::after {
@@ -261,7 +267,7 @@
 .si-field-textarea:focus { border-color: var(--si-red); box-shadow: 0 0 0 3px rgba(194,1,0,.10); }
 
 /* ─── CHECKLIST TABLE ────────────────────────────────────────── */
-.si-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.si-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
 
 .si-table {
   width: 100%;

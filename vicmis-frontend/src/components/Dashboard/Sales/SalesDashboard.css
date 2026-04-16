@@ -163,12 +163,26 @@
   display:flex; align-items:center; justify-content:center;
 }
 
-.sd-stat-body { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }
-
+.sd-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  /* ADD THIS: */
+  padding-right: 60px; 
+}
 .sd-stat-value {
-  font-size: 1.9rem; font-weight: 800;
-  color: var(--text-pri); line-height: 1;
+  font-size: 1.9rem;
+  font-weight: 800;
+  color: var(--text-pri);
+  line-height: 1;
   letter-spacing: -.03em;
+  /* ADD THESE: */
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap; 
 }
 .sd-stat-label {
   font-size: .68rem; font-weight: 700;
@@ -186,10 +200,17 @@
 .sd-tag--red   { background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; }
 
 .sd-stat-trend {
-  position: absolute; top:1rem; right:1rem;
-  display:flex; align-items:center; gap:2px;
-  font-size:.7rem; font-weight:700;
-  padding: 3px 8px; border-radius:999px;
+  position: absolute;
+  top: 0.75rem;   /* Moved slightly higher */
+  right: 0.75rem; /* Moved slightly more to the right */
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  z-index: 5;    /* Ensures it stays on top of card borders */
 }
 .sd-stat-trend--up   { background:#ECFDF5; color:#065F46; }
 .sd-stat-trend--down { background:#FEF2F2; color:#991B1B; }

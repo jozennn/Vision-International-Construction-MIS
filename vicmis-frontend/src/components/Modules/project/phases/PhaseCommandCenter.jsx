@@ -1,3 +1,4 @@
+// src/phases/PhaseCommandCenter.jsx
 import React, { useState, useMemo } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import InstallerMonitoring from './InstallerMonitoring.jsx';
@@ -10,28 +11,23 @@ import '../css/PhaseCommandCenter.css';
 const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSubmit, onClose, submitting, requesterName }) => (
   <div className="pm-modal-overlay">
     <div className="pm-modal-content pm-modal-orange large">
-      <div className="pm-flex-between mb-4">
+      <div className="pm-flex-between mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
         <h3 className="pm-title-lg pm-text-orange">📦 Material Requisition Alert</h3>
         <button onClick={onClose} className="pm-close-btn">✕</button>
       </div>
 
       {/* Requester info */}
       <div className="pm-requester-info" style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '10px 14px',
-        background: '#f0f9ff',
-        border: '1px solid #bae6fd',
-        borderRadius: '8px',
-        marginBottom: '16px'
+        display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px',
+        background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px',
+        marginBottom: '16px', flexWrap: 'wrap'
       }}>
         <span style={{ fontSize: '18px' }}>👤</span>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#0369a1', display: 'block' }}>
             Requested By
           </span>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e' }}>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#0c4a6e', wordBreak: 'break-word' }}>
             {requesterName || '—'}
           </span>
         </div>
@@ -41,8 +37,8 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
         Select items from the approved Final BOQ to request delivery from Logistics.
       </p>
 
-      <div className="pm-modal-table-scroll">
-        <table className="pm-table text-center">
+      <div className="pm-modal-table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+        <table className="pm-table text-center" style={{ minWidth: '600px' }}>
           <thead className="pm-thead-sticky">
             <tr>
               <th className="text-left">Category</th>
@@ -64,48 +60,31 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
 
               return (
                 <tr key={idx} className={isSel ? 'pm-tr-selected' : ''}>
-                  <td className="text-left">
-                    <span className="pm-category-badge">
-                      {item.product_category || '—'}
-                    </span>
-                  </td>
+                  <td className="text-left"><span className="pm-category-badge">{item.product_category || '—'}</span></td>
                   <td className="pm-td-bold text-left">
                     {item.product_code || '—'}
                     {item.description && item.description !== item.product_code && (
-                      <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
+                      <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400, wordBreak: 'break-word' }}>
                         {item.description}
                       </div>
                     )}
                   </td>
                   <td>{item.unit || '—'}</td>
                   <td>
-                    {unitCost > 0
-                      ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : '—'}
+                    {unitCost > 0 ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                   </td>
                   <td>
-                    <input
-                      type="number"
-                      placeholder="Qty"
-                      min={0}
+                    <input type="number" placeholder="Qty" min={0}
                       className={`pm-input pm-req-qty-input text-center ${isSel ? 'pm-req-qty-active' : ''}`}
                       value={cur ? cur.requestedQty : ''}
-                      onChange={e => onQtyChange(item, e.target.value)}
-                      disabled={!isSel}
-                    />
+                      onChange={e => onQtyChange(item, e.target.value)} disabled={!isSel}
+                      style={{ width: '100%', maxWidth: '80px' }} />
                   </td>
                   <td style={{ fontWeight: 500, color: isSel && total > 0 ? '#15803d' : 'inherit' }}>
-                    {isSel && total > 0
-                      ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : '—'}
+                    {isSel && total > 0 ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      className="pm-req-checkbox"
-                      checked={isSel}
-                      onChange={e => onToggle(item, e.target.checked)}
-                    />
+                    <input type="checkbox" className="pm-req-checkbox" checked={isSel} onChange={e => onToggle(item, e.target.checked)} />
                   </td>
                 </tr>
               );
@@ -114,11 +93,9 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
         </table>
       </div>
 
-      <div className="pm-grid-2 mt-4">
-        <button className="pm-btn pm-btn-outline" onClick={onClose} disabled={submitting}>
-          Cancel
-        </button>
-        <PrimaryButton variant="orange" onClick={onSubmit} disabled={submitting}>
+      <div className="pm-grid-2 mt-4" style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+        <button className="pm-btn pm-btn-outline" onClick={onClose} disabled={submitting} style={{ width: '100%' }}>Cancel</button>
+        <PrimaryButton variant="orange" onClick={onSubmit} disabled={submitting} style={{ width: '100%' }}>
           {submitting ? '⏳ Sending…' : '🚀 Send Request'}
         </PrimaryButton>
       </div>
@@ -130,94 +107,42 @@ const MaterialReqModal = ({ finalBOQ, requestItems, onQtyChange, onToggle, onSub
 const ProgressBillingModal = ({ project, boqData, user, onClose }) => {
   const items = boqData?.finalBOQ ?? [];
   const grandTotal = items.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
-  const today = new Date().toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const today = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
     <div className="pm-modal-overlay">
       <div className="pm-modal-content pm-modal-navy large">
-
-        {/* Header */}
-        <div className="pm-flex-between mb-4">
+        <div className="pm-flex-between mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
           <div>
-            <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#94a3b8' }}>
-              Progress Billing
-            </p>
-            <h3 className="pm-title-lg" style={{ margin: '4px 0 0' }}>
-              💸 BOQ Cost Summary
-            </h3>
+            <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#94a3b8' }}>Progress Billing</p>
+            <h3 className="pm-title-lg" style={{ margin: '4px 0 0' }}>💸 BOQ Cost Summary</h3>
           </div>
           <button onClick={onClose} className="pm-close-btn">✕</button>
         </div>
 
-        {/* Meta info bar */}
-        <div style={{
-          display: 'flex',
-          gap: '24px',
-          flexWrap: 'wrap',
-          padding: '12px 16px',
-          background: '#f8fafc',
-          borderRadius: '8px',
-          marginBottom: '16px',
-          border: '1px solid #e2e8f0',
-        }}>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Project
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {project?.project_name || '—'}
-            </span>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+          <div style={{ flex: '1 1 min-content' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>Project</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', wordBreak: 'break-word' }}>{project?.project_name || '—'}</span>
           </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Engineer
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {user?.name || user?.username || '—'}
-            </span>
+          <div style={{ flex: '1 1 min-content' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>Engineer</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', wordBreak: 'break-word' }}>{user?.name || user?.username || '—'}</span>
           </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Date Generated
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {today}
-            </span>
+          <div style={{ flex: '1 1 min-content' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>Date</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{today}</span>
           </div>
-          <div>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Location
-            </span>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>
-              {project?.location || '—'}
-            </span>
-          </div>
-          <div style={{ marginLeft: 'auto' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>
-              Status
-            </span>
-            <span style={{
-              display: 'inline-block',
-              marginTop: '2px',
-              fontSize: '12px',
-              fontWeight: 600,
-              padding: '2px 10px',
-              borderRadius: '6px',
-              background: '#fef9c3',
-              color: '#854d0e',
-            }}>
+          <div style={{ flex: '1 1 min-content' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', display: 'block', letterSpacing: '.05em' }}>Status</span>
+            <span style={{ display: 'inline-block', marginTop: '2px', fontSize: '12px', fontWeight: 600, padding: '2px 10px', borderRadius: '6px', background: '#fef9c3', color: '#854d0e' }}>
               {project?.status || 'In Progress'}
             </span>
           </div>
         </div>
 
-        {/* Read-only BOQ table */}
-        <div className="pm-modal-table-scroll">
-          <table className="pm-table text-center">
+        <div className="pm-modal-table-scroll" style={{ width: '100%', overflowX: 'auto' }}>
+          <table className="pm-table text-center" style={{ minWidth: '600px' }}>
             <thead className="pm-thead-sticky">
               <tr>
                 <th className="text-left">Category</th>
@@ -230,41 +155,25 @@ const ProgressBillingModal = ({ project, boqData, user, onClose }) => {
             </thead>
             <tbody>
               {items.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontStyle: 'italic' }}>
-                    No BOQ items found for this project.
-                  </td>
-                </tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontStyle: 'italic' }}>No BOQ items found.</td></tr>
               )}
               {items.map((item, idx) => {
                 const unitCost = parseFloat(item.unitCost) || 0;
                 const total    = parseFloat(item.total) || 0;
                 return (
                   <tr key={idx}>
-                    <td className="text-left">
-                      <span className="pm-category-badge">
-                        {item.product_category || '—'}
-                      </span>
-                    </td>
+                    <td className="text-left"><span className="pm-category-badge">{item.product_category || '—'}</span></td>
                     <td className="pm-td-bold text-left">
                       {item.product_code || '—'}
                       {item.description && item.description !== item.product_code && (
-                        <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>
-                          {item.description}
-                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--pm-text-muted)', fontWeight: 400 }}>{item.description}</div>
                       )}
                     </td>
                     <td>{item.unit || '—'}</td>
                     <td>{item.qty || '—'}</td>
-                    <td>
-                      {unitCost > 0
-                        ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : '—'}
-                    </td>
+                    <td>{unitCost > 0 ? `₱${unitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</td>
                     <td style={{ fontWeight: 600, color: total > 0 ? '#15803d' : 'inherit' }}>
-                      {total > 0
-                        ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : '—'}
+                      {total > 0 ? `₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                     </td>
                   </tr>
                 );
@@ -273,27 +182,8 @@ const ProgressBillingModal = ({ project, boqData, user, onClose }) => {
             {items.length > 0 && (
               <tfoot>
                 <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      textAlign: 'right',
-                      fontWeight: 600,
-                      padding: '12px 8px',
-                      borderTop: '2px solid #e2e8f0',
-                      color: '#374151',
-                    }}
-                  >
-                    Grand Total Budget:
-                  </td>
-                  <td
-                    style={{
-                      fontWeight: 700,
-                      fontSize: '15px',
-                      color: '#0f172a',
-                      padding: '12px 8px',
-                      borderTop: '2px solid #e2e8f0',
-                    }}
-                  >
+                  <td colSpan={5} style={{ textAlign: 'right', fontWeight: 600, padding: '12px 8px', borderTop: '2px solid #e2e8f0', color: '#374151' }}>Grand Total Budget:</td>
+                  <td style={{ fontWeight: 700, fontSize: '15px', color: '#0f172a', padding: '12px 8px', borderTop: '2px solid #e2e8f0' }}>
                     ₱{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -302,30 +192,13 @@ const ProgressBillingModal = ({ project, boqData, user, onClose }) => {
           </table>
         </div>
 
-        {/* Footer */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '16px',
-          flexWrap: 'wrap',
-          gap: '10px',
-          paddingTop: '12px',
-          borderTop: '1px solid #e2e8f0',
-        }}>
-          <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
-            📋 View only · No billing request is triggered from this screen.
-          </p>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="pm-btn pm-btn-outline" onClick={() => window.print()}>
-              🖨️ Print / Export
-            </button>
-            <button className="pm-btn pm-btn-outline" onClick={onClose}>
-              ✕ Close
-            </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '10px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>📋 View only · No billing request triggered here.</p>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button className="pm-btn pm-btn-outline" onClick={() => window.print()}>🖨️ Print / Export</button>
+            <button className="pm-btn pm-btn-outline" onClick={onClose}>✕ Close</button>
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -493,7 +366,7 @@ const PhaseCommandCenter = ({
         return (
           <div key="issues" className="pm-animate-fadein">
             <h4 className="pm-title-lg">Problem Encountered & Solution Log</h4>
-            <div className="pm-grid-2 mb-4">
+            <div className="pm-grid-2 mb-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               <div className="pm-card-red pm-no-margin">
                 <label className="pm-label pm-label-red">⚠️ Problem Encountered *</label>
                 <textarea
@@ -528,8 +401,8 @@ const PhaseCommandCenter = ({
                 <h4 className="pm-title-md">🕒 Issues History</h4>
                 {issuesHistory.map(issue => (
                   <div key={issue.id} className="pm-card pm-no-margin">
-                    <p><strong>⚠️ Problem:</strong> {issue.problem}</p>
-                    <p><strong>✅ Solution:</strong> {issue.solution || 'No solution yet.'}</p>
+                    <p style={{ wordBreak: 'break-word' }}><strong>⚠️ Problem:</strong> {issue.problem}</p>
+                    <p style={{ wordBreak: 'break-word' }}><strong>✅ Solution:</strong> {issue.solution || 'No solution yet.'}</p>
                   </div>
                 ))}
               </div>
@@ -604,7 +477,7 @@ const PhaseCommandCenter = ({
 
           <hr className="pm-section-divider" />
 
-          <div className="pm-grid-3">
+          <div className="pm-grid-3 pm-action-cards-grid">
             <div className="pm-action-card" data-variant="orange">
               <h4 className="pm-action-title">Material Requisition</h4>
               <p className="pm-text-muted">Out of stock? Submit requisition to Logistics.</p>
