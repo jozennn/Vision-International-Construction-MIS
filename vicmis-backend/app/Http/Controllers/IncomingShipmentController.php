@@ -198,13 +198,14 @@ class IncomingShipmentController extends Controller
     public function storeReport(Request $request): JsonResponse
     {
         $request->validate([
-            'shipment_id'            => 'required|exists:shipments,id',
-            'shipment_number'        => 'required|string',
-            'items'                  => 'required|array|min:1',
-            'items.*.product_category' => 'required|string',
-            'items.*.product_code'   => 'required|string',
-            'items.*.issue'          => 'required|string|max:500',
-            'items.*.condition'      => 'required|string',
+            'shipment_id'                    => 'required|exists:shipments,id',
+            'shipment_number'                => 'required|string',
+            'items'                          => 'required|array|min:1',
+            'items.*.product_category'       => 'required|string',
+            'items.*.product_code'           => 'required|string',
+            'items.*.issue'                  => 'required|string|max:500',
+            'items.*.condition'              => 'required|string',
+            'items.*.quantity_affected'      => 'required|integer|min:1',  // ← new
         ]);
 
         $report = ShipmentReport::create([
