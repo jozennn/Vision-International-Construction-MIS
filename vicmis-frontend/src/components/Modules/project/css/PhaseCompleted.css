@@ -684,6 +684,78 @@
 }
 .pc-modal-confirm:hover { background: #A00101; }
 
+/* Timeline panel - new styles for actual dates */
+.pc-task-dates {
+  margin-top: 4px;
+}
+
+.pc-date-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.pc-date-label {
+  color: #6b7280;
+  font-weight: 500;
+  min-width: 42px;
+}
+
+.pc-date-value {
+  color: #374151;
+}
+
+.pc-actual-row {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.pc-actual-label {
+  color: #16a34a;
+}
+
+.pc-actual-value {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.pc-completed-badge {
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.pc-inprogress-badge {
+  background: #fef3c7;
+  color: #d97706;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.pc-task-dur {
+  color: #9ca3af;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.pc-actual-dur {
+  color: #16a34a;
+}
+
+/* Remove progress bar from timeline header */
+.pc-panel-header .pc-panel-badge {
+  display: none;
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */

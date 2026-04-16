@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseCompleted.css';
 
@@ -37,7 +37,6 @@ const parseDate = (str) => {
 
 // ─── PANEL 1: Installer Summary ────────────────────────────────────────────────
 const InstallerPanel = ({ project }) => {
-  // Resolve roster from project data
   const resolveRoster = () => {
     if (project?.installer_roster && Array.isArray(project.installer_roster)) {
       return project.installer_roster;
@@ -100,24 +99,19 @@ const InstallerPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 2: Timeline / Gantt Summary ────────────────────────────────────────
+// ─── PANEL 2: Timeline Summary (No Progress Bars) ─────────────────────────────
 const TimelinePanel = ({ project }) => {
-  // Extract tasks from project.timeline_tracking
   const getTasks = () => {
-    // Check multiple possible locations for timeline data
     if (project?.timeline_tracking) {
-      // If timeline_tracking is a string, parse it
       let tracking = project.timeline_tracking;
       if (typeof tracking === 'string') {
         try {
           tracking = JSON.parse(tracking);
         } catch (e) {
-          console.error('Failed to parse timeline_tracking:', e);
           return [];
         }
       }
       
-      // Check for tasks array in various structures
       if (tracking?.tasks && Array.isArray(tracking.tasks)) {
         return tracking.tasks;
       }
@@ -126,7 +120,6 @@ const TimelinePanel = ({ project }) => {
       }
     }
     
-    // Also check for timeline_tasks in project
     if (project?.timeline_tasks && Array.isArray(project.timeline_tasks)) {
       return project.timeline_tasks;
     }
@@ -147,26 +140,37 @@ const TimelinePanel = ({ project }) => {
     ? Math.round((projectEnd - projectStart) / 86400000) + 1
     : 0;
 
-  // Compute percent done per task
-  const getTaskPercent = (task) => {
-    if (task.percent != null && !isNaN(parseFloat(task.percent))) return Number(task.percent);
+  // Get actual completion date for a task
+  const getActualCompletionDate = (task) => {
     if (task.actualDates) {
-      const ts = parseDate(task.start);
-      const te = parseDate(task.end);
-      if (!ts || !te) return 0;
-      const totalDur = Math.round((te - ts) / 86400000) + 1;
-      const done = Object.values(task.actualDates).filter(Boolean).length;
-      return Math.min(100, Math.round((done / totalDur) * 100));
+      // Find the last date that was marked as complete
+      const completedDates = Object.entries(task.actualDates)
+        .filter(([, completed]) => completed === true)
+        .map(([date]) => date);
+      
+      if (completedDates.length > 0) {
+        // Return the latest completion date
+        completedDates.sort();
+        return completedDates[completedDates.length - 1];
+      }
     }
-    return 0;
+    return null;
   };
 
-  const overallPercent = regularTasks.length > 0
-    ? Math.round(regularTasks.reduce((s, t) => s + getTaskPercent(t), 0) / regularTasks.length)
-    : 0;
-
-  // Debug log
-  console.log('Timeline tasks found:', tasks.length, tasks);
+  // Get actual start date for a task
+  const getActualStartDate = (task) => {
+    if (task.actualDates) {
+      const startedDates = Object.entries(task.actualDates)
+        .filter(([, completed]) => completed === true)
+        .map(([date]) => date);
+      
+      if (startedDates.length > 0) {
+        startedDates.sort();
+        return startedDates[0];
+      }
+    }
+    return null;
+  };
 
   return (
     <div className="pc-panel">
@@ -179,23 +183,6 @@ const TimelinePanel = ({ project }) => {
             {projectStart && projectEnd && ` · ${fmtDate(projectStart.toISOString().slice(0,10))} → ${fmtDate(projectEnd.toISOString().slice(0,10))}`}
           </p>
         </div>
-        <div className="pc-panel-badge" style={{ background: overallPercent >= 100 ? '#16a34a' : '#C20100' }}>
-          {overallPercent}%
-        </div>
-      </div>
-
-      {/* Overall progress bar */}
-      <div className="pc-progress-bar-wrap">
-        <div className="pc-progress-bar-track">
-          <div
-            className="pc-progress-bar-fill"
-            style={{
-              width: `${overallPercent}%`,
-              background: overallPercent >= 100 ? '#16a34a' : 'linear-gradient(90deg, #C20100, #FF1817)',
-            }}
-          />
-        </div>
-        <span className="pc-progress-label">Overall Completion</span>
       </div>
 
       <div className="pc-panel-body">
@@ -215,31 +202,49 @@ const TimelinePanel = ({ project }) => {
                 );
               }
 
-              const pct = getTaskPercent(task);
-              const ts  = parseDate(task.start);
-              const te  = parseDate(task.end);
+              const ts = parseDate(task.start);
+              const te = parseDate(task.end);
               const dur = ts && te ? Math.round((te - ts) / 86400000) + 1 : 0;
+              const actualStart = getActualStartDate(task);
+              const actualEnd = getActualCompletionDate(task);
+              const isCompleted = actualEnd !== null;
 
               return (
                 <div key={task.id ?? i} className="pc-task-row">
                   <div className="pc-task-info">
                     <span className="pc-task-name">{task.name || '(unnamed task)'}</span>
-                    <span className="pc-task-dates">
-                      {ts ? fmtDate(task.start) : '—'} → {te ? fmtDate(task.end) : '—'}
-                      {dur > 0 && <span className="pc-task-dur"> · {dur}d</span>}
-                    </span>
-                  </div>
-                  <div className="pc-task-pct-wrap">
-                    <div className="pc-task-pct-track">
-                      <div
-                        className="pc-task-pct-fill"
-                        style={{
-                          width: `${pct}%`,
-                          background: pct >= 100 ? '#16a34a' : pct > 50 ? '#497B97' : '#C20100',
-                        }}
-                      />
+                    <div className="pc-task-dates">
+                      <div className="pc-date-row">
+                        <span className="pc-date-label">Target:</span>
+                        <span className="pc-date-value">
+                          {ts ? fmtDate(task.start) : '—'} → {te ? fmtDate(task.end) : '—'}
+                          {dur > 0 && <span className="pc-task-dur"> ({dur}d)</span>}
+                        </span>
+                      </div>
+                      {isCompleted && (
+                        <div className="pc-date-row pc-actual-row">
+                          <span className="pc-date-label pc-actual-label">Actual:</span>
+                          <span className="pc-date-value pc-actual-value">
+                            {actualStart ? fmtDate(actualStart) : '—'} → {actualEnd ? fmtDate(actualEnd) : '—'}
+                            {actualStart && actualEnd && (
+                              <span className="pc-task-dur pc-actual-dur">
+                                ({Math.round((new Date(actualEnd) - new Date(actualStart)) / 86400000) + 1}d)
+                              </span>
+                            )}
+                          </span>
+                          <span className="pc-completed-badge">✓ Completed</span>
+                        </div>
+                      )}
+                      {!isCompleted && actualStart && (
+                        <div className="pc-date-row pc-inprogress-row">
+                          <span className="pc-date-label pc-actual-label">Actual:</span>
+                          <span className="pc-date-value pc-actual-value">
+                            Started: {fmtDate(actualStart)} → In Progress
+                          </span>
+                          <span className="pc-inprogress-badge">⟳ In Progress</span>
+                        </div>
+                      )}
                     </div>
-                    <span className="pc-task-pct-label">{pct}%</span>
                   </div>
                 </div>
               );
@@ -253,7 +258,6 @@ const TimelinePanel = ({ project }) => {
 
 // ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
 const MaterialsPanel = ({ project }) => {
-  // Extract material items from project.material_items
   const getMaterialItems = () => {
     if (project?.material_items) {
       let items = project.material_items;
@@ -261,7 +265,6 @@ const MaterialsPanel = ({ project }) => {
         try {
           items = JSON.parse(items);
         } catch (e) {
-          console.error('Failed to parse material_items:', e);
           return [];
         }
       }
@@ -274,7 +277,6 @@ const MaterialsPanel = ({ project }) => {
 
   const items = getMaterialItems();
 
-  // Deduplicate by name+description
   const deduped = (() => {
     const seen = new Map();
     items.forEach(item => {
@@ -295,7 +297,6 @@ const MaterialsPanel = ({ project }) => {
     (item.deliveries ?? []).reduce((s, d) => s + Number(d.qty ?? 0), 0);
 
   const totalInstalled = (item) => {
-    // installed can be an object keyed by date, or an array, or a number
     const installed = item.installed;
     if (!installed) return 0;
     
@@ -311,10 +312,6 @@ const MaterialsPanel = ({ project }) => {
   const grandInstalled = deduped.reduce((s, i) => s + totalInstalled(i), 0);
   const grandRemaining = grandDelivered - grandInstalled;
   const installPct = grandDelivered > 0 ? Math.round((grandInstalled / grandDelivered) * 100) : 0;
-
-  // Debug log
-  console.log('Material items found:', deduped.length, deduped);
-  console.log('Grand totals - Delivered:', grandDelivered, 'Installed:', grandInstalled);
 
   return (
     <div className="pc-panel">
@@ -332,7 +329,6 @@ const MaterialsPanel = ({ project }) => {
         </div>
       </div>
 
-      {/* Summary chips */}
       <div className="pc-mat-chips">
         <div className="pc-mat-chip chip-delivered">
           <span className="pc-mat-chip-val">{grandDelivered}</span>
@@ -352,7 +348,6 @@ const MaterialsPanel = ({ project }) => {
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="pc-progress-bar-wrap" style={{ padding: '0 16px 4px' }}>
         <div className="pc-progress-bar-track">
           <div
@@ -425,12 +420,6 @@ const PhaseCompleted = ({ project, onAdvance }) => {
     onAdvance('Archived');
   };
 
-  // Debug log the entire project object
-  console.log('Project in PhaseCompleted:', project);
-  console.log('material_items:', project?.material_items);
-  console.log('timeline_tracking:', project?.timeline_tracking);
-  console.log('installer_roster:', project?.installer_roster);
-
   return (
     <div className="pc-wrapper">
 
@@ -442,7 +431,6 @@ const PhaseCompleted = ({ project, onAdvance }) => {
         />
       )}
 
-      {/* ══ HERO ══════════════════════════════════════════════════════════ */}
       <div className="pc-hero">
         <div className="pc-hero-inner">
           <div className="pc-hero-left">
@@ -462,7 +450,6 @@ const PhaseCompleted = ({ project, onAdvance }) => {
           </div>
         </div>
 
-        {/* Quick stats strip */}
         <div className="pc-hero-stats">
           <div className="pc-hero-stat">
             <span className="pc-hero-stat-val">₱{contractAmount}</span>
@@ -486,21 +473,18 @@ const PhaseCompleted = ({ project, onAdvance }) => {
         </div>
       </div>
 
-      {/* ══ SECTION LABEL ═════════════════════════════════════════════════ */}
       <div className="pc-section-label">
         <span className="pc-section-line" />
         <span className="pc-section-text">Project Summary</span>
         <span className="pc-section-line" />
       </div>
 
-      {/* ══ THREE PANELS ══════════════════════════════════════════════════ */}
       <div className="pc-panels-grid">
         <InstallerPanel project={project} />
         <TimelinePanel  project={project} />
         <MaterialsPanel project={project} />
       </div>
 
-      {/* ══ ARCHIVE ═══════════════════════════════════════════════════════ */}
       {project.status !== 'Archived' && (
         <div className="pc-archive-card no-print">
           <div className="pc-archive-left">
