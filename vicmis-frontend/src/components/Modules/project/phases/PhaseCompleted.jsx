@@ -362,12 +362,6 @@ const MaterialsPanel = ({ project }) => {
           <h4 className="pc-panel-title">Materials Status</h4>
           <p className="pc-panel-sub">{deduped.length} material type{deduped.length !== 1 ? 's' : ''} tracked</p>
         </div>
-        <div
-          className="pc-panel-badge"
-          style={{ background: installPct >= 100 ? '#16a34a' : '#497B97' }}
-        >
-          {installPct}%
-        </div>
       </div>
 
       {/* BOQ Grand Total Card */}
@@ -449,16 +443,6 @@ const MaterialsPanel = ({ project }) => {
                   );
                 })}
               </tbody>
-              {boqTotal > 0 && (
-                <tfoot>
-                  <tr className="pc-mat-footer">
-                    <td className="td-left pc-footer-label">BOQ Grand Total</td>
-                    <td colSpan="3" className="td-right pc-footer-value">
-                      {formatCurrency(boqTotal)}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
             </table>
           </div>
         )}
