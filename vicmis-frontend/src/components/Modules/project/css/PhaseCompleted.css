@@ -274,16 +274,6 @@
   line-height: 1.3;
 }
 
-.pc-panel-badge {
-  margin-left: auto;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #fff;
-  flex-shrink: 0;
-}
-
 .pc-panel-body {
   flex: 1;
   overflow: hidden;
@@ -440,42 +430,69 @@
 }
 
 .pc-task-dates {
-  font-size: 10px;
-  color: #999;
+  margin-top: 4px;
+}
+
+.pc-date-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.pc-date-label {
+  color: #6b7280;
+  font-weight: 500;
+  min-width: 42px;
+}
+
+.pc-date-value {
+  color: #374151;
+}
+
+.pc-actual-row {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.pc-actual-label {
+  color: #16a34a;
+}
+
+.pc-actual-value {
+  color: #16a34a;
   font-weight: 500;
 }
 
+.pc-completed-badge {
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.pc-inprogress-badge {
+  background: #fef3c7;
+  color: #d97706;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
 .pc-task-dur {
-  color: var(--pc-blue);
-  font-weight: 700;
-}
-
-.pc-task-pct-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pc-task-pct-track {
-  flex: 1;
-  height: 4px;
-  background: var(--pc-border);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.pc-task-pct-fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.4s ease;
-}
-
-.pc-task-pct-label {
+  color: #9ca3af;
   font-size: 10px;
-  font-weight: 800;
-  color: #888;
-  min-width: 30px;
-  text-align: right;
+  margin-left: 4px;
+}
+
+.pc-actual-dur {
+  color: #16a34a;
 }
 
 /* ============================================================
@@ -576,6 +593,34 @@
 .td-green  { color: #16a34a; }
 .td-orange { color: #ea580c; }
 .td-red    { color: var(--pc-red-dark); }
+
+/* ============================================================
+   BOQ TOTAL CARD
+   ============================================================ */
+.pc-boq-total-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 10px;
+  padding: 11px 16px;
+  margin: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pc-boq-total-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+
+.pc-boq-total-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: 0.5px;
+}
 
 /* ============================================================
    ARCHIVE CARD
@@ -683,128 +728,6 @@
   transition: background 0.15s;
 }
 .pc-modal-confirm:hover { background: #A00101; }
-
-/* Timeline panel - new styles for actual dates */
-.pc-task-dates {
-  margin-top: 4px;
-}
-
-.pc-date-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.pc-date-label {
-  color: #6b7280;
-  font-weight: 500;
-  min-width: 42px;
-}
-
-.pc-date-value {
-  color: #374151;
-}
-
-.pc-actual-row {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px dashed #e5e7eb;
-}
-
-.pc-actual-label {
-  color: #16a34a;
-}
-
-.pc-actual-value {
-  color: #16a34a;
-  font-weight: 500;
-}
-
-.pc-completed-badge {
-  background: #dcfce7;
-  color: #16a34a;
-  padding: 2px 6px;
-  border-radius: 12px;
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.pc-inprogress-badge {
-  background: #fef3c7;
-  color: #d97706;
-  padding: 2px 6px;
-  border-radius: 12px;
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.pc-task-dur {
-  color: #9ca3af;
-  font-size: 10px;
-  margin-left: 4px;
-}
-
-.pc-actual-dur {
-  color: #16a34a;
-}
-
-/* Remove progress bar from timeline header */
-.pc-panel-header .pc-panel-badge {
-  display: none;
-}
-
-/* BOQ Total Card */
-.pc-boq-total-card {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin: 0 16px 16px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.pc-boq-total-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #9ca3af;
-  letter-spacing: 0.5px;
-}
-
-.pc-boq-total-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fbbf24;
-  letter-spacing: 0.5px;
-}
-
-/* Material Table Footer */
-.pc-mat-footer {
-  background: #f3f4f6;
-  border-top: 2px solid #e5e7eb;
-}
-
-.pc-footer-label {
-  font-weight: 700;
-  color: #1f2937;
-  font-size: 13px;
-}
-
-.pc-footer-value {
-  font-weight: 800;
-  color: #fbbf24;
-  font-size: 14px;
-  text-align: right;
-}
-
-.td-right {
-  text-align: right;
-  padding-right: 16px;
-}
 
 /* ============================================================
    RESPONSIVE

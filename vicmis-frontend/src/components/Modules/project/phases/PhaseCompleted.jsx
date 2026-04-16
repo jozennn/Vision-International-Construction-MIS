@@ -52,7 +52,7 @@ const InstallerPanel = ({ project }) => {
     }
     if (project?.assignments) {
       return project.assignments
-        .filter(a => ['installer','lead_installer','helper','supervisor'].includes((a.role ?? '').toLowerCase()))
+        .filter(a => ['installer', 'lead_installer', 'helper', 'supervisor'].includes((a.role ?? '').toLowerCase()))
         .map(a => ({ name: a.user?.name ?? a.name ?? '—', position: a.role ?? 'Installer' }));
     }
     return [];
@@ -108,7 +108,7 @@ const InstallerPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 2: Timeline Summary ─────────────────────────────────────────────
+// ─── PANEL 2: Timeline Summary ─────────────────────────────────────────────────
 const TimelinePanel = ({ project }) => {
   const getTasks = () => {
     if (project?.timeline_tracking) {
@@ -120,7 +120,6 @@ const TimelinePanel = ({ project }) => {
           return [];
         }
       }
-      
       if (tracking?.tasks && Array.isArray(tracking.tasks)) {
         return tracking.tasks;
       }
@@ -128,18 +127,15 @@ const TimelinePanel = ({ project }) => {
         return tracking;
       }
     }
-    
     if (project?.timeline_tasks && Array.isArray(project.timeline_tasks)) {
       return project.timeline_tasks;
     }
-    
     return [];
   };
 
   const tasks = getTasks();
-  
   const regularTasks = tasks.filter(t => t.type !== 'group');
-  
+
   const allStarts = regularTasks.map(t => parseDate(t.start)).filter(Boolean);
   const allEnds   = regularTasks.map(t => parseDate(t.end)).filter(Boolean);
   const projectStart = allStarts.length > 0 ? new Date(Math.min(...allStarts)) : null;
@@ -153,7 +149,6 @@ const TimelinePanel = ({ project }) => {
       const completedDates = Object.entries(task.actualDates)
         .filter(([, completed]) => completed === true)
         .map(([date]) => date);
-      
       if (completedDates.length > 0) {
         completedDates.sort();
         return completedDates[completedDates.length - 1];
@@ -167,7 +162,6 @@ const TimelinePanel = ({ project }) => {
       const startedDates = Object.entries(task.actualDates)
         .filter(([, completed]) => completed === true)
         .map(([date]) => date);
-      
       if (startedDates.length > 0) {
         startedDates.sort();
         return startedDates[0];
@@ -184,7 +178,7 @@ const TimelinePanel = ({ project }) => {
           <h4 className="pc-panel-title">Project Timeline</h4>
           <p className="pc-panel-sub">
             {totalDays > 0 ? `${totalDays}-day project` : 'Duration not set'}
-            {projectStart && projectEnd && ` · ${fmtDate(projectStart.toISOString().slice(0,10))} → ${fmtDate(projectEnd.toISOString().slice(0,10))}`}
+            {projectStart && projectEnd && ` · ${fmtDate(projectStart.toISOString().slice(0, 10))} → ${fmtDate(projectEnd.toISOString().slice(0, 10))}`}
           </p>
         </div>
       </div>
@@ -260,7 +254,7 @@ const TimelinePanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 3: Materials Summary with BOQ Grand Total ───────────────────────────
+// ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
 const MaterialsPanel = ({ project }) => {
   const getMaterialItems = () => {
     if (project?.material_items) {
@@ -281,38 +275,25 @@ const MaterialsPanel = ({ project }) => {
 
   const items = getMaterialItems();
 
-  // Get BOQ grand total from project (actual BOQ if approved, otherwise plan BOQ)
   const getBoqGrandTotal = () => {
-    // First check if there's an approved actual BOQ
     if (project?.final_boq) {
       let boq = project.final_boq;
       if (typeof boq === 'string') {
-        try {
-          boq = JSON.parse(boq);
-        } catch (e) {
-          return 0;
-        }
+        try { boq = JSON.parse(boq); } catch (e) { return 0; }
       }
       if (Array.isArray(boq)) {
         return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
       }
     }
-    
-    // Check plan BOQ
     if (project?.plan_boq) {
       let boq = project.plan_boq;
       if (typeof boq === 'string') {
-        try {
-          boq = JSON.parse(boq);
-        } catch (e) {
-          return 0;
-        }
+        try { boq = JSON.parse(boq); } catch (e) { return 0; }
       }
       if (Array.isArray(boq)) {
         return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
       }
     }
-    
     return 0;
   };
 
@@ -338,7 +319,6 @@ const MaterialsPanel = ({ project }) => {
   const totalInstalled = (item) => {
     const installed = item.installed;
     if (!installed) return 0;
-    
     if (typeof installed === 'number') return installed;
     if (Array.isArray(installed)) return installed.reduce((s, v) => s + (Number(v) || 0), 0);
     if (typeof installed === 'object') {
@@ -351,7 +331,7 @@ const MaterialsPanel = ({ project }) => {
   const grandInstalled = deduped.reduce((s, i) => s + totalInstalled(i), 0);
   const grandRemaining = grandDelivered - grandInstalled;
   const installPct = grandDelivered > 0 ? Math.round((grandInstalled / grandDelivered) * 100) : 0;
-  
+
   const boqTotal = getBoqGrandTotal();
 
   return (
@@ -364,7 +344,6 @@ const MaterialsPanel = ({ project }) => {
         </div>
       </div>
 
-      {/* BOQ Grand Total Card */}
       {boqTotal > 0 && (
         <div className="pc-boq-total-card">
           <span className="pc-boq-total-label">Total Contract Value (BOQ)</span>
@@ -381,12 +360,20 @@ const MaterialsPanel = ({ project }) => {
           <span className="pc-mat-chip-val">{grandInstalled}</span>
           <span className="pc-mat-chip-label">Installed</span>
         </div>
-        <div className="pc-mat-chip chip-remaining" style={{
-          borderColor: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100',
-        }}>
-          <span className="pc-mat-chip-val" style={{
-            color: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100',
-          }}>{grandRemaining}</span>
+        <div
+          className="pc-mat-chip chip-remaining"
+          style={{
+            borderColor: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100',
+          }}
+        >
+          <span
+            className="pc-mat-chip-val"
+            style={{
+              color: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100',
+            }}
+          >
+            {grandRemaining}
+          </span>
           <span className="pc-mat-chip-label">Remaining</span>
         </div>
       </div>
@@ -454,9 +441,6 @@ const MaterialsPanel = ({ project }) => {
 // ─── Main Component ────────────────────────────────────────────────────────────
 const PhaseCompleted = ({ project, onAdvance }) => {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
-
-  const contractAmount = parseFloat(project.contract_amount || 0)
-    .toLocaleString(undefined, { minimumFractionDigits: 2 });
 
   const handleArchiveConfirm = () => {
     setShowArchiveModal(false);
