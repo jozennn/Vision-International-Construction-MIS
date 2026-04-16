@@ -4,7 +4,7 @@ import {
   Edit, X, Loader2, Package, CheckCircle,
   Globe, Building2, ChevronDown, RefreshCw, Box, FolderOpen,
   PackageCheck, AlertTriangle, ClipboardList, ChevronRight,
-  RotateCcw, Info
+  RotateCcw, Info, Search, ChevronLeft
 } from 'lucide-react';
 import '../css/IncomingShipment.css';
 
@@ -24,6 +24,66 @@ const PROD_STATUS_CLASS = {
   'ON STOCK':           'prod-on',
   'READY FOR SHIPMENT': 'prod-ready',
   'ONGOING PRODUCTION': 'prod-ongoing',
+};
+
+// ─── Pagination Component ─────────────────────────────────────────────────────
+const Pagination = ({ currentPage, lastPage, from, to, total, onPageChange }) => {
+  const buildPages = () => {
+    const pages = [];
+    const delta = 2;
+    const left = currentPage - delta;
+    const right = currentPage + delta + 1;
+    for (let i = 1; i <= lastPage; i++) {
+      if (i === 1 || i === lastPage || (i >= left && i < right)) pages.push(i);
+    }
+    const withGaps = [];
+    let prev = null;
+    for (const p of pages) {
+      if (prev !== null && p - prev > 1) withGaps.push('…');
+      withGaps.push(p);
+      prev = p;
+    }
+    return withGaps;
+  };
+
+  if (total === 0) return null;
+
+  return (
+    <div className="is-pagination">
+      <div className="is-pagination-info">
+        Showing {from}–{to} of {total} shipments
+      </div>
+      <div className="is-pagination-controls">
+        <div className="is-page-btns">
+          <button 
+            className="is-page-btn is-page-nav" 
+            onClick={() => onPageChange(currentPage - 1)} 
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          {buildPages().map((p, i) =>
+            p === '…'
+              ? <span key={`gap-${i}`} className="is-page-ellipsis">…</span>
+              : <button 
+                  key={p} 
+                  className={`is-page-btn ${currentPage === p ? 'active' : ''}`} 
+                  onClick={() => onPageChange(p)}
+                >
+                  {p}
+                </button>
+          )}
+          <button 
+            className="is-page-btn is-page-nav" 
+            onClick={() => onPageChange(currentPage + 1)} 
+            disabled={currentPage === lastPage}
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ─── Shipment Timeline Stepper ────────────────────────────────────────────────
@@ -291,7 +351,7 @@ const ReceivedShipmentDetail = ({ shipment, onAddToInventory, onReportReturn }) 
   );
 };
 
-// ─── Report / Return Modal (FIXED) ────────────────────────────────────────────
+// ─── Report / Return Modal ────────────────────────────────────────────────────
 const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
   const projects = Array.isArray(shipment.projects) ? shipment.projects : [];
 
@@ -303,7 +363,7 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
       max_quantity:      parseInt(p.quantity || 0),
       issue:             '',
       condition:         'Damaged',
-      quantity_affected: '',  // Start empty - user must enter quantity
+      quantity_affected: '',
       selected:          false,
     }))
   );
@@ -320,7 +380,6 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
 
   const selected = reports.filter(r => r.selected);
 
-  // Validation: requires quantity_affected to be a valid positive number and issue not empty
   const isSubmitDisabled =
     selected.length === 0 ||
     submitting ||
@@ -366,7 +425,6 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
 
                   {row.selected && (
                     <div className="is-report-fields">
-                      {/* ── Quantity Affected ── */}
                       <div className="is-field">
                         <label>Quantity Affected <span className="is-required">*</span></label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -394,7 +452,6 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
                         )}
                       </div>
 
-                      {/* ── Issue / Reason ── */}
                       <div className="is-field">
                         <label>Issue / Reason <span className="is-required">*</span></label>
                         <textarea
@@ -412,7 +469,6 @@ const ReportReturnModal = ({ shipment, onClose, onSubmit, submitting }) => {
                         )}
                       </div>
 
-                      {/* ── Condition ── */}
                       <div className="is-field">
                         <label>Condition</label>
                         <div className="is-select-wrap">
@@ -468,19 +524,48 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
   const [addingToInventory, setAddingToInventory]   = useState(false);
   const [reportShipment, setReportShipment]         = useState(null);
   const [reportSubmitting, setReportSubmitting]     = useState(false);
+  
+  // Pagination & Filters
+  const [currentPage, setCurrentPage]               = useState(1);
+  const [lastPage, setLastPage]                     = useState(1);
+  const [total, setTotal]                           = useState(0);
+  const [from, setFrom]                             = useState(0);
+  const [to, setTo]                                 = useState(0);
+  const [purposeFilter, setPurposeFilter]           = useState('all');
+  const [searchTerm, setSearchTerm]                 = useState('');
 
   const fetchShipments = async (silent = false) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);
-      const res  = await api.get('/inventory/shipments');
-      const data = res.data || [];
-
-      const shipmentsWithProjects = data.map(s => ({
-        ...s,
-        projects: Array.isArray(s.projects) ? s.projects : [],
-      }));
-
-      setShipments(shipmentsWithProjects);
+      
+      let url = '/inventory/shipments';
+      const params = new URLSearchParams();
+      params.append('page', currentPage);
+      params.append('per_page', 10);
+      if (purposeFilter !== 'all') params.append('purpose', purposeFilter);
+      if (searchTerm) params.append('search', searchTerm);
+      
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+      
+      const res = await api.get(url);
+      const data = res.data;
+      
+      // Handle paginated response or array response
+      if (data.data && Array.isArray(data.data)) {
+        setShipments(data.data.map(s => ({ ...s, projects: Array.isArray(s.projects) ? s.projects : [] })));
+        setTotal(data.total || 0);
+        setLastPage(data.last_page || 1);
+        setFrom(data.from || 0);
+        setTo(data.to || 0);
+      } else {
+        const shipmentsArray = Array.isArray(data) ? data : [];
+        setShipments(shipmentsArray.map(s => ({ ...s, projects: Array.isArray(s.projects) ? s.projects : [] })));
+        setTotal(shipmentsArray.length);
+        setLastPage(1);
+        setFrom(1);
+        setTo(shipmentsArray.length);
+      }
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -489,7 +574,9 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
     }
   };
 
-  useEffect(() => { fetchShipments(); }, []);
+  useEffect(() => { 
+    fetchShipments(); 
+  }, [currentPage, purposeFilter, searchTerm]);
 
   const handleMarkAsReceived = async (shipment) => {
     if (!window.confirm(`Mark Shipment ${shipment.shipment_number} as RECEIVED?`)) return;
@@ -524,7 +611,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
     }
   };
 
-  // Handle report submission - includes quantity_affected
   const handleReportSubmit = async (shipment, selectedItems) => {
     setReportSubmitting(true);
     try {
@@ -595,6 +681,35 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
           >
             <RefreshCw size={15} />
           </button>
+        </div>
+      </div>
+
+      {/* ── Filters ── */}
+      <div className="is-filters">
+        <div className="is-purpose-toggle">
+          {[
+            { val: 'all', label: 'All Shipments' },
+            { val: 'RESERVE_FOR_PROJECT', label: 'Reserve for Project' },
+            { val: 'NEW_STOCK', label: 'New Stock' }
+          ].map(({ val, label }) => (
+            <button 
+              key={val} 
+              className={`is-purpose-filter-btn ${purposeFilter === val ? 'active' : ''}`} 
+              onClick={() => { setPurposeFilter(val); setCurrentPage(1); }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="is-search-wrap">
+          <Search size={14} className="is-search-icon" />
+          <input
+            type="text"
+            className="is-search-input"
+            placeholder="Search shipment number..."
+            value={searchTerm}
+            onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+          />
         </div>
       </div>
 
@@ -673,12 +788,19 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                 </td>
                 <td className="is-actions">
                   <button
-                    className="is-edit-btn"
-                    onClick={() => { setSelectedShipment({ ...s }); setIsEditModalOpen(true); }}
+                    className={`is-edit-btn ${s.added_to_inventory ? 'disabled' : ''}`}
+                    onClick={() => { 
+                      if (!s.added_to_inventory) {
+                        setSelectedShipment({ ...s }); 
+                        setIsEditModalOpen(true);
+                      }
+                    }}
+                    disabled={s.added_to_inventory}
+                    title={s.added_to_inventory ? 'Cannot edit - Already in inventory' : 'Edit'}
                   >
                     <Edit size={13} /> Update
                   </button>
-                  {s.shipment_status !== 'ARRIVED' && (
+                  {s.shipment_status !== 'ARRIVED' && !s.added_to_inventory && (
                     <button
                       className="is-receive-btn"
                       onClick={() => handleMarkAsReceived(s)}
@@ -695,6 +817,18 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
             ))}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {!loading && total > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            lastPage={lastPage}
+            from={from}
+            to={to}
+            total={total}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
 
       {/* ── Received Stock Panel ── */}
@@ -782,13 +916,13 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                         {selectedShipment.projects
                           .reduce((s, p) => s + parseInt(p.quantity || 0), 0)
                           .toLocaleString()} pcs
-                      </td>
+                       </td>
                       {isReserveShipment(selectedShipment) && (
                         <td className="text-right">
                           {selectedShipment.projects
                             .reduce((s, p) => s + parseFloat(p.coverage_sqm || 0), 0)
                             .toLocaleString()} SQM
-                        </td>
+                         </td>
                       )}
                     </tr>
                   </tfoot>
@@ -800,7 +934,7 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       )}
 
       {/* ── Edit / Update Modal ── */}
-      {isEditModalOpen && selectedShipment && (
+      {isEditModalOpen && selectedShipment && !selectedShipment.added_to_inventory && (
         <div className="is-overlay" onClick={e => e.target === e.currentTarget && setIsEditModalOpen(false)}>
           <div className="is-modal">
             <div className="is-modal-header">
