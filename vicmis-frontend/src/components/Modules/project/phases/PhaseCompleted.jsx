@@ -36,7 +36,7 @@ const parseDate = (str) => {
 };
 
 // ─── PANEL 1: Installer Summary ────────────────────────────────────────────────
-const InstallerPanel = ({ project, trackingData }) => {
+const InstallerPanel = ({ project }) => {
   // Resolve roster from project data
   const resolveRoster = () => {
     if (project?.installer_roster && Array.isArray(project.installer_roster)) {
@@ -52,21 +52,6 @@ const InstallerPanel = ({ project, trackingData }) => {
 
   const roster = resolveRoster();
 
-  // Also pull from latest log if available
-  const allLogs = trackingData?.installer_logs ?? [];
-  const latestLog = allLogs.length > 0 ? allLogs[allLogs.length - 1] : null;
-  const logRows = latestLog?.rows ?? [];
-
-  // Merge roster + log rows, deduplicate by name
-  const allNames = new Map();
-  roster.forEach(r => allNames.set((r.name ?? '').toLowerCase(), { name: r.name, position: r.position ?? 'Installer' }));
-  logRows.forEach(r => {
-    const key = (r.name ?? '').toLowerCase();
-    if (r.name && !allNames.has(key)) allNames.set(key, { name: r.name, position: r.position ?? 'Installer' });
-  });
-
-  const installers = Array.from(allNames.values());
-
   const positionColor = {
     'Lead Installer': '#FF1817',
     'Installer':      '#497B97',
@@ -80,19 +65,19 @@ const InstallerPanel = ({ project, trackingData }) => {
         <span className="pc-panel-icon">👷</span>
         <div>
           <h4 className="pc-panel-title">Installer Team</h4>
-          <p className="pc-panel-sub">{installers.length} member{installers.length !== 1 ? 's' : ''} on this project</p>
+          <p className="pc-panel-sub">{roster.length} member{roster.length !== 1 ? 's' : ''} on this project</p>
         </div>
       </div>
 
       <div className="pc-panel-body">
-        {installers.length === 0 ? (
+        {roster.length === 0 ? (
           <div className="pc-panel-empty">
             <span>👷</span>
             <p>No installer records found.</p>
           </div>
         ) : (
           <div className="pc-installer-list">
-            {installers.map((inst, i) => (
+            {roster.map((inst, i) => (
               <div key={i} className="pc-installer-row">
                 <div className="pc-installer-avatar">
                   {(inst.name ?? '?').charAt(0).toUpperCase()}
@@ -116,33 +101,43 @@ const InstallerPanel = ({ project, trackingData }) => {
 };
 
 // ─── PANEL 2: Timeline / Gantt Summary ────────────────────────────────────────
-const TimelinePanel = ({ project, trackingData }) => {
-  // Extract tasks from trackingData.timeline_tasks
-  // The data structure from the backend stores tasks in timeline_tracking JSON
+const TimelinePanel = ({ project }) => {
+  // Extract tasks from project.timeline_tracking
   const getTasks = () => {
     // Check multiple possible locations for timeline data
-    if (trackingData?.timeline_tasks && Array.isArray(trackingData.timeline_tasks)) {
-      return trackingData.timeline_tasks;
-    }
-    if (trackingData?.timeline_tracking && typeof trackingData.timeline_tracking === 'object') {
-      if (Array.isArray(trackingData.timeline_tracking.tasks)) {
-        return trackingData.timeline_tracking.tasks;
+    if (project?.timeline_tracking) {
+      // If timeline_tracking is a string, parse it
+      let tracking = project.timeline_tracking;
+      if (typeof tracking === 'string') {
+        try {
+          tracking = JSON.parse(tracking);
+        } catch (e) {
+          console.error('Failed to parse timeline_tracking:', e);
+          return [];
+        }
       }
-      if (Array.isArray(trackingData.timeline_tracking)) {
-        return trackingData.timeline_tracking;
+      
+      // Check for tasks array in various structures
+      if (tracking?.tasks && Array.isArray(tracking.tasks)) {
+        return tracking.tasks;
+      }
+      if (Array.isArray(tracking)) {
+        return tracking;
       }
     }
-    if (trackingData?.tasks && Array.isArray(trackingData.tasks)) {
-      return trackingData.tasks;
+    
+    // Also check for timeline_tasks in project
+    if (project?.timeline_tasks && Array.isArray(project.timeline_tasks)) {
+      return project.timeline_tasks;
     }
+    
     return [];
   };
 
   const tasks = getTasks();
   
   const regularTasks = tasks.filter(t => t.type !== 'group');
-  const groups = tasks.filter(t => t.type === 'group');
-
+  
   // Compute overall project dates
   const allStarts = regularTasks.map(t => parseDate(t.start)).filter(Boolean);
   const allEnds   = regularTasks.map(t => parseDate(t.end)).filter(Boolean);
@@ -169,6 +164,9 @@ const TimelinePanel = ({ project, trackingData }) => {
   const overallPercent = regularTasks.length > 0
     ? Math.round(regularTasks.reduce((s, t) => s + getTaskPercent(t), 0) / regularTasks.length)
     : 0;
+
+  // Debug log
+  console.log('Timeline tasks found:', tasks.length, tasks);
 
   return (
     <div className="pc-panel">
@@ -254,17 +252,22 @@ const TimelinePanel = ({ project, trackingData }) => {
 };
 
 // ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
-const MaterialsPanel = ({ project, trackingData }) => {
-  // Extract material items from multiple possible locations
+const MaterialsPanel = ({ project }) => {
+  // Extract material items from project.material_items
   const getMaterialItems = () => {
-    if (trackingData?.material_items && Array.isArray(trackingData.material_items)) {
-      return trackingData.material_items;
-    }
-    if (trackingData?.materials_tracking && Array.isArray(trackingData.materials_tracking)) {
-      return trackingData.materials_tracking;
-    }
-    if (project?.material_items && Array.isArray(project.material_items)) {
-      return project.material_items;
+    if (project?.material_items) {
+      let items = project.material_items;
+      if (typeof items === 'string') {
+        try {
+          items = JSON.parse(items);
+        } catch (e) {
+          console.error('Failed to parse material_items:', e);
+          return [];
+        }
+      }
+      if (Array.isArray(items)) {
+        return items;
+      }
     }
     return [];
   };
@@ -308,6 +311,10 @@ const MaterialsPanel = ({ project, trackingData }) => {
   const grandInstalled = deduped.reduce((s, i) => s + totalInstalled(i), 0);
   const grandRemaining = grandDelivered - grandInstalled;
   const installPct = grandDelivered > 0 ? Math.round((grandInstalled / grandDelivered) * 100) : 0;
+
+  // Debug log
+  console.log('Material items found:', deduped.length, deduped);
+  console.log('Grand totals - Delivered:', grandDelivered, 'Installed:', grandInstalled);
 
   return (
     <div className="pc-panel">
@@ -407,7 +414,7 @@ const MaterialsPanel = ({ project, trackingData }) => {
 };
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-const PhaseCompleted = ({ project, onAdvance, trackingData }) => {
+const PhaseCompleted = ({ project, onAdvance }) => {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const contractAmount = parseFloat(project.contract_amount || 0)
@@ -418,10 +425,11 @@ const PhaseCompleted = ({ project, onAdvance, trackingData }) => {
     onAdvance('Archived');
   };
 
-  // Log the tracking data structure for debugging
-  console.log('Tracking Data in PhaseCompleted:', trackingData);
-  console.log('Timeline tasks:', trackingData?.timeline_tasks);
-  console.log('Material items:', trackingData?.material_items);
+  // Debug log the entire project object
+  console.log('Project in PhaseCompleted:', project);
+  console.log('material_items:', project?.material_items);
+  console.log('timeline_tracking:', project?.timeline_tracking);
+  console.log('installer_roster:', project?.installer_roster);
 
   return (
     <div className="pc-wrapper">
@@ -487,9 +495,9 @@ const PhaseCompleted = ({ project, onAdvance, trackingData }) => {
 
       {/* ══ THREE PANELS ══════════════════════════════════════════════════ */}
       <div className="pc-panels-grid">
-        <InstallerPanel project={project} trackingData={trackingData} />
-        <TimelinePanel  project={project} trackingData={trackingData} />
-        <MaterialsPanel project={project} trackingData={trackingData} />
+        <InstallerPanel project={project} />
+        <TimelinePanel  project={project} />
+        <MaterialsPanel project={project} />
       </div>
 
       {/* ══ ARCHIVE ═══════════════════════════════════════════════════════ */}
