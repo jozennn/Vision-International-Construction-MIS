@@ -3,42 +3,127 @@ import api from '@/api/axios';
 import {
   Truck, Ship, Plus, Loader2, RefreshCw, Layers,
   Trash2, Globe, Building2, Package, ChevronDown,
-  Box, FolderOpen, AlertTriangle, RotateCcw
+  Box, FolderOpen, AlertTriangle, RotateCcw, CheckCircle
 } from 'lucide-react';
 import './AccountingDashboard.css';
 
 // ─── Empty row templates ──────────────────────────────────────────────────────
+const EMPTY_ROW_RESERVE = {
+  project_name: '',
+  product_category: '',
+  product_code: '',
+  unit: '',
+  quantity: '',
+  coverage_sqm: '',
+  _catMode: 'pick',
+  _codeMode: 'pick',
+};
 
-  const EMPTY_ROW_RESERVE = {
-    project_name: '', product_category: '', product_code: '',
-    unit: '', quantity: '', coverage_sqm: '',
-    _catMode: 'pick', _codeMode: 'pick',
-  };
-  const EMPTY_ROW_STOCK = {
-    product_category: '', product_code: '',
-    unit: '', quantity: '',
-    _catMode: 'pick', _codeMode: 'pick',
-  };
+const EMPTY_ROW_STOCK = {
+  product_category: '',
+  product_code: '',
+  unit: '',
+  quantity: '',
+  _catMode: 'pick',
+  _codeMode: 'pick',
+};
 
-  const buildEmptyForm = () => ({
-    origin_type:      'INTERNATIONAL',
-    shipment_purpose: 'RESERVE_FOR_PROJECT',
-    shipment_number:  '',
-    container_type:   '20 FOOTER',
-    projects:         [{ ...EMPTY_ROW_RESERVE }],
-    status:           'ONGOING PRODUCTION',
-    location:         '',
-    shipment_status:  'WAITING',
-  });
+const buildEmptyForm = () => ({
+  origin_type:      'INTERNATIONAL',
+  shipment_purpose: 'RESERVE_FOR_PROJECT',
+  shipment_number:  '',
+  container_type:   '20 FOOTER',
+  projects:         [{ ...EMPTY_ROW_RESERVE }],
+  status:           'ONGOING PRODUCTION',
+  location:         '',
+  shipment_status:  'WAITING',
+  tentative_arrival: '',
+});
 
-  const STATUS_CLASS = {
-    ARRIVED:   'tag-arrived',
-    DEPARTURE: 'tag-departure',
-    WAITING:   'tag-waiting',
-  };
+const STATUS_CLASS = {
+  ARRIVED:   'tag-arrived',
+  DEPARTURE: 'tag-departure',
+  WAITING:   'tag-waiting',
+};
+
+// ─── Confirmation Modal ───────────────────────────────────────────────────────
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, loading }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="ac-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="ac-confirm-modal">
+        <div className="ac-confirm-header">
+          <div className="ac-confirm-icon">
+            <Ship size={24} />
+          </div>
+          <h3 className="ac-confirm-title">{title}</h3>
+        </div>
+        <div className="ac-confirm-body">
+          <p style={{ whiteSpace: 'pre-line' }}>{message}</p>
+        </div>
+        <div className="ac-confirm-footer">
+          <button className="ac-confirm-cancel" onClick={onClose} disabled={loading}>
+            Cancel
+          </button>
+          <button className="ac-confirm-submit" onClick={onConfirm} disabled={loading}>
+            {loading ? <><Loader2 size={14} className="ac-spinner" /> Registering…</> : 'Confirm & Register'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Error Modal ──────────────────────────────────────────────────────────────
+const ErrorModal = ({ isOpen, onClose, errors, title = 'Validation Error' }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="ac-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="ac-error-modal">
+        <div className="ac-error-header">
+          <div className="ac-error-icon">
+            <AlertTriangle size={20} />
+          </div>
+          <h3 className="ac-error-title">{title}</h3>
+        </div>
+        <div className="ac-error-body">
+          <ul className="ac-error-list">
+            {Array.isArray(errors) ? errors.map((err, i) => (
+              <li key={i}>{err}</li>
+            )) : (
+              <li>{errors}</li>
+            )}
+          </ul>
+        </div>
+        <div className="ac-error-footer">
+          <button className="ac-error-close" onClick={onClose}>
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Success Toast ────────────────────────────────────────────────────────────
+const SuccessToast = ({ message, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="ac-success-toast">
+      <CheckCircle size={16} />
+      <span>{message}</span>
+      <button onClick={onClose}>✕</button>
+    </div>
+  );
+};
 
 // ─── Shared smart category/code pickers ──────────────────────────────────────
-
 const CategoryPicker = ({ value, catMode, categories, onPick, onType, onBackToPick }) => {
   if (catMode === 'new') {
     return (
@@ -89,7 +174,6 @@ const CodePicker = ({ value, codeMode, isNewCat, codesForCat, onPick, onType, on
 };
 
 // ─── Reserve for Project row ──────────────────────────────────────────────────
-
 const ProjectRowReserve = ({ proj, idx, onUpdate, onRemove, categories, codesByCategory }) => {
   const codesForCat = proj._catMode === 'pick' && proj.product_category
     ? (codesByCategory[proj.product_category] || []) : [];
@@ -184,7 +268,6 @@ const ProjectRowReserve = ({ proj, idx, onUpdate, onRemove, categories, codesByC
 };
 
 // ─── For New Stock row ────────────────────────────────────────────────────────
-
 const StockRow = ({ proj, idx, onUpdate, onRemove, categories, codesByCategory }) => {
   const codesForCat = proj._catMode === 'pick' && proj.product_category
     ? (codesByCategory[proj.product_category] || []) : [];
@@ -252,7 +335,7 @@ const StockRow = ({ proj, idx, onUpdate, onRemove, categories, codesByCategory }
       <div className="ac-form-row mt-6">
         <div className="ac-form-group">
           <label className="ac-label-sm">Quantity</label>
-          <input className="ac-input" type="number" min="0" placeholder="0"
+          <input className="ac-input" type="number" min="1" placeholder="0"
             value={proj.quantity} onChange={e => onUpdate(idx, 'quantity', e.target.value)} />
         </div>
         <div className="ac-form-group">
@@ -282,6 +365,7 @@ const ReportDetailModal = ({ report, onClose }) => (
             <tr>
               <th>Product Category</th>
               <th>Product Code</th>
+              <th>Quantity</th>
               <th>Issue</th>
               <th>Condition</th>
             </tr>
@@ -291,6 +375,7 @@ const ReportDetailModal = ({ report, onClose }) => (
               <tr key={i}>
                 <td>{item.product_category}</td>
                 <td className="ac-code">{item.product_code}</td>
+                <td className="ac-code">{item.quantity_affected || '-'}</td>
                 <td className="ac-issue">{item.issue}</td>
                 <td>
                   <span className={`ac-cond-tag cond-${item.condition?.toLowerCase().replace(/\s/g, '-')}`}>
@@ -310,21 +395,28 @@ const ReportDetailModal = ({ report, onClose }) => (
 );
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-
 const AccountingDashboard = ({ user }) => {
   const [shipments, setShipments]         = useState([]);
   const [deliveries, setDeliveries]       = useState([]);
   const [reports, setReports]             = useState([]);
-  const [reorders, setReorders]           = useState([]);                    // ← NEW
+  const [reorders, setReorders]           = useState([]);
   const [loading, setLoading]             = useState(true);
   const [isRefreshing, setIsRefreshing]   = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [reorderActionLoading, setReorderActionLoading] = useState({});      // ← NEW  { [id]: true/false }
+  const [reorderActionLoading, setReorderActionLoading] = useState({});
   const [form, setForm]                   = useState(buildEmptyForm());
   const [categories, setCategories]       = useState([]);
   const [codesByCategory, setCodesByCategory] = useState({});
   const [selectedReport, setSelectedReport]   = useState(null);
-  const [activeTab, setActiveTab]             = useState('activity'); // 'activity' | 'reports' | 'reorders'
+  const [activeTab, setActiveTab]             = useState('activity');
+  
+  // Modal states
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     api.get('/inventory/shipments/meta').then(res => {
@@ -336,38 +428,39 @@ const AccountingDashboard = ({ user }) => {
   const fetchData = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);
-      const [delRes, shipRes, reportRes, reorderRes] = await Promise.all([  // ← UPDATED
+      const [delRes, shipRes, reportRes, reorderRes] = await Promise.all([
         api.get('/inventory/logistics'),
         api.get('/inventory/shipments'),
         api.get('/inventory/shipments/reports').catch(() => ({ data: [] })),
-        api.get('/inventory/reorder-requests').catch(() => ({ data: [] })),  // ← NEW
+        api.get('/inventory/reorder-requests').catch(() => ({ data: [] })),
       ]);
       setDeliveries((delRes.data?.data || delRes.data || []).slice(0, 10));
       setShipments((shipRes.data || []).slice(0, 10));
       setReports(reportRes.data || []);
-      setReorders(reorderRes.data || []);                                     // ← NEW
+      setReorders(reorderRes.data || []);
     } catch (err) { console.error('Fetch error:', err); }
     finally { setLoading(false); setIsRefreshing(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Reorder status action ──────────────────────────────────────────────────
-  const handleReorderStatus = async (id, newStatus) => {               // ← NEW
+  const handleReorderStatus = async (id, newStatus) => {
     setReorderActionLoading(prev => ({ ...prev, [id]: true }));
     try {
       await api.patch(`/inventory/reorder-requests/${id}/status`, { status: newStatus });
       setReorders(prev =>
         prev.map(r => r.id === id ? { ...r, status: newStatus } : r)
       );
+      setSuccessMessage(`Reorder request ${newStatus === 'ordered' ? 'marked as ordered' : 'acknowledged'}!`);
+      setShowSuccessToast(true);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update reorder status.');
+      setValidationErrors([err.response?.data?.message || 'Failed to update reorder status.']);
+      setShowErrorModal(true);
     } finally {
       setReorderActionLoading(prev => ({ ...prev, [id]: false }));
     }
   };
 
-  // Called from IncomingShipment when a report is filed
   const handleReportFiled = (payload) => {
     setReports(prev => [{ ...payload, created_at: new Date().toISOString() }, ...prev]);
     setActiveTab('reports');
@@ -397,30 +490,164 @@ const AccountingDashboard = ({ user }) => {
       return { ...f, projects: updated };
     });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Validation function
+  const validateForm = () => {
+    const errors = [];
+    
+    if (!form.shipment_number || !form.shipment_number.trim()) {
+      errors.push('Shipment number is required');
+    }
+    
+    if (!form.projects || form.projects.length === 0) {
+      errors.push('At least one item is required');
+    }
+    
+    form.projects.forEach((proj, idx) => {
+      if (!proj.product_category || !proj.product_category.trim()) {
+        errors.push(`Item ${idx + 1}: Product category is required`);
+      }
+      if (!proj.product_code || !proj.product_code.trim()) {
+        errors.push(`Item ${idx + 1}: Product code is required`);
+      }
+      if (form.shipment_purpose === 'RESERVE_FOR_PROJECT') {
+        if (!proj.project_name || !proj.project_name.trim()) {
+          errors.push(`Item ${idx + 1}: Project name is required for Reserve shipments`);
+        }
+      }
+      if (!proj.quantity || parseInt(proj.quantity) <= 0) {
+        errors.push(`Item ${idx + 1}: Quantity must be greater than 0`);
+      }
+    });
+    
+    return errors;
+  };
+
+  // Submit handler with confirmation
+  const handleConfirmSubmit = async () => {
     setActionLoading(true);
+    setShowConfirmModal(false);
+    
     try {
+      // Clean up the payload - remove UI-specific fields
       const payload = {
-        ...form,
+        origin_type: form.origin_type,
+        shipment_purpose: form.shipment_purpose,
+        shipment_number: form.shipment_number,
+        container_type: form.container_type,
+        status: form.status,
+        location: form.location || null,
+        shipment_status: form.shipment_status,
+        tentative_arrival: form.tentative_arrival || null,
         projects: form.projects.map(({ _catMode, _codeMode, ...rest }) => rest),
       };
-      await api.post('/inventory/shipments', payload);
-      setForm(buildEmptyForm());
-      fetchData(true);
+      
+      const response = await api.post('/inventory/shipments', payload);
+      
+      if (response.status === 201 || response.status === 200) {
+        setForm(buildEmptyForm());
+        await fetchData(true);
+        setSuccessMessage(`Shipment ${form.shipment_number} registered successfully!`);
+        setShowSuccessToast(true);
+      }
     } catch (err) {
-      const msg = err.response?.data?.message
-        || Object.values(err.response?.data?.errors || {}).flat().join(' ')
-        || 'Error saving shipment.';
-      alert(msg);
-    } finally { setActionLoading(false); }
+      console.error('Registration error:', err);
+      
+      const errorData = err.response?.data;
+      const statusCode = err.response?.status;
+      
+      if (statusCode === 422) {
+        const serverErrors = [];
+        const errors = errorData?.errors || {};
+        Object.keys(errors).forEach(key => {
+          if (Array.isArray(errors[key])) {
+            serverErrors.push(`${key}: ${errors[key].join(', ')}`);
+          } else {
+            serverErrors.push(errors[key]);
+          }
+        });
+        if (serverErrors.length === 0 && errorData?.message) {
+          serverErrors.push(errorData.message);
+        }
+        setValidationErrors(serverErrors);
+        setShowErrorModal(true);
+      } else if (statusCode === 500) {
+        setValidationErrors([
+          'Internal server error. Please check:',
+          '1. All required fields are filled',
+          '2. Product category and code exist in inventory',
+          '3. Shipment number is unique',
+          'If problem persists, contact support.'
+        ]);
+        setShowErrorModal(true);
+      } else {
+        setValidationErrors([errorData?.message || 'Failed to register shipment. Please try again.']);
+        setShowErrorModal(true);
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  
+  const handleSubmitClick = (e) => {
+    e.preventDefault();
+    
+    const errors = validateForm();
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowErrorModal(true);
+      return;
+    }
+    
+    const purposeText = form.shipment_purpose === 'RESERVE_FOR_PROJECT' ? 'Reserve for Project' : 'New Stock';
+    const itemsCount = form.projects.length;
+    const totalQty = form.projects.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0);
+    
+    let message = `📦 Shipment: ${form.shipment_number}\n`;
+    message += `🎯 Purpose: ${purposeText}\n`;
+    message += `📋 Items: ${itemsCount} item(s)\n`;
+    message += `📊 Total Quantity: ${totalQty} units\n\n`;
+    message += `Items:\n`;
+    form.projects.forEach((p, i) => {
+      if (form.shipment_purpose === 'RESERVE_FOR_PROJECT') {
+        message += `  ${i + 1}. ${p.product_code} - ${p.quantity} ${p.unit} (${p.project_name})\n`;
+      } else {
+        message += `  ${i + 1}. ${p.product_code} - ${p.quantity} ${p.unit}\n`;
+      }
+    });
+    message += `\nPlease verify all information before confirming.`;
+    
+    setConfirmMessage(message);
+    setShowConfirmModal(true);
   };
 
   const isReserve = form.shipment_purpose === 'RESERVE_FOR_PROJECT';
-  const pendingReorders = reorders.filter(r => r.status === 'pending');   // ← NEW
+  const pendingReorders = reorders.filter(r => r.status === 'pending');
 
   return (
     <div className="ac-wrapper">
+
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <SuccessToast message={successMessage} onClose={() => setShowSuccessToast(false)} />
+      )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Confirm Shipment Registration"
+        message={confirmMessage}
+        loading={actionLoading}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        errors={validationErrors}
+        title="Cannot Register Shipment"
+      />
 
       <header className="ac-header">
         <div className="ac-header-left">
@@ -449,7 +676,6 @@ const AccountingDashboard = ({ user }) => {
             <div><p className="ac-stat-label">Reports Filed</p><p className="ac-stat-value">{reports.length}</p></div>
           </div>
         )}
-        {/* ── NEW: Reorder Requests stat card ── */}
         {pendingReorders.length > 0 && (
           <div className="ac-stat ac-stat-warn" onClick={() => setActiveTab('reorders')} style={{ cursor: 'pointer' }}>
             <div className="ac-stat-icon icon-warn"><Package size={18} /></div>
@@ -466,8 +692,7 @@ const AccountingDashboard = ({ user }) => {
           <div className="ac-card">
             <div className="ac-card-head"><Layers size={16} /><span>Register Incoming Shipment</span></div>
 
-            <form className="ac-form" onSubmit={handleSubmit}>
-
+            <form className="ac-form" onSubmit={handleSubmitClick}>
               {/* Purpose */}
               <div className="ac-form-group">
                 <label className="ac-label">Shipment Purpose <span className="ac-req">*</span></label>
@@ -569,6 +794,13 @@ const AccountingDashboard = ({ user }) => {
               </div>
 
               <div className="ac-form-group">
+                <label className="ac-label">Tentative Arrival Date</label>
+                <input type="date" className="ac-input"
+                  value={form.tentative_arrival}
+                  onChange={e => setForm(f => ({ ...f, tentative_arrival: e.target.value }))} />
+              </div>
+
+              <div className="ac-form-group">
                 <label className="ac-label">Shipment Progress</label>
                 <div className="ac-select-wrap">
                   <select className="ac-input" value={form.shipment_status}
@@ -590,7 +822,6 @@ const AccountingDashboard = ({ user }) => {
         {/* Feed */}
         <div className="ac-col-right">
           <div className="ac-card">
-            {/* Tab switcher */}
             <div className="ac-card-head ac-card-head-tabs">
               <button
                 className={`ac-tab-btn ${activeTab === 'activity' ? 'active' : ''}`}
@@ -605,7 +836,6 @@ const AccountingDashboard = ({ user }) => {
                 <AlertTriangle size={14} /> Reports
                 {reports.length > 0 && <span className="ac-tab-badge">{reports.length}</span>}
               </button>
-              {/* ── NEW: Reorders tab ── */}
               <button
                 className={`ac-tab-btn ${activeTab === 'reorders' ? 'active' : ''} ${pendingReorders.length > 0 ? 'has-alert' : ''}`}
                 onClick={() => setActiveTab('reorders')}
@@ -689,7 +919,7 @@ const AccountingDashboard = ({ user }) => {
               )
             )}
 
-            {/* ── Reorders tab ── */}
+            {/* Reorders tab */}
             {activeTab === 'reorders' && (
               reorders.length === 0 ? (
                 <div className="ac-empty">
@@ -699,12 +929,12 @@ const AccountingDashboard = ({ user }) => {
               ) : (
                 <div className="ac-feed">
                   {reorders.map((req) => {
-                    const isBusy    = reorderActionLoading[req.id];
+                    const isBusy = reorderActionLoading[req.id];
                     const isOrdered = req.status === 'ordered';
                     const statusCls = req.status === 'pending' ? 'reorder-pending'
                                     : req.status === 'acknowledged' ? 'reorder-ack'
                                     : 'reorder-ordered';
-                    const statusLabel = req.status === 'pending'      ? 'Pending'
+                    const statusLabel = req.status === 'pending' ? 'Pending'
                                       : req.status === 'acknowledged' ? 'Acknowledged'
                                       : 'Ordered';
                     return (
@@ -713,17 +943,11 @@ const AccountingDashboard = ({ user }) => {
                           <Package size={13} />
                         </div>
                         <div className="ac-feed-body">
-
-                          {/* Category + status badge on same row */}
                           <div className="ac-feed-meta-row">
                             <span className="ac-reorder-category">{req.product_category}</span>
                             <span className={`ac-purpose-tag ${statusCls}`}>{statusLabel}</span>
                           </div>
-
-                          {/* Item code — prominent */}
                           <p className="ac-feed-title" style={{ marginTop: 2 }}>{req.product_code}</p>
-
-                          {/* Quantity needed row */}
                           {req.quantity_needed && (
                             <div className="ac-reorder-qty-row">
                               <span className="ac-reorder-qty-label">Qty Needed:</span>
@@ -735,13 +959,9 @@ const AccountingDashboard = ({ user }) => {
                               </span>
                             </div>
                           )}
-
-                          {/* Notes */}
                           {req.notes && (
                             <p className="ac-reorder-notes-text">"{req.notes}"</p>
                           )}
-
-                          {/* Action buttons */}
                           {!isOrdered && (
                             <div className="ac-reorder-actions">
                               {req.status === 'pending' && (

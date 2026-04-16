@@ -45,54 +45,54 @@ class IncomingShipmentController extends Controller
     }
 
     // ─── POST /api/inventory/shipments ────────────────────────────────────────
-    public function storeShipment(Request $request): JsonResponse
-    {
+   // ─── POST /api/inventory/shipments ────────────────────────────────────────
+public function storeShipment(Request $request): JsonResponse
+{
+    $request->validate([
+        'shipment_number'             => 'required|unique:shipments',
+        'origin_type'                 => 'required|string',
+        'shipment_purpose'            => 'required|in:RESERVE_FOR_PROJECT,NEW_STOCK',
+        'projects'                    => 'required|array|min:1',
+        'projects.*.product_category' => 'required|string',
+        'projects.*.product_code'     => 'required|string',
+        'projects.*.quantity'         => 'nullable|integer|min:0',
+        'projects.*.unit'             => 'nullable|string',
+    ]);
+
+    // Add conditional validation for project_name only for RESERVE_FOR_PROJECT
+    if ($request->shipment_purpose === 'RESERVE_FOR_PROJECT') {
         $request->validate([
-            'shipment_number'             => 'required|unique:shipments',
-            'origin_type'                 => 'required|string',
-            'shipment_purpose'            => 'required|in:RESERVE_FOR_PROJECT,NEW_STOCK',
-            'projects'                    => 'required|array|min:1',
-            'projects.*.product_category' => 'required|string',
-            'projects.*.product_code'     => 'required|string',
-            'projects.*.quantity'         => 'nullable|integer|min:0',
-            'projects.*.unit'             => 'nullable|string',
-            'projects.*.project_name'     => [
-                'nullable', 'string',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($request->shipment_purpose === 'RESERVE_FOR_PROJECT' && empty($value)) {
-                        $fail('Project name is required for Reserve for Project shipments.');
-                    }
-                },
-            ],
+            'projects.*.project_name' => 'required|string',
+        ]);
+    }
+
+    return DB::transaction(function () use ($request) {
+        $shipment = Shipment::create([
+            'origin_type'       => $request->origin_type,
+            'shipment_purpose'  => $request->shipment_purpose,
+            'shipment_number'   => $request->shipment_number,
+            'container_type'    => $request->container_type,
+            'status'            => $request->status ?? 'ONGOING PRODUCTION',
+            'location'          => $request->location,
+            'shipment_status'   => $request->shipment_status ?? 'WAITING',
+            'tentative_arrival' => $request->tentative_arrival,
+            'added_to_inventory'=> false,
         ]);
 
-        return DB::transaction(function () use ($request) {
-            $shipment = Shipment::create([
-                'origin_type'       => $request->origin_type,
-                'shipment_purpose'  => $request->shipment_purpose,
-                'shipment_number'   => $request->shipment_number,
-                'container_type'    => $request->container_type,
-                'status'            => $request->status ?? 'ONGOING PRODUCTION',
-                'location'          => $request->location,
-                'shipment_status'   => $request->shipment_status ?? 'WAITING',
-                'tentative_arrival' => $request->tentative_arrival,
-                'added_to_inventory'=> false,
+        foreach ($request->projects as $proj) {
+            $shipment->projects()->create([
+                'project_name'     => $proj['project_name'] ?? null,
+                'product_category' => $proj['product_category'],
+                'product_code'     => $proj['product_code'],
+                'unit'             => $proj['unit'] ?? null,
+                'quantity'         => $proj['quantity'] ?? 0,
+                'coverage_sqm'     => $proj['coverage_sqm'] ?? 0,
             ]);
+        }
 
-            foreach ($request->projects as $proj) {
-                $shipment->projects()->create([
-                    'project_name'     => $proj['project_name']  ?? null,
-                    'product_category' => $proj['product_category'],
-                    'product_code'     => $proj['product_code'],
-                    'unit'             => $proj['unit']           ?? null,
-                    'quantity'         => $proj['quantity']       ?? 0,
-                    'coverage_sqm'     => $proj['coverage_sqm']  ?? 0,
-                ]);
-            }
-
-            return response()->json($shipment->load('projects'), 201);
-        });
-    }
+        return response()->json($shipment->load('projects'), 201);
+    });
+}
 
     // ─── PUT /api/inventory/shipments/{id} ────────────────────────────────────
     public function updateShipment(Request $request, $id): JsonResponse
