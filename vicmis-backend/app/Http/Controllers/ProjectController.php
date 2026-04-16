@@ -72,60 +72,56 @@ class ProjectController extends Controller
     }
 
     private function notifyNextPhase(string $status, Project $project): void
-    {
-        $msg = "Action Required: '{$project->project_name}' has moved to {$status}.";
+{
+    $msg = "Action Required: '{$project->project_name}' has moved to {$status}.";
 
-        switch ($status) {
-            case 'Measurement based on Plan':
-            case 'Actual Measurement':
-            case 'Initial Site Inspection':
-            case 'Site Inspection & Project Monitoring':
-            case 'Site Inspection & Quality Checking':
-            case 'Final Site Inspection with the Client':
-            case 'Signing of COC':
-                $this->createNotification('Engineering', null, $project->id, $msg);
-                break;
+    switch ($status) {
+        case 'Measurement based on Plan':
+        case 'Actual Measurement':
+        case 'Initial Site Inspection':
+        case 'Site Inspection & Project Monitoring':
+        case 'Site Inspection & Quality Checking':
+        case 'Final Site Inspection with the Client':
+        case 'Signing of COC':
+            $this->createNotification('Engineering', null, $project->id, $msg);
+            break;
 
-            case 'Pending Head Review':
-            case 'Pending DR Verification':
-            case 'Pending QA Verification':
-                $this->createNotification('Engineering', 'dept_head', $project->id,
-                    "Approval Needed: '{$project->project_name}' is awaiting Head Verification.");
-                break;
+        case 'Pending Head Review':
+        case 'Pending DR Verification':
+        case 'Pending QA Verification':
+            $this->createNotification('Engineering', 'dept_head', $project->id,
+                "Approval Needed: '{$project->project_name}' is awaiting Head Verification.");
+            break;
 
-            case 'Pending Work Order Verification':
-                $this->createNotification('Sales', 'dept_head', $project->id,
-                    "Approval Needed: '{$project->project_name}' requires Work Order Verification.");
-                break;
+        case 'Pending Work Order Verification':
+            $this->createNotification('Sales', 'dept_head', $project->id,
+                "Approval Needed: '{$project->project_name}' requires Work Order Verification.");
+            break;
 
-            case 'Checking of Delivery of Materials':
-            case 'Request Materials Needed':
-                $this->createNotification('Logistics', null, $project->id, $msg);
-                break;
+        case 'Checking of Delivery of Materials':
+        case 'Request Materials Needed':
+            $this->createNotification('Logistics', null, $project->id, $msg);
+            break;
 
-            // ── NEW: When engineer hits "Request Materials" the notification
-            //         is handled inside MaterialRequestController::store() directly,
-            //         so we don't double-notify here. The phase transition notification
-            //         below is for when the project STATUS itself moves to these phases.
-            case 'Material Request Submitted':
-                $this->createNotification('Logistics', null, $project->id,
-                    "📦 Material Request: '{$project->project_name}' has a pending material request.");
-                break;
+        case 'Material Request Submitted':
+            $this->createNotification('Logistics', null, $project->id,
+                "📦 Material Request: '{$project->project_name}' has a pending material request.");
+            break;
 
-            case 'Bidding of Project':
-            case 'Awarding of Project':
-                $this->createNotification('Management', null, $project->id, $msg);
-                break;
+        case 'Bidding of Project':
+        case 'Awarding of Project':
+            $this->createNotification('Management', null, $project->id, $msg);
+            break;
 
-            case 'Request Billing':
-            case 'Request Final Billing':
-                $this->createNotification('Accounting', 'dept_head', $project->id,
-                    "Billing Action Required: '{$project->project_name}' requires payment processing.");
-                $this->createNotification('Accounting/Procurement', 'dept_head', $project->id,
-                    "Billing Action Required: '{$project->project_name}' requires payment processing.");
-                break;
-        }
+        case 'Request Billing':
+        case 'Request Final Billing':
+            $this->createNotification('Accounting', 'dept_head', $project->id,
+                "Billing Action Required: '{$project->project_name}' requires payment processing.");
+            $this->createNotification('Accounting/Procurement', 'dept_head', $project->id,
+                "Billing Action Required: '{$project->project_name}' requires payment processing.");
+            break;
     }
+}
 
     // =========================================================================
     // 2. NOTIFICATION ENDPOINTS
