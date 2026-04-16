@@ -451,10 +451,6 @@ const PhaseCompleted = ({ project, onAdvance }) => {
         </div>
 
         <div className="pc-hero-stats">
-          <div className="pc-hero-stat">
-            <span className="pc-hero-stat-val">₱{contractAmount}</span>
-            <span className="pc-hero-stat-label">Contract Amount</span>
-          </div>
           <div className="pc-hero-stat-divider" />
           <div className="pc-hero-stat">
             <span className="pc-hero-stat-val">{project.client_name || '—'}</span>
