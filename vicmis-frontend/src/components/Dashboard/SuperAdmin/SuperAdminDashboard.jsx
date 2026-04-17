@@ -3,39 +3,34 @@ import api from '@/api/axios';
 import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle } from 'lucide-react';
 import './SuperAdminDashboard.css';
 
-// ─── NEW: LIVE SERVER GRAPH COMPONENT ─────────────────────────────────────────
+// ─── LIVE SERVER GRAPH COMPONENT ──────────────────────────────────────────────
 const LiveServerGraph = ({ cpuString, memoryString }) => {
-  const [dataPoints, setDataPoints] = useState(Array(40).fill(0));
+  const [dataPoints, setDataPoints] = useState(Array(60).fill(0)); // Increased array for wider graph
   
   useEffect(() => {
-    // Parse the CPU string (e.g., "45%") into an integer
     const baseValue = parseInt(cpuString) || 0;
 
     const interval = setInterval(() => {
       setDataPoints(prev => {
         const newPoints = [...prev.slice(1)];
-        // Add realistic "micro-fluctuations" (+/- 3%) to the base value so it looks alive
         const jitter = Math.floor(Math.random() * 7) - 3; 
         let nextValue = baseValue + jitter;
         
-        // Clamp between 0 and 100
         if (nextValue < 0) nextValue = 0;
         if (nextValue > 100) nextValue = 100;
-        
-        // If the server is offline/loading, keep it at 0
         if (baseValue === 0 && cpuString !== "0%") nextValue = 0;
 
         newPoints.push(nextValue);
         return newPoints;
       });
-    }, 1000); // Updates every 1 second
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [cpuString]);
 
-  // Generate SVG Path for the line and the fill area
-  const width = 400;
-  const height = 100;
+  // Increased dimensions for a larger, higher-resolution canvas
+  const width = 1000;
+  const height = 150; 
   const pointSpacing = width / (dataPoints.length - 1);
 
   const points = dataPoints.map((val, i) => {
@@ -50,18 +45,20 @@ const LiveServerGraph = ({ cpuString, memoryString }) => {
     <div className="sa-graph-card">
       <div className="sa-graph-header">
         <div>
-          <h3>{cpuString || '0%'} CPU</h3>
+          <h3 style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            {cpuString || '0%'} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: '600' }}>CPU</span>
+          </h3>
           <p>Real-time Utilization</p>
         </div>
         <div className="sa-graph-mem">
-          <span>RAM</span>
+          <span>RAM Usage</span>
           <strong>{memoryString || '0%'}</strong>
         </div>
       </div>
       
       <div className="sa-graph-container">
-        {/* Grid lines for aesthetic */}
         <div className="sa-graph-grid">
+          <div className="sa-graph-line"></div>
           <div className="sa-graph-line"></div>
           <div className="sa-graph-line"></div>
           <div className="sa-graph-line"></div>
@@ -179,8 +176,8 @@ const SuperAdminDashboard = ({ user }) => {
         </div>
       </div>
 
+      {/* TOP ROW: The 3 Main KPIs */}
       <div className="sa-kpi-grid">
-        
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#497B97', cursor: 'pointer' }}
@@ -225,15 +222,17 @@ const SuperAdminDashboard = ({ user }) => {
             <p className="sa-kpi-note">Captured in diagnostics log</p>
           </div>
         </div>
+      </div>
 
-        {/* REPLACED: The 4th card is now the Live Graph */}
+      {/* MIDDLE ROW: Full-Width Server Graph */}
+      <div className="sa-graph-wrapper">
         <LiveServerGraph 
           cpuString={stats?.server_health?.cpu} 
           memoryString={stats?.server_health?.memory} 
         />
-
       </div>
 
+      {/* BOTTOM ROW: Department and Feed Grids */}
       <div className="sa-main-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
 
         <div className="sa-panel">

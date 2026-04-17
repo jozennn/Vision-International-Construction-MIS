@@ -284,6 +284,10 @@
 }
 .sa-btn-link:hover { color: var(--brand-red-dk); }
 /* ── Live Server Graph ──────────────────────────────────────────────────────── */
+.sa-graph-wrapper {
+  padding: 0 1.75rem 1.5rem 1.75rem; /* Aligns with the other grids */
+}
+
 .sa-graph-card {
   display: flex;
   flex-direction: column;
@@ -292,26 +296,25 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   border-left: 4px solid #d97706; 
   overflow: hidden;
-  height: 100%;
 }
 
 .sa-graph-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 1rem 1.25rem 0.5rem;
+  padding: 1.25rem 1.5rem 0.5rem;
 }
 
 .sa-graph-header h3 {
-  font-size: 1.5rem;
+  font-size: 2.25rem; /* Increased size for emphasis */
   font-weight: 700;
   color: #1e293b;
-  margin: 0 0 0.15rem 0;
+  margin: 0 0 0.25rem 0;
   line-height: 1;
 }
 
 .sa-graph-header p {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #64748b;
   margin: 0;
@@ -324,20 +327,21 @@
 }
 
 .sa-graph-mem span {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
 .sa-graph-mem strong {
-  font-size: 0.95rem;
+  font-size: 1.25rem;
   color: #1e293b;
 }
 
 .sa-graph-container {
   position: relative;
-  height: 60px; /* Adjust height of the graph here */
+  height: 120px; /* Doubled the height of the animation area */
   width: 100%;
   margin-top: auto;
   background: #f8fafc;
@@ -366,17 +370,20 @@
 }
 
 .sa-graph-fill {
-  fill: rgba(217, 119, 6, 0.1); /* Light amber fill */
+  fill: rgba(217, 119, 6, 0.1); 
 }
 
 .sa-graph-stroke {
   fill: none;
-  stroke: #d97706; /* Solid amber line */
+  stroke: #d97706; 
   stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
+@media (max-width: 640px) {
+  .sa-graph-wrapper { padding: 0 1rem 1rem 1rem; }
+}
 /* ── Responsive ─────────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .sa-main-grid        { grid-template-columns: 1fr; }
