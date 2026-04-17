@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '@/api/axios';
 import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle, HardDrive } from 'lucide-react';
 import './SuperAdminDashboard.css';
 
 const SuperAdminDashboard = ({ user }) => {
-  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState(new Date());
@@ -114,14 +112,13 @@ const SuperAdminDashboard = ({ user }) => {
       </div>
 
       {/* ─── TOP ROW: MULTIPLE KPIs ─── */}
-      {/* Note: In your CSS file, ensure .sa-kpi-grid uses auto-fit for 4 cards now! */}
       <div className="sa-kpi-grid">
         
         {/* Total Users Card */}
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#497B97', cursor: 'pointer' }}
-          onClick={() => navigate('/admin/users')}
+          onClick={() => window.location.href = '/admin/users'}
         >
           <div className="sa-kpi-icon" style={{ background: '#EAF1F6', color: '#497B97' }}>
             <Users size={22} />
@@ -137,7 +134,7 @@ const SuperAdminDashboard = ({ user }) => {
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#10b981', cursor: 'pointer' }}
-          onClick={() => navigate('/admin/database')}
+          onClick={() => window.location.href = '/admin/database'}
         >
           <div className="sa-kpi-icon" style={{ background: '#ecfdf5', color: '#10b981' }}>
             <Database size={22} />
@@ -153,7 +150,7 @@ const SuperAdminDashboard = ({ user }) => {
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#ef4444', cursor: 'pointer' }}
-          onClick={() => navigate('/admin/system-logs')}
+          onClick={() => window.location.href = '/admin/system-logs'}
         >
           <div className="sa-kpi-icon" style={{ background: '#fef2f2', color: '#ef4444' }}>
             <AlertCircle size={22} />
@@ -257,7 +254,7 @@ const SuperAdminDashboard = ({ user }) => {
           <div className="sa-panel-footer">
             <button 
               className="sa-btn-link" 
-              onClick={() => navigate('/admin/activity-logs')}
+              onClick={() => window.location.href = '/admin/activity-logs'}
             >
               View Full Audit Log <ArrowRight size={13} />
             </button>
