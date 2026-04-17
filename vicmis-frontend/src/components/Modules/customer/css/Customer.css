@@ -763,7 +763,7 @@
 .tab-count.converted {
   background: #7c3aed;
 }
-.lead-tab.active .tab-count { background: rgba(255,255,255,0.2); }
+.lead-tab.active .tab-count { background: rgba(228, 2, 2, 0.2); }
 
 /* ── Search + Filter ── */
 .search-filter-row {
