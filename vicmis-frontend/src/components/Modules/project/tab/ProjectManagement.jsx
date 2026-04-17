@@ -57,9 +57,35 @@ const ProjectManagement = ({
     const [error, setError] = useState(null);
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'completed' | 'archived'
     
+    // Tab Counts State (Persists across tab switches)
+    const [tabCounts, setTabCounts] = useState({ active: 0, completed: 0, archived: 0 });
+
     // Search and Filter States
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
+
+    // ── Fetch Initial Counts Silently ─────────────────────────────────────────
+    useEffect(() => {
+        const fetchInitialCounts = async () => {
+            try {
+                const [projRes, archRes] = await Promise.all([
+                    api.get("/projects"),
+                    api.get("/projects/trashed")
+                ]);
+                const projArray = Array.isArray(projRes.data) ? projRes.data : (projRes.data.projects ?? []);
+                const archData = archRes.data || [];
+                
+                setTabCounts({
+                    active: projArray.filter(p => getStatusVariant(p.status) !== 'completed').length,
+                    completed: projArray.filter(p => getStatusVariant(p.status) === 'completed').length,
+                    archived: archData.length
+                });
+            } catch (e) {
+                console.error("Failed to fetch initial counts", e);
+            }
+        };
+        fetchInitialCounts();
+    }, []);
 
     // ── Fetch active projects ────────────────────────────────────────────────
     const fetchProjects = async () => {
@@ -67,7 +93,15 @@ const ProjectManagement = ({
             setLoading(true);
             const res = await api.get("/projects");
             const data = res.data;
-            setProjects(Array.isArray(data) ? data : (data.projects ?? []));
+            const projArray = Array.isArray(data) ? data : (data.projects ?? []);
+            setProjects(projArray);
+
+            // Keep counts updated when fetching
+            setTabCounts(prev => ({
+                ...prev,
+                active: projArray.filter(p => getStatusVariant(p.status) !== 'completed').length,
+                completed: projArray.filter(p => getStatusVariant(p.status) === 'completed').length,
+            }));
         } catch (err) {
             const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? null;
             setError(msg
@@ -85,6 +119,9 @@ const ProjectManagement = ({
             setLoading(true);
             const res = await api.get("/projects/trashed");
             setProjects(res.data);
+
+            // Keep count updated
+            setTabCounts(prev => ({ ...prev, archived: res.data.length }));
         } catch (err) {
             setError('Failed to load archived projects.');
         } finally {
@@ -106,6 +143,8 @@ const ProjectManagement = ({
         try {
             await api.delete(`/projects/${projectId}`);
             fetchProjects();
+            // Manually increment archive count since we only fetched active projects
+            setTabCounts(prev => ({ ...prev, archived: prev.archived + 1 }));
         } catch (err) {
             alert('Failed to archive project.');
         }
@@ -117,6 +156,8 @@ const ProjectManagement = ({
         try {
             await api.post(`/projects/${projectId}/restore`);
             fetchArchivedProjects();
+            // Note: We don't manually fetch active projects here to save API calls,
+            // counts will correct themselves when switching tabs.
         } catch (err) {
             alert('Failed to restore project.');
         }
@@ -160,42 +201,45 @@ const ProjectManagement = ({
     return (
         <div className="pm-page">
 
-            {/* Dark Header - Now fixed and will never blink */}
+            {/* Dark Header */}
             <div className="pm-page-header">
                 <h1 className="pm-page-title">PROJECT MANAGEMENT</h1>
             </div>
 
-            {/* Controls Bar - Now fixed and will never blink */}
+            {/* Controls Bar */}
             <div className="pm-controls-bar">
                 {/* Tabs Container */}
                 <div className="pm-tabs-container">
                     <button 
                         className={`pm-tab-btn ${viewMode === 'active' ? 'active' : ''}`}
+                        data-tab="active"
                         onClick={() => { setViewMode('active'); setFilterStatus(""); setSearchQuery(""); }}
                     >
                         Active Projects
-                        <span className={`pm-tab-badge ${viewMode === 'active' ? 'active' : ''}`}>
-                            {viewMode === 'active' ? displayedProjects.length : 0}
+                        <span className="pm-tab-badge">
+                            {tabCounts.active}
                         </span>
                     </button>
                     
                     <button 
                         className={`pm-tab-btn ${viewMode === 'completed' ? 'active' : ''}`}
+                        data-tab="completed"
                         onClick={() => { setViewMode('completed'); setFilterStatus(""); setSearchQuery(""); }}
                     >
                         Converted Projects
-                        <span className={`pm-tab-badge ${viewMode === 'completed' ? 'active' : ''}`}>
-                            {viewMode === 'completed' ? displayedProjects.length : 0}
+                        <span className="pm-tab-badge">
+                            {tabCounts.completed}
                         </span>
                     </button>
 
                     <button 
                         className={`pm-tab-btn ${viewMode === 'archived' ? 'active' : ''}`}
+                        data-tab="archived"
                         onClick={() => { setViewMode('archived'); setFilterStatus(""); setSearchQuery(""); }}
                     >
                         Archived
-                        <span className={`pm-tab-badge ${viewMode === 'archived' ? 'active' : ''}`}>
-                            {viewMode === 'archived' ? displayedProjects.length : 0}
+                        <span className="pm-tab-badge">
+                            {tabCounts.archived}
                         </span>
                     </button>
                 </div>

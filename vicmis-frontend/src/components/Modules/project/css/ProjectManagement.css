@@ -54,67 +54,73 @@
      margin: 0;
    }
    
-   /* ── Controls Bar (Tabs & Search) ── */
-   .pm-controls-bar {
-     display: flex;
-     justify-content: space-between;
-     align-items: center;
-     flex-wrap: wrap;
-     gap: 16px;
-     margin-bottom: 24px;
-   }
-   
-   /* Tabs (Updated to match image style) */
-   .pm-tabs-container {
-     display: inline-flex;
-     background: #ffffff;
-     border-radius: 10px;
-     border: 1px solid #d1d5db; /* Stronger border to match image */
-     padding: 4px; /* Space inside the container for the pill look */
-     gap: 4px;
-     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-   }
-   
-   .pm-tab-btn {
-     padding: 8px 16px;
-     font-weight: 600;
-     font-size: 14px;
-     border: none;
-     cursor: pointer;
-     display: flex;
-     align-items: center;
-     gap: 8px;
-     border-radius: 6px; /* Inner radius */
-     transition: all 0.2s ease;
-     background: transparent;
-     color: #6b7280; /* Gray text for inactive */
-     font-family: var(--v-font-body);
-   }
-   
-   .pm-tab-btn.active {
-     background: #212121; /* Dark background for active */
-     color: #ffffff;
-   }
-   
-   .pm-tab-badge {
-     background: #8b5cf6; /* Default purple badge for inactive */
-     color: #ffffff;
-     padding: 2px 8px;
-     border-radius: 12px;
-     font-size: 12px;
-     font-weight: bold;
-   }
-   
-   .pm-tab-badge.active {
-     background: #4b5563; /* Gray badge when active to match image */
-   }
-   
-   /* Search & Filters */
-   .pm-filters-group {
-     display: flex;
-     gap: 12px;
-     align-items: center;
-   }
+/* ── Controls Bar (Tabs & Search) ── */
+.pm-controls-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Tabs (Updated to match exact image style) */
+.pm-tabs-container {
+  display: inline-flex;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.pm-tab-btn {
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  background: #f8fafc; /* light grayish blue for inactive */
+  color: #374151; /* dark gray text */
+  font-family: var(--v-font-body);
+}
+
+.pm-tab-btn.active {
+  background: #212121; /* dark header color */
+  color: #ffffff;
+}
+
+/* Badges */
+.pm-tab-badge {
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Inactive Badge Colors */
+.pm-tab-btn[data-tab="active"] .pm-tab-badge { background: #ef4444; } /* Red */
+.pm-tab-btn[data-tab="completed"] .pm-tab-badge { background: #8b5cf6; } /* Purple */
+.pm-tab-btn[data-tab="archived"] .pm-tab-badge { background: #9ca3af; } /* Gray */
+
+/* Active Badge Color Override */
+.pm-tab-btn.active .pm-tab-badge {
+  background: #4b5563 !important; /* Dark gray for active tab badge */
+}
+
+/* Search & Filters */
+.pm-filters-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
    
    .pm-input-wrap {
      position: relative;
