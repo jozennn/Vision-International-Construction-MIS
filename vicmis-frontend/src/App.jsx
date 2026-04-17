@@ -7,7 +7,6 @@ import ControlCenter from './components/Modules/System/ControlCenter.jsx';
 import EngineeringDashboard from './components/Dashboard/Engineering/EngineeringDashboard.jsx';
 import SalesDashboard from './components/Dashboard/Sales/SalesDashboard.jsx';
 import InventoryDashboard from './components/Dashboard/Inventory/InventoryDashboard.jsx';
-import InventoryEmployeeDashboard from './components/Dashboard/Inventory/InventoryEmployeeDashboard.jsx';
 import AccountingDashboard from './components/Dashboard/Accounting/AccountingDashboard.jsx';
 import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDashboard.jsx';
 import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx';
@@ -108,9 +107,8 @@ const App = () => {
       return <SalesDashboard user={user} projects={projects} />;
 
     if (dept === 'inventory' || dept === 'logistics')
-      return isManagement
-        ? <InventoryDashboard user={user} notifications={notifications} />
-        : <InventoryEmployeeDashboard user={user} />;
+      return
+         <InventoryDashboard user={user} notifications={notifications} />;
 
     return (
       <div className="p-20 text-center bg-white rounded-lg shadow m-6">
