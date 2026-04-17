@@ -48,12 +48,12 @@ const PipelineFunnel = ({ leads = [] }) => {
 };
 
 // ─── Phase Bar Graph ──────────────────────────────────────────────────────────
-const PhaseGraph = ({ stats }) => {
+const PhaseGraph = ({ phaseCounts = {} }) => {
   const phases = [
-    { label: 'Sales',       value: stats?.bottlenecks?.sales       || 0, color: '#497B97' },
-    { label: 'Logistics',   value: stats?.bottlenecks?.logistics   || 0, color: '#d97706' },
-    { label: 'Engineering', value: stats?.bottlenecks?.engineering || 0, color: '#10b981' },
-    { label: 'Billing',     value: stats?.bottlenecks?.accounting  || 0, color: '#C20100' },
+    { label: 'Sales',       value: phaseCounts.sales       || 0, color: '#497B97' },
+    { label: 'Logistics',   value: phaseCounts.logistics   || 0, color: '#d97706' },
+    { label: 'Engineering', value: phaseCounts.engineering || 0, color: '#10b981' },
+    { label: 'Billing',     value: phaseCounts.accounting  || 0, color: '#C20100' },
   ];
   const max = Math.max(...phases.map(p => p.value), 1);
   return (
@@ -171,7 +171,7 @@ const ManagerDashboard = ({ user }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Raw data states
-  const [adminStats,   setAdminStats]   = useState(null);
+  const [adminStats,   setAdminStats]   = useState(null); // kept for future use if role allows
   const [leads,        setLeads]        = useState([]);
   const [engStats,     setEngStats]     = useState(null);
   const [inventory,    setInventory]    = useState([]);
@@ -184,12 +184,11 @@ const ManagerDashboard = ({ user }) => {
     if (!silent) setLoading(true); else setIsRefreshing(true);
     try {
       const [
-        adminRes, activeLeadsRes, trashedLeadsRes,
+        activeLeadsRes, trashedLeadsRes,
         engRes,
         invRes, shipRes, delRes, reorderRes, reportRes,
       ] = await Promise.all([
-        api.get('/admin/dashboard-stats'),
-        api.get('/leads'),
+        api.get('/leads').catch(() => ({ data: [] })),
         api.get('/leads/trashed').catch(() => ({ data: [] })),
         api.get('/engineering/dashboard-stats').catch(() => ({ data: null })),
         api.get('/warehouse-inventory', { params: { per_page: 9999 } }).catch(() => ({ data: [] })),
@@ -199,23 +198,55 @@ const ManagerDashboard = ({ user }) => {
         api.get('/inventory/shipments/reports').catch(() => ({ data: [] })),
       ]);
 
-      setAdminStats(adminRes.data);
+      // ── Leads — handle both array and paginated {data:[]} shape ──
+      const normalizeArray = (res) => {
+        const d = res?.data;
+        if (!d) return [];
+        if (Array.isArray(d)) return d;
+        if (Array.isArray(d.data)) return d.data;
+        // Some APIs wrap in {leads:[]} or {items:[]}
+        for (const key of ['leads','items','results']) {
+          if (Array.isArray(d[key])) return d[key];
+        }
+        return [];
+      };
 
-      const activeRows  = Array.isArray(activeLeadsRes.data)  ? activeLeadsRes.data  : (activeLeadsRes.data?.data  ?? []);
-      const trashedRows = Array.isArray(trashedLeadsRes.data) ? trashedLeadsRes.data : (trashedLeadsRes.data?.data ?? []);
+      const activeRows  = normalizeArray(activeLeadsRes);
+      const trashedRows = normalizeArray(trashedLeadsRes);
+      console.log('[MGR] leads active:', activeRows.length, '| trashed:', trashedRows.length);
       setLeads([...activeRows, ...trashedRows.map(l => ({ ...l, is_trashed: true }))]);
 
+      // ── Engineering stats ──
+      console.log('[MGR] engStats raw:', engRes.data);
       setEngStats(engRes.data);
 
-      const invRows = invRes.data?.data ?? invRes.data ?? [];
-      setInventory(Array.isArray(invRows) ? invRows : []);
+      // ── Inventory ──
+      const invRows = normalizeArray(invRes);
+      console.log('[MGR] inventory rows:', invRows.length, '| sample:', invRows[0]);
+      setInventory(invRows);
 
-      setShipments(Array.isArray(shipRes.data) ? shipRes.data : (shipRes.data?.data ?? []));
-      setDeliveries(Array.isArray(delRes.data) ? delRes.data : (delRes.data?.data ?? []));
-      setReorders(reorderRes.data || []);
-      setReports(reportRes.data || []);
+      // ── Shipments ──
+      const shipRows = normalizeArray(shipRes);
+      console.log('[MGR] shipments:', shipRows.length);
+      setShipments(shipRows);
+
+      // ── Deliveries ──
+      const delRows = normalizeArray(delRes);
+      console.log('[MGR] deliveries:', delRows.length);
+      setDeliveries(delRows);
+
+      // ── Reorders ──
+      const reorderRows = normalizeArray(reorderRes);
+      console.log('[MGR] reorders:', reorderRows.length);
+      setReorders(reorderRows);
+
+      // ── Reports ──
+      const reportRows = normalizeArray(reportRes);
+      console.log('[MGR] reports:', reportRows.length);
+      setReports(reportRows);
+
     } catch (err) {
-      console.error('Manager dashboard fetch failed:', err);
+      console.error('[MGR] dashboard fetch failed:', err);
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -257,8 +288,19 @@ const ManagerDashboard = ({ user }) => {
   const totalEngineers  = engStats?.total_engineers      || 0;
   const globalProgress  = engStats?.project_progress     || '0%';
   const pickupQueue     = engStats?.pickup_queue?.length || 0;
-  const activeProjects  = adminStats?.active_projects    || 0;
-  const pendingApprvals = adminStats?.bottlenecks?.total_pending || 0;
+  const activeProjects  = engStats?.active_projects?.length ?? totalProjects;
+  const pendingApprvals = pendingTasks;
+
+  // Phase distribution — derived from leads statuses (no admin endpoint needed)
+  const activeLeadsList = leads.filter(l => !l.is_trashed);
+  const countByKeywords = (...words) =>
+    activeLeadsList.filter(l => words.some(w => (l.status || '').toLowerCase().includes(w))).length;
+  const phaseCounts = {
+    sales:       countByKeywords('sales', 'planning', 'to be contacted', 'contacted', 'presentation', 'ready'),
+    logistics:   countByKeywords('logistics', 'pre-execution', 'material', 'delivery'),
+    engineering: countByKeywords('engineering', 'construction', 'installation', 'monitoring'),
+    accounting:  countByKeywords('billing', 'handover', 'accounting', 'invoic', 'coc'),
+  };
 
   // ── Derived: Inventory ────────────────────────────────────────────────
   const noStockCount   = inventory.filter(i => i.availability === 'NO STOCK').length;
@@ -421,7 +463,7 @@ const ManagerDashboard = ({ user }) => {
             {/* Phase Distribution Graph */}
             <div className="mgr2-panel mgr2-panel--graph">
               <p className="mgr2-panel-title"><BarChart2 size={13} /> Phase Distribution</p>
-              <PhaseGraph stats={adminStats} />
+              <PhaseGraph phaseCounts={phaseCounts} />
               <div className="mgr2-phase-legend">
                 {[
                   { label: 'Sales',       color: '#497B97' },
@@ -454,7 +496,7 @@ const ManagerDashboard = ({ user }) => {
                       <span className="mgr2-pipe-desc">{item.desc}</span>
                     </div>
                     <span className="mgr2-pipe-count" style={{ color: item.color }}>
-                      {adminStats?.bottlenecks?.[item.key] || 0}
+                      {phaseCounts[item.key] || 0}
                     </span>
                   </div>
                 ))}
