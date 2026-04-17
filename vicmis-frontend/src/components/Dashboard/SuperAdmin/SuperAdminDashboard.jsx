@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '@/api/axios';
 import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle } from 'lucide-react';
+import ServerMetricsCard from './ServerMetricsCard'; // <-- IMPORT NEW COMPONENT
 import './SuperAdminDashboard.css';
 
 const SuperAdminDashboard = ({ user }) => {
@@ -89,7 +90,7 @@ const SuperAdminDashboard = ({ user }) => {
     { name: 'Engineering', count: deptCounts['Engineering'] || 0, color: '#d97706', icon: <Cpu size={14} /> },
     { name: 'Logistics',   count: deptCounts['Logistics'] || 0,   color: '#10b981', icon: <Package size={14} /> },
     { name: 'Procurement', count: deptCounts['Procurement'] || 0, color: '#6366F1', icon: <Database size={14} /> },
-  ].filter(d => d.count > 0); // Only show departments that actually have users
+  ].filter(d => d.count > 0); 
 
   const maxDeptCount = Math.max(1, ...DEPARTMENTS.map(d => d.count));
 
@@ -134,11 +135,11 @@ const SuperAdminDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* Total Database Backups Card - Clickable */}
+        {/* Total Database Backups Card */}
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#10b981', cursor: 'pointer' }}
-          onClick={() => navigate('/admin/database')} // <-- Adjust route if needed
+          onClick={() => navigate('/admin/database')}
         >
           <div className="sa-kpi-icon" style={{ background: '#ecfdf5', color: '#10b981' }}>
             <Database size={22} />
@@ -150,11 +151,11 @@ const SuperAdminDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* System Diagnostics Errors Card - Clickable */}
+        {/* System Diagnostics Errors Card */}
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#ef4444', cursor: 'pointer' }}
-          onClick={() => navigate('/admin/system-logs')} // <-- Adjust route if needed
+          onClick={() => navigate('/admin/system-logs')}
         >
           <div className="sa-kpi-icon" style={{ background: '#fef2f2', color: '#ef4444' }}>
             <AlertCircle size={22} />
@@ -165,6 +166,9 @@ const SuperAdminDashboard = ({ user }) => {
             <p className="sa-kpi-note">Captured in diagnostics log</p>
           </div>
         </div>
+
+        {/* ─── NEW METRICS CARDS INJECTED HERE ─── */}
+        <ServerMetricsCard />
 
       </div>
 
@@ -240,7 +244,7 @@ const SuperAdminDashboard = ({ user }) => {
           <div className="sa-panel-footer">
             <button 
               className="sa-btn-link" 
-              onClick={() => navigate('/admin/activity-logs')} // <-- Redirects to activity tracker
+              onClick={() => navigate('/admin/activity-logs')}
             >
               View Full Audit Log <ArrowRight size={13} />
             </button>
