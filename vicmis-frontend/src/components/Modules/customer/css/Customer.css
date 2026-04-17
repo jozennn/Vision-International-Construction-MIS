@@ -752,7 +752,7 @@
 }
 .lead-tab:hover { color: var(--vision-charcoal); background: #f1f5f9; }
 .lead-tab.active {
-  background: var(--vision-red); color: var(--vision-white);
+  background: var(--vision-charcoal); color: var(--vision-white);
   box-shadow: var(--shadow-sm);
 }
 .tab-count {
