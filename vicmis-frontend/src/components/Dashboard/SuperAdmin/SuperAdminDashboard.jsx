@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package } from 'lucide-react';
+import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle } from 'lucide-react';
 import './SuperAdminDashboard.css';
 
 // ─── CRON PRESETS (required by DatabaseManager) ───────────────────────────────
@@ -181,7 +181,6 @@ const InlineDatabaseManager = () => {
 
   return (
     <div className="sa-db-inner">
-      {/* Action bar */}
       <div className="sa-db-action-bar">
         <button className="sa-db-btn-outline" onClick={handleExport} disabled={isExporting}>
           {isExporting ? '↻ Exporting…' : '⬇ Export .sql'}
@@ -191,7 +190,6 @@ const InlineDatabaseManager = () => {
         </button>
       </div>
 
-      {/* Tab nav */}
       <div className="sa-db-tab-nav">
         {DB_TABS.map(t => (
           <button
@@ -385,19 +383,48 @@ const SuperAdminDashboard = ({ user }) => {
   const [stats, setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [clock, setClock]   = useState(new Date());
+  
+  // New States for requested KPI Cards
+  const [totalBackups, setTotalBackups] = useState(0);
+  const [totalErrors, setTotalErrors] = useState(0);
+  const [fetchedTotalUsers, setFetchedTotalUsers] = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const statsRes = await api.get('/admin/dashboard-stats');
-        setStats(statsRes.data);
-      } catch (err) {
-        console.error('Failed to fetch super admin data', err);
+        // 1. Fetch Dashboard Stats
+        try {
+          const statsRes = await api.get('/admin/dashboard-stats');
+          setStats(statsRes.data);
+        } catch (err) { console.error('Stats fetch error:', err); }
+
+        // 2. Fetch Backups for KPI Card
+        try {
+          const backupsRes = await api.get('/admin/database/backups');
+          setTotalBackups(backupsRes.data.backups?.length || 0);
+        } catch (err) { console.error('Backups fetch error:', err); }
+
+        // 3. Fetch System Logs for Errors KPI Card
+        try {
+          const logsRes = await api.get('/admin/system-logs');
+          const logs = logsRes.data.logs || [];
+          const errorCount = logs.filter(log => 
+            log.includes('local.ERROR') || log.includes('Stack trace:') || log.includes('Exception')
+          ).length;
+          setTotalErrors(errorCount);
+        } catch (err) { console.error('Logs fetch error:', err); }
+
+        // 4. Fetch Users count directly
+        try {
+          const usersRes = await api.get('/admin/users');
+          setFetchedTotalUsers(usersRes.data.length);
+        } catch (err) { console.error('Users fetch error:', err); }
+
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchDashboardData();
   }, []);
 
   useEffect(() => {
@@ -417,12 +444,13 @@ const SuperAdminDashboard = ({ user }) => {
   const fmtTime = (d) =>
     d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-  // Department user counts — sourced from stats.department_counts
   const deptCounts = stats?.department_counts ?? {};
   const salesCount       = deptCounts.sales       ?? 0;
   const engineeringCount = deptCounts.engineering  ?? 0;
   const logisticsCount   = deptCounts.logistics    ?? 0;
-  const totalUsers       = stats?.total_users      ?? 0;
+  
+  // Uses fetched users if available, otherwise falls back to stats
+  const totalUsersToDisplay = fetchedTotalUsers !== null ? fetchedTotalUsers : (stats?.total_users ?? 0);
 
   const DEPARTMENTS = [
     { name: 'Sales',                 count: salesCount,       color: '#497B97', icon: <Shield size={14} /> },
@@ -454,18 +482,45 @@ const SuperAdminDashboard = ({ user }) => {
         </div>
       </div>
 
-      {/* ─── TOP ROW: single KPI ─── */}
-      <div className="sa-kpi-grid sa-kpi-grid--single">
+      {/* ─── TOP ROW: MULTIPLE KPIs ─── */}
+      <div className="sa-kpi-grid">
+        
+        {/* Total Users Card */}
         <div className="sa-kpi-card" style={{ '--kpi-accent': '#497B97' }}>
           <div className="sa-kpi-icon" style={{ background: '#EAF1F6', color: '#497B97' }}>
             <Users size={22} />
           </div>
           <div className="sa-kpi-data">
-            <h3>{totalUsers}</h3>
+            <h3>{totalUsersToDisplay}</h3>
             <p>Total Employees</p>
             <p className="sa-kpi-note">Registered user accounts</p>
           </div>
         </div>
+
+        {/* Total Database Backups Card */}
+        <div className="sa-kpi-card" style={{ '--kpi-accent': '#10b981' }}>
+          <div className="sa-kpi-icon" style={{ background: '#ecfdf5', color: '#10b981' }}>
+            <Database size={22} />
+          </div>
+          <div className="sa-kpi-data">
+            <h3>{totalBackups}</h3>
+            <p>Database Backups</p>
+            <p className="sa-kpi-note">Available restore points</p>
+          </div>
+        </div>
+
+        {/* System Diagnostics Errors Card */}
+        <div className="sa-kpi-card" style={{ '--kpi-accent': '#ef4444' }}>
+          <div className="sa-kpi-icon" style={{ background: '#fef2f2', color: '#ef4444' }}>
+            <AlertCircle size={22} />
+          </div>
+          <div className="sa-kpi-data">
+            <h3>{totalErrors}</h3>
+            <p>System Errors</p>
+            <p className="sa-kpi-note">Captured in diagnostics log</p>
+          </div>
+        </div>
+
       </div>
 
       {/* ─── MAIN GRID ─── */}
@@ -499,7 +554,7 @@ const SuperAdminDashboard = ({ user }) => {
                   />
                 </div>
                 <div className="sa-dept-pct">
-                  {totalUsers > 0 ? Math.round((dept.count / totalUsers) * 100) : 0}% of workforce
+                  {totalUsersToDisplay > 0 ? Math.round((dept.count / totalUsersToDisplay) * 100) : 0}% of workforce
                 </div>
               </div>
             ))}
