@@ -745,7 +745,7 @@
 .lead-tab {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 18px; border-radius: 7px; border: none;
-  background: transparent; color: #64748b;
+  background: transparent; color: #0669f3;
   font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
   font-weight: 600; cursor: pointer; transition: var(--transition);
   white-space: nowrap;
@@ -763,7 +763,7 @@
 .tab-count.converted {
   background: #7c3aed;
 }
-.lead-tab.active .tab-count { background: rgba(228, 2, 2, 0.2); }
+.lead-tab.active .tab-count { background: rgba(255,255,255,0.2); }
 
 /* ── Search + Filter ── */
 .search-filter-row {
