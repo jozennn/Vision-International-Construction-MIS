@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '@/api/axios';
-import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle } from 'lucide-react';
+import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle, HardDrive } from 'lucide-react';
 import './SuperAdminDashboard.css';
 
 const SuperAdminDashboard = ({ user }) => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState(new Date());
@@ -12,14 +14,12 @@ const SuperAdminDashboard = ({ user }) => {
   const [totalBackups, setTotalBackups] = useState(0);
   const [totalErrors, setTotalErrors] = useState(0);
   const [fetchedTotalUsers, setFetchedTotalUsers] = useState(0);
-  
-  // New state to hold dynamically calculated department counts
   const [deptCounts, setDeptCounts] = useState({});
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // 1. Fetch Dashboard Stats
+        // 1. Fetch Dashboard Stats (Includes our new server health metrics)
         try {
           const statsRes = await api.get('/admin/dashboard-stats');
           setStats(statsRes.data);
@@ -47,11 +47,10 @@ const SuperAdminDashboard = ({ user }) => {
           const usersList = usersRes.data || [];
           setFetchedTotalUsers(usersList.length);
           
-          // Dynamically count users per department based on actual data
           const calculatedCounts = {};
           usersList.forEach(u => {
             let dept = u.department || 'Unassigned';
-            if (dept === 'Accounting/Procurement') dept = 'Procurement'; // Handle legacy records
+            if (dept === 'Accounting/Procurement') dept = 'Procurement'; 
             calculatedCounts[dept] = (calculatedCounts[dept] || 0) + 1;
           });
           setDeptCounts(calculatedCounts);
@@ -82,14 +81,13 @@ const SuperAdminDashboard = ({ user }) => {
   const fmtTime = (d) =>
     d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-  // Map the calculated dynamic counts to standard department visual profiles
   const DEPARTMENTS = [
     { name: 'Management',  count: deptCounts['Management'] || 0,  color: '#7C3AED', icon: <Shield size={14} /> },
     { name: 'Sales',       count: deptCounts['Sales'] || 0,       color: '#497B97', icon: <BarChart2 size={14} /> },
     { name: 'Engineering', count: deptCounts['Engineering'] || 0, color: '#d97706', icon: <Cpu size={14} /> },
     { name: 'Logistics',   count: deptCounts['Logistics'] || 0,   color: '#10b981', icon: <Package size={14} /> },
     { name: 'Procurement', count: deptCounts['Procurement'] || 0, color: '#6366F1', icon: <Database size={14} /> },
-  ].filter(d => d.count > 0); // Only display departments that actually have users
+  ].filter(d => d.count > 0);
 
   const maxDeptCount = Math.max(1, ...DEPARTMENTS.map(d => d.count));
 
@@ -116,10 +114,15 @@ const SuperAdminDashboard = ({ user }) => {
       </div>
 
       {/* ─── TOP ROW: MULTIPLE KPIs ─── */}
+      {/* Note: In your CSS file, ensure .sa-kpi-grid uses auto-fit for 4 cards now! */}
       <div className="sa-kpi-grid">
         
         {/* Total Users Card */}
-        <div className="sa-kpi-card" style={{ '--kpi-accent': '#497B97' }}>
+        <div 
+          className="sa-kpi-card" 
+          style={{ '--kpi-accent': '#497B97', cursor: 'pointer' }}
+          onClick={() => navigate('/admin/users')}
+        >
           <div className="sa-kpi-icon" style={{ background: '#EAF1F6', color: '#497B97' }}>
             <Users size={22} />
           </div>
@@ -131,7 +134,11 @@ const SuperAdminDashboard = ({ user }) => {
         </div>
 
         {/* Total Database Backups Card */}
-        <div className="sa-kpi-card" style={{ '--kpi-accent': '#10b981' }}>
+        <div 
+          className="sa-kpi-card" 
+          style={{ '--kpi-accent': '#10b981', cursor: 'pointer' }}
+          onClick={() => navigate('/admin/database')}
+        >
           <div className="sa-kpi-icon" style={{ background: '#ecfdf5', color: '#10b981' }}>
             <Database size={22} />
           </div>
@@ -143,7 +150,11 @@ const SuperAdminDashboard = ({ user }) => {
         </div>
 
         {/* System Diagnostics Errors Card */}
-        <div className="sa-kpi-card" style={{ '--kpi-accent': '#ef4444' }}>
+        <div 
+          className="sa-kpi-card" 
+          style={{ '--kpi-accent': '#ef4444', cursor: 'pointer' }}
+          onClick={() => navigate('/admin/system-logs')}
+        >
           <div className="sa-kpi-icon" style={{ background: '#fef2f2', color: '#ef4444' }}>
             <AlertCircle size={22} />
           </div>
@@ -151,6 +162,24 @@ const SuperAdminDashboard = ({ user }) => {
             <h3>{totalErrors}</h3>
             <p>System Errors</p>
             <p className="sa-kpi-note">Captured in diagnostics log</p>
+          </div>
+        </div>
+
+        {/* NEW: Server Health Status Card */}
+        <div 
+          className="sa-kpi-card" 
+          style={{ '--kpi-accent': '#d97706', cursor: 'default' }}
+        >
+          <div className="sa-kpi-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
+            <HardDrive size={22} />
+          </div>
+          <div className="sa-kpi-data">
+            <h3 style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
+                {stats?.server_health?.cpu || '0%'} 
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>CPU</span>
+            </h3>
+            <p>Server Health</p>
+            <p className="sa-kpi-note">RAM Usage: {stats?.server_health?.memory || '0%'}</p>
           </div>
         </div>
 
@@ -226,7 +255,10 @@ const SuperAdminDashboard = ({ user }) => {
             )}
           </div>
           <div className="sa-panel-footer">
-            <button className="sa-btn-link">
+            <button 
+              className="sa-btn-link" 
+              onClick={() => navigate('/admin/activity-logs')}
+            >
               View Full Audit Log <ArrowRight size={13} />
             </button>
           </div>

@@ -254,6 +254,43 @@ class AdminUserController extends Controller
             'Pending QA Verification', 'Pending Work Order Verification',
         ])->count();
 
+        // ---------------------------------------------------------
+        // 💻 SERVER HEALTH (CPU & MEMORY) - Linux Production
+        // ---------------------------------------------------------
+        $cpuLoad = '0%';
+        $memoryUsage = '0%';
+
+        try {
+            // Get CPU Load (1-minute average)
+            $load = sys_getloadavg();
+            if ($load) {
+                // Assuming a single core for a simple percentage.
+                // If you have multiple cores, you might want to divide by core count.
+                $cpuLoad = min(100, round($load[0] * 100)) . '%'; 
+            }
+            
+            // Get Memory Usage using the 'free' command
+            $free = shell_exec('free -m'); // Get memory in MB
+            if ($free) {
+                $free = (string)trim($free);
+                $free_arr = explode("\n", $free);
+                if (isset($free_arr[1])) {
+                    $mem = explode(" ", $free_arr[1]);
+                    $mem = array_filter($mem); // Remove empty array elements
+                    $mem = array_values($mem); // Re-index array
+                    
+                    // index 1 is total memory, index 2 is used memory
+                    if (isset($mem[1]) && isset($mem[2]) && $mem[1] > 0) {
+                        $memoryUsage = round(($mem[2] / $mem[1]) * 100) . '%';
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to fetch server health metrics: " . $e->getMessage());
+            $cpuLoad = 'N/A';
+            $memoryUsage = 'N/A';
+        }
+
         return response()->json([
             'total_users'       => $totalUsers,
             'active_projects'   => $activeProjectsCount,
@@ -266,6 +303,11 @@ class AdminUserController extends Controller
                 'logistics'     => $logisticsQueue,
                 'accounting'    => $accountingQueue,
             ],
+            // Include new server stats in the JSON response
+            'server_health' => [
+                'cpu'    => $cpuLoad,
+                'memory' => $memoryUsage
+            ]
         ]);
     }
 }
