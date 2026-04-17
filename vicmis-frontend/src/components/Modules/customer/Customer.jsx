@@ -201,7 +201,7 @@ const Customer = ({ user }) => {
     }
   };
 
-  useEffect(() => { fetchLeads(); fetchProjects(); }, []);
+  useEffect(() => { fetchLeads(); fetchProjects(); fetchTrashedLeads(); }, []);
 
   const activeLeads       = leads.filter(l => l.status !== 'Project Created');
   const completedProjects = leads.filter(l => l.status === 'Project Created');
