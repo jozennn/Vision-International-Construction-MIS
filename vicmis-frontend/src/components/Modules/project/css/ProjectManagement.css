@@ -5,6 +5,11 @@
 
    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Syne:wght@700;800&display=swap');
 
+   /* Apply border-box sizing to everything inside the page to prevent width overflow */
+   .pm-page, .pm-page * {
+     box-sizing: border-box;
+   }
+   
    :root {
      --v-navy:       #1A1A2E;
      --v-navy-mid:   #16213E;
@@ -16,7 +21,7 @@
      --v-cream-lt:   #F5EDE9;
      --v-black:      #221F1F;
      --v-white:      #FFFFFF;
-     --v-surface:    #f3f4f6; /* Matching new background */
+     --v-surface:    #f3f4f6; 
      --v-border:     #e5e7eb;
    
      --v-font-display: 'Syne', sans-serif;
@@ -31,6 +36,8 @@
      font-family: var(--v-font-body);
      color: var(--v-black);
      padding: 30px;
+     width: 100%;
+     overflow-x: hidden; /* Extra safety to prevent horizontal scroll at the page level */
    }
    
    /* ── Page header ── */
@@ -43,6 +50,7 @@
      align-items: center;
      margin-bottom: 24px;
      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+     width: 100%;
    }
    
    .pm-page-title {
@@ -54,84 +62,86 @@
      margin: 0;
    }
    
-/* ── Controls Bar (Tabs & Search) ── */
-.pm-controls-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-/* ── Tabs Container ── */
-.pm-tabs-container {
-  display: inline-flex;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  padding: 4px;
-  gap: 4px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-/* ── Base Tab Button ── */
-.pm-tab-btn {
-  padding: 8px 16px;
-  font-weight: 700;
-  font-size: 13px;
-  border: none !important;           /* Forces removal of bottom borders */
-  box-shadow: none !important;       /* Forces removal of shadow underlines */
-  text-decoration: none !important;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  background: transparent;
-  color: #6b7280; /* Gray text for inactive */
-  font-family: var(--v-font-body);
-  position: relative;
-}
-
-/* Hide any pseudo-elements creating the red line */
-.pm-tab-btn::after, 
-.pm-tab-btn::before {
-  display: none !important; 
-}
-
-/* ── Active Tab Button (Dark Background) ── */
-.pm-tab-btn.active {
-  background-color: #212121 !important; /* Dark background */
-  color: #ffffff !important;            /* White text */
-}
-
-/* ── Badges ── */
-.pm-tab-badge {
-  color: #ffffff;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-/* Inactive Badge Colors */
-.pm-tab-btn[data-tab="active"] .pm-tab-badge { background: #4b5563; } 
-.pm-tab-btn[data-tab="completed"] .pm-tab-badge { background: #8b5cf6; } 
-.pm-tab-btn[data-tab="archived"] .pm-tab-badge { background: #9ca3af; } 
-
-/* Active Badge Color Override (So it looks good against the dark background) */
-.pm-tab-btn.active .pm-tab-badge {
-  background: #4b5563 !important; 
-}
-
-/* Search & Filters */
-.pm-filters-group {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
+   /* ── Controls Bar (Tabs & Search) ── */
+   .pm-controls-bar {
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     flex-wrap: wrap;
+     gap: 16px;
+     margin-bottom: 24px;
+     width: 100%;
+   }
+   
+   /* ── Tabs Container ── */
+   .pm-tabs-container {
+     display: inline-flex;
+     background: #ffffff;
+     border-radius: 8px;
+     border: 1px solid #e5e7eb;
+     padding: 4px;
+     gap: 4px;
+     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+     max-width: 100%; /* Prevents breaking out of container */
+   }
+   
+   /* ── Base Tab Button ── */
+   .pm-tab-btn {
+     padding: 8px 16px;
+     font-weight: 700;
+     font-size: 13px;
+     border: none !important;
+     box-shadow: none !important;
+     text-decoration: none !important;
+     cursor: pointer;
+     display: flex;
+     align-items: center;
+     gap: 8px;
+     border-radius: 6px;
+     transition: all 0.2s ease;
+     background: transparent;
+     color: #6b7280; 
+     font-family: var(--v-font-body);
+     position: relative;
+     white-space: nowrap; /* Keeps text from stacking weirdly */
+   }
+   
+   .pm-tab-btn::after, 
+   .pm-tab-btn::before {
+     display: none !important; 
+   }
+   
+   /* ── Active Tab Button (Dark Background) ── */
+   .pm-tab-btn.active {
+     background-color: #212121 !important; 
+     color: #ffffff !important;            
+   }
+   
+   /* ── Badges ── */
+   .pm-tab-badge {
+     color: #ffffff;
+     padding: 2px 8px;
+     border-radius: 12px;
+     font-size: 12px;
+     font-weight: bold;
+   }
+   
+   /* Inactive Badge Colors */
+   .pm-tab-btn[data-tab="active"] .pm-tab-badge { background: #ef4444; } 
+   .pm-tab-btn[data-tab="completed"] .pm-tab-badge { background: #8b5cf6; } 
+   .pm-tab-btn[data-tab="archived"] .pm-tab-badge { background: #9ca3af; } 
+   
+   /* Active Badge Color Override */
+   .pm-tab-btn.active .pm-tab-badge {
+     background: #4b5563 !important; 
+   }
+   
+   /* ── Search & Filters ── */
+   .pm-filters-group {
+     display: flex;
+     gap: 12px;
+     align-items: center;
+   }
    
    .pm-input-wrap {
      position: relative;
@@ -176,6 +186,7 @@
      display: grid;
      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
      gap: 24px;
+     width: 100%;
    }
    
    /* ── Project Card ── */
@@ -189,6 +200,7 @@
      cursor: pointer;
      transition: transform 0.2s;
      overflow: hidden;
+     width: 100%;
    }
    
    .pm-proj-card:hover {
@@ -317,7 +329,6 @@
      font-size: 12px;
    }
    
-   /* Action Buttons (Restore/Delete) */
    .pm-action-buttons {
      display: flex;
      gap: 8px;
@@ -344,7 +355,6 @@
      color: #ef4444;
    }
    
-   /* ── Empty state ── */
    .pm-empty {
      grid-column: 1 / -1;
      text-align: center;
@@ -356,7 +366,6 @@
    .pm-empty h3 { color: #374151; margin: 0 0 8px 0; }
    .pm-empty p { color: #6b7280; margin: 0; }
    
-   /* ── Loading state ── */
    .pm-loading {
      display: flex;
      flex-direction: column;
@@ -379,7 +388,6 @@
      to { transform: rotate(360deg); }
    }
    
-   /* ── Error state ── */
    .pm-error {
      margin-bottom: 24px;
      padding: 16px 20px;
@@ -393,96 +401,93 @@
      display: flex;
      align-items: center;
    }
-
+   
    /* ============================================================
-      RESPONSIVE MEDIA QUERIES (NEW)
+      RESPONSIVE MEDIA QUERIES (MOBILE FIXES)
       ============================================================ */
-
+   
    /* ── Tablets & Laptops (max-width: 1024px) ── */
    @media (max-width: 1024px) {
      .pm-project-grid {
-       /* Slightly smaller min-width for grid items on tablets */
        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
      }
    }
-
+   
    /* ── Mobile Devices (max-width: 768px) ── */
    @media (max-width: 768px) {
-     /* Reduce outer padding to save screen space */
      .pm-page {
-       padding: 16px;
+       padding: 12px; /* Reduce padding to save space */
      }
-
-     /* Smaller header */
+   
      .pm-page-header {
-       padding: 16px 20px;
+       padding: 16px;
        margin-bottom: 16px;
      }
      
      .pm-page-title {
        font-size: 18px;
+       white-space: normal; /* Allows header text to wrap if it's too long */
      }
-
-     /* Allow tabs to scroll horizontally instead of stacking or squishing */
+   
+     .pm-controls-bar {
+       flex-direction: column; /* Stack tabs on top of search bar */
+       align-items: stretch;
+       gap: 12px;
+     }
+   
+     /* Make tabs scrollable horizontally on small screens instead of overflowing */
      .pm-tabs-container {
        width: 100%;
+       display: flex;
        overflow-x: auto;
-       white-space: nowrap;
-       justify-content: flex-start;
-       -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-       /* Hide scrollbar for a cleaner look */
-       scrollbar-width: none; 
+       -webkit-overflow-scrolling: touch; 
+       scrollbar-width: none; /* Hide scrollbar for a cleaner look */
      }
      .pm-tabs-container::-webkit-scrollbar {
        display: none;
      }
-
+   
      .pm-tab-btn {
-       flex-shrink: 0; /* Prevents text from wrapping */
+       flex: 1 0 auto; /* Allow buttons to maintain their natural width */
      }
-
-     /* Make search and filter full width */
+   
+     /* Make search and filter span the full width */
      .pm-filters-group {
        width: 100%;
        flex-direction: column;
-       align-items: stretch; /* Stretch children to full width */
+       align-items: stretch;
      }
-
+   
      .pm-input-wrap {
        width: 100%;
      }
-
+   
      .pm-search-input,
      .pm-filter-select {
-       min-width: 100%; /* Overrides the previous min-width restrictions */
        width: 100%;
+       min-width: 0 !important; /* Forces it to forget the 280px desktop min-width */
      }
-
+   
      /* Switch to a 1-column layout for the cards */
      .pm-project-grid {
        grid-template-columns: 1fr;
        gap: 16px;
      }
    }
-
+   
    /* ── Very Small Phones (max-width: 480px) ── */
    @media (max-width: 480px) {
-     /* Reduce inner padding of cards to fit better */
      .pm-card-top-row, 
      .pm-card-stage-strip, 
      .pm-card-footer-row {
        padding: 12px 16px;
      }
-
+   
      .pm-card-main-info {
        padding: 0 16px 16px 16px;
      }
-
+   
      .pm-card-proj-title {
        font-size: 16px;
-     }
-     
-     .pm-card-client-name {
-       font-size: 13px;
      }
    }
