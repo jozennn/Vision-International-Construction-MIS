@@ -107,8 +107,8 @@ const App = () => {
       return <SalesDashboard user={user} projects={projects} />;
 
     if (dept === 'inventory' || dept === 'logistics')
-      return
-         <InventoryDashboard user={user} notifications={notifications} />;
+      return <InventoryDashboard user={user} notifications={notifications} />;
+         
 
     return (
       <div className="p-20 text-center bg-white rounded-lg shadow m-6">
