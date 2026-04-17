@@ -156,42 +156,18 @@ const ProjectManagement = ({
     }, [projects, viewMode, searchQuery, filterStatus]);
 
 
-    // ── Loading ──
-    if (loading) {
-        return (
-            <div className="pm-page">
-                <div className="pm-loading">
-                    <div className="pm-spinner"></div>
-                    <span className="pm-loading-text">Loading projects…</span>
-                </div>
-            </div>
-        );
-    }
-
-    // ── Error ──
-    if (error) {
-        return (
-            <div className="pm-page">
-                <button onClick={() => { setError(null); setViewMode('active'); fetchProjects(); }}>
-                    ← Back to Active Projects
-                </button>
-                <div className="pm-error">⚠️ {error}</div>
-            </div>
-        );
-    }
-
-    // ── Main ──
+    // ── Main Layout ──
     return (
         <div className="pm-page">
 
-            {/* Dark Header */}
+            {/* Dark Header - Now fixed and will never blink */}
             <div className="pm-page-header">
                 <h1 className="pm-page-title">PROJECT MANAGEMENT</h1>
             </div>
 
-            {/* Controls Bar */}
+            {/* Controls Bar - Now fixed and will never blink */}
             <div className="pm-controls-bar">
-                {/* Tabs */}
+                {/* Tabs Container */}
                 <div className="pm-tabs-container">
                     <button 
                         className={`pm-tab-btn ${viewMode === 'active' ? 'active' : ''}`}
@@ -257,92 +233,112 @@ const ProjectManagement = ({
                 </div>
             </div>
 
-            {/* Grid */}
-            <div className="pm-project-grid">
-                {displayedProjects.length === 0 ? (
-                    <div className="pm-empty">
-                        <h3>No projects found</h3>
-                        <p>Try adjusting your search or filter terms.</p>
-                    </div>
-                ) : (
-                    displayedProjects.map((proj) => {
-                        const isArchived = viewMode === 'archived';
-                        
-                        return (
-                            <div
-                                key={proj.id}
-                                className={`pm-proj-card ${isArchived ? 'archived' : ''}`}
-                                onClick={() => !isArchived && onSelectProject(proj)}
-                            >
-                                {/* Top Header Row */}
-                                <div className="pm-card-top-row">
-                                    <span className="pm-card-created-tag">
-                                        PROJECT CREATED
-                                    </span>
-                                    <span className="pm-card-date-top">
-                                        {formatDate(proj.created_at)}
-                                    </span>
-                                </div>
+            {/* Error Message */}
+            {error && (
+                <div className="pm-error">
+                    ⚠️ {error}
+                    <button 
+                        onClick={() => { setError(null); setViewMode('active'); fetchProjects(); }}
+                        style={{ marginLeft: '12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}
+                    >
+                        Reload
+                    </button>
+                </div>
+            )}
 
-                                {/* Main Body Info */}
-                                <div className="pm-card-main-info">
-                                    <h3 className="pm-card-proj-title">{proj.project_name}</h3>
-                                    <div className="pm-card-client-name">
-                                        {proj.client_name || 'No Client Assigned'}
+            {/* Content Area - Loading OR Grid */}
+            {loading ? (
+                <div className="pm-loading">
+                    <div className="pm-spinner"></div>
+                    <span className="pm-loading-text">Loading projects…</span>
+                </div>
+            ) : (
+                <div className="pm-project-grid">
+                    {displayedProjects.length === 0 ? (
+                        <div className="pm-empty">
+                            <h3>No projects found</h3>
+                            <p>Try adjusting your search or filter terms.</p>
+                        </div>
+                    ) : (
+                        displayedProjects.map((proj) => {
+                            const isArchived = viewMode === 'archived';
+                            
+                            return (
+                                <div
+                                    key={proj.id}
+                                    className={`pm-proj-card ${isArchived ? 'archived' : ''}`}
+                                    onClick={() => !isArchived && onSelectProject(proj)}
+                                >
+                                    {/* Top Header Row */}
+                                    <div className="pm-card-top-row">
+                                        <span className="pm-card-created-tag">
+                                            PROJECT CREATED
+                                        </span>
+                                        <span className="pm-card-date-top">
+                                            {formatDate(proj.created_at)}
+                                        </span>
                                     </div>
-                                    <div className="pm-card-location-text">
-                                        <span style={{ color: '#ef4444' }}>📍</span> {proj.location || 'Location not specified'}
-                                    </div>
-                                </div>
 
-                                {/* Project Stage Strip */}
-                                <div className="pm-card-stage-strip">
-                                    <span className="pm-stage-label">
-                                        📦 PROJECT STAGE
-                                    </span>
-                                    <span className="pm-stage-value">
-                                        {shortStatus(proj.status) || 'ONGOING'}
-                                    </span>
-                                </div>
-
-                                {/* Footer Row */}
-                                <div className="pm-card-footer-row">
-                                    {isArchived ? (
-                                        <div className="pm-action-buttons">
-                                            <button 
-                                                className="pm-restore-btn"
-                                                onClick={(e) => { e.stopPropagation(); handleRestoreProject(proj.id, proj.project_name); }}
-                                            >
-                                                ↩ Restore
-                                            </button>
-                                            <button 
-                                                className="pm-delete-btn"
-                                                onClick={(e) => { e.stopPropagation(); handlePermanentDelete(proj.id, proj.project_name); }}
-                                            >
-                                                ✕ Delete
-                                            </button>
+                                    {/* Main Body Info */}
+                                    <div className="pm-card-main-info">
+                                        <h3 className="pm-card-proj-title">{proj.project_name}</h3>
+                                        <div className="pm-card-client-name">
+                                            {proj.client_name || 'No Client Assigned'}
                                         </div>
-                                    ) : (
-                                        <>
-                                            <span className="pm-footer-hint">Click to View Details</span>
-                                            <span className="pm-footer-date">
-                                                📅 {formatShortDate(proj.created_at)}
+                                        <div className="pm-card-location-text">
+                                            <span style={{ color: '#ef4444' }}>📍</span> {proj.location || 'Location not specified'}
+                                        </div>
+                                    </div>
+
+                                    {/* Project Stage Strip */}
+                                    <div className="pm-card-stage-strip">
+                                        <span className="pm-stage-label">
+                                            📦 PROJECT STAGE
+                                        </span>
+                                        <span className="pm-stage-value">
+                                            {shortStatus(proj.status) || 'ONGOING'}
+                                        </span>
+                                    </div>
+
+                                    {/* Footer Row */}
+                                    <div className="pm-card-footer-row">
+                                        {isArchived ? (
+                                            <div className="pm-action-buttons">
                                                 <button 
-                                                    className="pm-archive-icon-btn"
-                                                    onClick={(e) => { e.stopPropagation(); handleArchiveProject(proj.id, proj.project_name); }}
-                                                    title="Archive Project"
+                                                    className="pm-restore-btn"
+                                                    onClick={(e) => { e.stopPropagation(); handleRestoreProject(proj.id, proj.project_name); }}
                                                 >
-                                                    🗑️
+                                                    ↩ Restore
                                                 </button>
-                                            </span>
-                                        </>
-                                    )}
+                                                <button 
+                                                    className="pm-delete-btn"
+                                                    onClick={(e) => { e.stopPropagation(); handlePermanentDelete(proj.id, proj.project_name); }}
+                                                >
+                                                    ✕ Delete
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <span className="pm-footer-hint">Click to View Details</span>
+                                                <span className="pm-footer-date">
+                                                    📅 {formatShortDate(proj.created_at)}
+                                                    <button 
+                                                        className="pm-archive-icon-btn"
+                                                        onClick={(e) => { e.stopPropagation(); handleArchiveProject(proj.id, proj.project_name); }}
+                                                        title="Archive Project"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
         </div>
     );
 };

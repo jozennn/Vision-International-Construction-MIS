@@ -16,7 +16,7 @@
      --v-cream-lt:   #F5EDE9;
      --v-black:      #221F1F;
      --v-white:      #FFFFFF;
-     --v-surface:    #f3f4f6; /* Updated to match new background */
+     --v-surface:    #f3f4f6; /* Matching new background */
      --v-border:     #e5e7eb;
    
      --v-font-display: 'Syne', sans-serif;
@@ -64,18 +64,19 @@
      margin-bottom: 24px;
    }
    
-   /* Tabs */
+   /* Tabs (Updated to match image style) */
    .pm-tabs-container {
-     display: flex;
+     display: inline-flex;
      background: #ffffff;
-     border-radius: var(--v-radius);
-     border: 1px solid var(--v-border);
-     overflow: hidden;
+     border-radius: 10px;
+     border: 1px solid #d1d5db; /* Stronger border to match image */
+     padding: 4px; /* Space inside the container for the pill look */
+     gap: 4px;
      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
    }
    
    .pm-tab-btn {
-     padding: 10px 20px;
+     padding: 8px 16px;
      font-weight: 600;
      font-size: 14px;
      border: none;
@@ -83,19 +84,20 @@
      display: flex;
      align-items: center;
      gap: 8px;
+     border-radius: 6px; /* Inner radius */
      transition: all 0.2s ease;
-     background: #ffffff;
-     color: #6b7280;
+     background: transparent;
+     color: #6b7280; /* Gray text for inactive */
      font-family: var(--v-font-body);
    }
    
    .pm-tab-btn.active {
-     background: #1a1a1a;
+     background: #212121; /* Dark background for active */
      color: #ffffff;
    }
    
    .pm-tab-badge {
-     background: #ef4444;
+     background: #8b5cf6; /* Default purple badge for inactive */
      color: #ffffff;
      padding: 2px 8px;
      border-radius: 12px;
@@ -104,7 +106,7 @@
    }
    
    .pm-tab-badge.active {
-     background: #8b5cf6;
+     background: #4b5563; /* Gray badge when active to match image */
    }
    
    /* Search & Filters */
@@ -132,12 +134,13 @@
    .pm-filter-select {
      padding: 10px 16px 10px 38px;
      border-radius: 6px;
-     border: 1px solid var(--v-border);
+     border: 1px solid #d1d5db;
      outline: none;
      font-size: 14px;
      background: #ffffff;
      color: #374151;
      font-family: var(--v-font-body);
+     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
    }
    
    .pm-search-input {
@@ -158,7 +161,7 @@
      gap: 24px;
    }
    
-   /* ── New Project Card ── */
+   /* ── Project Card ── */
    .pm-proj-card {
      background: #ffffff;
      border-radius: var(--v-radius);
@@ -361,7 +364,7 @@
    
    /* ── Error state ── */
    .pm-error {
-     margin-top: 16px;
+     margin-bottom: 24px;
      padding: 16px 20px;
      background: #fff1f1;
      border: 1px solid #fecaca;
@@ -370,4 +373,6 @@
      font-size: 13px;
      color: var(--v-red-dark);
      font-weight: 500;
+     display: flex;
+     align-items: center;
    }
