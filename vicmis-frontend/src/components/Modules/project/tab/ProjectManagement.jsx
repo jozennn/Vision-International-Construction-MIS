@@ -259,7 +259,7 @@ const ProjectManagement = ({
                     
                     {viewMode === 'active' && (
                         <div className="pm-input-wrap">
-                            <span className="pm-input-icon">⚡</span>
+                            <span className="pm-input-icon">▽</span>
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
