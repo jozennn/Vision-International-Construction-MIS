@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import api from "@/api/axios";
 import "../css/ProjectManagement.css";
 
@@ -14,27 +14,9 @@ const getStatusVariant = (status = '') => {
     return 'sales';
 };
 
-const STRIP_CLASS = {
-    active:      'strip-active',
-    pending:     'strip-pending',
-    billing:     'strip-billing',
-    completed:   'strip-completed',
-    engineering: 'strip-engineering',
-    sales:       'strip-sales',
-};
-
-const CHIP_CLASS = {
-    active:      'chip-active',
-    pending:     'chip-pending',
-    billing:     'chip-billing',
-    completed:   'chip-completed',
-    engineering: 'chip-engineering',
-    sales:       'chip-engineering',
-};
-
 const shortStatus = (status = '') => {
     const map = {
-        'Site Inspection & Project Monitoring': 'Monitoring',
+        'Site Inspection & Project Monitoring': 'Site Inspection & Project Monitoring',
         'Deployment and Orientation of Installers': 'Deployment',
         'Contract Signing for Installer': 'Contract Signing',
         'Checking of Delivery of Materials': 'DR Verification',
@@ -42,9 +24,24 @@ const shortStatus = (status = '') => {
         'Pending Work Order Verification': 'WO Verification',
         'Final Site Inspection with the Client': 'Client Walkthrough',
         'Site Inspection & Quality Checking': 'QA/QC',
-        'P.O & Work Order': 'P.O & W.O.',
+        'P.O & Work Order': 'P.O & Work Order',
     };
     return map[status] || status;
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date)) return dateString;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + 
+           date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatShortDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date)) return dateString;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -58,7 +55,37 @@ const ProjectManagement = ({
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
+    const [viewMode, setViewMode] = useState('active'); // 'active' | 'completed' | 'archived'
+    
+    // Tab Counts State (Persists across tab switches)
+    const [tabCounts, setTabCounts] = useState({ active: 0, completed: 0, archived: 0 });
+
+    // Search and Filter States
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterStatus, setFilterStatus] = useState("");
+
+    // ── Fetch Initial Counts Silently ─────────────────────────────────────────
+    useEffect(() => {
+        const fetchInitialCounts = async () => {
+            try {
+                const [projRes, archRes] = await Promise.all([
+                    api.get("/projects"),
+                    api.get("/projects/trashed")
+                ]);
+                const projArray = Array.isArray(projRes.data) ? projRes.data : (projRes.data.projects ?? []);
+                const archData = archRes.data || [];
+                
+                setTabCounts({
+                    active: projArray.filter(p => getStatusVariant(p.status) !== 'completed').length,
+                    completed: projArray.filter(p => getStatusVariant(p.status) === 'completed').length,
+                    archived: archData.length
+                });
+            } catch (e) {
+                console.error("Failed to fetch initial counts", e);
+            }
+        };
+        fetchInitialCounts();
+    }, []);
 
     // ── Fetch active projects ────────────────────────────────────────────────
     const fetchProjects = async () => {
@@ -66,7 +93,15 @@ const ProjectManagement = ({
             setLoading(true);
             const res = await api.get("/projects");
             const data = res.data;
-            setProjects(Array.isArray(data) ? data : (data.projects ?? []));
+            const projArray = Array.isArray(data) ? data : (data.projects ?? []);
+            setProjects(projArray);
+
+            // Keep counts updated when fetching
+            setTabCounts(prev => ({
+                ...prev,
+                active: projArray.filter(p => getStatusVariant(p.status) !== 'completed').length,
+                completed: projArray.filter(p => getStatusVariant(p.status) === 'completed').length,
+            }));
         } catch (err) {
             const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? null;
             setError(msg
@@ -84,6 +119,9 @@ const ProjectManagement = ({
             setLoading(true);
             const res = await api.get("/projects/trashed");
             setProjects(res.data);
+
+            // Keep count updated
+            setTabCounts(prev => ({ ...prev, archived: res.data.length }));
         } catch (err) {
             setError('Failed to load archived projects.');
         } finally {
@@ -92,7 +130,7 @@ const ProjectManagement = ({
     };
 
     useEffect(() => {
-        if (viewMode === 'active') {
+        if (viewMode === 'active' || viewMode === 'completed') {
             fetchProjects();
         } else {
             fetchArchivedProjects();
@@ -105,6 +143,8 @@ const ProjectManagement = ({
         try {
             await api.delete(`/projects/${projectId}`);
             fetchProjects();
+            // Manually increment archive count since we only fetched active projects
+            setTabCounts(prev => ({ ...prev, archived: prev.archived + 1 }));
         } catch (err) {
             alert('Failed to archive project.');
         }
@@ -116,6 +156,8 @@ const ProjectManagement = ({
         try {
             await api.post(`/projects/${projectId}/restore`);
             fetchArchivedProjects();
+            // Note: We don't manually fetch active projects here to save API calls,
+            // counts will correct themselves when switching tabs.
         } catch (err) {
             alert('Failed to restore project.');
         }
@@ -132,204 +174,215 @@ const ProjectManagement = ({
         }
     };
 
-    // ── Loading ──
-    if (loading) {
-        return (
-            <div className="pm-page">
-                <div className="pm-page-header">
-                    <div className="pm-page-header-left">
-                        <span className="pm-page-eyebrow">Vision International Construction</span>
-                        <h1 className="pm-page-title">Project <span>Management</span></h1>
-                    </div>
+    // ── Filter & Search Logic ─────────────────────────────────────────────────
+    const displayedProjects = useMemo(() => {
+        return projects.filter((proj) => {
+            const variant = getStatusVariant(proj.status);
+
+            if (viewMode === 'active' && variant === 'completed') return false;
+            if (viewMode === 'completed' && variant !== 'completed') return false;
+
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const matchName = proj.project_name?.toLowerCase().includes(query);
+                const matchClient = proj.client_name?.toLowerCase().includes(query);
+                const matchId = `proj-${String(proj.id).padStart(4, '0')}`.includes(query);
+                if (!matchName && !matchClient && !matchId) return false;
+            }
+
+            if (filterStatus && variant !== filterStatus) return false;
+
+            return true;
+        });
+    }, [projects, viewMode, searchQuery, filterStatus]);
+
+
+    // ── Main Layout ──
+    return (
+        <div className="pm-page">
+
+            {/* Dark Header */}
+            <div className="pm-page-header">
+                <h1 className="pm-page-title">PROJECT MANAGEMENT</h1>
+            </div>
+
+            {/* Controls Bar */}
+            <div className="pm-controls-bar">
+                {/* Tabs Container */}
+                <div className="pm-tabs-container">
+                    <button 
+                        className={`pm-tab-btn ${viewMode === 'active' ? 'active' : ''}`}
+                        data-tab="active"
+                        onClick={() => { setViewMode('active'); setFilterStatus(""); setSearchQuery(""); }}
+                    >
+                        Active Projects
+                        <span className="pm-tab-badge">
+                            {tabCounts.active}
+                        </span>
+                    </button>
+                    
+                    <button 
+                        className={`pm-tab-btn ${viewMode === 'completed' ? 'active' : ''}`}
+                        data-tab="completed"
+                        onClick={() => { setViewMode('completed'); setFilterStatus(""); setSearchQuery(""); }}
+                    >
+                        Converted Projects
+                        <span className="pm-tab-badge">
+                            {tabCounts.completed}
+                        </span>
+                    </button>
+
+                    <button 
+                        className={`pm-tab-btn ${viewMode === 'archived' ? 'active' : ''}`}
+                        data-tab="archived"
+                        onClick={() => { setViewMode('archived'); setFilterStatus(""); setSearchQuery(""); }}
+                    >
+                        Archived
+                        <span className="pm-tab-badge">
+                            {tabCounts.archived}
+                        </span>
+                    </button>
                 </div>
+
+                {/* Search & Filter */}
+                <div className="pm-filters-group">
+                    <div className="pm-input-wrap">
+                        <span className="pm-input-icon">🔍</span>
+                        <input 
+                            type="text"
+                            placeholder="Search client, project, location..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pm-search-input"
+                        />
+                    </div>
+                    
+                    {viewMode === 'active' && (
+                        <div className="pm-input-wrap">
+                            <span className="pm-input-icon">⚡</span>
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                className="pm-filter-select"
+                            >
+                                <option value="">Filter By...</option>
+                                <option value="pending">Pending</option>
+                                <option value="active">Active (Monitoring)</option>
+                                <option value="engineering">Engineering</option>
+                                <option value="sales">Sales</option>
+                                <option value="billing">Billing</option>
+                            </select>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="pm-error">
+                    ⚠️ {error}
+                    <button 
+                        onClick={() => { setError(null); setViewMode('active'); fetchProjects(); }}
+                        style={{ marginLeft: '12px', background: 'transparent', border: '1px solid #fecaca', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}
+                    >
+                        Reload
+                    </button>
+                </div>
+            )}
+
+            {/* Content Area - Loading OR Grid */}
+            {loading ? (
                 <div className="pm-loading">
                     <div className="pm-spinner"></div>
                     <span className="pm-loading-text">Loading projects…</span>
                 </div>
-            </div>
-        );
-    }
+            ) : (
+                <div className="pm-project-grid">
+                    {displayedProjects.length === 0 ? (
+                        <div className="pm-empty">
+                            <h3>No projects found</h3>
+                            <p>Try adjusting your search or filter terms.</p>
+                        </div>
+                    ) : (
+                        displayedProjects.map((proj) => {
+                            const isArchived = viewMode === 'archived';
+                            
+                            return (
+                                <div
+                                    key={proj.id}
+                                    className={`pm-proj-card ${isArchived ? 'archived' : ''}`}
+                                    onClick={() => !isArchived && onSelectProject(proj)}
+                                >
+                                    {/* Top Header Row */}
+                                    <div className="pm-card-top-row">
+                                        <span className="pm-card-created-tag">
+                                            PROJECT CREATED
+                                        </span>
+                                        <span className="pm-card-date-top">
+                                            {formatDate(proj.created_at)}
+                                        </span>
+                                    </div>
 
-    // ── Error ──
-if (error) {
-    return (
-        <div className="pm-page">
-            <div className="pm-page-header">
-                <div className="pm-page-header-left">
-                    <span className="pm-page-eyebrow">Vision International Construction</span>
-                    <h1 className="pm-page-title">Project <span>Management</span></h1>
-                </div>
-                <button 
-                    className="pm-back-btn"
-                    onClick={() => {
-                        setError(null);
-                        setViewMode('active');
-                        fetchProjects();
-                    }}
-                >
-                    ← Back to Active Projects
-                </button>
-            </div>
-            <div className="pm-error">⚠️ {error}</div>
-        </div>
-    );
-}
-
-    // ── Main ──
-    return (
-        <div className="pm-page">
-
-            {/* Header */}
-            <div className="pm-page-header">
-                <div className="pm-page-header-left">
-                    <span className="pm-page-eyebrow">Vision International Construction OPC</span>
-                    <h1 className="pm-page-title">Project <span>Management</span></h1>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {/* View toggle buttons */}
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                        <button 
-                            className={`pm-view-toggle ${viewMode === 'active' ? 'active' : ''}`}
-                            onClick={() => setViewMode('active')}
-                        >
-                            🏗️ Active
-                        </button>
-                        <button 
-                            className={`pm-view-toggle ${viewMode === 'archived' ? 'active' : ''}`}
-                            onClick={() => setViewMode('archived')}
-                        >
-                            📦 Archive
-                        </button>
-                    </div>
-                    <div className="pm-page-count">
-                        <strong>{projects.length}</strong>
-                        {projects.length === 1 ? 'project' : 'projects'} {viewMode === 'active' ? 'active' : 'archived'}
-                    </div>
-                </div>
-            </div>
-
-            {/* Grid */}
-            <div className="pm-project-grid">
-                {projects.length === 0 ? (
-                    <div className="pm-empty">
-                        <div className="pm-empty-icon">{viewMode === 'active' ? '🏗️' : '📦'}</div>
-                        <h3 className="pm-empty-title">
-                            {viewMode === 'active' ? 'No active projects' : 'No archived projects'}
-                        </h3>
-                        <p className="pm-empty-sub">
-                            {viewMode === 'active' 
-                                ? 'Create a project from the Customer module to get started.'
-                                : 'Archived projects will appear here.'}
-                        </p>
-                    </div>
-                ) : (
-                    projects.map((proj) => {
-                        const variant = getStatusVariant(proj.status);
-                        const engineers = Array.isArray(proj.assigned_engineers)
-                            ? proj.assigned_engineers
-                                .map(e => typeof e === 'string' ? e : e?.name)
-                                .filter(Boolean)
-                                .join(', ')
-                            : (proj.assigned_engineers ?? '');
-                        
-                        const isArchived = viewMode === 'archived';
-
-                        return (
-                            <div
-                                key={proj.id}
-                                className={`pm-proj-card ${isArchived ? 'archived' : ''}`}
-                                onClick={() => !isArchived && onSelectProject(proj)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={e => e.key === 'Enter' && !isArchived && onSelectProject(proj)}
-                                aria-label={`Open ${proj.project_name}`}
-                                style={{ cursor: isArchived ? 'default' : 'pointer' }}
-                            >
-                                {/* Color strip */}
-                                <div className={`pm-card-strip ${STRIP_CLASS[variant]}`} />
-
-                                {/* Card head */}
-                                <div className="pm-card-head">
-                                    <span className="pm-card-id">PROJ-{String(proj.id).padStart(4, '0')}</span>
-                                    <span className={`pm-status-chip ${CHIP_CLASS[variant]}`}>
-                                        <span className="pm-status-dot" />
-                                        {shortStatus(proj.status) || 'ONGOING'}
-                                    </span>
-                                </div>
-
-                                {/* Card body */}
-                                <div className="pm-card-body">
-                                    <h3 className="pm-card-project-name">{proj.project_name}</h3>
-
-                                    <div className="pm-card-meta">
-                                        <div className="pm-card-meta-row">
-                                            <span className="pm-card-meta-key">Client</span>
-                                            <span className="pm-card-meta-val">{proj.client_name}</span>
+                                    {/* Main Body Info */}
+                                    <div className="pm-card-main-info">
+                                        <h3 className="pm-card-proj-title">{proj.project_name}</h3>
+                                        <div className="pm-card-client-name">
+                                            {proj.client_name || 'No Client Assigned'}
                                         </div>
-                                        <div className="pm-card-meta-row">
-                                            <span className="pm-card-meta-key">Location</span>
-                                            <span className="pm-card-meta-val">{proj.location || '—'}</span>
+                                        <div className="pm-card-location-text">
+                                            <span style={{ color: '#ef4444' }}>📍</span> {proj.location || 'Location not specified'}
                                         </div>
-                                        {proj.created_by_name && (
-                                            <div className="pm-card-meta-row">
-                                                <span className="pm-card-meta-key">Sales</span>
-                                                <span className="pm-card-meta-val">{proj.created_by_name}</span>
+                                    </div>
+
+                                    {/* Project Stage Strip */}
+                                    <div className="pm-card-stage-strip">
+                                        <span className="pm-stage-label">
+                                            📦 PROJECT STAGE
+                                        </span>
+                                        <span className="pm-stage-value">
+                                            {shortStatus(proj.status) || 'ONGOING'}
+                                        </span>
+                                    </div>
+
+                                    {/* Footer Row */}
+                                    <div className="pm-card-footer-row">
+                                        {isArchived ? (
+                                            <div className="pm-action-buttons">
+                                                <button 
+                                                    className="pm-restore-btn"
+                                                    onClick={(e) => { e.stopPropagation(); handleRestoreProject(proj.id, proj.project_name); }}
+                                                >
+                                                    ↩ Restore
+                                                </button>
+                                                <button 
+                                                    className="pm-delete-btn"
+                                                    onClick={(e) => { e.stopPropagation(); handlePermanentDelete(proj.id, proj.project_name); }}
+                                                >
+                                                    ✕ Delete
+                                                </button>
                                             </div>
-                                        )}
-                                        {engineers && (
-                                            <div className="pm-card-meta-row">
-                                                <span className="pm-card-meta-key">Engineer</span>
-                                                <span className="pm-card-meta-val">{engineers}</span>
-                                            </div>
-                                        )}
-                                        {isArchived && proj.deleted_at && (
-                                            <div className="pm-card-meta-row">
-                                                <span className="pm-card-meta-key">Archived</span>
-                                                <span className="pm-card-meta-val">
-                                                    {new Date(proj.deleted_at).toLocaleDateString()}
+                                        ) : (
+                                            <>
+                                                <span className="pm-footer-hint">Click to View Details</span>
+                                                <span className="pm-footer-date">
+                                                    📅 {formatShortDate(proj.created_at)}
+                                                    <button 
+                                                        className="pm-archive-icon-btn"
+                                                        onClick={(e) => { e.stopPropagation(); handleArchiveProject(proj.id, proj.project_name); }}
+                                                        title="Archive Project"
+                                                    >
+                                                        🗑️
+                                                    </button>
                                                 </span>
-                                            </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Card footer */}
-                                <div className="pm-card-foot">
-                                    {isArchived ? (
-                                        <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                                            <button 
-                                                className="pm-restore-btn"
-                                                onClick={(e) => { e.stopPropagation(); handleRestoreProject(proj.id, proj.project_name); }}
-                                            >
-                                                ↩ Restore
-                                            </button>
-                                            <button 
-                                                className="pm-delete-btn"
-                                                onClick={(e) => { e.stopPropagation(); handlePermanentDelete(proj.id, proj.project_name); }}
-                                            >
-                                                ✕ Delete Permanently
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <span className="pm-open-label">
-                                                Open Workflow →
-                                            </span>
-                                            <button 
-                                                className="pm-archive-btn"
-                                                onClick={(e) => { e.stopPropagation(); handleArchiveProject(proj.id, proj.project_name); }}
-                                                title="Archive Project"
-                                            >
-                                                Archive
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
         </div>
     );
 };
