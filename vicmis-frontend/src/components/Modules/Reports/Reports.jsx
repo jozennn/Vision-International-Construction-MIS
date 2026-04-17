@@ -3,7 +3,7 @@ import './css/Reports.css';
 
 import { EndingInventory, LowStock, StockMovement, ExportAllInventoryReports } from './InventoryReports.jsx';
 import { ProjectStatus, MaterialRequests }                                       from './ProjectReports.jsx';
-import { LeadConversion, ConvertedProjects, CustomerActivity }                   from './CustomerReports.jsx';
+import { LeadConversion, ConvertedProjects, CustomerActivity, ExportAllCustomerReports } from './CustomerReports.jsx';
 
 const SECTIONS = {
   'inventory-reports': {
@@ -35,6 +35,7 @@ const Reports = ({ user, activeSubItem }) => {
   const currentSection  = SECTIONS[activeSubItem] || SECTIONS['inventory-reports'];
   const [activeReport, setActiveReport] = useState(currentSection.reports[0].id);
   const isInventory = (activeSubItem || 'inventory-reports') === 'inventory-reports';
+  const isCustomer = (activeSubItem || '') === 'customer-reports';
 
   useEffect(() => {
     const sec = SECTIONS[activeSubItem] || SECTIONS['inventory-reports'];
@@ -59,8 +60,9 @@ const Reports = ({ user, activeSubItem }) => {
           </div>
         </div>
         <div className="rpt-page-right">
-          {/* Export All button — only shown on Inventory Reports section */}
+          {/* Export All button — shown on Inventory Reports and Customer Reports sections */}
           {isInventory && <ExportAllInventoryReports />}
+          {isCustomer && <ExportAllCustomerReports />}
           <div className="rpt-live-pill"><span className="rpt-live-dot" />Reports</div>
           <span className="rpt-page-date">
             {new Date().toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}

@@ -185,12 +185,12 @@ const PIPELINE_STAGES = [
 const buildLeadConversionRows = (leads, statusColors) => {
   return leads.map(l => `<tr>
     <td class="rpt-dim">#${l.id}</td>
-    <td class="rpt-fw">${l.client_name || '—'}</td>
-    <td>${l.project_name || '—'}</td>
-    <td>${l.location || '—'}</td>
-    <td><span style="background:${statusColors[l.status] || '#64748b'}20;color:${statusColors[l.status] || '#64748b'};padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700">${l.status || '—'}</span></td>
-    <td>${l.contact_no || '—'}</td>
-    <td>${l.sales_rep?.name || '—'}</td>
+    <td class="rpt-fw">${escapeHtml(l.client_name || '—')}</td>
+    <td>${escapeHtml(l.project_name || '—')}</td>
+    <td>${escapeHtml(l.location || '—')}</td>
+    <td><span style="background:${statusColors[l.status] || '#64748b'}20;color:${statusColors[l.status] || '#64748b'};padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700">${escapeHtml(l.status || '—')}</span></td>
+    <td>${escapeHtml(l.contact_no || '—')}</td>
+    <td>${escapeHtml(l.sales_rep?.name || '—')}</td>
     <td>${fmtDate(l.created_at)}</td>
   </tr>`).join('');
 };
@@ -199,11 +199,11 @@ const buildConvertedProjectsRows = (leads, projects) => {
   return leads.map(l => {
     const proj = projects[l.id];
     return `<tr>
-      <td class="rpt-fw">${l.client_name || '—'}</td>
-      <td>${l.project_name || '—'}</td>
-      <td>${l.location || '—'}</td>
-      <td><span class="badge badge-blue">${proj ? proj.status || 'Ongoing' : '—'}</span></td>
-      <td>${l.sales_rep?.name || '—'}</td>
+      <td class="rpt-fw">${escapeHtml(l.client_name || '—')}</td>
+      <td>${escapeHtml(l.project_name || '—')}</td>
+      <td>${escapeHtml(l.location || '—')}</td>
+      <td><span class="badge badge-blue">${escapeHtml(proj ? proj.status || 'Ongoing' : '—')}</span></td>
+      <td>${escapeHtml(l.sales_rep?.name || '—')}</td>
       <td class="rpt-dim">${fmtDate(proj?.created_at || l.created_at)}</td>
     </tr>`;
   }).join('');
@@ -211,14 +211,24 @@ const buildConvertedProjectsRows = (leads, projects) => {
 
 const buildCustomerActivityRows = (leads) => {
   return leads.map(l => `<tr>
-    <td class="rpt-fw">${l.client_name || '—'}</td>
-    <td>${l.project_name || '—'}</td>
-    <td>${l.contact_no || '—'}</td>
-    <td>${l.location || '—'}</td>
-    <td><span class="badge ${l.is_trashed ? 'badge-red' : 'badge-blue'}">${l.is_trashed ? 'Trashed' : l.status || '—'}</span></td>
-    <td>${l.sales_rep?.name || '—'}</td>
+    <td class="rpt-fw">${escapeHtml(l.client_name || '—')}</td>
+    <td>${escapeHtml(l.project_name || '—')}</td>
+    <td>${escapeHtml(l.contact_no || '—')}</td>
+    <td>${escapeHtml(l.location || '—')}</td>
+    <td><span class="badge ${l.is_trashed ? 'badge-red' : 'badge-blue'}">${escapeHtml(l.is_trashed ? 'Trashed' : l.status || '—')}</span></td>
+    <td>${escapeHtml(l.sales_rep?.name || '—')}</td>
     <td class="rpt-dim">${fmtDate(l.updated_at || l.created_at)}</td>
   </tr>`).join('');
+};
+
+const escapeHtml = (str) => {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
 };
 
 // ── Lead Conversion ───────────────────────────────────────────────────────────
@@ -257,14 +267,14 @@ export const LeadConversion = ({ user }) => {
     
     const rows = buildLeadConversionRows(leads, statusColors);
     
-    printReport('Lead Conversion Report',
+    openPrintWindow('Lead Conversion Report',
       `<div class="sec">All Leads — Active Pipeline</div>
        <table>
         <thead>
           <tr><th>ID</th><th>Client</th><th>Project</th><th>Location</th><th>Status</th><th>Contact No.</th><th>Sales Rep</th><th>Date Added</th></tr>
         </thead>
         <tbody>${rows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:#94a3b8">No leads found.</td></tr>'}</tbody>
-       </table>`,
+       </td>`,
       chips);
   };
 
@@ -357,14 +367,14 @@ export const ConvertedProjects = ({ user }) => {
     
     const rows = buildConvertedProjectsRows(leads, projects);
     
-    printReport('Converted Projects Report',
+    openPrintWindow('Converted Projects Report',
       `<div class="sec">Leads Converted to Projects</div>
        <table>
         <thead>
           <tr><th>Client</th><th>Project Name</th><th>Location</th><th>Project Stage</th><th>Sales Rep</th><th>Date Created</th></tr>
         </thead>
         <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No converted projects found.</td></tr>'}</tbody>
-       </table>`,
+       </td>`,
       chips);
   };
 
@@ -448,9 +458,9 @@ export const CustomerActivity = ({ user }) => {
     
     const rows = buildCustomerActivityRows(leads);
     
-    printReport('Customer Activity Summary',
+    openPrintWindow('Customer Activity Summary',
       `<div class="sec">All Client Interactions</div>
-       <table>
+       <tr>
         <thead>
           <tr><th>Client</th><th>Project</th><th>Contact</th><th>Location</th><th>Status</th><th>Sales Rep</th><th>Last Updated</th></tr>
         </thead>
@@ -511,7 +521,7 @@ export const CustomerActivity = ({ user }) => {
   );
 };
 
-// ── Export All Customer Reports ───────────────────────────────────────────────
+// ── Export All Customer Reports (Styled like Inventory Reports) ────────────────
 export const ExportAllCustomerReports = () => {
   const [loading, setLoading] = useState(false);
   const [dateFrom, setDateFrom] = useState(monthStart());
@@ -627,7 +637,7 @@ export const ExportAllCustomerReports = () => {
   };
 
   return (
-    <div className="rpt-export-all-block">
+    <div className="rpt-export-all-block" style={{ marginTop: '32px', marginBottom: '24px' }}>
       <div className="rpt-export-all-dates">
         <label>From
           <input type="date" value={dateFrom} max={dateTo} onChange={e => setDateFrom(e.target.value)} className="rpt-date-input rpt-date-input-sm" />
