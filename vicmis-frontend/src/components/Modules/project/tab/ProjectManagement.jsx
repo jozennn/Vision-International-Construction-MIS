@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import api from "@/api/axios";
 import "../css/ProjectManagement.css";
 
@@ -58,7 +58,11 @@ const ProjectManagement = ({
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
+    const [viewMode, setViewMode] = useState('active'); // 'active' | 'completed' | 'archived'
+    
+    // Search and Filter States
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterStatus, setFilterStatus] = useState("");
 
     // ── Fetch active projects ────────────────────────────────────────────────
     const fetchProjects = async () => {
@@ -92,7 +96,8 @@ const ProjectManagement = ({
     };
 
     useEffect(() => {
-        if (viewMode === 'active') {
+        // Both Active and Completed use the main /projects endpoint
+        if (viewMode === 'active' || viewMode === 'completed') {
             fetchProjects();
         } else {
             fetchArchivedProjects();
@@ -132,6 +137,34 @@ const ProjectManagement = ({
         }
     };
 
+    // ── Filter & Search Logic ─────────────────────────────────────────────────
+    const displayedProjects = useMemo(() => {
+        return projects.filter((proj) => {
+            const variant = getStatusVariant(proj.status);
+
+            // 1. View Mode logic
+            if (viewMode === 'active' && variant === 'completed') return false;
+            if (viewMode === 'completed' && variant !== 'completed') return false;
+            // Archive mode bypasses variant check since it's an isolated API call
+
+            // 2. Search logic (ID, Project Name, Client Name)
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const matchName = proj.project_name?.toLowerCase().includes(query);
+                const matchClient = proj.client_name?.toLowerCase().includes(query);
+                const matchId = `proj-${String(proj.id).padStart(4, '0')}`.includes(query);
+                
+                if (!matchName && !matchClient && !matchId) return false;
+            }
+
+            // 3. Status Filter logic
+            if (filterStatus && variant !== filterStatus) return false;
+
+            return true;
+        });
+    }, [projects, viewMode, searchQuery, filterStatus]);
+
+
     // ── Loading ──
     if (loading) {
         return (
@@ -151,29 +184,29 @@ const ProjectManagement = ({
     }
 
     // ── Error ──
-if (error) {
-    return (
-        <div className="pm-page">
-            <div className="pm-page-header">
-                <div className="pm-page-header-left">
-                    <span className="pm-page-eyebrow">Vision International Construction</span>
-                    <h1 className="pm-page-title">Project <span>Management</span></h1>
+    if (error) {
+        return (
+            <div className="pm-page">
+                <div className="pm-page-header">
+                    <div className="pm-page-header-left">
+                        <span className="pm-page-eyebrow">Vision International Construction</span>
+                        <h1 className="pm-page-title">Project <span>Management</span></h1>
+                    </div>
+                    <button 
+                        className="pm-back-btn"
+                        onClick={() => {
+                            setError(null);
+                            setViewMode('active');
+                            fetchProjects();
+                        }}
+                    >
+                        ← Back to Active Projects
+                    </button>
                 </div>
-                <button 
-                    className="pm-back-btn"
-                    onClick={() => {
-                        setError(null);
-                        setViewMode('active');
-                        fetchProjects();
-                    }}
-                >
-                    ← Back to Active Projects
-                </button>
+                <div className="pm-error">⚠️ {error}</div>
             </div>
-            <div className="pm-error">⚠️ {error}</div>
-        </div>
-    );
-}
+        );
+    }
 
     // ── Main ──
     return (
@@ -185,45 +218,104 @@ if (error) {
                     <span className="pm-page-eyebrow">Vision International Construction OPC</span>
                     <h1 className="pm-page-title">Project <span>Management</span></h1>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {/* View toggle buttons */}
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                        <button 
-                            className={`pm-view-toggle ${viewMode === 'active' ? 'active' : ''}`}
-                            onClick={() => setViewMode('active')}
-                        >
-                            🏗️ Active
-                        </button>
-                        <button 
-                            className={`pm-view-toggle ${viewMode === 'archived' ? 'active' : ''}`}
-                            onClick={() => setViewMode('archived')}
-                        >
-                            📦 Archive
-                        </button>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+                    
+                    {/* View toggles & count */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            <button 
+                                className={`pm-view-toggle ${viewMode === 'active' ? 'active' : ''}`}
+                                onClick={() => { setViewMode('active'); setFilterStatus(""); setSearchQuery(""); }}
+                            >
+                                🏗️ Active
+                            </button>
+                            <button 
+                                className={`pm-view-toggle ${viewMode === 'completed' ? 'active' : ''}`}
+                                onClick={() => { setViewMode('completed'); setFilterStatus(""); setSearchQuery(""); }}
+                            >
+                                ✅ Completed
+                            </button>
+                            <button 
+                                className={`pm-view-toggle ${viewMode === 'archived' ? 'active' : ''}`}
+                                onClick={() => { setViewMode('archived'); setFilterStatus(""); setSearchQuery(""); }}
+                            >
+                                📦 Archive
+                            </button>
+                        </div>
+                        <div className="pm-page-count">
+                            <strong>{displayedProjects.length}</strong>
+                            {displayedProjects.length === 1 ? ' project' : ' projects'} 
+                        </div>
                     </div>
-                    <div className="pm-page-count">
-                        <strong>{projects.length}</strong>
-                        {projects.length === 1 ? 'project' : 'projects'} {viewMode === 'active' ? 'active' : 'archived'}
+
+                    {/* Search and Filters */}
+                    <div style={{ display: 'flex', gap: '10px', width: '100%', justifyContent: 'flex-end' }}>
+                        <input 
+                            type="text"
+                            placeholder="Search by ID, Name or Client..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                border: '1px solid #d1d5db',
+                                outline: 'none',
+                                fontSize: '14px',
+                                minWidth: '240px'
+                            }}
+                        />
+                        
+                        {/* Only show category filter when looking at active projects */}
+                        {viewMode === 'active' && (
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
+                                    border: '1px solid #d1d5db',
+                                    outline: 'none',
+                                    fontSize: '14px',
+                                    backgroundColor: '#fff',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="">All Categories</option>
+                                <option value="pending">Pending</option>
+                                <option value="active">Active (Monitoring)</option>
+                                <option value="engineering">Engineering</option>
+                                <option value="sales">Sales</option>
+                                <option value="billing">Billing</option>
+                            </select>
+                        )}
                     </div>
+
                 </div>
             </div>
 
             {/* Grid */}
             <div className="pm-project-grid">
-                {projects.length === 0 ? (
+                {displayedProjects.length === 0 ? (
                     <div className="pm-empty">
-                        <div className="pm-empty-icon">{viewMode === 'active' ? '🏗️' : '📦'}</div>
+                        <div className="pm-empty-icon">
+                            {viewMode === 'active' ? '🏗️' : viewMode === 'completed' ? '✅' : '📦'}
+                        </div>
                         <h3 className="pm-empty-title">
-                            {viewMode === 'active' ? 'No active projects' : 'No archived projects'}
+                            {viewMode === 'active' ? 'No active projects found' 
+                                : viewMode === 'completed' ? 'No completed projects found' 
+                                : 'No archived projects found'}
                         </h3>
                         <p className="pm-empty-sub">
-                            {viewMode === 'active' 
-                                ? 'Create a project from the Customer module to get started.'
-                                : 'Archived projects will appear here.'}
+                            {searchQuery || filterStatus
+                                ? 'Try adjusting your search or filter terms.'
+                                : viewMode === 'active' 
+                                    ? 'Create a project from the Customer module to get started.'
+                                    : 'Completed or archived projects will appear here.'}
                         </p>
                     </div>
                 ) : (
-                    projects.map((proj) => {
+                    displayedProjects.map((proj) => {
                         const variant = getStatusVariant(proj.status);
                         const engineers = Array.isArray(proj.assigned_engineers)
                             ? proj.assigned_engineers
