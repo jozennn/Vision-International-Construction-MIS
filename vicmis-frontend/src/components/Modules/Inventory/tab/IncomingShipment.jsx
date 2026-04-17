@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/api/axios';
 import {
   Edit, X, Loader2, Package, CheckCircle,
   Globe, Building2, ChevronDown, RefreshCw, Box, FolderOpen,
   PackageCheck, AlertTriangle, ClipboardList, ChevronRight,
-  RotateCcw, Info, Search, ChevronLeft
+  RotateCcw, Info, Search, ChevronLeft, Archive, ArchiveRestore, Trash2
 } from 'lucide-react';
 import '../css/IncomingShipment.css';
 
@@ -525,6 +525,14 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
   const [reportShipment, setReportShipment]         = useState(null);
   const [reportSubmitting, setReportSubmitting]     = useState(false);
   
+  // Bin state
+  const [showBin, setShowBin]                       = useState(false);
+  const [binShipments, setBinShipments]             = useState([]);
+  const [binLoading, setBinLoading]                 = useState(false);
+  const [restoreLoading, setRestoreLoading]         = useState(null);
+  const [permanentDeleteLoading, setPermanentDeleteLoading] = useState(null);
+  const [softDeleteLoading, setSoftDeleteLoading]   = useState(null);
+  
   // Pagination & Filters
   const [currentPage, setCurrentPage]               = useState(1);
   const [lastPage, setLastPage]                     = useState(1);
@@ -551,7 +559,6 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
       const res = await api.get(url);
       const data = res.data;
       
-      // Handle paginated response or array response
       if (data.data && Array.isArray(data.data)) {
         setShipments(data.data.map(s => ({ ...s, projects: Array.isArray(s.projects) ? s.projects : [] })));
         setTotal(data.total || 0);
@@ -574,9 +581,72 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
     }
   };
 
+  // ── Fetch bin shipments (deleted items) ──────────────────────────────────────
+  const fetchBinShipments = useCallback(async () => {
+    setBinLoading(true);
+    try {
+      const res = await api.get('/inventory/shipments', { params: { trashed: 'true', per_page: 9999 } });
+      setBinShipments(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to load bin shipments:', err);
+    } finally {
+      setBinLoading(false);
+    }
+  }, []);
+
   useEffect(() => { 
     fetchShipments(); 
   }, [currentPage, purposeFilter, searchTerm]);
+
+  // Load bin shipments when bin is opened
+  useEffect(() => {
+    if (showBin) {
+      fetchBinShipments();
+    }
+  }, [showBin, fetchBinShipments]);
+
+  // ── Soft delete (move to bin) ────────────────────────────────────────────────
+  const handleSoftDelete = async (id) => {
+    if (!window.confirm('Move this shipment to the bin? You can restore it later from the Bin tab.')) return;
+    setSoftDeleteLoading(id);
+    try {
+      await api.delete(`/inventory/shipments/${id}`);
+      fetchShipments(true);
+      if (showBin) fetchBinShipments();
+    } catch (err) {
+      alert('Failed to move shipment to bin.');
+    } finally {
+      setSoftDeleteLoading(null);
+    }
+  };
+
+  // ── Restore from bin ─────────────────────────────────────────────────────────
+  const handleRestoreShipment = async (id) => {
+    setRestoreLoading(id);
+    try {
+      await api.post(`/inventory/shipments/${id}/restore`);
+      fetchBinShipments();
+      fetchShipments(true);
+    } catch (err) {
+      alert('Failed to restore shipment.');
+    } finally {
+      setRestoreLoading(null);
+    }
+  };
+
+  // ── Permanent delete (remove from bin) ───────────────────────────────────────
+  const handlePermanentDeleteShipment = async (id) => {
+    if (!window.confirm('⚠️ WARNING: This will permanently delete this shipment. This action CANNOT be undone. Continue?')) return;
+    setPermanentDeleteLoading(id);
+    try {
+      await api.delete(`/inventory/shipments/${id}/force`);
+      fetchBinShipments();
+    } catch (err) {
+      alert('Failed to permanently delete shipment.');
+    } finally {
+      setPermanentDeleteLoading(null);
+    }
+  };
 
   const handleMarkAsReceived = async (shipment) => {
     if (!window.confirm(`Mark Shipment ${shipment.shipment_number} as RECEIVED?`)) return;
@@ -667,13 +737,23 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
           </div>
         </div>
         <div className="is-topbar-right">
-          {arrivedPending.length > 0 && (
+          {!showBin && arrivedPending.length > 0 && (
             <button className="is-received-stock-btn" onClick={() => setShowReceivedPanel(true)}>
               <PackageCheck size={14} />
               New Received Stock
               <span className="is-received-badge">{arrivedPending.length}</span>
             </button>
           )}
+          <button 
+            className="is-received-stock-btn" 
+            onClick={() => setShowBin(!showBin)}
+            style={{ 
+              background: showBin ? 'var(--brand-red)' : '#065F46',
+              marginRight: '8px'
+            }}
+          >
+            <Archive size={14} /> {showBin ? 'Back to Shipments' : 'Bin'}
+          </button>
           <button
             className={`is-refresh-btn ${isRefreshing ? 'spinning' : ''}`}
             onClick={() => fetchShipments(true)}
@@ -684,152 +764,270 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
         </div>
       </div>
 
-      {/* ── Filters ── */}
-      <div className="is-filters">
-        <div className="is-purpose-toggle">
-          {[
-            { val: 'all', label: 'All Shipments' },
-            { val: 'RESERVE_FOR_PROJECT', label: 'Reserve for Project' },
-            { val: 'NEW_STOCK', label: 'New Stock' }
-          ].map(({ val, label }) => (
-            <button 
-              key={val} 
-              className={`is-purpose-filter-btn ${purposeFilter === val ? 'active' : ''}`} 
-              onClick={() => { setPurposeFilter(val); setCurrentPage(1); }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="is-search-wrap">
-          <Search size={14} className="is-search-icon" />
-          <input
-            type="text"
-            className="is-search-input"
-            placeholder="Search shipment number..."
-            value={searchTerm}
-            onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-          />
-        </div>
-      </div>
+      {!showBin ? (
+        <>
+          {/* ── Filters ── */}
+          <div className="is-filters">
+            <div className="is-purpose-toggle">
+              {[
+                { val: 'all', label: 'All Shipments' },
+                { val: 'RESERVE_FOR_PROJECT', label: 'Reserve for Project' },
+                { val: 'NEW_STOCK', label: 'New Stock' }
+              ].map(({ val, label }) => (
+                <button 
+                  key={val} 
+                  className={`is-purpose-filter-btn ${purposeFilter === val ? 'active' : ''}`} 
+                  onClick={() => { setPurposeFilter(val); setCurrentPage(1); }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="is-search-wrap">
+              <Search size={14} className="is-search-icon" />
+              <input
+                type="text"
+                className="is-search-input"
+                placeholder="Search shipment number..."
+                value={searchTerm}
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              />
+            </div>
+          </div>
 
-      {/* ── Table ── */}
-      <div className="is-table-wrap">
-        <table className="is-table">
-          <thead>
-            <tr>
-              <th>Shipment #</th>
-              <th>Purpose</th>
-              <th>Type</th>
-              <th>Container</th>
-              <th>Items / Projects</th>
-              <th>Production Status</th>
-              <th>Location</th>
-              <th>Tentative Arrival</th>
-              <th>Progress</th>
-              <th>Shipment Status</th>
-              <th className="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
+          {/* ── Table ── */}
+          <div className="is-table-wrap">
+            <table className="is-table">
+              <thead>
+                <tr>
+                  <th>Shipment #</th>
+                  <th>Purpose</th>
+                  <th>Type</th>
+                  <th>Container</th>
+                  <th>Items / Projects</th>
+                  <th>Production Status</th>
+                  <th>Location</th>
+                  <th>Tentative Arrival</th>
+                  <th>Progress</th>
+                  <th>Shipment Status</th>
+                  <th className="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="11" className="is-loading-cell">
+                      <Loader2 size={18} className="is-spinner" /> Loading shipments…
+                    </td>
+                  </tr>
+                ) : shipments.length === 0 ? (
+                  <tr>
+                    <td colSpan="11" className="is-empty-cell">No shipments found.</td>
+                  </tr>
+                ) : shipments.map(s => (
+                  <tr key={s.id} className={`is-row ${s.added_to_inventory ? 'is-row-done' : ''}`}>
+                    <td className="is-shipno">
+                      {s.shipment_number}
+                      {s.added_to_inventory && <span className="is-inv-tag">In Inventory</span>}
+                    </td>
+                    <td>
+                      <span className={`is-purpose-tag ${isReserveShipment(s) ? 'purpose-reserve' : 'purpose-stock'}`}>
+                        {isReserveShipment(s)
+                          ? <><FolderOpen size={11} /> Reserve</>
+                          : <><Box size={11} /> New Stock</>}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`is-origin-tag ${s.origin_type === 'INTERNATIONAL' ? 'intl' : 'local'}`}>
+                        {s.origin_type === 'INTERNATIONAL'
+                          ? <><Globe size={11} /> Intl</>
+                          : <><Building2 size={11} /> Local</>}
+                      </span>
+                    </td>
+                    <td className="is-container">{s.container_type || '—'}</td>
+                    <td>
+                      <button
+                        className="is-project-btn"
+                        onClick={() => { setSelectedShipment(s); setIsProjectModalOpen(true); }}
+                      >
+                        <Package size={13} />
+                        {s.projects?.length || 0} {isReserveShipment(s) ? 'Project' : 'Item'}
+                        {s.projects?.length !== 1 ? 's' : ''}
+                      </button>
+                    </td>
+                    <td>
+                      <span className={`is-prod-tag ${PROD_STATUS_CLASS[s.status] || 'prod-ongoing'}`}>
+                        {s.status || '—'}
+                      </span>
+                    </td>
+                    <td className="is-location">{s.location || '—'}</td>
+                    <td><ArrivalBadge shipment={s} /></td>
+                    <td className="is-timeline-cell"><ShipmentTimeline shipment={s} /></td>
+                    <td>
+                      <span className={`is-pill ${STATUS_CLASS[s.shipment_status] || 'pill-waiting'}`}>
+                        {s.shipment_status}
+                      </span>
+                    </td>
+                    <td className="is-actions">
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          className={`is-edit-btn ${s.added_to_inventory ? 'disabled' : ''}`}
+                          onClick={() => { 
+                            if (!s.added_to_inventory) {
+                              setSelectedShipment({ ...s }); 
+                              setIsEditModalOpen(true);
+                            }
+                          }}
+                          disabled={s.added_to_inventory}
+                          title={s.added_to_inventory ? 'Cannot edit - Already in inventory' : 'Edit'}
+                        >
+                          <Edit size={13} /> Update
+                        </button>
+                        {s.shipment_status !== 'ARRIVED' && !s.added_to_inventory && (
+                          <button
+                            className="is-edit-btn"
+                            onClick={() => handleMarkAsReceived(s)}
+                            disabled={receiveLoading === s.id}
+                            style={{ background: '#ECFDF5', borderColor: '#A7F3D0', color: '#065F46' }}
+                          >
+                            {receiveLoading === s.id
+                              ? <Loader2 size={13} className="is-spinner" />
+                              : <CheckCircle size={13} />}
+                            {receiveLoading === s.id ? 'Saving…' : 'Received'}
+                          </button>
+                        )}
+                        {!s.added_to_inventory && (
+                          <button
+                            className="is-edit-btn"
+                            onClick={() => handleSoftDelete(s.id)}
+                            disabled={softDeleteLoading === s.id}
+                            style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#991B1B' }}
+                            title="Move to Bin"
+                          >
+                            {softDeleteLoading === s.id ? <Loader2 size={13} className="is-spinner" /> : <Trash2 size={13} />}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            {!loading && total > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                lastPage={lastPage}
+                from={from}
+                to={to}
+                total={total}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        /* ─── Bin / Archive View for Shipments ─── */
+        <div className="is-table-wrap" style={{ marginTop: '1rem' }}>
+          <div style={{ 
+            padding: '0.85rem 1.25rem', 
+            background: '#221F1F', 
+            color: '#fff', 
+            borderBottom: '2px solid var(--brand-red)',
+            borderRadius: 'var(--r-lg) var(--r-lg) 0 0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Archive size={20} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Shipment Bin</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.7rem', opacity: 0.7 }}>
+                  Deleted shipments are stored here. You can restore them or permanently delete them.
+                </p>
+              </div>
+            </div>
+          </div>
+          <table className="is-table">
+            <thead>
               <tr>
-                <td colSpan="11" className="is-loading-cell">
-                  <Loader2 size={18} className="is-spinner" /> Loading shipments…
-                </td>
+                <th>Shipment #</th>
+                <th>Purpose</th>
+                <th>Type</th>
+                <th>Container</th>
+                <th>Items</th>
+                <th>Status</th>
+                <th>Deleted At</th>
+                <th className="text-center">Actions</th>
               </tr>
-            ) : shipments.length === 0 ? (
-              <tr>
-                <td colSpan="11" className="is-empty-cell">No shipments found.</td>
-              </tr>
-            ) : shipments.map(s => (
-              <tr key={s.id} className={`is-row ${s.added_to_inventory ? 'is-row-done' : ''}`}>
-                <td className="is-shipno">
-                  {s.shipment_number}
-                  {s.added_to_inventory && <span className="is-inv-tag">In Inventory</span>}
-                </td>
-                <td>
-                  <span className={`is-purpose-tag ${isReserveShipment(s) ? 'purpose-reserve' : 'purpose-stock'}`}>
-                    {isReserveShipment(s)
-                      ? <><FolderOpen size={11} /> Reserve</>
-                      : <><Box size={11} /> New Stock</>}
-                  </span>
-                </td>
-                <td>
-                  <span className={`is-origin-tag ${s.origin_type === 'INTERNATIONAL' ? 'intl' : 'local'}`}>
-                    {s.origin_type === 'INTERNATIONAL'
-                      ? <><Globe size={11} /> Intl</>
-                      : <><Building2 size={11} /> Local</>}
-                  </span>
-                </td>
-                <td className="is-container">{s.container_type || '—'}</td>
-                <td>
-                  <button
-                    className="is-project-btn"
-                    onClick={() => { setSelectedShipment(s); setIsProjectModalOpen(true); }}
-                  >
-                    <Package size={13} />
-                    {s.projects?.length || 0} {isReserveShipment(s) ? 'Project' : 'Item'}
-                    {s.projects?.length !== 1 ? 's' : ''}
-                  </button>
-                </td>
-                <td>
-                  <span className={`is-prod-tag ${PROD_STATUS_CLASS[s.status] || 'prod-ongoing'}`}>
-                    {s.status || '—'}
-                  </span>
-                </td>
-                <td className="is-location">{s.location || '—'}</td>
-                <td><ArrivalBadge shipment={s} /></td>
-                <td className="is-timeline-cell"><ShipmentTimeline shipment={s} /></td>
-                <td>
-                  <span className={`is-pill ${STATUS_CLASS[s.shipment_status] || 'pill-waiting'}`}>
-                    {s.shipment_status}
-                  </span>
-                </td>
-                <td className="is-actions">
-                  <button
-                    className={`is-edit-btn ${s.added_to_inventory ? 'disabled' : ''}`}
-                    onClick={() => { 
-                      if (!s.added_to_inventory) {
-                        setSelectedShipment({ ...s }); 
-                        setIsEditModalOpen(true);
-                      }
-                    }}
-                    disabled={s.added_to_inventory}
-                    title={s.added_to_inventory ? 'Cannot edit - Already in inventory' : 'Edit'}
-                  >
-                    <Edit size={13} /> Update
-                  </button>
-                  {s.shipment_status !== 'ARRIVED' && !s.added_to_inventory && (
-                    <button
-                      className="is-receive-btn"
-                      onClick={() => handleMarkAsReceived(s)}
-                      disabled={receiveLoading === s.id}
-                    >
-                      {receiveLoading === s.id
-                        ? <Loader2 size={13} className="is-spinner" />
-                        : <CheckCircle size={13} />}
-                      {receiveLoading === s.id ? 'Saving…' : 'Received'}
+            </thead>
+            <tbody>
+              {binLoading ? (
+                <tr><td colSpan="8" className="is-loading-cell"><Loader2 className="is-spinner" size={20} /> Loading bin…</td></tr>
+              ) : binShipments.length === 0 ? (
+                <tr><td colSpan="8" className="is-empty-cell">🗑️ Bin is empty. No deleted shipments found.</td></tr>
+              ) : binShipments.map((shipment) => (
+                <tr key={shipment.id} className="is-row">
+                  <td className="is-shipno">{shipment.shipment_number}</td>
+                  <td>
+                    <span className={`is-purpose-tag ${shipment.shipment_purpose === 'RESERVE_FOR_PROJECT' ? 'purpose-reserve' : 'purpose-stock'}`}>
+                      {shipment.shipment_purpose === 'RESERVE_FOR_PROJECT' ? 'Reserve' : 'New Stock'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`is-origin-tag ${shipment.origin_type === 'INTERNATIONAL' ? 'intl' : 'local'}`}>
+                      {shipment.origin_type === 'INTERNATIONAL' ? 'Intl' : 'Local'}
+                    </span>
+                  </td>
+                  <td className="is-container">{shipment.container_type || '—'}</td>
+                  <td>
+                    <button className="is-project-btn" style={{ cursor: 'default' }}>
+                      <Package size={13} />
+                      {shipment.projects?.length || 0} Item{shipment.projects?.length !== 1 ? 's' : ''}
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Pagination */}
-        {!loading && total > 0 && (
-          <Pagination
-            currentPage={currentPage}
-            lastPage={lastPage}
-            from={from}
-            to={to}
-            total={total}
-            onPageChange={setCurrentPage}
-          />
-        )}
-      </div>
+                  </td>
+                  <td>
+                    <span className={`is-pill ${STATUS_CLASS[shipment.shipment_status] || 'pill-waiting'}`}>
+                      {shipment.shipment_status}
+                    </span>
+                  </td>
+                  <td className="is-location" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {shipment.deleted_at ? new Date(shipment.deleted_at).toLocaleDateString('en-PH', {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : '—'}
+                  </td>
+                  <td className="is-actions">
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <button
+                        className="is-edit-btn"
+                        onClick={() => handleRestoreShipment(shipment.id)}
+                        disabled={restoreLoading === shipment.id}
+                        style={{ background: '#ECFDF5', borderColor: '#A7F3D0', color: '#065F46' }}
+                        title="Restore"
+                      >
+                        {restoreLoading === shipment.id ? <Loader2 size={13} className="is-spinner" /> : <ArchiveRestore size={13} />}
+                      </button>
+                      <button
+                        className="is-edit-btn"
+                        onClick={() => handlePermanentDeleteShipment(shipment.id)}
+                        disabled={permanentDeleteLoading === shipment.id}
+                        style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#991B1B' }}
+                        title="Permanently Delete"
+                      >
+                        {permanentDeleteLoading === shipment.id ? <Loader2 size={13} className="is-spinner" /> : <Trash2 size={13} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!binLoading && binShipments.length > 0 && (
+            <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right' }}>
+              Total {binShipments.length} shipment{binShipments.length !== 1 ? 's' : ''} in bin
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Received Stock Panel ── */}
       {showReceivedPanel && (
@@ -916,13 +1114,13 @@ const IncomingShipment = ({ onBack, onStockArrival, onReportFiled }) => {
                         {selectedShipment.projects
                           .reduce((s, p) => s + parseInt(p.quantity || 0), 0)
                           .toLocaleString()} pcs
-                       </td>
+                        </td>
                       {isReserveShipment(selectedShipment) && (
                         <td className="text-right">
                           {selectedShipment.projects
                             .reduce((s, p) => s + parseFloat(p.coverage_sqm || 0), 0)
                             .toLocaleString()} SQM
-                         </td>
+                        </td>
                       )}
                     </tr>
                   </tfoot>

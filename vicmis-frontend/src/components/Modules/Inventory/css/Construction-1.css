@@ -1171,6 +1171,150 @@
 }
 .reorder-toast-close:hover { color: #fff; }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   BIN / ARCHIVE VIEW STYLES
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* Bin Toggle Button */
+.wh-bin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.15);
+  color: #fff;
+  padding: .5rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  white-space: nowrap;
+}
+
+.wh-bin-toggle.active {
+  background: var(--brand-red);
+  border: none;
+}
+
+.wh-bin-toggle:hover {
+  background: rgba(255,255,255,.15);
+}
+
+.wh-bin-toggle.active:hover {
+  background: var(--brand-red-dk);
+}
+
+/* Bin Header */
+.wh-bin-header {
+  padding: 0.85rem 1.25rem;
+  background: #221F1F;
+  color: #fff;
+  border-bottom: 2px solid var(--brand-red);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.wh-bin-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.wh-bin-title h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.wh-bin-subtitle {
+  margin: 0;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* Bin Footer Counter */
+.wh-bin-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Restore Button Style */
+.wh-restore-btn {
+  background: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+  color: #065F46 !important;
+}
+
+.wh-restore-btn:hover {
+  background: #10B981 !important;
+  color: #fff !important;
+  border-color: #10B981 !important;
+}
+
+/* Permanent Delete Button Style */
+.wh-permanent-delete-btn {
+  background: #FEF2F2 !important;
+  border-color: #FECACA !important;
+  color: #991B1B !important;
+}
+
+.wh-permanent-delete-btn:hover {
+  background: #EF4444 !important;
+  color: #fff !important;
+  border-color: #EF4444 !important;
+}
+
+/* Bin Table Row Hover */
+.wh-bin-row:hover {
+  background: #FAF7F5;
+}
+
+/* Deleted At Column */
+.wh-deleted-at {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Empty Bin State */
+.wh-bin-empty {
+  text-align: center;
+  padding: 3rem 1rem !important;
+  color: var(--text-muted);
+}
+
+/* Bin Action Buttons Container */
+.wh-bin-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Responsive adjustments for Bin view */
+@media (max-width: 768px) {
+  .wh-bin-header {
+    padding: 0.65rem 1rem;
+  }
+  
+  .wh-bin-title h3 {
+    font-size: 0.85rem;
+  }
+  
+  .wh-bin-subtitle {
+    font-size: 0.65rem;
+  }
+  
+  .wh-bin-footer {
+    padding: 0.6rem 1rem;
+    font-size: 0.7rem;
+  }
+}
+
 /* ── Summary bar responsive ───────────────────────────────── */
 @media (max-width: 768px) {
   .wh-summary-bar {

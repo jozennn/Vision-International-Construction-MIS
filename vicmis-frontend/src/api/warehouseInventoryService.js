@@ -31,6 +31,18 @@ const warehouseInventoryService = {
   },
 
   requestReorder: (payload) => axios.post('/inventory/reorder-requests', payload),
+
+  getBin(params = {}) {
+  return axios.get('/warehouse-inventory', { params: { ...params, trashed: 'true' } });
+  },
+
+  restore(id) {
+    return axios.post(`/warehouse-inventory/${id}/restore`);
+  },
+
+  forceDelete(id) {
+    return axios.delete(`/warehouse-inventory/${id}/force`);
+  },
 };
 
 export default warehouseInventoryService;

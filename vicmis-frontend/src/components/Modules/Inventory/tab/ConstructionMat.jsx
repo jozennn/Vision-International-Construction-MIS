@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Loader2, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, PackageCheck, Pencil, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { X, Loader2, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, PackageCheck, Pencil, Trash2, AlertTriangle, RotateCcw, Archive, ArchiveRestore } from 'lucide-react';
 import warehouseInventoryService from '@/api/warehouseInventoryService';
 import '../css/Construction-1.css';
 
@@ -242,7 +242,6 @@ const ReorderModal = ({ item, onConfirm, onClose, loading }) => {
               />
               <span className="reorder-qty-unit">{item.unit}</span>
             </div>
-            {/* Estimated cost preview */}
             {quantityNeeded > 0 && item.price_per_piece > 0 && (
               <p className="wh-hint" style={{ marginTop: 6, color: '#059669', fontWeight: 600 }}>
                 Estimated cost: {fmtPrice(quantityNeeded * item.price_per_piece)}
@@ -307,6 +306,13 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
   const [loading, setLoading]                 = useState(true);
   const [saveLoading, setSaveLoading]         = useState(false);
   const [deleteLoading, setDeleteLoading]     = useState(null);
+
+  // Bin state
+  const [showBin, setShowBin]                 = useState(false);
+  const [binItems, setBinItems]               = useState([]);
+  const [binLoading, setBinLoading]           = useState(false);
+  const [restoreLoading, setRestoreLoading]   = useState(null);
+  const [permanentDeleteLoading, setPermanentDeleteLoading] = useState(null);
 
   const [categories, setCategories]           = useState([]);
   const [presetCodes, setPresetCodes]         = useState({});
@@ -388,24 +394,74 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   }, [currentPage, perPage, typeFilter, categoryFilter, search]);
 
+  // ── Fetch bin items (deleted items) ────────────────────────────────────────
+  const fetchBinItems = useCallback(async () => {
+    setBinLoading(true);
+    try {
+      const res = await warehouseInventoryService.getBin({ per_page: 9999 });
+      setBinItems(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to load bin items:', err);
+    } finally {
+      setBinLoading(false);
+    }
+  }, []);
+
   useEffect(() => { fetchItems(); }, [fetchItems]);
   useEffect(() => { setCurrentPage(1); }, [typeFilter, categoryFilter, search, perPage]);
 
-  // ── New arrival ────────────────────────────────────────────────────────────
-  // useEffect(() => {
-  //   if (newArrivalData?.projects?.length > 0) {
-  //     const proj = newArrivalData.projects[0];
-  //     setIsNewArrival(true);
-  //     setFormData({
-  //       ...EMPTY_FORM,
-  //       product_category: proj.product_category || '',
-  //       product_code:     newArrivalData.shipment_number || '',
-  //       current_stock:    proj.quantity || '',
-  //       is_consumable:    proj.product_category === 'CONSUMABLES',
-  //     });
-  //     setIsModalOpen(true);
-  //   }
-  // }, [newArrivalData]);
+  // Load bin items when bin is opened
+  useEffect(() => {
+    if (showBin) {
+      fetchBinItems();
+    }
+  }, [showBin, fetchBinItems]);
+
+  // ── Soft delete (move to bin) ──────────────────────────────────────────────
+  const handleSoftDelete = async (id) => {
+    if (!window.confirm('Move this product to the bin? You can restore it later from the Bin tab.')) return;
+    setDeleteLoading(id);
+    try {
+      await warehouseInventoryService.remove(id);
+      if (items.length === 1 && currentPage > 1) setCurrentPage(p => p - 1);
+      else fetchItems();
+      fetchStockCounts();
+      if (showBin) fetchBinItems();
+    } catch (err) {
+      alert('Failed to move product to bin.');
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
+  // ── Restore from bin ───────────────────────────────────────────────────────
+  const handleRestore = async (id) => {
+    setRestoreLoading(id);
+    try {
+      await warehouseInventoryService.restore(id);
+      fetchBinItems();
+      fetchItems();
+      fetchStockCounts();
+    } catch (err) {
+      alert('Failed to restore product.');
+    } finally {
+      setRestoreLoading(null);
+    }
+  };
+
+  // ── Permanent delete (remove from bin) ─────────────────────────────────────
+  const handlePermanentDelete = async (id) => {
+    if (!window.confirm('⚠️ WARNING: This will permanently delete this product. This action CANNOT be undone. Continue?')) return;
+    setPermanentDeleteLoading(id);
+    try {
+      await warehouseInventoryService.forceDelete(id);
+      fetchBinItems();
+    } catch (err) {
+      alert('Failed to permanently delete product.');
+    } finally {
+      setPermanentDeleteLoading(null);
+    }
+  };
 
   // ── Category change ────────────────────────────────────────────────────────
   const handleCategoryChange = (cat) => {
@@ -430,48 +486,32 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async (e) => {
-  e.preventDefault();
-  setSaveLoading(true);
-  try {
-    const stockInt = parseInt(formData.current_stock, 10) || 0;
-    const payload = {
-      ...formData,
-      current_stock:   stockInt,
-      price_per_piece: parseFloat(formData.price_per_piece) || 0,
-      reserve:         parseInt(formData.reserve, 10) || 0,
-      availability:    deriveAvailability(stockInt),
-    };
-
-    const cleanPayload = Object.fromEntries(
-      Object.entries(payload).filter(([_, v]) => v !== undefined && v !== null && v !== '')
-    );
-
-    if (isEditing) await warehouseInventoryService.update(currentId, cleanPayload);
-    else           await warehouseInventoryService.create(payload);
-    closeModal();
-    fetchItems();
-    fetchStockCounts();
-  } catch (err) {
-    console.error('Save error:', err.response?.data || err);
-    alert(err.response?.data?.message || 'Failed to save. Please check all fields.');
-  } finally {
-    setSaveLoading(false);
-  }
-};
-
-  // ── Delete ─────────────────────────────────────────────────────────────────
-  const handleDelete = async (id) => {
-    if (!window.confirm('Remove this product from inventory?')) return;
-    setDeleteLoading(id);
+    e.preventDefault();
+    setSaveLoading(true);
     try {
-      await warehouseInventoryService.remove(id);
-      if (items.length === 1 && currentPage > 1) setCurrentPage(p => p - 1);
-      else fetchItems();
+      const stockInt = parseInt(formData.current_stock, 10) || 0;
+      const payload = {
+        ...formData,
+        current_stock:   stockInt,
+        price_per_piece: parseFloat(formData.price_per_piece) || 0,
+        reserve:         parseInt(formData.reserve, 10) || 0,
+        availability:    deriveAvailability(stockInt),
+      };
+
+      const cleanPayload = Object.fromEntries(
+        Object.entries(payload).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      );
+
+      if (isEditing) await warehouseInventoryService.update(currentId, cleanPayload);
+      else           await warehouseInventoryService.create(payload);
+      closeModal();
+      fetchItems();
       fetchStockCounts();
-    } catch {
-      alert('Failed to delete.');
+    } catch (err) {
+      console.error('Save error:', err.response?.data || err);
+      alert(err.response?.data?.message || 'Failed to save. Please check all fields.');
     } finally {
-      setDeleteLoading(null);
+      setSaveLoading(false);
     }
   };
 
@@ -525,73 +565,173 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
             <p className="wh-subtitle">Construction Materials</p>
           </div>
         </div>
-        <button className="wh-add-btn" onClick={openAddModal}>
-          <Plus size={16} /> Add Product
-        </button>
-      </div>
-
-      {/* Filter Bar */}
-      <div className="wh-filters">
-        <div className="wh-type-toggle">
-          {[{ val: 'all', label: 'All Products' }, { val: 'main', label: 'Main Products' }, { val: 'consumable', label: 'Consumables' }].map(({ val, label }) => (
-            <button key={val} className={`wh-toggle-btn ${typeFilter === val ? 'active' : ''}`} onClick={() => setTypeFilter(val)}>{label}</button>
-          ))}
-        </div>
-        <div className="wh-filter-select-wrap">
-          <select className="wh-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-            <option value="all">All Categories</option>
-            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
-          <ChevronDown size={14} className="wh-select-icon" />
-        </div>
-        <div className="wh-search-wrap">
-          <Search size={14} className="wh-search-icon" />
-          <input
-            type="text"
-            className="wh-search-input"
-            placeholder="Search code or category…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className={`wh-add-btn`} 
+            onClick={() => setShowBin(!showBin)}
+            style={{ 
+              background: showBin ? 'var(--brand-red)' : 'rgba(255,255,255,.15)',
+              border: showBin ? 'none' : '1px solid rgba(255,255,255,.2)'
+            }}
+          >
+            <Archive size={16} /> {showBin ? 'Back to Inventory' : 'Bin'}
+          </button>
+          {!showBin && (
+            <button className="wh-add-btn" onClick={openAddModal}>
+              <Plus size={16} /> Add Product
+            </button>
+          )}
         </div>
       </div>
 
-      <StockSummaryBar counts={stockCounts} loading={countsLoading} />
+      {!showBin ? (
+        <>
+          {/* Filter Bar */}
+          <div className="wh-filters">
+            <div className="wh-type-toggle">
+              {[{ val: 'all', label: 'All Products' }, { val: 'main', label: 'Main Products' }, { val: 'consumable', label: 'Consumables' }].map(({ val, label }) => (
+                <button key={val} className={`wh-toggle-btn ${typeFilter === val ? 'active' : ''}`} onClick={() => setTypeFilter(val)}>{label}</button>
+              ))}
+            </div>
+            <div className="wh-filter-select-wrap">
+              <select className="wh-filter-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+                <option value="all">All Categories</option>
+                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <ChevronDown size={14} className="wh-select-icon" />
+            </div>
+            <div className="wh-search-wrap">
+              <Search size={14} className="wh-search-icon" />
+              <input
+                type="text"
+                className="wh-search-input"
+                placeholder="Search code or category…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
 
-      {/* Table */}
-      <div className="wh-table-wrap">
-        <table className="wh-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Code</th>
-              <th>Availability</th>
-              <th className="text-right">Current Stock</th>
-              <th>Unit</th>
-              <th className="text-right">Price / Piece</th>
-              <th className="text-right">Total Value</th>
-              <th className="text-right">Reserve</th>
-              <th className="text-right">After Reserve</th>
-              <th>Condition</th>
-              <th>Type</th>
-              <th className="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="12" className="wh-loading-cell"><Loader2 className="wh-spinner" size={20} /> Loading inventory…</td></tr>
-            ) : items.length === 0 ? (
-              <tr><td colSpan="12" className="wh-empty-cell">No products found.</td></tr>
-            ) : items.map((item) => {
-              const reserve    = parseInt(item.reserve || 0);
-              const totalAfter = item.current_stock - reserve;
-              const rowClass   = item.availability === 'NO STOCK'
-                ? 'wh-row wh-row-no-stock'
-                : item.availability === 'LOW STOCK'
-                  ? 'wh-row wh-row-low-stock'
-                  : 'wh-row';
-              return (
-                <tr key={item.id} className={rowClass}>
+          <StockSummaryBar counts={stockCounts} loading={countsLoading} />
+
+          {/* Table */}
+          <div className="wh-table-wrap">
+            <table className="wh-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Code</th>
+                  <th>Availability</th>
+                  <th className="text-right">Current Stock</th>
+                  <th>Unit</th>
+                  <th className="text-right">Price / Piece</th>
+                  <th className="text-right">Total Value</th>
+                  <th className="text-right">Reserve</th>
+                  <th className="text-right">After Reserve</th>
+                  <th>Condition</th>
+                  <th>Type</th>
+                  <th className="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="12" className="wh-loading-cell"><Loader2 className="wh-spinner" size={20} /> Loading inventory…</td></tr>
+                ) : items.length === 0 ? (
+                  <tr><td colSpan="12" className="wh-empty-cell">No products found.</td></tr>
+                ) : items.map((item) => {
+                  const reserve    = parseInt(item.reserve || 0);
+                  const totalAfter = item.current_stock - reserve;
+                  const rowClass   = item.availability === 'NO STOCK'
+                    ? 'wh-row wh-row-no-stock'
+                    : item.availability === 'LOW STOCK'
+                      ? 'wh-row wh-row-low-stock'
+                      : 'wh-row';
+                  return (
+                    <tr key={item.id} className={rowClass}>
+                      <td><span className="wh-category-badge">{item.product_category}</span></td>
+                      <td className="wh-code">{item.product_code}</td>
+                      <td>
+                        <span className={`wh-avail ${AVAILABILITY_COLORS[item.availability] || 'avail-no'}`}>
+                          {item.availability}
+                        </span>
+                      </td>
+                      <td className="text-right wh-num">{item.current_stock}</td>
+                      <td className="wh-unit">{item.unit}</td>
+                      <td className="text-right wh-num">{fmtPrice(item.price_per_piece)}</td>
+                      <td className="text-right wh-num wh-value">{fmtValue(item.total_stock_value)}</td>
+                      <td className="text-right wh-num">{reserve > 0 ? reserve : '—'}</td>
+                      <td className={`text-right wh-num wh-total ${totalAfter < 0 ? 'negative' : ''}`}>{totalAfter}</td>
+                      <td><span className={`wh-condition ${CONDITION_COLORS[item.condition] || ''}`}>{item.condition}</span></td>
+                      <td><span className={item.is_consumable ? 'wh-pill consumable' : 'wh-pill main'}>{item.is_consumable ? 'Consumable' : 'Main'}</span></td>
+                      <td className="wh-actions">
+                        {(item.availability === 'LOW STOCK' || item.availability === 'NO STOCK') && (
+                          <button
+                            className="wh-reorder-btn"
+                            onClick={() => openReorderModal(item)}
+                            title="Request Reorder"
+                          >
+                            Reorder
+                          </button>
+                        )}
+                        <button className="wh-edit-btn" onClick={() => openEditModal(item)} title="Edit"><Pencil size={14} /></button>
+                        <button className="wh-del-btn" onClick={() => handleSoftDelete(item.id)} disabled={deleteLoading === item.id} title="Move to Bin">
+                          {deleteLoading === item.id ? <Loader2 size={14} className="wh-spinner" /> : <Trash2 size={14} />}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {!loading && total > 0 && (
+              <Pagination
+                currentPage={currentPage} lastPage={lastPage}
+                from={from} to={to} total={total} perPage={perPage}
+                onPageChange={setCurrentPage} onPerPageChange={setPerPage}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        /* ─── Bin / Archive View ─── */
+        <div className="wh-table-wrap" style={{ marginTop: '1rem' }}>
+          <div style={{ 
+            padding: '0.85rem 1.25rem', 
+            background: '#221F1F', 
+            color: '#fff', 
+            borderBottom: '2px solid var(--brand-red)',
+            borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Archive size={20} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Product Bin</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.7rem', opacity: 0.7 }}>
+                  Deleted products are stored here. You can restore them or permanently delete them.
+                </p>
+              </div>
+            </div>
+          </div>
+          <table className="wh-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Code</th>
+                <th>Availability</th>
+                <th className="text-right">Current Stock</th>
+                <th>Unit</th>
+                <th>Deleted At</th>
+                <th className="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {binLoading ? (
+                <tr><td colSpan="7" className="wh-loading-cell"><Loader2 className="wh-spinner" size={20} /> Loading bin…</td></tr>
+              ) : binItems.length === 0 ? (
+                <tr><td colSpan="7" className="wh-empty-cell">🗑️ Bin is empty. No deleted products found.</td></tr>
+              ) : binItems.map((item) => (
+                <tr key={item.id} className="wh-row">
                   <td><span className="wh-category-badge">{item.product_category}</span></td>
                   <td className="wh-code">{item.product_code}</td>
                   <td>
@@ -601,41 +741,42 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
                   </td>
                   <td className="text-right wh-num">{item.current_stock}</td>
                   <td className="wh-unit">{item.unit}</td>
-                  <td className="text-right wh-num">{fmtPrice(item.price_per_piece)}</td>
-                  <td className="text-right wh-num wh-value">{fmtValue(item.total_stock_value)}</td>
-                  <td className="text-right wh-num">{reserve > 0 ? reserve : '—'}</td>
-                  <td className={`text-right wh-num wh-total ${totalAfter < 0 ? 'negative' : ''}`}>{totalAfter}</td>
-                  <td><span className={`wh-condition ${CONDITION_COLORS[item.condition] || ''}`}>{item.condition}</span></td>
-                  <td><span className={item.is_consumable ? 'wh-pill consumable' : 'wh-pill main'}>{item.is_consumable ? 'Consumable' : 'Main'}</span></td>
+                  <td className="dl-date" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {item.deleted_at ? new Date(item.deleted_at).toLocaleDateString('en-PH', {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : '—'}
+                  </td>
                   <td className="wh-actions">
-                    {(item.availability === 'LOW STOCK' || item.availability === 'NO STOCK') && (
-                      <button
-                        className="wh-reorder-btn"
-                        onClick={() => openReorderModal(item)}
-                        title="Request Reorder"
-                      >
-                        Reorder
-                      </button>
-                    )}
-                    <button className="wh-edit-btn" onClick={() => openEditModal(item)} title="Edit"><Pencil size={14} /></button>
-                    <button className="wh-del-btn" onClick={() => handleDelete(item.id)} disabled={deleteLoading === item.id} title="Delete">
-                      {deleteLoading === item.id ? <Loader2 size={14} className="wh-spinner" /> : <Trash2 size={14} />}
+                    <button 
+                      className="wh-edit-btn" 
+                      onClick={() => handleRestore(item.id)} 
+                      disabled={restoreLoading === item.id} 
+                      title="Restore"
+                      style={{ background: '#ECFDF5', borderColor: '#A7F3D0', color: '#065F46' }}
+                    >
+                      {restoreLoading === item.id ? <Loader2 size={14} className="wh-spinner" /> : <ArchiveRestore size={14} />}
+                    </button>
+                    <button 
+                      className="wh-del-btn" 
+                      onClick={() => handlePermanentDelete(item.id)} 
+                      disabled={permanentDeleteLoading === item.id} 
+                      title="Permanently Delete"
+                      style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#991B1B' }}
+                    >
+                      {permanentDeleteLoading === item.id ? <Loader2 size={14} className="wh-spinner" /> : <Trash2 size={14} />}
                     </button>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {!loading && total > 0 && (
-          <Pagination
-            currentPage={currentPage} lastPage={lastPage}
-            from={from} to={to} total={total} perPage={perPage}
-            onPageChange={setCurrentPage} onPerPageChange={setPerPage}
-          />
-        )}
-      </div>
+              ))}
+            </tbody>
+          </table>
+          {!binLoading && binItems.length > 0 && (
+            <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right' }}>
+              Total {binItems.length} item{binItems.length !== 1 ? 's' : ''} in bin
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Reorder Confirmation Modal */}
       {reorderTarget && (
@@ -649,150 +790,149 @@ const ConstructionMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-  <div className="wh-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
-    <div className="wh-modal">
-      <div className="wh-modal-header">
-        <div className="wh-modal-title-row">
-          {isNewArrival && <PackageCheck size={20} className="wh-modal-icon" />}
-          <h2 className="wh-modal-title">
-            {isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}
-          </h2>
-        </div>
-        <button className="wh-modal-close" onClick={closeModal}><X size={18} /></button>
-      </div>
-
-      <form onSubmit={handleSave} className="wh-form">
-        <div className="wh-form-row">
-          <div className="wh-form-group">
-            <label>Product Category <span className="req">*</span></label>
-            <div className="wh-select-wrap">
-              <select required value={formData.product_category} onChange={e => handleCategoryChange(e.target.value)}>
-                <option value="">— Select Category —</option>
-                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-              <ChevronDown size={13} className="wh-select-icon" />
+        <div className="wh-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="wh-modal">
+            <div className="wh-modal-header">
+              <div className="wh-modal-title-row">
+                {isNewArrival && <PackageCheck size={20} className="wh-modal-icon" />}
+                <h2 className="wh-modal-title">
+                  {isNewArrival ? 'New Arrival Stock' : isEditing ? 'Update Product' : 'Register Product'}
+                </h2>
+              </div>
+              <button className="wh-modal-close" onClick={closeModal}><X size={18} /></button>
             </div>
-          </div>
-          <div className="wh-form-group">
-            <label>Unit <span className="req">*</span></label>
-            <input
-              type="text" required
-              value={formData.unit}
-              onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))}
-              placeholder="e.g. Rolls, Pcs, Bags"
-            />
+
+            <form onSubmit={handleSave} className="wh-form">
+              <div className="wh-form-row">
+                <div className="wh-form-group">
+                  <label>Product Category <span className="req">*</span></label>
+                  <div className="wh-select-wrap">
+                    <select required value={formData.product_category} onChange={e => handleCategoryChange(e.target.value)}>
+                      <option value="">— Select Category —</option>
+                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="wh-select-icon" />
+                  </div>
+                </div>
+                <div className="wh-form-group">
+                  <label>Unit <span className="req">*</span></label>
+                  <input
+                    type="text" required
+                    value={formData.unit}
+                    onChange={e => setFormData(f => ({ ...f, unit: e.target.value }))}
+                    placeholder="e.g. Rolls, Pcs, Bags"
+                  />
+                </div>
+              </div>
+
+              <div className="wh-form-group">
+                <div className="wh-label-row">
+                  <label>Product Code <span className="req">*</span></label>
+                  {codesForCategory.length > 0 && (
+                    <button type="button" className="wh-toggle-code-btn" onClick={() => setCustomCode(v => !v)}>
+                      {customCode ? 'Pick from list' : 'Enter custom code'}
+                    </button>
+                  )}
+                </div>
+                {(!customCode && codesForCategory.length > 0) ? (
+                  <div className="wh-select-wrap">
+                    <select required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}>
+                      <option value="">— Select Code —</option>
+                      {codesForCategory.map(({ code }) => <option key={code} value={code}>{code}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="wh-select-icon" />
+                  </div>
+                ) : (
+                  <input
+                    type="text" required
+                    value={formData.product_code}
+                    onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}
+                    placeholder="e.g. 182062 or 182062 - New"
+                  />
+                )}
+                <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
+              </div>
+
+              <div className="wh-form-row wh-form-row-3">
+                <div className="wh-form-group">
+                  <div className="wh-label-row">
+                    <label>Current Stock <span className="req">*</span></label>
+                    {formData.current_stock !== '' && (
+                      <AvailPreview stock={formData.current_stock} />
+                    )}
+                  </div>
+                  <input
+                    type="number" min="0" required
+                    value={formData.current_stock}
+                    onChange={e => handleStockChange(e.target.value)}
+                    placeholder="0"
+                  />
+                  <p className="wh-hint" style={{ marginTop: 3 }}>
+                    0 = No Stock · 1–10 = Low Stock · 11+ = On Stock
+                  </p>
+                </div>
+
+                <div className="wh-form-group">
+                  <label>Price per Piece <span className="wh-optional">(₱)</span></label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={formData.price_per_piece}
+                    onChange={e => setFormData(f => ({ ...f, price_per_piece: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                  {formData.price_per_piece > 0 && formData.current_stock > 0 && (
+                    <p className="wh-hint" style={{ marginTop: 3, color: '#059669', fontWeight: 600 }}>
+                      Total value: {fmtPrice(parseFloat(formData.price_per_piece) * parseInt(formData.current_stock || 0))}
+                    </p>
+                  )}
+                </div>
+
+                <div className="wh-form-group">
+                  <label>Reserve</label>
+                  <input type="number" min="0" value={formData.reserve} onChange={e => setFormData(f => ({ ...f, reserve: e.target.value }))} placeholder="0" />
+                </div>
+              </div>
+
+              <div className="wh-form-row">
+                <div className="wh-form-group">
+                  <label>Condition</label>
+                  <div className="wh-select-wrap">
+                    <select value={formData.condition} onChange={e => setFormData(f => ({ ...f, condition: e.target.value }))}>
+                      <option>Good</option><option>Damaged</option><option>Returned</option>
+                    </select>
+                    <ChevronDown size={13} className="wh-select-icon" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="wh-form-group wh-checkbox-group">
+                <label className="wh-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_consumable}
+                    onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
+                  />
+                  <span>Mark as Consumable</span>
+                </label>
+              </div>
+
+              <div className="wh-form-group">
+                <label>Notes <span className="wh-optional">(optional)</span></label>
+                <textarea rows={2} value={formData.notes} onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))} placeholder="Any remarks…" />
+              </div>
+
+              <div className="wh-modal-footer">
+                <button type="button" className="wh-btn-cancel" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="wh-btn-save" disabled={saveLoading}>
+                  {saveLoading
+                    ? <><Loader2 size={15} className="wh-spinner" /> Saving…</>
+                    : isEditing ? 'Update Product' : 'Save Product'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-
-        <div className="wh-form-group">
-          <div className="wh-label-row">
-            <label>Product Code <span className="req">*</span></label>
-            {codesForCategory.length > 0 && (
-              <button type="button" className="wh-toggle-code-btn" onClick={() => setCustomCode(v => !v)}>
-                {customCode ? 'Pick from list' : 'Enter custom code'}
-              </button>
-            )}
-          </div>
-          {(!customCode && codesForCategory.length > 0) ? (
-            <div className="wh-select-wrap">
-              <select required value={formData.product_code} onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}>
-                <option value="">— Select Code —</option>
-                {codesForCategory.map(({ code }) => <option key={code} value={code}>{code}</option>)}
-              </select>
-              <ChevronDown size={13} className="wh-select-icon" />
-            </div>
-          ) : (
-            <input
-              type="text" required
-              value={formData.product_code}
-              onChange={e => setFormData(f => ({ ...f, product_code: e.target.value }))}
-              placeholder="e.g. 182062 or 182062 - New"
-            />
-          )}
-          <p className="wh-hint">Same code across categories is valid (e.g. F6013 across multiple product types).</p>
-        </div>
-
-        <div className="wh-form-row wh-form-row-3">
-          <div className="wh-form-group">
-            <div className="wh-label-row">
-              <label>Current Stock <span className="req">*</span></label>
-              {formData.current_stock !== '' && (
-                <AvailPreview stock={formData.current_stock} />
-              )}
-            </div>
-            <input
-              type="number" min="0" required
-              value={formData.current_stock}
-              onChange={e => handleStockChange(e.target.value)}
-              placeholder="0"
-            />
-            <p className="wh-hint" style={{ marginTop: 3 }}>
-              0 = No Stock · 1–10 = Low Stock · 11+ = On Stock
-            </p>
-          </div>
-
-          {/* ── Price per piece ── */}
-          <div className="wh-form-group">
-            <label>Price per Piece <span className="wh-optional">(₱)</span></label>
-            <input
-              type="number" min="0" step="0.01"
-              value={formData.price_per_piece}
-              onChange={e => setFormData(f => ({ ...f, price_per_piece: e.target.value }))}
-              placeholder="0.00"
-            />
-            {formData.price_per_piece > 0 && formData.current_stock > 0 && (
-              <p className="wh-hint" style={{ marginTop: 3, color: '#059669', fontWeight: 600 }}>
-                Total value: {fmtPrice(parseFloat(formData.price_per_piece) * parseInt(formData.current_stock || 0))}
-              </p>
-            )}
-          </div>
-
-          <div className="wh-form-group">
-            <label>Reserve</label>
-            <input type="number" min="0" value={formData.reserve} onChange={e => setFormData(f => ({ ...f, reserve: e.target.value }))} placeholder="0" />
-          </div>
-        </div>
-
-        <div className="wh-form-row">
-          <div className="wh-form-group">
-            <label>Condition</label>
-            <div className="wh-select-wrap">
-              <select value={formData.condition} onChange={e => setFormData(f => ({ ...f, condition: e.target.value }))}>
-                <option>Good</option><option>Damaged</option><option>Returned</option>
-              </select>
-              <ChevronDown size={13} className="wh-select-icon" />
-            </div>
-          </div>
-        </div>
-
-        <div className="wh-form-group wh-checkbox-group">
-          <label className="wh-checkbox-label">
-            <input
-              type="checkbox"
-              checked={formData.is_consumable}
-              onChange={e => setFormData(f => ({ ...f, is_consumable: e.target.checked }))}
-            />
-            <span>Mark as Consumable</span>
-          </label>
-        </div>
-
-        <div className="wh-form-group">
-          <label>Notes <span className="wh-optional">(optional)</span></label>
-          <textarea rows={2} value={formData.notes} onChange={e => setFormData(f => ({ ...f, notes: e.target.value }))} placeholder="Any remarks…" />
-        </div>
-
-        <div className="wh-modal-footer">
-          <button type="button" className="wh-btn-cancel" onClick={closeModal}>Cancel</button>
-          <button type="submit" className="wh-btn-save" disabled={saveLoading}>
-            {saveLoading
-              ? <><Loader2 size={15} className="wh-spinner" /> Saving…</>
-              : isEditing ? 'Update Product' : 'Save Product'}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-  )}
+      )}
     </div>
   );
 };

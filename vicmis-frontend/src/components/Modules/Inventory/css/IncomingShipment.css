@@ -1261,6 +1261,172 @@
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   BIN / ARCHIVE VIEW STYLES FOR SHIPMENTS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* Bin Toggle Button */
+.is-bin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #065F46;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: .45rem .95rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: .8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  white-space: nowrap;
+}
+
+.is-bin-toggle.active {
+  background: var(--brand-red);
+}
+
+.is-bin-toggle:hover {
+  background: #047857;
+}
+
+.is-bin-toggle.active:hover {
+  background: var(--brand-red-dk);
+}
+
+/* Bin Header */
+.is-bin-header {
+  padding: 0.85rem 1.25rem;
+  background: #221F1F;
+  color: #fff;
+  border-bottom: 2px solid var(--brand-red);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+
+.is-bin-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.is-bin-title h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.is-bin-subtitle {
+  margin: 0;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* Bin Footer Counter */
+.is-bin-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Restore Button Style for Shipments */
+.is-restore-btn {
+  background: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+  color: #065F46 !important;
+}
+
+.is-restore-btn:hover {
+  background: #10B981 !important;
+  color: #fff !important;
+  border-color: #10B981 !important;
+}
+
+/* Permanent Delete Button Style for Shipments */
+.is-permanent-delete-btn {
+  background: #FEF2F2 !important;
+  border-color: #FECACA !important;
+  color: #991B1B !important;
+}
+
+.is-permanent-delete-btn:hover {
+  background: #EF4444 !important;
+  color: #fff !important;
+  border-color: #EF4444 !important;
+}
+
+/* Soft Delete Button (Move to Bin) */
+.is-soft-delete-btn {
+  background: #FEF2F2 !important;
+  border-color: #FECACA !important;
+  color: #991B1B !important;
+}
+
+.is-soft-delete-btn:hover {
+  background: #EF4444 !important;
+  color: #fff !important;
+  border-color: #EF4444 !important;
+}
+
+/* Deleted At Column */
+.is-deleted-at {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Empty Bin State */
+.is-bin-empty {
+  text-align: center;
+  padding: 3rem 1rem !important;
+  color: var(--text-muted);
+}
+
+/* Bin Action Buttons Container */
+.is-bin-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Bin Table adjustments */
+.is-table-wrap .is-table tbody tr.is-row.is-bin-row td {
+  vertical-align: middle;
+}
+
+/* Responsive adjustments for Bin view */
+@media (max-width: 768px) {
+  .is-bin-header {
+    padding: 0.65rem 1rem;
+  }
+  
+  .is-bin-title h3 {
+    font-size: 0.85rem;
+  }
+  
+  .is-bin-subtitle {
+    font-size: 0.65rem;
+  }
+  
+  .is-bin-footer {
+    padding: 0.6rem 1rem;
+    font-size: 0.7rem;
+  }
+  
+  .is-bin-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .is-bin-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ── Phone (≤ 640px) ──────────────────────────────────────── */
 @media (max-width: 640px) {
   .is-topbar { padding: .65rem .85rem; }

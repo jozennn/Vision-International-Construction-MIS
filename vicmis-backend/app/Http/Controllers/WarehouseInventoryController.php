@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/WarehouseInventoryController.php - Updated version
 
 namespace App\Http\Controllers;
 
@@ -12,6 +13,13 @@ class WarehouseInventoryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = WarehouseInventory::query();
+
+        // Add trashed filter
+        if ($request->has('trashed') && $request->trashed === 'true') {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+        }
 
         if ($request->has('type')) {
             if ($request->type === 'consumable') $query->consumables();
@@ -34,7 +42,6 @@ class WarehouseInventoryController extends Controller
             );
         }
 
-        // Support large per_page for dashboard full-table scans (e.g. per_page=9999)
         $perPage = (int) $request->get('per_page', 10);
         if ($perPage > 9999) $perPage = 9999;
         if ($perPage < 1)    $perPage = 10;
@@ -90,7 +97,6 @@ class WarehouseInventoryController extends Controller
             $validated['is_consumable'] = true;
         }
 
-        // Default price to 0 if not provided
         $validated['price_per_piece'] = $validated['price_per_piece'] ?? 0;
 
         $item = WarehouseInventory::create($validated);
@@ -103,7 +109,7 @@ class WarehouseInventoryController extends Controller
     // ─── GET /api/warehouse-inventory/{id} ────────────────────────────────────
     public function show(int $id): JsonResponse
     {
-        $item = WarehouseInventory::findOrFail($id);
+        $item = WarehouseInventory::withTrashed()->findOrFail($id);
         $item->total_after_reserve = $item->total_after_reserve;
         $item->total_stock_value   = $item->total_stock_value;
         return response()->json(['data' => $item]);
@@ -112,7 +118,7 @@ class WarehouseInventoryController extends Controller
     // ─── PUT /api/warehouse-inventory/{id} ────────────────────────────────────
     public function update(Request $request, int $id): JsonResponse
     {
-        $item = WarehouseInventory::findOrFail($id);
+        $item = WarehouseInventory::withTrashed()->findOrFail($id);
 
         $validated = $request->validate([
             'product_category' => 'sometimes|string|max:150',
@@ -143,11 +149,28 @@ class WarehouseInventoryController extends Controller
         return response()->json(['data' => $item, 'message' => 'Product updated successfully.']);
     }
 
-    // ─── DELETE /api/warehouse-inventory/{id} ─────────────────────────────────
+    // ─── DELETE /api/warehouse-inventory/{id} (Soft Delete) ───────────────────
     public function destroy(int $id): JsonResponse
     {
-        WarehouseInventory::findOrFail($id)->delete();
-        return response()->json(['message' => 'Product deleted successfully.']);
+        $item = WarehouseInventory::findOrFail($id);
+        $item->delete();
+        return response()->json(['message' => 'Product moved to bin successfully.']);
+    }
+
+    // ─── POST /api/warehouse-inventory/{id}/restore ───────────────────────────
+    public function restore(int $id): JsonResponse
+    {
+        $item = WarehouseInventory::onlyTrashed()->findOrFail($id);
+        $item->restore();
+        return response()->json(['message' => 'Product restored successfully.']);
+    }
+
+    // ─── DELETE /api/warehouse-inventory/{id}/force (Permanent Delete) ────────
+    public function forceDelete(int $id): JsonResponse
+    {
+        $item = WarehouseInventory::onlyTrashed()->findOrFail($id);
+        $item->forceDelete();
+        return response()->json(['message' => 'Product permanently deleted.']);
     }
 
     // ─── GET /api/warehouse-inventory/meta ────────────────────────────────────
@@ -163,9 +186,9 @@ class WarehouseInventoryController extends Controller
     // ─── GET /api/inventory/alerts ────────────────────────────────────────────
     public function getAlerts(): JsonResponse
     {
-        $noStock  = WarehouseInventory::where('availability', 'NO STOCK')->count();
-        $lowStock = WarehouseInventory::where('availability', 'LOW STOCK')->count();
-        $onStock  = WarehouseInventory::where('availability', 'ON STOCK')->count();
+        $noStock  = WarehouseInventory::whereNull('deleted_at')->where('availability', 'NO STOCK')->count();
+        $lowStock = WarehouseInventory::whereNull('deleted_at')->where('availability', 'LOW STOCK')->count();
+        $onStock  = WarehouseInventory::whereNull('deleted_at')->where('availability', 'ON STOCK')->count();
 
         return response()->json([
             'no_stock'     => $noStock,

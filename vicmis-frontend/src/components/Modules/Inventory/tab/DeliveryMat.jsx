@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight,
   CheckCircle, AlertTriangle, Search,
   PackageCheck, RotateCcw, ClipboardList,
-  AlertCircle, CheckSquare,
+  AlertCircle, CheckSquare, Archive, ArchiveRestore, Trash2
 } from 'lucide-react';
 import '../css/Delivery.css';
 
@@ -212,7 +212,6 @@ const DispatchFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
         </div>
 
         <div className="dl-form" style={{ padding: '1.5rem' }}>
-          {/* Request summary */}
           <div className="dl-req-detail-card">
             <div className="dl-req-detail-row">
               <span className="dl-req-detail-label">Requested by</span>
@@ -278,8 +277,6 @@ const DispatchFromRequestModal = ({ request, onConfirm, onClose, loading }) => {
 };
 
 // ─── Pending Requests Tab ──────────────────────────────────────────────────────
-// Replace the PendingRequestsTab component with this updated version
-
 const PendingRequestsTab = ({
   requests,
   loading,
@@ -307,40 +304,30 @@ const PendingRequestsTab = ({
   return (
     <div className="dl-requests-list">
       {requests.map(req => {
-        // Check stock status for EACH item
         const itemsWithStock = req.items?.map(item => {
-  // Ensure we treat the stock as a number
-            const physicalStock = Number(item.current_stock) || 0;
-            const requestedQty = Number(item.requested_qty) || 0;
-            
-            // FIX: allow fulfillment if physical stock covers the request
-            const canFulfill = physicalStock >= requestedQty;
-            
-            // Determine status based on physical stock, not "After Reserve" balance
-            const stockStatus = physicalStock <= 0 ? 'NO STOCK' 
-              : !canFulfill ? 'LOW STOCK' 
-              : 'ON STOCK';
-            
-            return {
-              ...item,
-              current_stock: physicalStock,
-              stock_status: stockStatus,
-              canFulfill: canFulfill
-            };
-          });
+          const physicalStock = Number(item.current_stock) || 0;
+          const requestedQty = Number(item.requested_qty) || 0;
+          const canFulfill = physicalStock >= requestedQty;
+          const stockStatus = physicalStock <= 0 ? 'NO STOCK' 
+            : !canFulfill ? 'LOW STOCK' 
+            : 'ON STOCK';
+          
+          return {
+            ...item,
+            current_stock: physicalStock,
+            stock_status: stockStatus,
+            canFulfill: canFulfill
+          };
+        });
 
-        // Check if ANY item cannot be fulfilled
         const hasNoStock = itemsWithStock?.some(i => i.stock_status === 'NO STOCK');
         const hasInsufficientStock = itemsWithStock?.some(i => i.stock_status === 'LOW STOCK' && i.current_stock < i.requested_qty);
         const canDispatchAll = itemsWithStock?.every(i => i.canFulfill);
-        
-        // Determine if dispatch should be allowed
         const canDispatch = req.status === 'pending' && canDispatchAll;
         const needsReorder = req.status === 'pending' && (hasNoStock || hasInsufficientStock);
 
         return (
           <div key={req.id} className={`dl-req-card ${needsReorder ? 'dl-req-card-danger' : hasInsufficientStock ? 'dl-req-card-warn' : ''}`}>
-            {/* Header */}
             <div className="dl-req-card-header">
               <div className="dl-req-card-meta">
                 <span className="dl-req-project">{req.project_name}</span>
@@ -356,12 +343,10 @@ const PendingRequestsTab = ({
               </div>
             </div>
 
-            {/* Requested by */}
             <p className="dl-req-by">
               <strong>Requested by:</strong> {req.requested_by_name} {req.engineer_name && `· ${req.engineer_name}`}
             </p>
 
-            {/* Stock warning banner */}
             {hasNoStock && (
               <div className="dl-req-stock-warn dl-req-stock-danger">
                 <AlertCircle size={14} />
@@ -381,49 +366,38 @@ const PendingRequestsTab = ({
               </div>
             )}
 
-{/* Items table */}
-<table className="dl-req-items-table">
-    <thead>
-        <tr>
-            <th>Category</th>
-            <th>Code</th>
-            <th>Description</th>
-            <th>Unit</th>
-            <th className="text-right">Requested Qty</th>
-            <th className="text-right">Current Stock</th>
-            <th>Stock Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {itemsWithStock?.map((item, i) => (
-            <tr key={i} className={!item.canFulfill ? 'dl-row-warning' : ''}>
-                <td>
-                    <span className="dl-category-badge">
-                        {item.product_category || '—'}
-                    </span>
-                </td>
-                <td className="dl-code">{item.product_code || '—'}</td>
-                <td>{item.description}</td>
-                <td>{item.unit}</td>
-                <td className="text-right">{item.requested_qty}</td>
-                <td className="text-right">
-                    {item.current_stock != null ? item.current_stock : <span style={{ color: '#9ca3af' }}>—</span>}
-                </td>
-                <td>
-                    {item.stock_status === 'ON STOCK'  && <span className="wh-avail avail-on">ON STOCK</span>}
-                    {item.stock_status === 'LOW STOCK' && !item.isOutOfStock && <span className="wh-avail avail-low">LOW STOCK (Insufficient)</span>}
-                    {item.stock_status === 'LOW STOCK' && item.isOutOfStock === false && item.current_stock > 0 && 
-                        <span className="wh-avail avail-low">LOW STOCK</span>
-                    }
-                    {item.stock_status === 'NO STOCK'  && <span className="wh-avail avail-no">NO STOCK</span>}
-                    {!item.stock_status && <span style={{ color: '#9ca3af' }}>—</span>}
-                </td>
-            </tr>
-        ))}
-    </tbody>
-</table>
+            <table className="dl-req-items-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Code</th>
+                  <th>Description</th>
+                  <th>Unit</th>
+                  <th className="text-right">Requested Qty</th>
+                  <th className="text-right">Current Stock</th>
+                  <th>Stock Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itemsWithStock?.map((item, i) => (
+                  <tr key={i} className={!item.canFulfill ? 'dl-row-warning' : ''}>
+                    <td><span className="dl-category-badge">{item.product_category || '—'}</span></td>
+                    <td className="dl-code">{item.product_code || '—'}</td>
+                    <td>{item.description}</td>
+                    <td>{item.unit}</td>
+                    <td className="text-right">{item.requested_qty}</td>
+                    <td className="text-right">{item.current_stock != null ? item.current_stock : <span style={{ color: '#9ca3af' }}>—</span>}</td>
+                    <td>
+                      {item.stock_status === 'ON STOCK' && <span className="wh-avail avail-on">ON STOCK</span>}
+                      {item.stock_status === 'LOW STOCK' && <span className="wh-avail avail-low">LOW STOCK</span>}
+                      {item.stock_status === 'NO STOCK' && <span className="wh-avail avail-no">NO STOCK</span>}
+                      {!item.stock_status && <span style={{ color: '#9ca3af' }}>—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-            {/* Actions */}
             {req.status === 'pending' && (
               <div className="dl-req-actions">
                 {needsReorder && (
@@ -466,13 +440,21 @@ const PendingRequestsTab = ({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
-  const [activeMainTab, setActiveMainTab] = useState('deliveries'); // 'requests' | 'deliveries'
+  const [activeMainTab, setActiveMainTab] = useState('deliveries');
 
   const [deliveries, setDeliveries]       = useState([]);
   const [loading, setLoading]             = useState(true);
   const [isRefreshing, setIsRefreshing]   = useState(false);
   const [markLoading, setMarkLoading]     = useState(null);
   const [saveLoading, setSaveLoading]     = useState(false);
+
+  // Bin state for deliveries
+  const [showBin, setShowBin]             = useState(false);
+  const [binDeliveries, setBinDeliveries] = useState([]);
+  const [binLoading, setBinLoading]       = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(null);
+  const [permanentDeleteLoading, setPermanentDeleteLoading] = useState(null);
+  const [softDeleteLoading, setSoftDeleteLoading] = useState(null);
 
   // Pending material requests
   const [requests, setRequests]           = useState([]);
@@ -548,16 +530,16 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
 
   // ── Fetch pending requests ────────────────────────────────────────────────
   const fetchRequests = useCallback(async (silent = false) => {
-  if (!silent) setRequestsLoading(true);
-  try {
-    const res = await materialRequestService.getPending({ per_page: 9999 });
-    setRequests(res.data.data || res.data || []);
-  } catch (err) {
-    console.error('Failed to load requests:', err);
-  } finally {
-    setRequestsLoading(false);
-  }
-}, []);
+    if (!silent) setRequestsLoading(true);
+    try {
+      const res = await materialRequestService.getPending({ per_page: 9999 });
+      setRequests(res.data.data || res.data || []);
+    } catch (err) {
+      console.error('Failed to load requests:', err);
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, []);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
@@ -583,23 +565,145 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
     }
   }, [currentPage, perPage, search, statusFilter, typeFilter]);
 
+  // ── Fetch bin deliveries (deleted items) ──────────────────────────────────
+  const fetchBinDeliveries = useCallback(async () => {
+    setBinLoading(true);
+    try {
+      const res = await api.get('/inventory/logistics', { params: { trashed: 'true', per_page: 9999 } });
+      setBinDeliveries(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to load bin deliveries:', err);
+    } finally {
+      setBinLoading(false);
+    }
+  }, []);
+
   useEffect(() => { fetchDeliveries(); }, [fetchDeliveries]);
   useEffect(() => { setCurrentPage(1); }, [search, statusFilter, typeFilter, perPage]);
 
-  // ── New arrival pre-fill ──────────────────────────────────────────────────
+  // Load bin deliveries when bin is opened
   useEffect(() => {
-    if (newArrivalData?.projects?.length > 0) {
-      const proj = newArrivalData.projects[0];
-      setFormData({
-        ...EMPTY_FORM,
-        product_category: proj.product_category || '',
-        product_code:     newArrivalData.shipment_number || '',
-        current_stock:    proj.quantity || '',
-        is_consumable:    proj.product_category === 'CONSUMABLES',
-      });
-      setShowModal(true);
+    if (showBin) {
+      fetchBinDeliveries();
     }
-  }, [newArrivalData]);
+  }, [showBin, fetchBinDeliveries]);
+
+  // ── Soft delete (move to bin) ─────────────────────────────────────────────
+  const handleSoftDelete = async (id) => {
+    if (!window.confirm('Move this delivery to the bin? You can restore it later from the Bin tab.')) return;
+    setSoftDeleteLoading(id);
+    try {
+      await api.delete(`/inventory/logistics/${id}`);
+      fetchDeliveries(true);
+      fetchGlobalCounts();
+      if (showBin) fetchBinDeliveries();
+    } catch (err) {
+      alert('Failed to move delivery to bin.');
+    } finally {
+      setSoftDeleteLoading(null);
+    }
+  };
+
+  // ── Restore from bin ──────────────────────────────────────────────────────
+  const handleRestoreDelivery = async (id) => {
+    setRestoreLoading(id);
+    try {
+      await api.post(`/inventory/logistics/${id}/restore`);
+      fetchBinDeliveries();
+      fetchDeliveries(true);
+      fetchGlobalCounts();
+    } catch (err) {
+      alert('Failed to restore delivery.');
+    } finally {
+      setRestoreLoading(null);
+    }
+  };
+
+  // ── Permanent delete (remove from bin) ────────────────────────────────────
+  const handlePermanentDeleteDelivery = async (id) => {
+    if (!window.confirm('⚠️ WARNING: This will permanently delete this delivery. This action CANNOT be undone. Continue?')) return;
+    setPermanentDeleteLoading(id);
+    try {
+      await api.delete(`/inventory/logistics/${id}/force`);
+      fetchBinDeliveries();
+    } catch (err) {
+      alert('Failed to permanently delete delivery.');
+    } finally {
+      setPermanentDeleteLoading(null);
+    }
+  };
+
+  // ── Mark delivered ────────────────────────────────────────────────────────
+  const handleDelivered = async (id) => {
+    const delivery = deliveries.find(d => d.id === id);
+    
+    const confirmMessage = delivery?.material_request_id
+      ? 'Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring.\n\nNote: Stock has already been reserved when the request was dispatched.'
+      : 'Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring and update warehouse stock.';
+    
+    if (!window.confirm(confirmMessage)) return;
+    
+    setMarkLoading(id);
+    try {
+      const response = await api.patch(`/inventory/logistics/${id}/delivered`);
+      alert(response.data?.message || 'Delivery marked as delivered successfully.');
+      fetchDeliveries(true);
+      fetchRequests(true);
+      fetchGlobalCounts();
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Failed to update delivery status.';
+      console.error('Delivery error:', err.response?.data);
+      alert(errorMsg);
+    } finally {
+      setMarkLoading(null);
+    }
+  };
+
+  // ── Dispatch from request ─────────────────────────────────────────────────
+  const handleDispatchConfirm = async (form) => {
+    setDispatchLoading(true);
+    try {
+      await materialRequestService.dispatch(dispatchTarget.id, form);
+      setDispatchTarget(null);
+      fetchRequests(true);
+      fetchDeliveries(true);
+      fetchGlobalCounts();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to dispatch.');
+    } finally {
+      setDispatchLoading(false);
+    }
+  };
+
+  // ── Reorder from request ──────────────────────────────────────────────────
+  const handleReorderConfirm = async ({ notes, quantity_needed }) => {
+    setReorderLoading(true);
+    try {
+      await materialRequestService.reorder(reorderTarget.id, {
+        notes,
+        quantity_needed: parseInt(quantity_needed, 10) || null,
+      });
+      setReorderTarget(null);
+      fetchRequests(true);
+      fetchGlobalCounts();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to send reorder request.');
+    } finally {
+      setReorderLoading(false);
+    }
+  };
+
+  // ── Reject request ────────────────────────────────────────────────────────
+  const handleReject = async (id) => {
+    if (!window.confirm('Reject this material request?')) return;
+    try {
+      await materialRequestService.reject(id);
+      fetchRequests(true);
+      fetchGlobalCounts();
+    } catch {
+      alert('Failed to reject request.');
+    }
+  };
 
   // ── Manual form helpers ───────────────────────────────────────────────────
   const handleCategoryChange = (cat) => {
@@ -633,83 +737,6 @@ const DeliveryMat = ({ onBack, newArrivalData, clearArrivalData }) => {
       setSaveLoading(false);
     }
   };
-
-  // ── Mark delivered → triggers backend to push new arrival to MaterialsMonitoring ──
-  // Replace the handleDelivered function with this updated version
-
-const handleDelivered = async (id) => {
-  const delivery = deliveries.find(d => d.id === id);
-  
-  // Show appropriate confirmation message
-  const confirmMessage = delivery?.material_request_id
-    ? 'Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring.\n\nNote: Stock has already been reserved when the request was dispatched.'
-    : 'Mark this delivery as Delivered?\n\nThis will automatically add the items as new arrivals in the project\'s Materials Monitoring and update warehouse stock.';
-  
-  if (!window.confirm(confirmMessage)) return;
-  
-  setMarkLoading(id);
-  try {
-    const response = await api.patch(`/inventory/logistics/${id}/delivered`);
-    
-    // Show success message
-    alert(response.data?.message || 'Delivery marked as delivered successfully.');
-    
-    fetchDeliveries(true);
-    fetchRequests(true);
-    fetchGlobalCounts();
-  } catch (err) {
-    const errorMsg = err.response?.data?.message || 'Failed to update delivery status.';
-    console.error('Delivery error:', err.response?.data);
-    alert(errorMsg);
-  } finally {
-    setMarkLoading(null);
-  }
-};
-
-  // ── Dispatch from request ──────────────────────────────────────────────────
-const handleDispatchConfirm = async (form) => {
-  setDispatchLoading(true);
-  try {
-    await materialRequestService.dispatch(dispatchTarget.id, form);
-    setDispatchTarget(null);
-    fetchRequests(true);
-    fetchDeliveries(true);
-    fetchGlobalCounts();
-  } catch (err) {
-    alert(err.response?.data?.message || 'Failed to dispatch.');
-  } finally {
-    setDispatchLoading(false);
-  }
-};
-
-  // ── Reorder from request ───────────────────────────────────────────────────
-  const handleReorderConfirm = async ({ notes, quantity_needed }) => {
-  setReorderLoading(true);
-  try {
-    await materialRequestService.reorder(reorderTarget.id, {
-      notes,
-      quantity_needed: parseInt(quantity_needed, 10) || null,
-    });
-    setReorderTarget(null);
-    fetchRequests(true);
-    fetchGlobalCounts();
-  } catch (err) {
-    alert(err.response?.data?.message || 'Failed to send reorder request.');
-  } finally {
-    setReorderLoading(false);
-  }
-};
-  // ── Reject request ─────────────────────────────────────────────────────────
-  const handleReject = async (id) => {
-  if (!window.confirm('Reject this material request?')) return;
-  try {
-    await materialRequestService.reject(id);
-    fetchRequests(true);
-    fetchGlobalCounts();
-  } catch {
-    alert('Failed to reject request.');
-  }
-};
 
   const closeModal = () => {
     setShowModal(false);
@@ -757,160 +784,275 @@ const handleDispatchConfirm = async (form) => {
           >
             <RefreshCw size={15} />
           </button>
-          <button className="dl-add-btn" onClick={() => setShowModal(true)}>
-            <Plus size={15} /> Schedule Delivery
+          <button 
+            className="dl-add-btn" 
+            onClick={() => setShowBin(!showBin)}
+            style={{ 
+              background: showBin ? 'var(--brand-red)' : 'var(--brand-red)',
+              marginRight: '8px'
+            }}
+          >
+            <Archive size={15} /> {showBin ? 'Back to Deliveries' : 'Bin'}
           </button>
-        </div>
-      </div>
-
-      {/* ── Main Tabs ── */}
-      <div className="dl-main-tabs">
-        <button
-          className={`dl-main-tab ${activeMainTab === 'requests' ? 'active' : ''}`}
-          onClick={() => setActiveMainTab('requests')}
-        >
-          <ClipboardList size={15} />
-          Pending Requests
-          {globalCounts.pending > 0 && (
-            <span className="dl-tab-badge">{globalCounts.pending}</span>
+          {!showBin && (
+            <button className="dl-add-btn" onClick={() => setShowModal(true)}>
+              <Plus size={15} /> Schedule Delivery
+            </button>
           )}
-        </button>
-        <button
-          className={`dl-main-tab ${activeMainTab === 'deliveries' ? 'active' : ''}`}
-          onClick={() => setActiveMainTab('deliveries')}
-        >
-          <Truck size={15} />
-          Deliveries
-        </button>
+        </div>
       </div>
 
-      {/* ── Pending Requests Tab ── */}
-      {activeMainTab === 'requests' && (
-        <div className="dl-tab-body">
-          <PendingRequestsTab
-            requests={requests}
-            loading={requestsLoading}
-            onDispatch={setDispatchTarget}
-            onReorder={setReorderTarget}
-            onReject={handleReject}
-          />
-        </div>
-      )}
-
-      {/* ── Deliveries Tab ── */}
-      {activeMainTab === 'deliveries' && (
+      {!showBin ? (
         <>
-          {/* Filter Bar */}
-          <div className="dl-filters">
-            <div className="dl-type-toggle">
-              {[{ val: 'all', label: 'All' }, { val: 'In Transit', label: 'In Transit' }, { val: 'Delivered', label: 'Delivered' }].map(({ val, label }) => (
-                <button key={val} className={`dl-toggle-btn ${statusFilter === val ? 'active' : ''}`} onClick={() => setStatusFilter(val)}>{label}</button>
-              ))}
-            </div>
-            <div className="dl-type-toggle">
-              {[{ val: 'all', label: 'All Types' }, { val: 'main', label: 'Main Product' }, { val: 'consumable', label: 'Consumable' }].map(({ val, label }) => (
-                <button key={val} className={`dl-toggle-btn ${typeFilter === val ? 'active' : ''}`} onClick={() => setTypeFilter(val)}>{label}</button>
-              ))}
-            </div>
-
-            <DeliveryCounterBar
-              inTransit={globalCounts.inTransit}
-              delivered={globalCounts.delivered}
-              pendingRequests={globalCounts.pending}
-            />
-
-            <div className="dl-search-wrap">
-              <Search size={14} className="dl-search-icon" />
-              <input type="text" className="dl-search-input"
-                placeholder="Search project, driver, destination…"
-                value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+          {/* ── Main Tabs ── */}
+          <div className="dl-main-tabs">
+            <button
+              className={`dl-main-tab ${activeMainTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveMainTab('requests')}
+            >
+              <ClipboardList size={15} />
+              Pending Requests
+              {globalCounts.pending > 0 && (
+                <span className="dl-tab-badge">{globalCounts.pending}</span>
+              )}
+            </button>
+            <button
+              className={`dl-main-tab ${activeMainTab === 'deliveries' ? 'active' : ''}`}
+              onClick={() => setActiveMainTab('deliveries')}
+            >
+              <Truck size={15} />
+              Deliveries
+            </button>
           </div>
 
-          {/* Deliveries Table */}
-          <div className="dl-table-wrap">
-            <table className="dl-table">
-              <thead>
-                <tr>
-                  <th>Trucking</th>
-                  <th>Category</th>
-                  <th>Code</th>
-                  <th>Type</th>
-                  <th>Project</th>
-                  <th>Driver</th>
-                  <th>Destination</th>
-                  <th className="text-right">Qty</th>
-                  <th>Delivery Date</th>
-                  <th>Delivered On</th>
-                  <th>Source</th>
-                  <th>Status</th>
-                  <th className="text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="13" className="dl-loading-cell"><Loader2 size={18} className="dl-spinner" /> Loading…</td></tr>
-                ) : deliveries.length === 0 ? (
-                  <tr><td colSpan="13" className="dl-empty-cell">No deliveries found.</td></tr>
-                ) : deliveries.map(d => (
-                  <tr key={d.id} className="dl-row">
-                    <td className="dl-trucking">{d.trucking_service}</td>
-                    <td><span className="dl-category-badge">{d.product_category}</span></td>
-                    <td className="dl-code">{d.product_code}</td>
-                    <td>
-                      <span className={d.is_consumable ? 'dl-pill consumable' : 'dl-pill main'}>
-                        {d.is_consumable ? 'Consumable' : 'Main'}
-                      </span>
-                    </td>
-                    <td className="dl-project">{d.project_name}</td>
-                    <td className="dl-driver">{d.driver_name}</td>
-                    <td className="dl-dest">
-                      {d.destination}
-                      {d.destination && (
-                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.destination)}`}
-                          target="_blank" rel="noopener noreferrer" className="dl-map-pin" title="Open in Maps">↗</a>
-                      )}
-                    </td>
-                    <td className="text-right dl-qty">{d.quantity ?? '—'}</td>
-                    <td className="dl-date">{d.date_of_delivery}</td>
-                    <td className="dl-date">
-                      {d.date_delivered
-                        ? new Date(d.date_delivered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
-                        : <span className="dl-tba">—</span>}
-                    </td>
-                    <td>
-                      {/* Shows whether this delivery came from a material request */}
-                      {d.material_request_id
-                        ? <span className="dl-source-pill dl-source-req">From Request</span>
-                        : <span className="dl-source-pill dl-source-manual">Manual</span>}
-                    </td>
-                    <td>
-                      <span className={`dl-status-pill ${STATUS_CLASS[d.status] || 'pill-transit'}`}>{d.status}</span>
-                    </td>
-                    <td className="dl-actions">
-                      {d.status !== 'Delivered' ? (
-                        <button className="dl-deliver-btn" onClick={() => handleDelivered(d.id)} disabled={markLoading === d.id} title="Mark as delivered">
-                          {markLoading === d.id ? <Loader2 size={13} className="dl-spinner" /> : <CheckCircle size={13} />}
-                          {markLoading === d.id ? 'Saving…' : 'Delivered'}
-                        </button>
-                      ) : (
-                        <span className="dl-done-label">✓ Done</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {!loading && total > 0 && (
-              <Pagination
-                currentPage={currentPage} lastPage={lastPage}
-                from={from} to={to} total={total} perPage={perPage}
-                onPageChange={setCurrentPage} onPerPageChange={setPerPage}
+          {/* ── Pending Requests Tab ── */}
+          {activeMainTab === 'requests' && (
+            <div className="dl-tab-body">
+              <PendingRequestsTab
+                requests={requests}
+                loading={requestsLoading}
+                onDispatch={setDispatchTarget}
+                onReorder={setReorderTarget}
+                onReject={handleReject}
               />
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* ── Deliveries Tab ── */}
+          {activeMainTab === 'deliveries' && (
+            <>
+              {/* Filter Bar */}
+              <div className="dl-filters">
+                <div className="dl-type-toggle">
+                  {[{ val: 'all', label: 'All' }, { val: 'In Transit', label: 'In Transit' }, { val: 'Delivered', label: 'Delivered' }].map(({ val, label }) => (
+                    <button key={val} className={`dl-toggle-btn ${statusFilter === val ? 'active' : ''}`} onClick={() => setStatusFilter(val)}>{label}</button>
+                  ))}
+                </div>
+                <div className="dl-type-toggle">
+                  {[{ val: 'all', label: 'All Types' }, { val: 'main', label: 'Main Product' }, { val: 'consumable', label: 'Consumable' }].map(({ val, label }) => (
+                    <button key={val} className={`dl-toggle-btn ${typeFilter === val ? 'active' : ''}`} onClick={() => setTypeFilter(val)}>{label}</button>
+                  ))}
+                </div>
+
+                <DeliveryCounterBar
+                  inTransit={globalCounts.inTransit}
+                  delivered={globalCounts.delivered}
+                  pendingRequests={globalCounts.pending}
+                />
+
+                <div className="dl-search-wrap">
+                  <Search size={14} className="dl-search-icon" />
+                  <input type="text" className="dl-search-input"
+                    placeholder="Search project, driver, destination…"
+                    value={search} onChange={e => setSearch(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Deliveries Table */}
+              <div className="dl-table-wrap">
+                <table className="dl-table">
+                  <thead>
+                    <tr>
+                      <th>Trucking</th>
+                      <th>Category</th>
+                      <th>Code</th>
+                      <th>Type</th>
+                      <th>Project</th>
+                      <th>Driver</th>
+                      <th>Destination</th>
+                      <th className="text-right">Qty</th>
+                      <th>Delivery Date</th>
+                      <th>Delivered On</th>
+                      <th>Source</th>
+                      <th>Status</th>
+                      <th className="text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr><td colSpan="13" className="dl-loading-cell"><Loader2 size={18} className="dl-spinner" /> Loading…</td></tr>
+                    ) : deliveries.length === 0 ? (
+                      <tr><td colSpan="13" className="dl-empty-cell">No deliveries found.</td></tr>
+                    ) : deliveries.map(d => (
+                      <tr key={d.id} className="dl-row">
+                        <td className="dl-trucking">{d.trucking_service}</td>
+                        <td><span className="dl-category-badge">{d.product_category}</span></td>
+                        <td className="dl-code">{d.product_code}</td>
+                        <td>
+                          <span className={d.is_consumable ? 'dl-pill consumable' : 'dl-pill main'}>
+                            {d.is_consumable ? 'Consumable' : 'Main'}
+                          </span>
+                        </td>
+                        <td className="dl-project">{d.project_name}</td>
+                        <td className="dl-driver">{d.driver_name}</td>
+                        <td className="dl-dest">
+                          {d.destination}
+                          {d.destination && (
+                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.destination)}`}
+                              target="_blank" rel="noopener noreferrer" className="dl-map-pin" title="Open in Maps">↗</a>
+                          )}
+                        </td>
+                        <td className="text-right dl-qty">{d.quantity ?? '—'}</td>
+                        <td className="dl-date">{d.date_of_delivery}</td>
+                        <td className="dl-date">
+                          {d.date_delivered
+                            ? new Date(d.date_delivered).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                            : <span className="dl-tba">—</span>}
+                        </td>
+                        <td>
+                          {d.material_request_id
+                            ? <span className="dl-source-pill dl-source-req">From Request</span>
+                            : <span className="dl-source-pill dl-source-manual">Manual</span>}
+                        </td>
+                        <td>
+                          <span className={`dl-status-pill ${STATUS_CLASS[d.status] || 'pill-transit'}`}>{d.status}</span>
+                        </td>
+                        <td className="dl-actions">
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {d.status !== 'Delivered' ? (
+                              <button className="dl-deliver-btn" onClick={() => handleDelivered(d.id)} disabled={markLoading === d.id} title="Mark as delivered">
+                                {markLoading === d.id ? <Loader2 size={13} className="dl-spinner" /> : <CheckCircle size={13} />}
+                                {markLoading === d.id ? 'Saving…' : 'Delivered'}
+                              </button>
+                            ) : (
+                              <span className="dl-done-label">✓ Done</span>
+                            )}
+                            <button 
+                              className="dl-deliver-btn" 
+                              onClick={() => handleSoftDelete(d.id)} 
+                              disabled={softDeleteLoading === d.id} 
+                              title="Move to Bin"
+                              style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#991B1B' }}
+                            >
+                              {softDeleteLoading === d.id ? <Loader2 size={13} className="dl-spinner" /> : <Trash2 size={13} />}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {!loading && total > 0 && (
+                  <Pagination
+                    currentPage={currentPage} lastPage={lastPage}
+                    from={from} to={to} total={total} perPage={perPage}
+                    onPageChange={setCurrentPage} onPerPageChange={setPerPage}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </>
+      ) : (
+        /* ─── Bin / Archive View for Deliveries ─── */
+        <div className="dl-table-wrap" style={{ marginTop: '1rem' }}>
+          <div style={{ 
+            padding: '0.85rem 1.25rem', 
+            background: '#221F1F', 
+            color: '#fff', 
+            borderBottom: '2px solid var(--brand-red)',
+            borderRadius: 'var(--r-lg) var(--r-lg) 0 0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Archive size={20} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Delivery Bin</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.7rem', opacity: 0.7 }}>
+                  Deleted deliveries are stored here. You can restore them or permanently delete them.
+                </p>
+              </div>
+            </div>
+          </div>
+          <table className="dl-table">
+            <thead>
+              <tr>
+                <th>Trucking</th>
+                <th>Category</th>
+                <th>Code</th>
+                <th>Project</th>
+                <th>Driver</th>
+                <th>Qty</th>
+                <th>Delivery Date</th>
+                <th>Status</th>
+                <th>Deleted At</th>
+                <th className="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {binLoading ? (
+                <tr><td colSpan="10" className="dl-loading-cell"><Loader2 className="dl-spinner" size={20} /> Loading bin…</td></tr>
+              ) : binDeliveries.length === 0 ? (
+                <tr><td colSpan="10" className="dl-empty-cell">🗑️ Bin is empty. No deleted deliveries found.</td></tr>
+              ) : binDeliveries.map((delivery) => (
+                <tr key={delivery.id} className="dl-row">
+                  <td className="dl-trucking">{delivery.trucking_service}</td>
+                  <td><span className="dl-category-badge">{delivery.product_category}</span></td>
+                  <td className="dl-code">{delivery.product_code}</td>
+                  <td className="dl-project">{delivery.project_name}</td>
+                  <td className="dl-driver">{delivery.driver_name}</td>
+                  <td className="text-right dl-qty">{delivery.quantity ?? '—'}</td>
+                  <td className="dl-date">{delivery.date_of_delivery}</td>
+                  <td>
+                    <span className={`dl-status-pill ${STATUS_CLASS[delivery.status] || 'pill-transit'}`}>{delivery.status}</span>
+                  </td>
+                  <td className="dl-date" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {delivery.deleted_at ? new Date(delivery.deleted_at).toLocaleDateString('en-PH', {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : '—'}
+                  </td>
+                  <td className="dl-actions">
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      <button 
+                        className="dl-deliver-btn" 
+                        onClick={() => handleRestoreDelivery(delivery.id)} 
+                        disabled={restoreLoading === delivery.id} 
+                        title="Restore"
+                        style={{ background: '#ECFDF5', borderColor: '#A7F3D0', color: '#065F46' }}
+                      >
+                        {restoreLoading === delivery.id ? <Loader2 size={13} className="dl-spinner" /> : <ArchiveRestore size={13} />}
+                      </button>
+                      <button 
+                        className="dl-deliver-btn" 
+                        onClick={() => handlePermanentDeleteDelivery(delivery.id)} 
+                        disabled={permanentDeleteLoading === delivery.id} 
+                        title="Permanently Delete"
+                        style={{ background: '#FEF2F2', borderColor: '#FECACA', color: '#991B1B' }}
+                      >
+                        {permanentDeleteLoading === delivery.id ? <Loader2 size={13} className="dl-spinner" /> : <Trash2 size={13} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!binLoading && binDeliveries.length > 0 && (
+            <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right' }}>
+              Total {binDeliveries.length} delivery{binDeliveries.length !== 1 ? 's' : ''} in bin
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Manual Schedule Modal ── */}
