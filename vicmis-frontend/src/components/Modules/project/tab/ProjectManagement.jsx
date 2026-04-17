@@ -228,7 +228,6 @@ const ProjectManagement = ({
                 borderBottom: '4px solid #ef4444',
                 padding: '24px 30px',
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
                 marginBottom: '24px',
                 boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
@@ -236,16 +235,6 @@ const ProjectManagement = ({
                 <h1 style={{ color: '#ffffff', fontSize: '22px', fontWeight: 'bold', letterSpacing: '1.5px', margin: 0 }}>
                     PROJECT MANAGEMENT
                 </h1>
-                
-                {/* Optional Header Buttons to match the visual weight of the reference image */}
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button style={{ background: '#ffffff', color: '#1a1a1a', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                        📊 Generate Report
-                    </button>
-                    <button style={{ background: '#ef4444', color: '#ffffff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                        + Add New Project
-                    </button>
-                </div>
             </div>
 
             {/* Controls Bar */}
