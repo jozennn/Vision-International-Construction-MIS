@@ -37,7 +37,7 @@
      color: var(--v-black);
      padding: 30px;
      width: 100%;
-     overflow-x: hidden; /* Extra safety to prevent horizontal scroll at the page level */
+     overflow-x: hidden;
    }
    
    /* ── Page header ── */
@@ -82,7 +82,7 @@
      padding: 4px;
      gap: 4px;
      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-     max-width: 100%; /* Prevents breaking out of container */
+     max-width: 100%;
    }
    
    /* ── Base Tab Button ── */
@@ -103,7 +103,7 @@
      color: #6b7280; 
      font-family: var(--v-font-body);
      position: relative;
-     white-space: nowrap; /* Keeps text from stacking weirdly */
+     white-space: nowrap;
    }
    
    .pm-tab-btn::after, 
@@ -416,7 +416,7 @@
    /* ── Mobile Devices (max-width: 768px) ── */
    @media (max-width: 768px) {
      .pm-page {
-       padding: 12px; /* Reduce padding to save space */
+       padding: 12px; 
      }
    
      .pm-page-header {
@@ -426,29 +426,26 @@
      
      .pm-page-title {
        font-size: 18px;
-       white-space: normal; /* Allows header text to wrap if it's too long */
+       white-space: normal; 
      }
    
      .pm-controls-bar {
-       flex-direction: column; /* Stack tabs on top of search bar */
+       flex-direction: column; 
        align-items: stretch;
        gap: 12px;
      }
    
-     /* Make tabs scrollable horizontally on small screens instead of overflowing */
+     /* Make tabs stack vertically on mobile instead of going sideways */
      .pm-tabs-container {
        width: 100%;
        display: flex;
-       overflow-x: auto;
-       -webkit-overflow-scrolling: touch; 
-       scrollbar-width: none; /* Hide scrollbar for a cleaner look */
-     }
-     .pm-tabs-container::-webkit-scrollbar {
-       display: none;
+       flex-direction: column; /* This stacks the buttons */
+       gap: 4px; /* Space between the stacked buttons */
      }
    
      .pm-tab-btn {
-       flex: 1 0 auto; /* Allow buttons to maintain their natural width */
+       width: 100%; /* Makes each button take up the full width */
+       justify-content: space-between; /* Spreads the text and the badge apart */
      }
    
      /* Make search and filter span the full width */
@@ -465,7 +462,7 @@
      .pm-search-input,
      .pm-filter-select {
        width: 100%;
-       min-width: 0 !important; /* Forces it to forget the 280px desktop min-width */
+       min-width: 0 !important; 
      }
    
      /* Switch to a 1-column layout for the cards */
