@@ -92,56 +92,72 @@
   white-space: nowrap; font-variant-numeric: tabular-nums;
 }
 
-/* ── KPI Grid ───────────────────────────────────────────────────────────────── */
+/* ─── KPI GRID (Responsive Fixes) ─── */
 .sa-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  padding: 1.25rem 1.75rem 0;
+  /* Automatically wraps cards if they can't fit at least 280px */
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  width: 100%;
 }
 
-/* Single-card variant — constrained width */
-.sa-kpi-grid--single {
-  grid-template-columns: minmax(0, 280px);
-}
-
+/* ─── KPI CARDS ─── */
 .sa-kpi-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 1.1rem 1.1rem .9rem;
-  display: flex; align-items: center; gap: .9rem;
-  box-shadow: var(--sh-sm);
-  animation: sa-rise .5s ease both;
-  overflow: hidden; position: relative;
-  transition: transform .18s, box-shadow .18s;
+  display: flex;
+  align-items: center;
+  padding: 1.5rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  /* Uses the inline custom property defined in your JSX */
+  border-left: 4px solid var(--kpi-accent, #497B97); 
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
 }
 
-.sa-kpi-card::after {
-  content: ''; position: absolute;
-  bottom: 0; left: 0; right: 0; height: 3px;
-  background: var(--kpi-accent, var(--brand-blue));
-  border-radius: 0 0 var(--r-lg) var(--r-lg);
+.sa-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
-
-.sa-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--sh-md); }
 
 .sa-kpi-icon {
-  width: 44px; height: 44px; border-radius: var(--r-md);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  margin-right: 1.25rem;
+  flex-shrink: 0;
+}
+
+.sa-kpi-data {
+  display: flex;
+  flex-direction: column;
 }
 
 .sa-kpi-data h3 {
-  font-size: 1.65rem; font-weight: 800;
-  color: var(--text-pri); line-height: 1; letter-spacing: -.025em; margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  line-height: 1.2;
 }
 
 .sa-kpi-data p {
-  font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--text-muted); margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0;
 }
 
-.sa-kpi-note { font-size: .67rem; color: var(--text-light); margin: 2px 0 0 0; }
+.sa-kpi-data .sa-kpi-note {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #94a3b8;
+  margin-top: 0.25rem;
+}
 
 /* ── Main Grid ──────────────────────────────────────────────────────────────── */
 .sa-main-grid {
