@@ -3,7 +3,7 @@ export const WAITING_MSG = {
   'Measurement based on Plan':                   { dept: 'Engineering',             msg: 'complete the Plan Measurement & BOQ' },
   'Actual Measurement':                          { dept: 'Engineering',             msg: 'submit the Actual Site Measurement' },
   'Pending Head Review':                         { dept: 'Engineering Head',        msg: 'review and approve the Final BOQ' },
-  'P.O & Work Order':                            { dept: 'Sales',                  msg: 'prepare and submit the Purchase Order and Work Order documents internally. This phase is handled through an internal office process.'  },
+  'P.O & Work Order':                            { dept: 'Sales',                   msg: 'prepare and submit the Purchase Order and Work Order documents internally. This phase is handled through an internal office process.' },
   'Pending Work Order Verification':             { dept: 'Sales Head',              msg: 'verify and approve the Work Order' },
   'Initial Site Inspection':                     { dept: 'Engineering',             msg: 'complete the Initial Site Inspection' },
   'Checking of Delivery of Materials':           { dept: 'Engineering / Logistics', msg: 'verify delivery of materials' },
@@ -15,11 +15,11 @@ export const WAITING_MSG = {
   'Site Inspection & Project Monitoring':        { dept: 'Engineering',             msg: 'complete active construction monitoring' },
   'Request Materials Needed':                    { dept: 'Logistics',               msg: 'dispatch the requested materials' },
   'Request Billing':                             { dept: 'Accounting',              msg: 'process the Progress Billing' },
-  'Site Inspection & Quality Checking':          { dept: 'Engineering',             msg: 'complete internal QA/QC' },
-  'Pending QA Verification':                     { dept: 'Engineering Head',        msg: 'verify the QA photo' },
-  'Final Site Inspection with the Client':       { dept: 'Engineering',             msg: 'complete the Client Walkthrough' },
-  'Signing of COC':                              { dept: 'Engineering',             msg: 'upload the Certificate of Completion' },
-  'Request Final Billing':                       { dept: 'Accounting',              msg: 'process the Final Billing' },
+  'Site Inspection & Quality Checking':          { dept: 'Engineering',             msg: 'This phase is being handled by internally' },
+  'Pending QA Verification':                     { dept: 'Engineering Head',        msg: 'This phase is being handled by internally' },
+  'Final Site Inspection with the Client':       { dept: 'Engineering',             msg: 'This phase is being handled by internally' },
+  'Signing of COC':                              { dept: 'Engineering',             msg: 'This phase is being handled by internally' },
+  'Request Final Billing':                       { dept: 'Accounting',              msg: 'This phase is being handled by internally' },
 };
 
 // locked: true  = a head approved this phase; nobody can go back past it
@@ -29,14 +29,14 @@ export const PHASE_ORDER = [
   { status: 'Measurement based on Plan',                 owner: 'engineering' },
   { status: 'Actual Measurement',                        owner: 'engineering' },
   { status: 'Pending Head Review',                       owner: 'eng_head',   locked: true },
-  { status: 'P.O & Work Order',                         owner: 'sales'       },
+  { status: 'P.O & Work Order',                          owner: 'sales'       },
   { status: 'Pending Work Order Verification',           owner: 'sales_head', locked: true },
   { status: 'Initial Site Inspection',                   owner: 'engineering' },
   { status: 'Checking of Delivery of Materials',         owner: 'engineering' },
   { status: 'Pending DR Verification',                   owner: 'logistics',  locked: true },
   { status: 'Bidding of Project',                        owner: 'management', headOnly: true },
   { status: 'Awarding of Project',                       owner: 'management', headOnly: true },
-  { status: 'Contract Signing for Installer',            owner: 'management' },
+  { status: 'Contract Signing for Installer',            owner: 'management', headOnly: true },
   { status: 'Deployment and Orientation of Installers',  owner: 'engineering' },
   { status: 'Site Inspection & Project Monitoring',      owner: 'engineering' },
   { status: 'Request Materials Needed',                  owner: 'logistics'   },
@@ -57,6 +57,7 @@ export const WAITING_ONLY_PHASES = new Set([
   'Bidding of Project',
   'Awarding of Project',
   'Contract Signing for Installer',
+  'Site Inspection & Quality Checking',
   'Pending QA Verification',
   'Final Site Inspection with the Client',
   'Signing of COC',
@@ -74,10 +75,11 @@ export const ACCOUNTING_PHASES = [
   'Request Final Billing',
 ];
 
+
 export const PHASE_COMPONENT_MAP = {
   'Floor Plan':                                'PhaseFloorPlan',
-  'Measurement based on Plan':                 'PhaseBoqPlan',
-  'Actual Measurement':                        'PhaseBoqActual',
+  'Measurement based on Plan':                 'PhaseBoq',
+  'Actual Measurement':                        'PhaseBoq',
   'Pending Head Review':                       'PhaseBOQReview',
   'Initial Site Inspection':                   'PhaseSiteInspection',
   'Checking of Delivery of Materials':         'PhaseMaterials',
@@ -86,7 +88,6 @@ export const PHASE_COMPONENT_MAP = {
   'Site Inspection & Project Monitoring':      'PhaseCommandCenter',
   'Request Materials Needed':                  'PhaseCommandCenter',
   'Request Billing':                           'PhaseBilling',
-  'Site Inspection & Quality Checking':        'PhaseQAHandover',
   'Completed':                                 'PhaseCompleted',
   'Archived':                                  'PhaseCompleted',
 };
@@ -170,13 +171,11 @@ export const getPhaseAccess = (status, {
 };
 
 // ── Phase-owner-aware advance permission ──────────────────────────────────────
-// Controls who sees the "Advance to X" button in WaitingView
 export const canAdvanceWaitingPhase = (status, user, userDept) => {
   const dept  = (userDept ?? '').toLowerCase();
   const role  = (user?.role ?? '').toLowerCase();
   const email = (user?.email ?? '').toLowerCase();
 
-  // Admins and managers can always advance
   if (role === 'admin' || role === 'manager') return true;
 
   const phase = PHASE_ORDER.find(p => p.status === status);
@@ -202,10 +201,7 @@ export const canAdvanceWaitingPhase = (status, user, userDept) => {
       return dept.includes('accounting') || dept.includes('finance') || email.includes('accounting');
 
     case 'management':
-      // Only actual management dept — NOT dept_heads from other departments
-      return dept.includes('management')
-        || email.includes('ops')
-        || email.includes('admin');
+      return dept.includes('management') || email.includes('ops') || email.includes('admin');
 
     case 'all':
       return true;

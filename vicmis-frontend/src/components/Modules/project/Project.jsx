@@ -18,18 +18,17 @@ import PrimaryButton from './components/PrimaryButton.jsx';
 
 // Phase components
 import PhaseFloorPlan      from './phases/PhaseFloorPlan.jsx';
-import PhaseBoq            from './phases/PhaseBoq.jsx';          // ← replaces PhaseBoqPlan + PhaseBoqActual
+import PhaseBoq            from './phases/PhaseBoq.jsx';
 import PhaseBOQReview      from './phases/PhaseBOQReview.jsx';
 import PhaseSiteInspection from './phases/PhaseSiteInspection.jsx';
 import PhaseMaterials      from './phases/PhaseMaterials.jsx';
 import PhaseMobilization   from './phases/PhaseMobilization.jsx';
 import PhaseCommandCenter  from './phases/PhaseCommandCenter.jsx';
 import PhaseBilling        from './phases/PhaseBilling.jsx';
-import PhaseQAHandover     from './phases/PhaseQAHandover.jsx';
 import PhaseCompleted      from './phases/PhaseCompleted.jsx';
 
 import './css/Project.css';
-import './css/PhaseBoq.css';                                       // ← add this
+import './css/PhaseBoq.css';
 
 const Project = ({ user, projects, setProjects }) => {
   const userDept = (user?.dept || user?.department || '').toLowerCase();
@@ -208,6 +207,20 @@ const Project = ({ user, projects, setProjects }) => {
 
   const isWaitingOnlyPhase = WAITING_ONLY_PHASES.has(status);
 
+  const SHOW_BACK_BUTTON_FOR = [
+  'Measurement based on Plan',
+  'Actual Measurement',
+  'Pending Head Review',
+  'Initial Site Inspection',
+  'Checking of Delivery of Materials',
+  'Pending DR Verification',
+  'Deployment and Orientation of Installers',
+  'Site Inspection & Quality Checking',
+  'Pending QA Verification',
+  'Final Site Inspection with the Client',
+  'Signing of COC',
+];
+
   return (
     <div className="pm-container">
 
@@ -229,7 +242,7 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && !isWaitingOnlyPhase && (
+          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
@@ -276,7 +289,6 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseFloorPlan {...sharedPhaseProps} />
             )}
 
-            {/* ── Both BOQ phases now use one component, driven by the `phase` prop ── */}
             {status === 'Measurement based on Plan' && (
               <PhaseBoq
                 {...sharedPhaseProps}
@@ -301,7 +313,6 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseBOQReview {...sharedPhaseProps} boqData={tracking.boqData} />
             )}
 
-
             {status === 'Initial Site Inspection' && (
               <PhaseSiteInspection {...sharedPhaseProps} />
             )}
@@ -325,10 +336,6 @@ const Project = ({ user, projects, setProjects }) => {
 
             {status === 'Request Billing' && (
               <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />
-            )}
-
-            {status === 'Site Inspection & Quality Checking' && (
-              <PhaseQAHandover {...sharedPhaseProps} />
             )}
 
             {['Completed', 'Archived'].includes(status) && (

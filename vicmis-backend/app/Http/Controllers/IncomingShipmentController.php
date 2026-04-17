@@ -47,7 +47,8 @@ class IncomingShipmentController extends Controller
     // ─── POST /api/inventory/shipments ────────────────────────────────────────
     public function storeShipment(Request $request): JsonResponse
     {
-        $request->validate([
+        // Base validation for all shipments
+        $validator = validator($request->all(), [
             'shipment_number'             => 'required|unique:shipments',
             'origin_type'                 => 'required|string',
             'shipment_purpose'            => 'required|in:RESERVE_FOR_PROJECT,NEW_STOCK',
@@ -56,15 +57,34 @@ class IncomingShipmentController extends Controller
             'projects.*.product_code'     => 'required|string',
             'projects.*.quantity'         => 'nullable|integer|min:0',
             'projects.*.unit'             => 'nullable|string',
-            'projects.*.project_name'     => [
-                'nullable', 'string',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($request->shipment_purpose === 'RESERVE_FOR_PROJECT' && empty($value)) {
-                        $fail('Project name is required for Reserve for Project shipments.');
-                    }
-                },
-            ],
+            'container_type'              => 'nullable|string',
+            'status'                      => 'nullable|string',
+            'location'                    => 'nullable|string',
+            'shipment_status'             => 'nullable|string',
+            // tentative_arrival is NOT required - will be set by logistics later
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Additional validation for RESERVE_FOR_PROJECT shipments only
+        if ($request->shipment_purpose === 'RESERVE_FOR_PROJECT') {
+            $projectValidator = validator($request->all(), [
+                'projects.*.project_name' => 'required|string',
+                'projects.*.coverage_sqm' => 'nullable|numeric|min:0',
+            ]);
+            
+            if ($projectValidator->fails()) {
+                return response()->json([
+                    'message' => 'Project details are required for Reserve shipments',
+                    'errors' => $projectValidator->errors()
+                ], 422);
+            }
+        }
 
         return DB::transaction(function () use ($request) {
             $shipment = Shipment::create([
@@ -75,22 +95,25 @@ class IncomingShipmentController extends Controller
                 'status'            => $request->status ?? 'ONGOING PRODUCTION',
                 'location'          => $request->location,
                 'shipment_status'   => $request->shipment_status ?? 'WAITING',
-                'tentative_arrival' => $request->tentative_arrival,
+                'tentative_arrival' => null, // Always null until logistics updates
                 'added_to_inventory'=> false,
             ]);
 
             foreach ($request->projects as $proj) {
                 $shipment->projects()->create([
-                    'project_name'     => $proj['project_name']  ?? null,
+                    'project_name'     => $proj['project_name'] ?? null,
                     'product_category' => $proj['product_category'],
                     'product_code'     => $proj['product_code'],
-                    'unit'             => $proj['unit']           ?? null,
-                    'quantity'         => $proj['quantity']       ?? 0,
-                    'coverage_sqm'     => $proj['coverage_sqm']  ?? 0,
+                    'unit'             => $proj['unit'] ?? null,
+                    'quantity'         => $proj['quantity'] ?? 0,
+                    'coverage_sqm'     => $proj['coverage_sqm'] ?? 0,
                 ]);
             }
 
-            return response()->json($shipment->load('projects'), 201);
+            return response()->json([
+                'message' => 'Shipment registered successfully',
+                'shipment' => $shipment->load('projects')
+            ], 201);
         });
     }
 
@@ -102,7 +125,7 @@ class IncomingShipmentController extends Controller
         $shipment->update($request->only([
             'status',
             'location',
-            'tentative_arrival',
+            'tentative_arrival',  // Logistics can update this later
             'shipment_status',
         ]));
 
@@ -110,16 +133,6 @@ class IncomingShipmentController extends Controller
     }
 
     // ─── POST /api/inventory/shipments/{id}/add-to-inventory ──────────────────
-    /**
-     * Add all projects in an ARRIVED shipment to the warehouse inventory.
-     *
-     * Rules:
-     * - For RESERVE_FOR_PROJECT: add quantity to current_stock AND reserve.
-     * - For NEW_STOCK: add quantity to current_stock only.
-     * - If a matching product (same category + code) already exists, increment.
-     * - If it does not exist (new category or code), create the record.
-     * - Marks the shipment as added_to_inventory = true when done.
-     */
     public function addToInventory(Request $request, $id): JsonResponse
     {
         $shipment = Shipment::with('projects')->findOrFail($id);
@@ -141,13 +154,11 @@ class IncomingShipmentController extends Controller
                 $code      = $proj->product_code;
                 $unit      = $proj->unit ?? 'Pcs';
 
-                // Find existing inventory record (match by category + code)
                 $inventory = WarehouseInventory::where('product_category', $category)
                     ->where('product_code', $code)
                     ->first();
 
                 if ($inventory) {
-                    // Increment existing
                     $newStock   = $inventory->current_stock + $qty;
                     $newReserve = $isReserve
                         ? ($inventory->reserve ?? 0) + $qty
@@ -159,8 +170,6 @@ class IncomingShipmentController extends Controller
                         'availability'  => WarehouseInventory::deriveAvailability($newStock),
                     ]);
                 } else {
-                    // Create new inventory record
-                    // Auto-detect consumable from category name
                     $isConsumable = strtoupper($category) === 'CONSUMABLES';
 
                     WarehouseInventory::create([
@@ -180,7 +189,6 @@ class IncomingShipmentController extends Controller
                 }
             }
 
-            // Mark shipment as processed
             $shipment->update(['added_to_inventory' => true]);
 
             return response()->json([
@@ -191,21 +199,25 @@ class IncomingShipmentController extends Controller
     }
 
     // ─── POST /api/inventory/shipments/report ─────────────────────────────────
-    /**
-     * File a return/report for selected items in a received shipment.
-     * Saves to shipment_reports table so accounting can review.
-     */
     public function storeReport(Request $request): JsonResponse
     {
-        $request->validate([
-            'shipment_id'            => 'required|exists:shipments,id',
-            'shipment_number'        => 'required|string',
-            'items'                  => 'required|array|min:1',
-            'items.*.product_category' => 'required|string',
-            'items.*.product_code'   => 'required|string',
-            'items.*.issue'          => 'required|string|max:500',
-            'items.*.condition'      => 'required|string',
+        $validator = validator($request->all(), [
+            'shipment_id'                    => 'required|exists:shipments,id',
+            'shipment_number'                => 'required|string',
+            'items'                          => 'required|array|min:1',
+            'items.*.product_category'       => 'required|string',
+            'items.*.product_code'           => 'required|string',
+            'items.*.issue'                  => 'required|string|max:500',
+            'items.*.condition'              => 'required|string',
+            'items.*.quantity_affected'      => 'required|integer|min:1',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
 
         $report = ShipmentReport::create([
             'shipment_id'     => $request->shipment_id,
@@ -221,9 +233,6 @@ class IncomingShipmentController extends Controller
     }
 
     // ─── GET /api/inventory/shipments/reports ─────────────────────────────────
-    /**
-     * Return all filed reports for the accounting/procurement dashboard.
-     */
     public function getReports(): JsonResponse
     {
         $reports = ShipmentReport::latest()->get()->map(fn($r) => $this->formatReport($r));
