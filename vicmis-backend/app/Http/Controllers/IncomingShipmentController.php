@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/IncomingShipmentController.php - Add methods
 
 namespace App\Http\Controllers;
 
@@ -13,11 +14,40 @@ use Illuminate\Support\Facades\DB;
 class IncomingShipmentController extends Controller
 {
     // ─── GET /api/inventory/shipments ─────────────────────────────────────────
-    public function getShipments(): JsonResponse
+    public function getShipments(Request $request): JsonResponse
     {
-        return response()->json(
-            Shipment::with('projects')->latest()->get()
-        );
+        $query = Shipment::with('projects');
+        
+        // Filter for trashed (bin) items
+        if ($request->has('trashed') && $request->trashed === 'true') {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+        }
+        
+        // Apply purpose filter
+        if ($request->filled('purpose') && $request->purpose !== 'all') {
+            $query->where('shipment_purpose', $request->purpose);
+        }
+        
+        // Apply search
+        if ($request->filled('search')) {
+            $query->where('shipment_number', 'like', '%' . $request->search . '%');
+        }
+        
+        // Pagination
+        $perPage = $request->get('per_page', 10);
+        $paginated = $query->latest()->paginate($perPage);
+        
+        return response()->json([
+            'data' => $paginated->items(),
+            'total' => $paginated->total(),
+            'per_page' => $paginated->perPage(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'from' => $paginated->firstItem(),
+            'to' => $paginated->lastItem(),
+        ]);
     }
 
     // ─── GET /api/inventory/shipments/meta ────────────────────────────────────
@@ -47,7 +77,6 @@ class IncomingShipmentController extends Controller
     // ─── POST /api/inventory/shipments ────────────────────────────────────────
     public function storeShipment(Request $request): JsonResponse
     {
-        // Base validation for all shipments
         $validator = validator($request->all(), [
             'shipment_number'             => 'required|unique:shipments',
             'origin_type'                 => 'required|string',
@@ -61,7 +90,6 @@ class IncomingShipmentController extends Controller
             'status'                      => 'nullable|string',
             'location'                    => 'nullable|string',
             'shipment_status'             => 'nullable|string',
-            // tentative_arrival is NOT required - will be set by logistics later
         ]);
 
         if ($validator->fails()) {
@@ -71,7 +99,6 @@ class IncomingShipmentController extends Controller
             ], 422);
         }
 
-        // Additional validation for RESERVE_FOR_PROJECT shipments only
         if ($request->shipment_purpose === 'RESERVE_FOR_PROJECT') {
             $projectValidator = validator($request->all(), [
                 'projects.*.project_name' => 'required|string',
@@ -95,7 +122,7 @@ class IncomingShipmentController extends Controller
                 'status'            => $request->status ?? 'ONGOING PRODUCTION',
                 'location'          => $request->location,
                 'shipment_status'   => $request->shipment_status ?? 'WAITING',
-                'tentative_arrival' => null, // Always null until logistics updates
+                'tentative_arrival' => null,
                 'added_to_inventory'=> false,
             ]);
 
@@ -120,12 +147,12 @@ class IncomingShipmentController extends Controller
     // ─── PUT /api/inventory/shipments/{id} ────────────────────────────────────
     public function updateShipment(Request $request, $id): JsonResponse
     {
-        $shipment = Shipment::findOrFail($id);
+        $shipment = Shipment::withTrashed()->findOrFail($id);
 
         $shipment->update($request->only([
             'status',
             'location',
-            'tentative_arrival',  // Logistics can update this later
+            'tentative_arrival',
             'shipment_status',
         ]));
 
@@ -196,6 +223,34 @@ class IncomingShipmentController extends Controller
                 'shipment' => $shipment->fresh('projects'),
             ]);
         });
+    }
+
+    // ─── DELETE /api/inventory/shipments/{id} (Soft Delete) ───────────────────
+    public function deleteShipment($id): JsonResponse
+    {
+        $shipment = Shipment::findOrFail($id);
+        $shipment->delete();
+        return response()->json(['message' => 'Shipment moved to bin successfully.']);
+    }
+
+    // ─── POST /api/inventory/shipments/{id}/restore ───────────────────────────
+    public function restoreShipment($id): JsonResponse
+    {
+        $shipment = Shipment::onlyTrashed()->findOrFail($id);
+        $shipment->restore();
+        return response()->json(['message' => 'Shipment restored successfully.']);
+    }
+
+    // ─── DELETE /api/inventory/shipments/{id}/force (Permanent Delete) ────────
+    public function forceDeleteShipment($id): JsonResponse
+    {
+        $shipment = Shipment::onlyTrashed()->findOrFail($id);
+        
+        // Delete related projects first
+        $shipment->projects()->delete();
+        $shipment->forceDelete();
+        
+        return response()->json(['message' => 'Shipment permanently deleted.']);
     }
 
     // ─── POST /api/inventory/shipments/report ─────────────────────────────────

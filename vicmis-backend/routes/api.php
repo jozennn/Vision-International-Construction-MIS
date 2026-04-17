@@ -58,7 +58,6 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     Route::get('/projects',      [ProjectController::class, 'index']);
     Route::get('/projects/trashed', [ProjectController::class, 'trashed']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
- // 👈 ADDED
 
     // Site Inspection (read)
     Route::get('/projects/{id}/site-inspection',         [ProjectController::class, 'getSiteInspection']);
@@ -206,28 +205,51 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::apiResource('employees', EmployeeController::class)->except(['show']);
     });
 
-    // --- INVENTORY (write) ---
+    // ────────────────────────────────────────────────────────────────────────────
+    // 📦 INVENTORY WRITE ROUTES (with Bin/Soft Delete support)
+    // ────────────────────────────────────────────────────────────────────────────
     Route::prefix('inventory')->group(function () {
+        // Shipments
         Route::post('/shipments/report',                [IncomingShipmentController::class, 'storeReport']);
         Route::post('/shipments',                       [IncomingShipmentController::class, 'storeShipment']);
         Route::put('/shipments/{id}',                   [IncomingShipmentController::class, 'updateShipment']);
         Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
         Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
+        
+        // 🗑️ Shipment Soft Delete / Bin Routes
+        Route::delete('/shipments/{id}',                [IncomingShipmentController::class, 'deleteShipment']);
+        Route::post('/shipments/{id}/restore',          [IncomingShipmentController::class, 'restoreShipment']);
+        Route::delete('/shipments/{id}/force',          [IncomingShipmentController::class, 'forceDeleteShipment']);
 
-        Route::post('/logistics',                 [LogisticsController::class, 'store']);
-        Route::patch('/logistics/{id}/delivered', [LogisticsController::class, 'markDelivered']);
-        Route::delete('/logistics/{id}',          [LogisticsController::class, 'destroy']);
+        // Logistics / Deliveries
+        Route::post('/logistics',                       [LogisticsController::class, 'store']);
+        Route::patch('/logistics/{id}/delivered',       [LogisticsController::class, 'markDelivered']);
+        Route::delete('/logistics/{id}',                [LogisticsController::class, 'destroy']);
+        
+        // 🗑️ Logistics Soft Delete / Bin Routes
+        Route::post('/logistics/{id}/restore',          [LogisticsController::class, 'restore']);
+        Route::delete('/logistics/{id}/force',          [LogisticsController::class, 'forceDelete']);
 
-        Route::get('/reorder-requests',               [ReorderRequestController::class, 'index']);
-        Route::post('/reorder-requests',              [ReorderRequestController::class, 'store']);
-        Route::patch('/reorder-requests/{id}/status', [ReorderRequestController::class, 'updateStatus']);
+        // Reorder Requests
+        Route::get('/reorder-requests',                 [ReorderRequestController::class, 'index']);
+        Route::post('/reorder-requests',                [ReorderRequestController::class, 'store']);
+        Route::patch('/reorder-requests/{id}/status',   [ReorderRequestController::class, 'updateStatus']);
     });
 
-    // --- WAREHOUSE INVENTORY (write) ---
+    // --- WAREHOUSE INVENTORY (write) with Bin Support ---
     Route::prefix('warehouse-inventory')->group(function () {
+        // CRUD Operations
         Route::post('/',       [WarehouseInventoryController::class, 'store']);
         Route::put('/{id}',    [WarehouseInventoryController::class, 'update']);
+        
+        // 🗑️ Soft Delete (Move to Bin)
         Route::delete('/{id}', [WarehouseInventoryController::class, 'destroy']);
+        
+        // ♻️ Restore from Bin
+        Route::post('/{id}/restore', [WarehouseInventoryController::class, 'restore']);
+        
+        // 💀 Permanent Delete (Remove from Bin)
+        Route::delete('/{id}/force', [WarehouseInventoryController::class, 'forceDelete']);
     });
 
     // --- ADMIN (write) ---

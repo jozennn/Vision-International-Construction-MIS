@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/LogisticsController.php - Add methods
 
 namespace App\Http\Controllers;
 
@@ -14,11 +15,17 @@ class LogisticsController extends Controller
 {
     // =========================================================================
     // GET /api/inventory/logistics
-    // Paginated list with optional filters — UNCHANGED
     // =========================================================================
     public function index(Request $request): JsonResponse
     {
         $query = Logistics::query();
+        
+        // Filter for trashed (bin) items
+        if ($request->has('trashed') && $request->trashed === 'true') {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+        }
 
         if ($request->filled('search')) {
             $s = $request->search;
@@ -57,7 +64,7 @@ class LogisticsController extends Controller
     }
 
     // =========================================================================
-    // GET /api/inventory/logistics/meta — UNCHANGED
+    // GET /api/inventory/logistics/meta
     // =========================================================================
     public function meta(): JsonResponse
     {
@@ -85,7 +92,7 @@ class LogisticsController extends Controller
     }
 
     // =========================================================================
-    // POST /api/inventory/logistics — UNCHANGED
+    // POST /api/inventory/logistics
     // =========================================================================
     public function store(Request $request): JsonResponse
     {
@@ -124,172 +131,168 @@ class LogisticsController extends Controller
     }
 
     // =========================================================================
-    // PATCH /api/inventory/logistics/{id}/delivered  ← UPDATED
-    //
-    // Original: just set status = Delivered.
-    //
-    // NEW side effects (all in one DB transaction):
-    //   1. status → 'Delivered', date_delivered → now()
-    //   2. If delivery came from a material request:
-    //        - Inject one new arrival row per item into project_materials.material_items (JSON)
-    //        - Each row gets is_new_arrival: true  →  frontend badge
-    //        - Decrement warehouse stock per item
-    //   3. If manual delivery (no material_request_id):
-    //        - Inject single new arrival row for the delivery's product_code
-    //        - Decrement warehouse stock
-    //   4. Notify Engineering that materials have arrived
+    // PATCH /api/inventory/logistics/{id}/delivered
     // =========================================================================
-    // In LogisticsController.php, update the markDelivered method
+    public function markDelivered(int $id): JsonResponse
+    {
+        $delivery = Logistics::findOrFail($id);
 
-// In LogisticsController.php, update the markDelivered method
-// Add 'product_category' to the newRows array
+        abort_if($delivery->status === 'Delivered', 422, 'Already marked as delivered.');
 
-public function markDelivered(int $id): JsonResponse
-{
-    $delivery = Logistics::findOrFail($id);
+        DB::transaction(function () use ($delivery) {
 
-    abort_if($delivery->status === 'Delivered', 422, 'Already marked as delivered.');
+            $delivery->update([
+                'status'         => 'Delivered',
+                'date_delivered' => now(),
+            ]);
 
-    DB::transaction(function () use ($delivery) {
+            $materialRequest = $delivery->material_request_id
+                ? MaterialRequest::find($delivery->material_request_id)
+                : null;
 
-        $delivery->update([
-            'status'         => 'Delivered',
-            'date_delivered' => now(),
-        ]);
+            $projectId = $materialRequest?->project_id
+                ?? Project::where('project_name', $delivery->project_name)->value('id');
 
-        $materialRequest = $delivery->material_request_id
-            ? MaterialRequest::find($delivery->material_request_id)
-            : null;
+            if ($projectId) {
+                $project     = Project::with('materials')->find($projectId);
+                $matTracking = $project?->materials;
 
-        $projectId = $materialRequest?->project_id
-            ?? Project::where('project_name', $delivery->project_name)->value('id');
+                $existingItems = [];
+                if ($matTracking && $matTracking->material_items) {
+                    $decoded = is_string($matTracking->material_items)
+                        ? json_decode($matTracking->material_items, true)
+                        : $matTracking->material_items;
+                    $existingItems = is_array($decoded) ? $decoded : [];
+                }
 
-        if ($projectId) {
-            $project     = Project::with('materials')->find($projectId);
-            $matTracking = $project?->materials;
+                $today   = now()->toDateString();
+                $newRows = [];
 
-            $existingItems = [];
-            if ($matTracking && $matTracking->material_items) {
-                $decoded = is_string($matTracking->material_items)
-                    ? json_decode($matTracking->material_items, true)
-                    : $matTracking->material_items;
-                $existingItems = is_array($decoded) ? $decoded : [];
-            }
-
-            $today   = now()->toDateString();
-            $newRows = [];
-
-            if ($materialRequest) {
-                // items is an array from JSON cast
-                $items = $materialRequest->items;
-                
-                foreach ($items as $item) {
-                    $productCode = $item['product_code'] ?? null;
-                    $productCategory = $item['product_category'] ?? null;
+                if ($materialRequest) {
+                    $items = $materialRequest->items;
                     
-                    // Look up inventory to get category if missing
-                    $inv = null;
-                    if (!empty($productCode)) {
-                        $query = WarehouseInventory::where('product_code', $productCode);
-                        if (!empty($productCategory)) {
-                            $query->where('product_category', $productCategory);
+                    foreach ($items as $item) {
+                        $productCode = $item['product_code'] ?? null;
+                        $productCategory = $item['product_category'] ?? null;
+                        
+                        $inv = null;
+                        if (!empty($productCode)) {
+                            $query = WarehouseInventory::where('product_code', $productCode);
+                            if (!empty($productCategory)) {
+                                $query->where('product_category', $productCategory);
+                            }
+                            $inv = $query->first();
                         }
-                        $inv = $query->first();
+                        
+                        $newRows[] = [
+                            'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                            'boqKey'           => $productCode,
+                            'name'             => $productCode ?: $item['description'],
+                            'description'      => $item['description'],
+                            'product_category' => $productCategory ?: ($inv->product_category ?? ''),
+                            'unit'             => $item['unit'] ?? 'Pcs',
+                            'deliveries'       => [
+                                [
+                                    'date' => $delivery->date_of_delivery ?? $today,
+                                    'qty'  => (int) $item['requested_qty'],
+                                ]
+                            ],
+                            'installed'        => [],
+                            'remarks'          => $item['remarks'] ?? 'Auto-added from material request delivery',
+                            'is_new_arrival'   => true,
+                            'logistics_id'     => $delivery->id,
+                        ];
                     }
+                    
+                    $materialRequest->update(['status' => 'delivered']);
+                } else {
+                    $inv = WarehouseInventory::where('product_code', $delivery->product_code)
+                        ->where('product_category', $delivery->product_category)
+                        ->first();
                     
                     $newRows[] = [
                         'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
-                        'boqKey'           => $productCode,
-                        'name'             => $productCode ?: $item['description'],
-                        'description'      => $item['description'],
-                        'product_category' => $productCategory ?: ($inv->product_category ?? ''),
-                        'unit'             => $item['unit'] ?? 'Pcs',
+                        'boqKey'           => $delivery->product_code,
+                        'name'             => $delivery->product_code,
+                        'description'      => null,
+                        'product_category' => $delivery->product_category ?: ($inv->product_category ?? ''),
+                        'unit'             => 'Pcs',
                         'deliveries'       => [
                             [
                                 'date' => $delivery->date_of_delivery ?? $today,
-                                'qty'  => (int) $item['requested_qty'],
+                                'qty'  => (int) $delivery->quantity,
                             ]
                         ],
                         'installed'        => [],
-                        'remarks'          => $item['remarks'] ?? 'Auto-added from material request delivery',
+                        'remarks'          => 'Auto-added from manual delivery',
                         'is_new_arrival'   => true,
                         'logistics_id'     => $delivery->id,
                     ];
                 }
-                
-                $materialRequest->update(['status' => 'delivered']);
-            } else {
-                // Manual delivery
-                $inv = WarehouseInventory::where('product_code', $delivery->product_code)
-                    ->where('product_category', $delivery->product_category)
-                    ->first();
-                
-                $newRows[] = [
-                    'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
-                    'boqKey'           => $delivery->product_code,
-                    'name'             => $delivery->product_code,
-                    'description'      => null,
-                    'product_category' => $delivery->product_category ?: ($inv->product_category ?? ''),
-                    'unit'             => 'Pcs',
-                    'deliveries'       => [
-                        [
-                            'date' => $delivery->date_of_delivery ?? $today,
-                            'qty'  => (int) $delivery->quantity,
-                        ]
-                    ],
-                    'installed'        => [],
-                    'remarks'          => 'Auto-added from manual delivery',
-                    'is_new_arrival'   => true,
-                    'logistics_id'     => $delivery->id,
-                ];
+
+                $mergedItems = array_merge($existingItems, $newRows);
+
+                if ($project) {
+                    $project->materials()->updateOrCreate(
+                        ['project_id' => $projectId],
+                        ['material_items' => json_encode($mergedItems)]
+                    );
+                }
+
+                $projectName = $materialRequest?->project_name ?? $delivery->project_name;
+                \App\Models\AppNotification::create([
+                    'target_department' => 'Engineering',
+                    'target_role'       => null,
+                    'project_id'        => $projectId,
+                    'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals. Check Materials Monitoring.",
+                ]);
             }
 
-            $mergedItems = array_merge($existingItems, $newRows);
-
-            if ($project) {
-                $project->materials()->updateOrCreate(
-                    ['project_id' => $projectId],
-                    ['material_items' => json_encode($mergedItems)]
-                );
+            if (!$materialRequest && $delivery->product_code) {
+                $this->decrementStock($delivery->product_code, $delivery->quantity ?? 1);
             }
+        });
 
-            $projectName = $materialRequest?->project_name ?? $delivery->project_name;
-            \App\Models\AppNotification::create([
-                'target_department' => 'Engineering',
-                'target_role'       => null,
-                'project_id'        => $projectId,
-                'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals. Check Materials Monitoring.",
-            ]);
-        }
-
-        if (!$materialRequest && $delivery->product_code) {
-            $this->decrementStock($delivery->product_code, $delivery->quantity ?? 1);
-        }
-    });
-
-    return response()->json([
-        'message' => $delivery->material_request_id 
-            ? 'Marked as delivered. Materials have been added to project monitoring.'
-            : 'Marked as delivered. Stock updated and materials added to project monitoring.',
-        'data'    => $delivery->fresh(),
-    ]);
-}
-    // =========================================================================
-    // DELETE /api/inventory/logistics/{id} — UNCHANGED
-    // =========================================================================
-    public function destroy(int $id): JsonResponse
-    {
-        Logistics::findOrFail($id)->delete();
-        return response()->json(['message' => 'Deleted.']);
+        return response()->json([
+            'message' => $delivery->material_request_id 
+                ? 'Marked as delivered. Materials have been added to project monitoring.'
+                : 'Marked as delivered. Stock updated and materials added to project monitoring.',
+            'data'    => $delivery->fresh(),
+        ]);
     }
 
     // =========================================================================
-    // PRIVATE HELPER — Decrement stock and re-derive availability
-    //
-    // Thresholds match your existing BoqTable.jsx logic:
-    //   0       → NO STOCK
-    //   1 – 10  → LOW STOCK
-    //   11+     → ON STOCK
+    // DELETE /api/inventory/logistics/{id} (Soft Delete)
+    // =========================================================================
+    public function destroy(int $id): JsonResponse
+    {
+        $delivery = Logistics::findOrFail($id);
+        $delivery->delete();
+        return response()->json(['message' => 'Delivery moved to bin successfully.']);
+    }
+
+    // =========================================================================
+    // POST /api/inventory/logistics/{id}/restore
+    // =========================================================================
+    public function restore(int $id): JsonResponse
+    {
+        $delivery = Logistics::onlyTrashed()->findOrFail($id);
+        $delivery->restore();
+        return response()->json(['message' => 'Delivery restored successfully.']);
+    }
+
+    // =========================================================================
+    // DELETE /api/inventory/logistics/{id}/force (Permanent Delete)
+    // =========================================================================
+    public function forceDelete(int $id): JsonResponse
+    {
+        $delivery = Logistics::onlyTrashed()->findOrFail($id);
+        $delivery->forceDelete();
+        return response()->json(['message' => 'Delivery permanently deleted.']);
+    }
+
+    // =========================================================================
+    // PRIVATE HELPER
     // =========================================================================
     private function decrementStock(string $productCode, float $qty): void
     {
