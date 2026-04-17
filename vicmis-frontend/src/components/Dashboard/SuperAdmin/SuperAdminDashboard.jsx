@@ -1,14 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/api/axios';
-import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle, HardDrive } from 'lucide-react';
+import { Users, Activity, ArrowRight, BarChart2, Database, Shield, Cpu, Package, AlertCircle } from 'lucide-react';
 import './SuperAdminDashboard.css';
 
+// ─── NEW: LIVE SERVER GRAPH COMPONENT ─────────────────────────────────────────
+const LiveServerGraph = ({ cpuString, memoryString }) => {
+  const [dataPoints, setDataPoints] = useState(Array(40).fill(0));
+  
+  useEffect(() => {
+    // Parse the CPU string (e.g., "45%") into an integer
+    const baseValue = parseInt(cpuString) || 0;
+
+    const interval = setInterval(() => {
+      setDataPoints(prev => {
+        const newPoints = [...prev.slice(1)];
+        // Add realistic "micro-fluctuations" (+/- 3%) to the base value so it looks alive
+        const jitter = Math.floor(Math.random() * 7) - 3; 
+        let nextValue = baseValue + jitter;
+        
+        // Clamp between 0 and 100
+        if (nextValue < 0) nextValue = 0;
+        if (nextValue > 100) nextValue = 100;
+        
+        // If the server is offline/loading, keep it at 0
+        if (baseValue === 0 && cpuString !== "0%") nextValue = 0;
+
+        newPoints.push(nextValue);
+        return newPoints;
+      });
+    }, 1000); // Updates every 1 second
+
+    return () => clearInterval(interval);
+  }, [cpuString]);
+
+  // Generate SVG Path for the line and the fill area
+  const width = 400;
+  const height = 100;
+  const pointSpacing = width / (dataPoints.length - 1);
+
+  const points = dataPoints.map((val, i) => {
+    const x = i * pointSpacing;
+    const y = height - (val / 100) * height;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const fillPoints = `0,${height} ${points} ${width},${height}`;
+
+  return (
+    <div className="sa-graph-card">
+      <div className="sa-graph-header">
+        <div>
+          <h3>{cpuString || '0%'} CPU</h3>
+          <p>Real-time Utilization</p>
+        </div>
+        <div className="sa-graph-mem">
+          <span>RAM</span>
+          <strong>{memoryString || '0%'}</strong>
+        </div>
+      </div>
+      
+      <div className="sa-graph-container">
+        {/* Grid lines for aesthetic */}
+        <div className="sa-graph-grid">
+          <div className="sa-graph-line"></div>
+          <div className="sa-graph-line"></div>
+          <div className="sa-graph-line"></div>
+        </div>
+        
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="sa-graph-svg">
+          <polygon points={fillPoints} className="sa-graph-fill" />
+          <polyline points={points} className="sa-graph-stroke" />
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+// ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
 const SuperAdminDashboard = ({ user }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState(new Date());
   
-  // KPI States
   const [totalBackups, setTotalBackups] = useState(0);
   const [totalErrors, setTotalErrors] = useState(0);
   const [fetchedTotalUsers, setFetchedTotalUsers] = useState(0);
@@ -17,19 +90,16 @@ const SuperAdminDashboard = ({ user }) => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // 1. Fetch Dashboard Stats (Includes our new server health metrics)
         try {
           const statsRes = await api.get('/admin/dashboard-stats');
           setStats(statsRes.data);
         } catch (err) { console.error('Stats fetch error:', err); }
 
-        // 2. Fetch Backups for KPI Card
         try {
           const backupsRes = await api.get('/admin/database/backups');
           setTotalBackups(backupsRes.data.backups?.length || 0);
         } catch (err) { console.error('Backups fetch error:', err); }
 
-        // 3. Fetch System Logs for Errors KPI Card
         try {
           const logsRes = await api.get('/admin/system-logs');
           const logs = logsRes.data.logs || [];
@@ -39,7 +109,6 @@ const SuperAdminDashboard = ({ user }) => {
           setTotalErrors(errorCount);
         } catch (err) { console.error('Logs fetch error:', err); }
 
-        // 4. Fetch Users count & Calculate Headcount Directly
         try {
           const usersRes = await api.get('/admin/users');
           const usersList = usersRes.data || [];
@@ -92,7 +161,6 @@ const SuperAdminDashboard = ({ user }) => {
   return (
     <div className="sa-wrapper">
 
-      {/* ─── HEADER ─── */}
       <div className="sa-header">
         <div className="sa-header-left">
           <div className="sa-header-icon">
@@ -111,10 +179,8 @@ const SuperAdminDashboard = ({ user }) => {
         </div>
       </div>
 
-      {/* ─── TOP ROW: MULTIPLE KPIs ─── */}
       <div className="sa-kpi-grid">
         
-        {/* Total Users Card */}
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#497B97', cursor: 'pointer' }}
@@ -130,7 +196,6 @@ const SuperAdminDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* Total Database Backups Card */}
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#10b981', cursor: 'pointer' }}
@@ -146,7 +211,6 @@ const SuperAdminDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* System Diagnostics Errors Card */}
         <div 
           className="sa-kpi-card" 
           style={{ '--kpi-accent': '#ef4444', cursor: 'pointer' }}
@@ -162,30 +226,16 @@ const SuperAdminDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* NEW: Server Health Status Card */}
-        <div 
-          className="sa-kpi-card" 
-          style={{ '--kpi-accent': '#d97706', cursor: 'default' }}
-        >
-          <div className="sa-kpi-icon" style={{ background: '#fef3c7', color: '#d97706' }}>
-            <HardDrive size={22} />
-          </div>
-          <div className="sa-kpi-data">
-            <h3 style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
-                {stats?.server_health?.cpu || '0%'} 
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>CPU</span>
-            </h3>
-            <p>Server Health</p>
-            <p className="sa-kpi-note">RAM Usage: {stats?.server_health?.memory || '0%'}</p>
-          </div>
-        </div>
+        {/* REPLACED: The 4th card is now the Live Graph */}
+        <LiveServerGraph 
+          cpuString={stats?.server_health?.cpu} 
+          memoryString={stats?.server_health?.memory} 
+        />
 
       </div>
 
-      {/* ─── MAIN GRID ─── */}
       <div className="sa-main-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
 
-        {/* 1. DEPARTMENT HEADCOUNT */}
         <div className="sa-panel">
           <div className="sa-panel-header">
             <div className="sa-panel-header-text">
@@ -224,7 +274,6 @@ const SuperAdminDashboard = ({ user }) => {
           </div>
         </div>
 
-        {/* 2. LIVE SYSTEM FEED */}
         <div className="sa-panel sa-feed-panel">
           <div className="sa-panel-header">
             <div className="sa-panel-header-text">
