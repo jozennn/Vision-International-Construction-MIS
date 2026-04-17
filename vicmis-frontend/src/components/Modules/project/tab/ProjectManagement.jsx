@@ -96,7 +96,6 @@ const ProjectManagement = ({
     };
 
     useEffect(() => {
-        // Both Active and Completed use the main /projects endpoint
         if (viewMode === 'active' || viewMode === 'completed') {
             fetchProjects();
         } else {
@@ -145,9 +144,8 @@ const ProjectManagement = ({
             // 1. View Mode logic
             if (viewMode === 'active' && variant === 'completed') return false;
             if (viewMode === 'completed' && variant !== 'completed') return false;
-            // Archive mode bypasses variant check since it's an isolated API call
 
-            // 2. Search logic (ID, Project Name, Client Name)
+            // 2. Search logic
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
                 const matchName = proj.project_name?.toLowerCase().includes(query);
@@ -208,94 +206,199 @@ const ProjectManagement = ({
         );
     }
 
+    // ── Styles for the new controls ──
+    const activeTabStyle = {
+        background: '#212121',
+        color: '#ffffff',
+        padding: '8px 16px',
+        borderRadius: '6px',
+        fontWeight: '600',
+        fontSize: '14px',
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        transition: 'all 0.2s ease'
+    };
+
+    const inactiveTabStyle = {
+        background: 'transparent',
+        color: '#6b7280',
+        padding: '8px 16px',
+        borderRadius: '6px',
+        fontWeight: '500',
+        fontSize: '14px',
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        transition: 'all 0.2s ease'
+    };
+
+    const badgeActiveStyle = {
+        background: '#424242',
+        color: '#ffffff',
+        padding: '2px 8px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: 'bold'
+    };
+
+    const badgeInactiveStyle = {
+        background: '#8b5cf6', // Purple to match the image reference loosely
+        color: '#ffffff',
+        padding: '2px 8px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: 'bold'
+    };
+
     // ── Main ──
     return (
-        <div className="pm-page">
+        <div className="pm-page" style={{ backgroundColor: '#f3f4f6', minHeight: '100vh', paddingBottom: '40px' }}>
 
-            {/* Header */}
+            {/* Header (Top Dark Section Only) */}
             <div className="pm-page-header">
                 <div className="pm-page-header-left">
                     <span className="pm-page-eyebrow">Vision International Construction OPC</span>
                     <h1 className="pm-page-title">Project <span>Management</span></h1>
                 </div>
+            </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '12px' }}>
+            {/* Controls Bar (Outside the dark header) */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px',
+                padding: '20px 30px 10px 30px', // Adjust padding to fit your layout
+                maxWidth: '1200px',
+                margin: '0 auto'
+            }}>
+                {/* Left side: Tab Toggles */}
+                <div style={{
+                    display: 'flex',
+                    background: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '4px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    border: '1px solid #e5e7eb'
+                }}>
+                    <button 
+                        style={viewMode === 'active' ? activeTabStyle : inactiveTabStyle}
+                        onClick={() => { setViewMode('active'); setFilterStatus(""); setSearchQuery(""); }}
+                    >
+                        Active Projects
+                        {viewMode === 'active' && <span style={badgeActiveStyle}>{displayedProjects.length}</span>}
+                    </button>
                     
-                    {/* View toggles & count */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                            <button 
-                                className={`pm-view-toggle ${viewMode === 'active' ? 'active' : ''}`}
-                                onClick={() => { setViewMode('active'); setFilterStatus(""); setSearchQuery(""); }}
-                            >
-                                🏗️ Active
-                            </button>
-                            <button 
-                                className={`pm-view-toggle ${viewMode === 'completed' ? 'active' : ''}`}
-                                onClick={() => { setViewMode('completed'); setFilterStatus(""); setSearchQuery(""); }}
-                            >
-                                ✅ Completed
-                            </button>
-                            <button 
-                                className={`pm-view-toggle ${viewMode === 'archived' ? 'active' : ''}`}
-                                onClick={() => { setViewMode('archived'); setFilterStatus(""); setSearchQuery(""); }}
-                            >
-                                📦 Archive
-                            </button>
-                        </div>
-                        <div className="pm-page-count">
-                            <strong>{displayedProjects.length}</strong>
-                            {displayedProjects.length === 1 ? ' project' : ' projects'} 
-                        </div>
-                    </div>
+                    <button 
+                        style={viewMode === 'completed' ? activeTabStyle : inactiveTabStyle}
+                        onClick={() => { setViewMode('completed'); setFilterStatus(""); setSearchQuery(""); }}
+                    >
+                        Completed Projects
+                        {viewMode === 'completed' ? (
+                             <span style={badgeActiveStyle}>{displayedProjects.length}</span>
+                        ) : (
+                             viewMode !== 'completed' && <span style={badgeInactiveStyle}>✓</span>
+                        )}
+                    </button>
 
-                    {/* Search and Filters */}
-                    <div style={{ display: 'flex', gap: '10px', width: '100%', justifyContent: 'flex-end' }}>
+                    <button 
+                        style={viewMode === 'archived' ? activeTabStyle : inactiveTabStyle}
+                        onClick={() => { setViewMode('archived'); setFilterStatus(""); setSearchQuery(""); }}
+                    >
+                        Archived
+                        {viewMode === 'archived' && <span style={badgeActiveStyle}>{displayedProjects.length}</span>}
+                    </button>
+                </div>
+
+                {/* Right side: Search & Filter */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    
+                    <div style={{ position: 'relative' }}>
+                        {/* Search Icon */}
+                        <svg 
+                            style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} 
+                            width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"
+                        >
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        
                         <input 
                             type="text"
-                            placeholder="Search by ID, Name or Client..."
+                            placeholder="Search client, project, location..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{
-                                padding: '6px 14px',
-                                borderRadius: '20px',
-                                border: '1px solid #d1d5db',
+                                padding: '10px 16px 10px 38px',
+                                borderRadius: '6px',
+                                border: '1px solid #e5e7eb',
                                 outline: 'none',
                                 fontSize: '14px',
-                                minWidth: '240px'
+                                minWidth: '300px',
+                                background: '#ffffff',
+                                color: '#374151',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
                             }}
                         />
-                        
-                        {/* Only show category filter when looking at active projects */}
-                        {viewMode === 'active' && (
+                    </div>
+                    
+                    {/* Show category filter only on active projects */}
+                    {viewMode === 'active' && (
+                        <div style={{ position: 'relative' }}>
+                            {/* Simple filter icon indicator */}
+                            <svg 
+                                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6b7280', pointerEvents: 'none' }}
+                                width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"
+                            >
+                                <line x1="4" y1="21" x2="4" y2="14"></line>
+                                <line x1="4" y1="10" x2="4" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12" y2="3"></line>
+                                <line x1="20" y1="21" x2="20" y2="16"></line>
+                                <line x1="20" y1="12" x2="20" y2="3"></line>
+                                <line x1="1" y1="14" x2="7" y2="14"></line>
+                                <line x1="9" y1="8" x2="15" y2="8"></line>
+                                <line x1="17" y1="16" x2="23" y2="16"></line>
+                            </svg>
+
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
                                 style={{
-                                    padding: '6px 14px',
-                                    borderRadius: '20px',
-                                    border: '1px solid #d1d5db',
+                                    padding: '10px 16px 10px 36px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #e5e7eb',
                                     outline: 'none',
                                     fontSize: '14px',
                                     backgroundColor: '#fff',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    fontWeight: '500',
+                                    color: '#4b5563',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                    appearance: 'none',
+                                    minWidth: '150px'
                                 }}
                             >
-                                <option value="">All Categories</option>
+                                <option value="">Filter By...</option>
                                 <option value="pending">Pending</option>
                                 <option value="active">Active (Monitoring)</option>
                                 <option value="engineering">Engineering</option>
                                 <option value="sales">Sales</option>
                                 <option value="billing">Billing</option>
                             </select>
-                        )}
-                    </div>
-
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Grid */}
-            <div className="pm-project-grid">
+            <div className="pm-project-grid" style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {displayedProjects.length === 0 ? (
                     <div className="pm-empty">
                         <div className="pm-empty-icon">
