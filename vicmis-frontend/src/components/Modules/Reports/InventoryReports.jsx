@@ -9,12 +9,18 @@ const nowStr      = () => new Date().toLocaleDateString('en-PH', { year: 'numeri
 const today       = () => new Date().toISOString().split('T')[0];
 const monthStart  = () => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; };
 
+// Format currency with proper PHP formatting
+const formatCurrencyValue = (amount) => {
+  if (!amount || amount === 0) return '₱ 0.00';
+  return '₱ ' + amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 // Fetch ALL inventory bypassing server pagination
 const fetchAllInventory = () =>
   api.get('/warehouse-inventory', { params: { per_page: 9999, page: 1 } })
     .then(r => Array.isArray(r.data) ? r.data : r.data?.data ?? []);
 
-const PRINT_CSS = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;color:#221F1F;padding:36px;font-size:12px;background:#fff}.rp-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:4px solid #C20100}.rp-co{display:flex;flex-direction:column;gap:3px}.rp-co-name{font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#221F1F}.rp-co-sub{font-size:10px;color:#497B97;font-weight:600;letter-spacing:.03em}.rp-co-tag{font-size:9px;color:#94a3b8;margin-top:1px}.rp-meta{text-align:right}.rp-title{font-size:15px;font-weight:800;color:#C20100;letter-spacing:.02em}.rp-date{font-size:10px;color:#64748b;margin-top:4px}.summary{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}.chip{flex:1;min-width:110px;background:#FAF8F6;border:1px solid #EBDBD6;border-top:3px solid #497B97;border-radius:8px;padding:10px 14px}.chip.red{border-top-color:#C20100}.chip.green{border-top-color:#16a34a}.chip.orange{border-top-color:#f59e0b}.chip-val{font-size:19px;font-weight:800;color:#221F1F;line-height:1}.chip-label{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:3px}.sec{font-size:10px;font-weight:800;color:#221F1F;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:8px}.sec::after{content:'';flex:1;height:1px;background:#EBDBD6}table{width:100%;border-collapse:collapse;font-size:11px}thead{background:#221F1F}th{padding:9px 10px;text-align:left;color:#fff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#221F1F}tr:nth-child(even) td{background:#FAF8F6}tr:last-child td{border-bottom:none}.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;white-space:nowrap}.badge-ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}.badge-low{background:#fffbeb;color:#92400e;border:1px solid #fcd34d}.badge-nostock{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}.badge-blue{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}.rp-footer{margin-top:24px;padding-top:12px;border-top:1px solid #EBDBD6;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8}.rp-footer strong{color:#C20100}.cover{text-align:center;padding:50px 40px;background:#221F1F;color:#fff;border-radius:12px;margin-bottom:28px}.cover h1{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}.cover p{font-size:11px;color:rgba(235,219,214,.65);margin-bottom:4px}.period{font-size:11px;color:#C20100;font-weight:700;margin-top:12px;background:rgba(194,1,0,.15);padding:5px 14px;border-radius:999px;display:inline-block}.toc-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #EBDBD6;font-size:11px}.tnum{width:22px;height:22px;background:#221F1F;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}.tl{font-weight:600}.ts{color:#94a3b8;font-size:10px;margin-left:auto}.pb{page-break-before:always;margin-top:32px}@media print{body{padding:20px}}`;
+const PRINT_CSS = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;color:#221F1F;padding:36px;font-size:12px;background:#fff}.rp-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:18px;border-bottom:4px solid #C20100}.rp-co{display:flex;flex-direction:column;gap:3px}.rp-co-name{font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#221F1F}.rp-co-sub{font-size:10px;color:#497B97;font-weight:600;letter-spacing:.03em}.rp-co-tag{font-size:9px;color:#94a3b8;margin-top:1px}.rp-meta{text-align:right}.rp-title{font-size:15px;font-weight:800;color:#C20100;letter-spacing:.02em}.rp-date{font-size:10px;color:#64748b;margin-top:4px}.summary{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}.chip{flex:1;min-width:110px;background:#FAF8F6;border:1px solid #EBDBD6;border-top:3px solid #497B97;border-radius:8px;padding:10px 14px}.chip.red{border-top-color:#C20100}.chip.green{border-top-color:#16a34a}.chip.orange{border-top-color:#f59e0b}.chip.purple{border-top-color:#8b5cf6}.chip-val{font-size:19px;font-weight:800;color:#221F1F;line-height:1}.chip-label{font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:3px}.sec{font-size:10px;font-weight:800;color:#221F1F;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:8px}.sec::after{content:'';flex:1;height:1px;background:#EBDBD6}table{width:100%;border-collapse:collapse;font-size:11px}thead{background:#221F1F}th{padding:9px 10px;text-align:left;color:#fff;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;color:#221F1F}tr:nth-child(even) td{background:#FAF8F6}tr:last-child td{border-bottom:none}.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;white-space:nowrap}.badge-ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}.badge-low{background:#fffbeb;color:#92400e;border:1px solid #fcd34d}.badge-nostock{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}.badge-blue{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}.rp-footer{margin-top:24px;padding-top:12px;border-top:1px solid #EBDBD6;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8}.rp-footer strong{color:#C20100}.cover{text-align:center;padding:50px 40px;background:#221F1F;color:#fff;border-radius:12px;margin-bottom:28px}.cover h1{font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}.cover p{font-size:11px;color:rgba(235,219,214,.65);margin-bottom:4px}.period{font-size:11px;color:#C20100;font-weight:700;margin-top:12px;background:rgba(194,1,0,.15);padding:5px 14px;border-radius:999px;display:inline-block}.toc-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #EBDBD6;font-size:11px}.tnum{width:22px;height:22px;background:#221F1F;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}.tl{font-weight:600}.ts{color:#94a3b8;font-size:10px;margin-left:auto}.pb{page-break-before:always;margin-top:32px}@media print{body{padding:20px}}`;
 
 const printHeader = (title) => `<div class="rp-header"><div class="rp-co"><div class="rp-co-name">Vision International Construction OPC</div><div class="rp-co-sub">VICMIS — Management Information System</div><div class="rp-co-tag">"You Envision, We Build!"</div></div><div class="rp-meta"><div class="rp-title">${title}</div><div class="rp-date">Generated: ${nowStr()}</div></div></div>`;
 const printFooter = (title) => `<div class="rp-footer"><span>VICMIS — <strong>Confidential</strong> · Do not distribute without authorization</span><span>${title} · ${new Date().toLocaleDateString('en-PH')}</span></div>`;
@@ -132,15 +138,30 @@ export const EndingInventory = () => {
     fetchAllInventory().then(setAllData).catch(() => setAllData([])).finally(() => setLoading(false));
   }, []);
 
-  const totalVal   = allData.reduce((s, i) => s + ((i.current_stock ?? i.quantity ?? 0) * (i.unit_price || 0)), 0);
+  const totalVal   = allData.reduce((s, i) => s + ((i.current_stock ?? i.quantity ?? 0) * (i.price_per_piece || 0)), 0);
   const onStock    = allData.filter(i => i.availability === 'ON STOCK').length;
   const low        = allData.filter(i => i.availability === 'LOW STOCK').length;
   const none       = allData.filter(i => i.availability === 'NO STOCK').length;
   const totalPages = Math.max(1, Math.ceil(allData.length / perPage));
   const pageData   = allData.slice((page - 1) * perPage, page * perPage);
 
+  // Calculate Grand Total Value (ONLY for items with stock - ON STOCK and LOW STOCK)
+  const grandTotalValue = allData
+    .filter(i => i.availability !== 'NO STOCK') // Exclude NO STOCK items
+    .reduce((sum, item) => {
+      const stock = parseInt(item.current_stock) || 0;
+      const price = parseFloat(item.price_per_piece) || 0;
+      return sum + (stock * price);
+    }, 0);
+
   const handlePrint = () => {
-    const chips = `<div class="summary"><div class="chip"><div class="chip-val">${allData.length}</div><div class="chip-label">Total Items</div></div><div class="chip green"><div class="chip-val">${onStock}</div><div class="chip-label">On Stock</div></div><div class="chip orange"><div class="chip-val">${low}</div><div class="chip-label">Low Stock</div></div><div class="chip red"><div class="chip-val">${none}</div><div class="chip-label">Out of Stock</div></div><div class="chip green"><div class="chip-val">${fmtCurrency(totalVal)}</div><div class="chip-label">Total Value</div></div></div>`;
+    const chips = `<div class="summary">
+      <div class="chip"><div class="chip-val">${allData.length}</div><div class="chip-label">Total Items</div></div>
+      <div class="chip green"><div class="chip-val">${onStock}</div><div class="chip-label">On Stock</div></div>
+      <div class="chip orange"><div class="chip-val">${low}</div><div class="chip-label">Low Stock</div></div>
+      <div class="chip red"><div class="chip-val">${none}</div><div class="chip-label">Out of Stock</div></div>
+      <div class="chip purple"><div class="chip-val">${formatCurrencyValue(grandTotalValue)}</div><div class="chip-label">Total Value (With Stock)</div></div>
+    </div>`;
     openPrintWindow('Monthly Ending Inventory Report',
       `${chips}<div class="sec">Warehouse Inventory — Construction Materials (${allData.length} items)</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Stock</th><th>Unit</th><th>Reserve</th><th>Available</th><th>Condition</th><th>Status</th><th>Notes</th></tr></thead><tbody>${buildInventoryRows(allData) || '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8">No items.</td></tr>'}</tbody></table>`);
   };
@@ -153,7 +174,7 @@ export const EndingInventory = () => {
         { value: loading ? '…' : onStock,               label: 'On Stock',     color: '#16a34a' },
         { value: loading ? '…' : low,                   label: 'Low Stock',    color: '#f59e0b' },
         { value: loading ? '…' : none,                  label: 'Out of Stock', color: '#C20100' },
-        { value: loading ? '…' : fmtCurrency(totalVal), label: 'Total Value',  color: '#6366f1' },
+        { value: loading ? '…' : formatCurrencyValue(grandTotalValue), label: 'Total Value (With Stock)', color: '#8b5cf6' },
       ]} />
       {loading ? <Spinner /> : allData.length === 0 ? <Empty /> : (
         <>
@@ -281,7 +302,6 @@ export const StockMovement = () => {
       const map   = {};
 
       // IN = shipments that have ARRIVED (received stock)
-      // Date filter uses date_delivered if present, else created_at
       ships
         .filter(s => {
           if (s.shipment_status !== 'ARRIVED') return false;
@@ -295,7 +315,6 @@ export const StockMovement = () => {
         }));
 
       // OUT = deliveries that have been marked as Delivered
-      // Date filter uses date_delivered (actual delivery date)
       logs
         .filter(l => {
           if (l.status !== 'Delivered') return false;
@@ -322,7 +341,7 @@ export const StockMovement = () => {
 
   const handlePrint = () => {
     const chips = `<div class="summary"><div class="chip"><div class="chip-val">${allData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">Stock IN (Arrived)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Stock OUT (Delivered)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div>`;
-    const rows = allData.map(d => `<tr><td><strong>${d.cat}</strong></td><td>${d.code}</td><td>${d.unit}</td><td style="text-align:center;color:#065f46;font-weight:700">${fmt(d.in)}</td><td style="text-align:center;color:#991b1b;font-weight:700">${fmt(d.out)}</td><td style="text-align:center;font-weight:800;color:${d.in - d.out >= 0 ? '#065f46' : '#991b1b'}">${d.in - d.out >= 0 ? '+' : ''}${fmt(d.in - d.out)}</td></tr>`).join('');
+    const rows = allData.map(d => `<td><td><strong>${d.cat}</strong></td><td>${d.code}</td><td>${d.unit}</td><td style="text-align:center;color:#065f46;font-weight:700">${fmt(d.in)}</td><td style="text-align:center;color:#991b1b;font-weight:700">${fmt(d.out)}</td><td style="text-align:center;font-weight:800;color:${d.in - d.out >= 0 ? '#065f46' : '#991b1b'}">${d.in - d.out >= 0 ? '+' : ''}${fmt(d.in - d.out)}</td></tr>`).join('');
     openPrintWindow(`Stock Movement (${fmtDate(dateFrom)}—${fmtDate(dateTo)})`,
       `${chips}<div class="sec">Stock IN = Received Shipments · Stock OUT = Delivered Dispatches</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>Stock IN (Arrived)</th><th>Stock OUT (Delivered)</th><th>Net</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>`);
   };
@@ -386,19 +405,26 @@ export const ExportAllInventoryReports = () => {
       const onStock     = allInv.filter(i => i.availability === 'ON STOCK').length;
       const lowStock    = allInv.filter(i => i.availability === 'LOW STOCK').length;
       const noStock     = allInv.filter(i => i.availability === 'NO STOCK').length;
-      const totalVal    = allInv.reduce((s, i) => s + ((i.current_stock ?? 0) * (i.unit_price || 0)), 0);
+      
+      // Calculate Grand Total Value (ONLY for items with stock)
+      const grandTotalValue = allInv
+        .filter(i => i.availability !== 'NO STOCK')
+        .reduce((sum, item) => {
+          const stock = parseInt(item.current_stock) || 0;
+          const price = parseFloat(item.price_per_piece) || 0;
+          return sum + (stock * price);
+        }, 0);
+      
       const needReorder = allInv.filter(i => i.availability === 'LOW STOCK' || i.availability === 'NO STOCK');
       const ships  = Array.isArray(shRes.data) ? shRes.data : shRes.data?.data ?? [];
       const logs   = Array.isArray(lgRes.data) ? lgRes.data : lgRes.data?.data ?? [];
       const from   = new Date(dateFrom);
       const to     = new Date(dateTo); to.setHours(23, 59, 59);
-      // IN: only ARRIVED shipments, date filtered by date_delivered or created_at
       const fShips = ships.filter(s => {
         if (s.shipment_status !== 'ARRIVED') return false;
         const d = new Date(s.date_delivered || s.created_at);
         return d >= from && d <= to;
       });
-      // OUT: only Delivered logistics, date filtered by date_delivered
       const fLogs  = logs.filter(l => {
         if (l.status !== 'Delivered') return false;
         const d = new Date(l.date_delivered || l.date_of_delivery || l.created_at);
@@ -426,7 +452,7 @@ export const ExportAllInventoryReports = () => {
       }).join('');
       const movRows = movData.map(d => `<tr><td><strong>${d.cat}</strong></td><td>${d.code}</td><td>${d.unit}</td><td style="text-align:center;color:#065f46;font-weight:700">${fmt(d.in)}</td><td style="text-align:center;color:#991b1b;font-weight:700">${fmt(d.out)}</td><td style="text-align:center;font-weight:800;color:${d.in - d.out >= 0 ? '#065f46' : '#991b1b'}">${d.in - d.out >= 0 ? '+' : ''}${fmt(d.in - d.out)}</td></tr>`).join('');
       const win = window.open('', '_blank', 'width=1100,height=820');
-      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VICMIS — Complete Inventory Report</title><style>${PRINT_CSS}</style></head><body>${printHeader('Complete Inventory Report')}<div class="cover"><h1>📦 Complete Inventory Report</h1><p>Vision International Construction OPC · VICMIS</p><p>All Inventory Sub-Reports Combined</p><div class="period">Period: ${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</div></div><div style="margin-bottom:24px"><div class="toc-item"><div class="tnum">1</div><span class="tl">Monthly Ending Inventory</span><span class="ts">${allInv.length} items · ${fmtCurrency(totalVal)}</span></div><div class="toc-item"><div class="tnum">2</div><span class="tl">Low Stock / Reorder Report</span><span class="ts">${needReorder.length} items need reorder</span></div><div class="toc-item"><div class="tnum">3</div><span class="tl">Stock Movement Summary</span><span class="ts">${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</span></div></div><div class="summary"><div class="chip"><div class="chip-val">${allInv.length}</div><div class="chip-label">Total Items</div></div><div class="chip green"><div class="chip-val">${onStock}</div><div class="chip-label">On Stock</div></div><div class="chip orange"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip green"><div class="chip-val">${fmtCurrency(totalVal)}</div><div class="chip-label">Stock Value</div></div></div><div class="sec">1 · Monthly Ending Inventory (${allInv.length} items)</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Stock</th><th>Unit</th><th>Reserve</th><th>Available</th><th>Condition</th><th>Status</th><th>Notes</th></tr></thead><tbody>${buildInventoryRows(allInv) || '<tr><td colspan="9" style="text-align:center;padding:16px;color:#94a3b8">No items.</td></tr>'}</tbody></table><div class="sec pb">2 · Low Stock / Reorder Report (${needReorder.length} items)</div><div class="summary"><div class="chip orange"><div class="chip-val">${needReorder.length}</div><div class="chip-label">Need Reorder</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div></div><table><thead><tr><th>Category</th><th>Product Code</th><th>Current Stock</th><th>Unit</th><th>Condition</th><th>Notes</th><th>Status</th></tr></thead><tbody>${reorderRows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">All items sufficiently stocked.</td></tr>'}</tbody></table><div class="sec pb">3 · Stock Movement Summary (${fmtDate(dateFrom)} — ${fmtDate(dateTo)})</div><div class="summary"><div class="chip"><div class="chip-val">${movData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">Stock IN (Arrived)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Stock OUT (Delivered)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div><table><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>Stock IN (Arrived)</th><th>Stock OUT (Delivered)</th><th>Net</th></tr></thead><tbody>${movRows || '<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>${printFooter('Complete Inventory Report')}<script>window.onload=()=>window.print()<\/script></body></html>`);
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VICMIS — Complete Inventory Report</title><style>${PRINT_CSS}</style></head><body>${printHeader('Complete Inventory Report')}<div class="cover"><h1>📦 Complete Inventory Report</h1><p>Vision International Construction OPC · VICMIS</p><p>All Inventory Sub-Reports Combined</p><div class="period">Period: ${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</div></div><div style="margin-bottom:24px"><div class="toc-item"><div class="tnum">1</div><span class="tl">Monthly Ending Inventory</span><span class="ts">${allInv.length} items · ${formatCurrencyValue(grandTotalValue)}</span></div><div class="toc-item"><div class="tnum">2</div><span class="tl">Low Stock / Reorder Report</span><span class="ts">${needReorder.length} items need reorder</span></div><div class="toc-item"><div class="tnum">3</div><span class="tl">Stock Movement Summary</span><span class="ts">${fmtDate(dateFrom)} — ${fmtDate(dateTo)}</span></div></div><div class="summary"><div class="chip"><div class="chip-val">${allInv.length}</div><div class="chip-label">Total Items</div></div><div class="chip green"><div class="chip-val">${onStock}</div><div class="chip-label">On Stock</div></div><div class="chip orange"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip purple"><div class="chip-val">${formatCurrencyValue(grandTotalValue)}</div><div class="chip-label">Total Value (With Stock)</div></div></div><div class="sec">1 · Monthly Ending Inventory (${allInv.length} items)</div><table><thead><tr><th>Category</th><th>Product Code</th><th>Stock</th><th>Unit</th><th>Reserve</th><th>Available</th><th>Condition</th><th>Status</th><th>Notes</th></tr></thead><tbody>${buildInventoryRows(allInv) || '<tr><td colspan="9" style="text-align:center;padding:16px;color:#94a3b8">No items.</td></tr>'}</tbody></table><div class="sec pb">2 · Low Stock / Reorder Report (${needReorder.length} items)</div><div class="summary"><div class="chip orange"><div class="chip-val">${needReorder.length}</div><div class="chip-label">Need Reorder</div></div><div class="chip red"><div class="chip-val">${noStock}</div><div class="chip-label">Out of Stock</div></div><div class="chip"><div class="chip-val">${lowStock}</div><div class="chip-label">Low Stock</div></div></div><tr><thead><tr><th>Category</th><th>Product Code</th><th>Current Stock</th><th>Unit</th><th>Condition</th><th>Notes</th><th>Status</th></tr></thead><tbody>${reorderRows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">All items sufficiently stocked.</td></tr>'}</tbody></table><div class="sec pb">3 · Stock Movement Summary (${fmtDate(dateFrom)} — ${fmtDate(dateTo)})</div><div class="summary"><div class="chip"><div class="chip-val">${movData.length}</div><div class="chip-label">Products</div></div><div class="chip green"><div class="chip-val">${fmt(tIn)}</div><div class="chip-label">Stock IN (Arrived)</div></div><div class="chip red"><div class="chip-val">${fmt(tOut)}</div><div class="chip-label">Stock OUT (Delivered)</div></div><div class="chip"><div class="chip-val">${fmt(tIn - tOut)}</div><div class="chip-label">Net Movement</div></div></div><tr><thead><tr><th>Category</th><th>Product Code</th><th>Unit</th><th>Stock IN (Arrived)</th><th>Stock OUT (Delivered)</th><th>Net</th></tr></thead><tbody>${movRows || '<tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8">No movement in period.</td></tr>'}</tbody></table>${printFooter('Complete Inventory Report')}<script>window.onload=()=>window.print()<\/script></body></html>`);
       win.document.close();
     } catch (err) {
       console.error(err);
