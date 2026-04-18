@@ -221,7 +221,7 @@
 .contacted              { background: #dcfce7; color: #166534; }
 .for-presentation       { background: #dbeafe; color: #1e40af; }
 .ready-for-creating-project { background: #fef9c3; color: #713f12; }
-.project-created        { background: #ede9fe; color: #4c1d95; }
+.project-created        { background: #ede9fe; color: #C20100; }
 
 /* Lead Body */
 .lead-body {
@@ -876,7 +876,7 @@
 /* ============================================================
    CONVERTED CARD — Project Stage Strip
    ============================================================ */
-.converted-card { border-top: 3px solid #7c3aed; }
+.converted-card { border-top: 3px solid #C20100; }
 
 .project-status-strip {
   display: flex; justify-content: space-between; align-items: center;
