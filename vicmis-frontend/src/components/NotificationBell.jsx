@@ -5,10 +5,8 @@ import './NotificationBell.css';
 const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen]               = useState(false);
-    const token = sessionStorage.getItem('token');
 
     const fetchNotifications = async () => {
-        if (!token) return;
         try {
             const res = await api.get('/notifications');
             setNotifications(res.data);
@@ -21,7 +19,7 @@ const NotificationBell = () => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
-    }, [token]);
+    }, []); // 👈 empty dependency array, no token needed
 
     const handleNotificationClick = async (notif) => {
         setIsOpen(false);
@@ -52,7 +50,6 @@ const NotificationBell = () => {
         }
     };
 
-    // Helper flags
     const isRejected  = (msg) => msg?.includes('REJECTED');
     const isUrgent    = (msg) => msg?.includes('Approval Needed') || msg?.includes('Action Required');
     const isMaterial  = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
@@ -79,8 +76,6 @@ const NotificationBell = () => {
 
     return (
         <div className="notif-wrapper">
-
-            {/* Bell button */}
             <button onClick={() => setIsOpen(!isOpen)} className="notif-button">
                 <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"
@@ -91,11 +86,8 @@ const NotificationBell = () => {
                 )}
             </button>
 
-            {/* Dropdown */}
             {isOpen && (
                 <div className="notif-dropdown">
-
-                    {/* Header */}
                     <div className="notif-header">
                         <span>Alerts & Updates</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -119,7 +111,6 @@ const NotificationBell = () => {
                         </div>
                     </div>
 
-                    {/* Body */}
                     <div className="notif-body">
                         {notifications.length === 0 ? (
                             <div className="notif-empty">You're all caught up! 🎉</div>
@@ -141,7 +132,6 @@ const NotificationBell = () => {
                             ))
                         )}
                     </div>
-
                 </div>
             )}
         </div>
