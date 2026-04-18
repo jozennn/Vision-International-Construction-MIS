@@ -1,43 +1,65 @@
 <?php
-// app/Http/Controllers/IncomingShipmentController.php
+// app/Http/Controllers/LogisticsController.php
 
 namespace App\Http\Controllers;
 
+use App\Models\Logistics;
+use App\Models\WarehouseInventory;
+use App\Models\MaterialRequest;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Models\Shipment;
-use App\Models\ShipmentProject;
-use App\Models\ShipmentReport;
-use App\Models\WarehouseInventory;
-use App\Models\AppNotification;
 use Illuminate\Support\Facades\DB;
 
-class IncomingShipmentController extends Controller
+class LogisticsController extends Controller
 {
-    // ─── GET /api/inventory/shipments ─────────────────────────────────────────
-    public function getShipments(Request $request): JsonResponse
+    // =========================================================================
+    // GET /api/inventory/logistics
+    // =========================================================================
+    public function index(Request $request): JsonResponse
     {
-        $query = Shipment::with('projects');
-
-        // Filter for trashed (bin) items
+        // ── FIX: SoftDeletes trait already appends `deleted_at IS NULL`
+        //   automatically via its global scope. Calling ->whereNull('deleted_at')
+        //   on top of that creates a conflicting/duplicate condition.
+        //   Use withoutTrashed() for active records and onlyTrashed() for the bin.
+        // ─────────────────────────────────────────────────────────────────────
         if ($request->has('trashed') && $request->trashed === 'true') {
-            $query->onlyTrashed();
+            $query = Logistics::onlyTrashed();
         } else {
-            $query->whereNull('deleted_at');
+            // withoutTrashed() is explicit and safe — equivalent to the
+            // SoftDeletes global scope but avoids double-condition conflicts
+            $query = Logistics::withoutTrashed();
         }
 
-        // Apply purpose filter
-        if ($request->filled('purpose') && $request->purpose !== 'all') {
-            $query->where('shipment_purpose', $request->purpose);
-        }
-
-        // Apply search
         if ($request->filled('search')) {
-            $query->where('shipment_number', 'like', '%' . $request->search . '%');
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('product_category', 'like', "%{$s}%")
+                  ->orWhere('product_code',     'like', "%{$s}%")
+                  ->orWhere('project_name',     'like', "%{$s}%")
+                  ->orWhere('driver_name',      'like', "%{$s}%")
+                  ->orWhere('destination',      'like', "%{$s}%");
+            });
         }
 
-        $perPage   = $request->get('per_page', 10);
-        $paginated = $query->latest()->paginate($perPage);
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('type') && $request->type !== 'all') {
+            $query->where('is_consumable', $request->type === 'consumable');
+        }
+
+        // ── FIX: Allow any per_page value including 9999 (used by dashboard
+        //   to fetch all records for count summaries). Old code only allowed
+        //   [10, 25, 50] and silently fell back to 10, causing the dashboard
+        //   counts to be wrong and triggering unexpected behaviour.
+        // ─────────────────────────────────────────────────────────────────────
+        $perPage = (int) $request->get('per_page', 10);
+        if ($perPage < 1)     $perPage = 10;
+        if ($perPage > 9999)  $perPage = 9999;
+
+        $paginated = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'data'         => $paginated->items(),
@@ -50,7 +72,9 @@ class IncomingShipmentController extends Controller
         ]);
     }
 
-    // ─── GET /api/inventory/shipments/meta ────────────────────────────────────
+    // =========================================================================
+    // GET /api/inventory/logistics/meta
+    // =========================================================================
     public function meta(): JsonResponse
     {
         $categories = WarehouseInventory::select('product_category')
@@ -58,299 +82,241 @@ class IncomingShipmentController extends Controller
             ->orderBy('product_category')
             ->pluck('product_category');
 
-        $codesByCategory = WarehouseInventory::select('product_category', 'product_code', 'unit')
+        $products = WarehouseInventory::select(
+                'product_category',
+                'product_code',
+                'availability',
+                'current_stock',
+                'is_consumable'
+            )
             ->orderBy('product_category')
             ->orderBy('product_code')
             ->get()
-            ->groupBy('product_category')
-            ->map(fn($items) => $items->map(fn($i) => [
-                'product_code' => $i->product_code,
-                'unit'         => $i->unit,
-            ])->values());
+            ->groupBy('product_category');
 
         return response()->json([
-            'categories'        => $categories,
-            'codes_by_category' => $codesByCategory,
+            'categories' => $categories,
+            'products'   => $products,
         ]);
     }
 
-    // ─── POST /api/inventory/shipments ────────────────────────────────────────
-    public function storeShipment(Request $request): JsonResponse
+    // =========================================================================
+    // POST /api/inventory/logistics
+    // =========================================================================
+    public function store(Request $request): JsonResponse
     {
-        $validator = validator($request->all(), [
-            'shipment_number'             => 'required|unique:shipments',
-            'origin_type'                 => 'required|string',
-            'shipment_purpose'            => 'required|in:RESERVE_FOR_PROJECT,NEW_STOCK',
-            'projects'                    => 'required|array|min:1',
-            'projects.*.product_category' => 'required|string',
-            'projects.*.product_code'     => 'required|string',
-            'projects.*.quantity'         => 'nullable|integer|min:0',
-            'projects.*.unit'             => 'nullable|string',
-            'container_type'              => 'nullable|string',
-            'status'                      => 'nullable|string',
-            'location'                    => 'nullable|string',
-            'shipment_status'             => 'nullable|string',
+        $validated = $request->validate([
+            'trucking_service' => 'required|string|max:255',
+            'product_category' => 'required|string|max:255',
+            'product_code'     => 'required|string|max:255',
+            'is_consumable'    => 'boolean',
+            'project_name'     => 'required|string|max:255',
+            'driver_name'      => 'required|string|max:255',
+            'destination'      => 'required|string|max:255',
+            'date_of_delivery' => 'required|date',
+            'quantity'         => 'required|integer|min:1',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
+        $validated['status'] = 'In Transit';
 
-        if ($request->shipment_purpose === 'RESERVE_FOR_PROJECT') {
-            $projectValidator = validator($request->all(), [
-                'projects.*.project_name' => 'required|string',
-                'projects.*.coverage_sqm' => 'nullable|numeric|min:0',
-            ]);
+        DB::transaction(function () use ($validated) {
+            $item = WarehouseInventory::where('product_category', $validated['product_category'])
+                ->where('product_code', $validated['product_code'])
+                ->first();
 
-            if ($projectValidator->fails()) {
-                return response()->json([
-                    'message' => 'Project details are required for Reserve shipments',
-                    'errors'  => $projectValidator->errors(),
-                ], 422);
-            }
-        }
-
-        return DB::transaction(function () use ($request) {
-            $shipment = Shipment::create([
-                'origin_type'        => $request->origin_type,
-                'shipment_purpose'   => $request->shipment_purpose,
-                'shipment_number'    => $request->shipment_number,
-                'container_type'     => $request->container_type,
-                'status'             => $request->status ?? 'ONGOING PRODUCTION',
-                'location'           => $request->location,
-                'shipment_status'    => $request->shipment_status ?? 'WAITING',
-                'tentative_arrival'  => null,
-                'added_to_inventory' => false,
-            ]);
-
-            foreach ($request->projects as $proj) {
-                $shipment->projects()->create([
-                    'project_name'     => $proj['project_name']  ?? null,
-                    'product_category' => $proj['product_category'],
-                    'product_code'     => $proj['product_code'],
-                    'unit'             => $proj['unit']           ?? null,
-                    'quantity'         => $proj['quantity']       ?? 0,
-                    'coverage_sqm'     => $proj['coverage_sqm']  ?? 0,
+            if ($item) {
+                $newStock = max(0, $item->current_stock - $validated['quantity']);
+                $item->update([
+                    'current_stock' => $newStock,
+                    'delivery_out'  => $item->delivery_out + $validated['quantity'],
+                    'availability'  => WarehouseInventory::deriveAvailability($newStock),
                 ]);
             }
 
-            // ── Notify Logistics of the new incoming shipment ──────────────────
-            $purposeLabel = $request->shipment_purpose === 'NEW_STOCK'
-                ? 'New Stock'
-                : 'Reserve for Project';
+            Logistics::create($validated);
+        });
 
-            $itemCount    = count($request->projects);
-            $originLabel  = $request->origin_type === 'INTERNATIONAL' ? 'International' : 'Local';
+        return response()->json(['message' => 'Delivery scheduled successfully.'], 201);
+    }
 
-            AppNotification::create([
-                'target_user_id'    => null,
-                'target_department' => 'Logistics',
-                'target_role'       => null,
-                'project_id'        => null,
-                'message'           => "🚢 New Incoming Shipment: \"{$request->shipment_number}\" registered"
-                                     . " — {$purposeLabel}, {$originLabel}, {$itemCount} item"
-                                     . ($itemCount !== 1 ? 's' : '') . ". Awaiting arrival.",
+    // =========================================================================
+    // PATCH /api/inventory/logistics/{id}/delivered
+    // =========================================================================
+    public function markDelivered(int $id): JsonResponse
+    {
+        $delivery = Logistics::findOrFail($id);
+
+        abort_if($delivery->status === 'Delivered', 422, 'Already marked as delivered.');
+
+        DB::transaction(function () use ($delivery) {
+
+            $delivery->update([
+                'status'         => 'Delivered',
+                'date_delivered' => now(),
             ]);
 
-            return response()->json([
-                'message'  => 'Shipment registered successfully',
-                'shipment' => $shipment->load('projects'),
-            ], 201);
-        });
-    }
+            $materialRequest = $delivery->material_request_id
+                ? MaterialRequest::find($delivery->material_request_id)
+                : null;
 
-    // ─── PUT /api/inventory/shipments/{id} ────────────────────────────────────
-    public function updateShipment(Request $request, $id): JsonResponse
-    {
-        $shipment = Shipment::withTrashed()->findOrFail($id);
+            $projectId = $materialRequest?->project_id
+                ?? Project::where('project_name', $delivery->project_name)->value('id');
 
-        $shipment->update($request->only([
-            'status',
-            'location',
-            'tentative_arrival',
-            'shipment_status',
-        ]));
+            if ($projectId) {
+                $project     = Project::with('materials')->find($projectId);
+                $matTracking = $project?->materials;
 
-        return response()->json($shipment->load('projects'));
-    }
-
-    // ─── POST /api/inventory/shipments/{id}/add-to-inventory ──────────────────
-    public function addToInventory(Request $request, $id): JsonResponse
-    {
-        $shipment = Shipment::with('projects')->findOrFail($id);
-
-        if ($shipment->added_to_inventory) {
-            return response()->json(['message' => 'Shipment already added to inventory.'], 422);
-        }
-
-        if ($shipment->shipment_status !== 'ARRIVED') {
-            return response()->json(['message' => 'Shipment must be ARRIVED before adding to inventory.'], 422);
-        }
-
-        return DB::transaction(function () use ($shipment) {
-            $isReserve = $shipment->shipment_purpose === 'RESERVE_FOR_PROJECT';
-
-            foreach ($shipment->projects as $proj) {
-                $qty      = (int) ($proj->quantity ?? 0);
-                $category = $proj->product_category;
-                $code     = $proj->product_code;
-                $unit     = $proj->unit ?? 'Pcs';
-
-                $inventory = WarehouseInventory::where('product_category', $category)
-                    ->where('product_code', $code)
-                    ->first();
-
-                if ($inventory) {
-                    $newStock   = $inventory->current_stock + $qty;
-                    $newReserve = $isReserve
-                        ? ($inventory->reserve ?? 0) + $qty
-                        : ($inventory->reserve ?? 0);
-
-                    $inventory->update([
-                        'current_stock' => $newStock,
-                        'reserve'       => $newReserve,
-                        'availability'  => WarehouseInventory::deriveAvailability($newStock),
-                    ]);
-                } else {
-                    $isConsumable = strtoupper($category) === 'CONSUMABLES';
-
-                    WarehouseInventory::create([
-                        'product_category' => $category,
-                        'product_code'     => $code,
-                        'unit'             => $unit,
-                        'current_stock'    => $qty,
-                        'reserve'          => $isReserve ? $qty : 0,
-                        'delivery_in'      => 0,
-                        'delivery_out'     => 0,
-                        'return_out'       => 0,
-                        'return_in'        => 0,
-                        'condition'        => 'Good',
-                        'is_consumable'    => $isConsumable,
-                        'availability'     => WarehouseInventory::deriveAvailability($qty),
-                    ]);
+                $existingItems = [];
+                if ($matTracking && $matTracking->material_items) {
+                    $decoded = is_string($matTracking->material_items)
+                        ? json_decode($matTracking->material_items, true)
+                        : $matTracking->material_items;
+                    $existingItems = is_array($decoded) ? $decoded : [];
                 }
+
+                $today   = now()->toDateString();
+                $newRows = [];
+
+                if ($materialRequest) {
+                    $items = $materialRequest->items;
+
+                    foreach ($items as $item) {
+                        $productCode     = $item['product_code']     ?? null;
+                        $productCategory = $item['product_category'] ?? null;
+
+                        $inv = null;
+                        if (!empty($productCode)) {
+                            $query = WarehouseInventory::where('product_code', $productCode);
+                            if (!empty($productCategory)) {
+                                $query->where('product_category', $productCategory);
+                            }
+                            $inv = $query->first();
+                        }
+
+                        $newRows[] = [
+                            'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                            'boqKey'           => $productCode,
+                            'name'             => $productCode ?: $item['description'],
+                            'description'      => $item['description'],
+                            'product_category' => $productCategory ?: ($inv->product_category ?? ''),
+                            'unit'             => $item['unit'] ?? 'Pcs',
+                            'deliveries'       => [
+                                [
+                                    'date' => $delivery->date_of_delivery ?? $today,
+                                    'qty'  => (int) $item['requested_qty'],
+                                ]
+                            ],
+                            'installed'        => [],
+                            'remarks'          => $item['remarks'] ?? 'Auto-added from material request delivery',
+                            'is_new_arrival'   => true,
+                            'logistics_id'     => $delivery->id,
+                        ];
+                    }
+
+                    $materialRequest->update(['status' => 'delivered']);
+
+                } else {
+                    $inv = WarehouseInventory::where('product_code', $delivery->product_code)
+                        ->where('product_category', $delivery->product_category)
+                        ->first();
+
+                    $newRows[] = [
+                        'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
+                        'boqKey'           => $delivery->product_code,
+                        'name'             => $delivery->product_code,
+                        'description'      => null,
+                        'product_category' => $delivery->product_category ?: ($inv->product_category ?? ''),
+                        'unit'             => 'Pcs',
+                        'deliveries'       => [
+                            [
+                                'date' => $delivery->date_of_delivery ?? $today,
+                                'qty'  => (int) $delivery->quantity,
+                            ]
+                        ],
+                        'installed'        => [],
+                        'remarks'          => 'Auto-added from manual delivery',
+                        'is_new_arrival'   => true,
+                        'logistics_id'     => $delivery->id,
+                    ];
+                }
+
+                $mergedItems = array_merge($existingItems, $newRows);
+
+                if ($project) {
+                    $project->materials()->updateOrCreate(
+                        ['project_id' => $projectId],
+                        ['material_items' => json_encode($mergedItems)]
+                    );
+                }
+
+                $projectName = $materialRequest?->project_name ?? $delivery->project_name;
+
+                \App\Models\AppNotification::create([
+                    'target_department' => 'Engineering',
+                    'target_role'       => null,
+                    'project_id'        => $projectId,
+                    'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals."
+                                         . " Check Materials Monitoring.",
+                ]);
             }
 
-            $shipment->update(['added_to_inventory' => true]);
-
-            return response()->json([
-                'message'  => 'Shipment successfully added to inventory.',
-                'shipment' => $shipment->fresh('projects'),
-            ]);
+            if (!$materialRequest && $delivery->product_code) {
+                $this->decrementStock($delivery->product_code, $delivery->quantity ?? 1);
+            }
         });
-    }
-
-    // ─── PATCH /api/inventory/shipments/{id}/receive ──────────────────────────
-    public function markAsReceived(Request $request, $id): JsonResponse
-    {
-        $shipment = Shipment::findOrFail($id);
-
-        $shipment->update([
-            'shipment_status' => 'ARRIVED',
-            'status'          => 'ON STOCK',
-            'location'        => 'WAREHOUSE',
-        ]);
-
-        // ── Notify Logistics that a shipment has physically arrived ───────────
-        $itemCount = $shipment->projects()->count();
-
-        AppNotification::create([
-            'target_user_id'    => null,
-            'target_department' => 'Logistics',
-            'target_role'       => null,
-            'project_id'        => null,
-            'message'           => "📦 Shipment Arrived: \"{$shipment->shipment_number}\" has been marked as received"
-                                 . " ({$itemCount} item" . ($itemCount !== 1 ? 's' : '') . ")."
-                                 . " Ready for inventory verification.",
-        ]);
 
         return response()->json([
-            'message'  => 'Shipment marked as received.',
-            'shipment' => $shipment->load('projects'),
+            'message' => $delivery->material_request_id
+                ? 'Marked as delivered. Materials have been added to project monitoring.'
+                : 'Marked as delivered. Stock updated and materials added to project monitoring.',
+            'data'    => $delivery->fresh(),
         ]);
     }
 
-    // ─── DELETE /api/inventory/shipments/{id} (Soft Delete) ───────────────────
-    public function deleteShipment($id): JsonResponse
+    // =========================================================================
+    // DELETE /api/inventory/logistics/{id} (Soft Delete)
+    // =========================================================================
+    public function destroy(int $id): JsonResponse
     {
-        $shipment = Shipment::findOrFail($id);
-        $shipment->delete();
-        return response()->json(['message' => 'Shipment moved to bin successfully.']);
+        $delivery = Logistics::findOrFail($id);
+        $delivery->delete();
+        return response()->json(['message' => 'Delivery moved to bin successfully.']);
     }
 
-    // ─── POST /api/inventory/shipments/{id}/restore ───────────────────────────
-    public function restoreShipment($id): JsonResponse
+    // =========================================================================
+    // POST /api/inventory/logistics/{id}/restore
+    // =========================================================================
+    public function restore(int $id): JsonResponse
     {
-        $shipment = Shipment::onlyTrashed()->findOrFail($id);
-        $shipment->restore();
-        return response()->json(['message' => 'Shipment restored successfully.']);
+        $delivery = Logistics::onlyTrashed()->findOrFail($id);
+        $delivery->restore();
+        return response()->json(['message' => 'Delivery restored successfully.']);
     }
 
-    // ─── DELETE /api/inventory/shipments/{id}/force (Permanent Delete) ────────
-    public function forceDeleteShipment($id): JsonResponse
+    // =========================================================================
+    // DELETE /api/inventory/logistics/{id}/force (Permanent Delete)
+    // =========================================================================
+    public function forceDelete(int $id): JsonResponse
     {
-        $shipment = Shipment::onlyTrashed()->findOrFail($id);
-
-        // Delete related projects first
-        $shipment->projects()->delete();
-        $shipment->forceDelete();
-
-        return response()->json(['message' => 'Shipment permanently deleted.']);
+        $delivery = Logistics::onlyTrashed()->findOrFail($id);
+        $delivery->forceDelete();
+        return response()->json(['message' => 'Delivery permanently deleted.']);
     }
 
-    // ─── POST /api/inventory/shipments/report ─────────────────────────────────
-    public function storeReport(Request $request): JsonResponse
+    // =========================================================================
+    // PRIVATE HELPER
+    // =========================================================================
+    private function decrementStock(string $productCode, float $qty): void
     {
-        $validator = validator($request->all(), [
-            'shipment_id'               => 'required|exists:shipments,id',
-            'shipment_number'           => 'required|string',
-            'items'                     => 'required|array|min:1',
-            'items.*.product_category'  => 'required|string',
-            'items.*.product_code'      => 'required|string',
-            'items.*.issue'             => 'required|string|max:500',
-            'items.*.condition'         => 'required|string',
-            'items.*.quantity_affected' => 'required|integer|min:1',
+        $inv = WarehouseInventory::where('product_code', $productCode)->first();
+        if (!$inv) return;
+
+        $newStock = max(0, $inv->current_stock - $qty);
+
+        $inv->update([
+            'current_stock' => $newStock,
+            'delivery_out'  => ($inv->delivery_out ?? 0) + $qty,
+            'availability'  => WarehouseInventory::deriveAvailability($newStock),
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
-
-        $report = ShipmentReport::create([
-            'shipment_id'     => $request->shipment_id,
-            'shipment_number' => $request->shipment_number,
-            'items'           => json_encode($request->items),
-            'filed_by'        => auth()->id() ?? null,
-        ]);
-
-        return response()->json([
-            'message' => 'Report filed successfully.',
-            'report'  => $this->formatReport($report),
-        ], 201);
-    }
-
-    // ─── GET /api/inventory/shipments/reports ─────────────────────────────────
-    public function getReports(): JsonResponse
-    {
-        $reports = ShipmentReport::latest()->get()->map(fn($r) => $this->formatReport($r));
-        return response()->json($reports);
-    }
-
-    // ─── Helper ───────────────────────────────────────────────────────────────
-    private function formatReport(ShipmentReport $r): array
-    {
-        return [
-            'id'              => $r->id,
-            'shipment_id'     => $r->shipment_id,
-            'shipment_number' => $r->shipment_number,
-            'items'           => is_string($r->items) ? json_decode($r->items, true) : $r->items,
-            'created_at'      => $r->created_at?->toISOString(),
-        ];
     }
 }
