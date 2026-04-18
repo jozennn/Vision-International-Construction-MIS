@@ -128,7 +128,7 @@
    
    /* Inactive Badge Colors */
    .pm-tab-btn[data-tab="active"] .pm-tab-badge { background: #ef4444; } 
-   .pm-tab-btn[data-tab="completed"] .pm-tab-badge { background: #8b5cf6; } 
+   .pm-tab-btn[data-tab="completed"] .pm-tab-badge { background: #C20100; } 
    .pm-tab-btn[data-tab="archived"] .pm-tab-badge { background: #9ca3af; } 
    
    /* Active Badge Color Override */
@@ -228,7 +228,7 @@
    .pm-card-created-tag {
      font-size: 10px;
      font-weight: 800;
-     color: #6d28d9;
+     color: #C20100;
      background-color: #f3e8ff;
      padding: 4px 10px;
      border-radius: 4px;
