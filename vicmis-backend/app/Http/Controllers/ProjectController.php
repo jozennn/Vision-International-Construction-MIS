@@ -64,6 +64,7 @@ class ProjectController extends Controller
     private function createNotification($dept, $role, $projectId, $message): void
     {
         AppNotification::create([
+            'target_user_id'    => null, // 👈 add this
             'target_department' => $dept,
             'target_role'       => $role,
             'project_id'        => $projectId,
@@ -71,34 +72,122 @@ class ProjectController extends Controller
         ]);
     }
 
-    private function notifyNextPhase(string $status, Project $project): void
+    private function notifyProjectUsers(Project $project, string $message, array $targets = []): void
+{
+    // Manager/admin — always notify by role (no single user ID)
+    if (in_array('manager', $targets)) {
+        $this->createNotification('Management', 'manager', $project->id, $message);
+    }
+
+    // Engineering head — notify by role within dept
+    if (in_array('eng_head', $targets)) {
+        $this->createNotification('Engineering', 'dept_head', $project->id, $message);
+    }
+
+    if (in_array('sales_head', $targets)) {
+    $this->createNotification('Sales', 'dept_head', $project->id, $message);
+    }
+
+    // Logistics — dept-wide notification
+    if (in_array('logistics', $targets)) {
+        $this->createNotification('Logistics', null, $project->id, $message);
+    }
+
+    // Assigned engineer(s) — by user ID, from assignments table
+    if (in_array('engineer', $targets)) {
+        $engineerIds = $project->assignments()
+            ->whereIn('role', ['lead_engineer', 'support_engineer'])
+            ->whereNull('removed_at')
+            ->pluck('user_id');
+
+        foreach ($engineerIds as $uid) {
+            AppNotification::create([
+                'target_user_id'    => $uid,
+                'target_department' => null,
+                'target_role'       => null,
+                'project_id'        => $project->id,
+                'message'           => $message,
+            ]);
+        }
+    }
+
+    // Sales rep (project creator)
+    if (in_array('sales', $targets)) {
+        $salesId = $project->created_by
+            ?? optional($project->lead)->sales_rep_id;
+
+        if ($salesId) {
+            AppNotification::create([
+                'target_user_id'    => $salesId,
+                'target_department' => null,
+                'target_role'       => null,
+                'project_id'        => $project->id,
+                'message'           => $message,
+            ]);
+        }
+    }
+}
+
+   private function notifyNextPhase(string $status, Project $project): void
 {
     $msg = "Action Required: '{$project->project_name}' has moved to {$status}.";
 
     switch ($status) {
+
         case 'Measurement based on Plan':
         case 'Actual Measurement':
-        case 'Initial Site Inspection':
-        case 'Site Inspection & Project Monitoring':
-        case 'Site Inspection & Quality Checking':
-        case 'Final Site Inspection with the Client':
-        case 'Signing of COC':
-            $this->createNotification('Engineering', null, $project->id, $msg);
+            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
             break;
 
         case 'Pending Head Review':
-        case 'Pending DR Verification':
-        case 'Pending QA Verification':
-            $this->createNotification('Engineering', 'dept_head', $project->id,
-                "Approval Needed: '{$project->project_name}' is awaiting Head Verification.");
+            $this->notifyProjectUsers($project,
+                "Approval Needed: '{$project->project_name}' is awaiting Head Verification.",
+                ['eng_head', 'manager']
+            );
+            break;
+
+        case 'P.O & Work Order':
+            $this->notifyProjectUsers($project,
+                "BOQ Approved: '{$project->project_name}'. Please prepare the P.O & Work Order.",
+                ['sales', 'manager']
+            );
             break;
 
         case 'Pending Work Order Verification':
-            $this->createNotification('Sales', 'dept_head', $project->id,
-                "Approval Needed: '{$project->project_name}' requires Work Order Verification.");
+            $this->notifyProjectUsers($project,
+                "Approval Needed: '{$project->project_name}' requires Work Order Verification.",
+                ['sales', 'sales_head', 'manager']
+            );
+            break;
+
+        case 'Initial Site Inspection':
+            $this->notifyProjectUsers($project, $msg, ['engineer', 'manager']);
             break;
 
         case 'Checking of Delivery of Materials':
+            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
+            break;
+
+        case 'Pending DR Verification':
+            $this->notifyProjectUsers($project,
+                "DR Verification needed: '{$project->project_name}' is awaiting delivery receipt verification.",
+                ['logistics', 'manager']
+            );
+            break;
+
+        case 'Bidding of Project':
+        case 'Awarding of Project':
+            $this->createNotification('Management', null, $project->id, $msg);
+            break;
+
+        case 'Deployment and Orientation of Installers':
+            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'manager']);
+            break;
+
+        case 'Site Inspection & Project Monitoring':
+            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'sales', 'manager']);
+            break;
+
         case 'Request Materials Needed':
             $this->createNotification('Logistics', null, $project->id, $msg);
             break;
@@ -108,17 +197,35 @@ class ProjectController extends Controller
                 "📦 Material Request: '{$project->project_name}' has a pending material request.");
             break;
 
-        case 'Bidding of Project':
-        case 'Awarding of Project':
-            $this->createNotification('Management', null, $project->id, $msg);
-            break;
-
         case 'Request Billing':
         case 'Request Final Billing':
             $this->createNotification('Accounting', 'dept_head', $project->id,
                 "Billing Action Required: '{$project->project_name}' requires payment processing.");
             $this->createNotification('Accounting/Procurement', 'dept_head', $project->id,
                 "Billing Action Required: '{$project->project_name}' requires payment processing.");
+            break;
+
+        case 'Site Inspection & Quality Checking':
+            $this->notifyProjectUsers($project, $msg, ['eng_head', 'manager']);
+            break;
+
+        case 'Pending QA Verification':
+            $this->notifyProjectUsers($project,
+                "QA Approval Needed: '{$project->project_name}' is awaiting Head Verification.",
+                ['eng_head', 'manager']
+            );
+            break;
+
+        case 'Final Site Inspection with the Client':
+        case 'Signing of COC':
+            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
+            break;
+
+        case 'Completed':
+            $this->notifyProjectUsers($project,
+                "✅ Project '{$project->project_name}' has been completed.",
+                ['engineer', 'sales', 'eng_head', 'manager']
+            );
             break;
     }
 }
@@ -129,27 +236,37 @@ class ProjectController extends Controller
 
     public function getNotifications(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (!$user) return response()->json([]);
+    $user = $request->user();
+    if (!$user) return response()->json([]);
 
-        $dept = strtolower($user->dept ?? $user->department ?? '');
-        $role = strtolower($user->role ?? '');
+    $dept   = strtolower($user->dept ?? $user->department ?? '');
+    $role   = strtolower($user->role ?? '');
+    $userId = $user->id; // 👈 was missing
 
-        $notifications = AppNotification::where('is_read', false)
-            ->where(function ($query) use ($dept, $role) {
-                if (in_array($role, ['admin', 'manager'])) return;
+    $notifications = AppNotification::where('is_read', false)
+        ->where(function ($query) use ($dept, $role, $userId) {
 
-                $query->whereRaw('LOWER(target_department) = ?', [$dept])
-                      ->orWhereRaw('? LIKE CONCAT("%", LOWER(target_department), "%")', [$dept])
-                      ->where(function ($q) use ($role) {
-                          $q->whereNull('target_role')
-                            ->orWhereRaw('LOWER(target_role) = ?', [$role]);
-                      });
-            })
-            ->latest()
-            ->get();
+            // Admins/managers see everything
+            if (in_array($role, ['admin', 'manager'])) return;
 
-        return response()->json($notifications);
+            $query
+                // Personal notification (assigned engineer / sales rep)
+                ->where('target_user_id', $userId)
+
+                // OR dept-wide notification
+                ->orWhere(function ($deptQ) use ($dept, $role) {
+                    $deptQ->whereNull('target_user_id') // 👈 don't double-show personal notifs
+                          ->whereRaw('LOWER(target_department) = ?', [$dept])
+                          ->where(function ($roleQ) use ($role) {
+                              $roleQ->whereNull('target_role')
+                                    ->orWhereRaw('LOWER(target_role) = ?', [$role]);
+                          });
+                });
+        })
+        ->latest()
+        ->get();
+
+    return response()->json($notifications);
     }
 
     public function markNotificationRead($id): JsonResponse
