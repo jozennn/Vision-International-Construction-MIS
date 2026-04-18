@@ -38,11 +38,12 @@ const NotificationBell = () => {
     const dropdownRef                       = useRef(null);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    const isRejected  = (msg) => msg?.includes('REJECTED');
-    const isUrgent    = (msg) => msg?.includes('Approval Needed') || msg?.includes('Action Required');
-    const isCompleted = (msg) => msg?.includes('✅');
-    const isMaterial  = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
-    const isBilling   = (msg) => msg?.includes('Billing');
+    const isRejected      = (msg) => msg?.includes('REJECTED');
+    const isUrgent        = (msg) => msg?.includes('Approval Needed') || msg?.includes('Action Required');
+    const isCompleted     = (msg) => msg?.includes('✅');
+    const isMaterial      = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
+    const isBilling       = (msg) => msg?.includes('Billing');
+    const isLeadConverted = (msg) => msg?.includes('Lead Converted'); // 🎉 NEW
 
     const getNotifStyle = (msg, isRead) => {
         if (isRead) return {
@@ -50,21 +51,23 @@ const NotificationBell = () => {
             backgroundColor: '#f8fafc',
             opacity: 0.6,
         };
-        if (isRejected(msg))  return { borderLeft: '3px solid #b91c1c', backgroundColor: '#fef2f2' };
-        if (isUrgent(msg))    return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
-        if (isCompleted(msg)) return { borderLeft: '3px solid #15803d', backgroundColor: '#f0fdf4' };
-        if (isMaterial(msg))  return { borderLeft: '3px solid #0369a1', backgroundColor: '#f0f9ff' };
-        if (isBilling(msg))   return { borderLeft: '3px solid #7c3aed', backgroundColor: '#faf5ff' };
+        if (isRejected(msg))      return { borderLeft: '3px solid #b91c1c', backgroundColor: '#fef2f2' };
+        if (isUrgent(msg))        return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
+        if (isCompleted(msg))     return { borderLeft: '3px solid #15803d', backgroundColor: '#f0fdf4' };
+        if (isMaterial(msg))      return { borderLeft: '3px solid #0369a1', backgroundColor: '#f0f9ff' };
+        if (isBilling(msg))       return { borderLeft: '3px solid #7c3aed', backgroundColor: '#faf5ff' };
+        if (isLeadConverted(msg)) return { borderLeft: '3px solid #059669', backgroundColor: '#ecfdf5' }; // 🎉 NEW
         return { borderLeft: '3px solid #497B97', backgroundColor: '#f8fafc' };
     };
 
     const getNotifIcon = (msg, isRead) => {
-        if (isRead)           return '✓';
-        if (isRejected(msg))  return '⚠️';
-        if (isUrgent(msg))    return '🔴';
-        if (isCompleted(msg)) return '✅';
-        if (isMaterial(msg))  return '📦';
-        if (isBilling(msg))   return '💳';
+        if (isRead)               return '✓';
+        if (isRejected(msg))      return '⚠️';
+        if (isUrgent(msg))        return '🔴';
+        if (isCompleted(msg))     return '✅';
+        if (isMaterial(msg))      return '📦';
+        if (isBilling(msg))       return '💳';
+        if (isLeadConverted(msg)) return '🎉'; // 🎉 NEW
         return '🔔';
     };
 

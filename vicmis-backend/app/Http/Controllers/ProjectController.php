@@ -498,6 +498,13 @@ class ProjectController extends Controller
         Lead::where('id', $request->lead_id)
             ->update(['status' => 'Project Created']);
 
+        $lead = Lead::find($request->lead_id);
+        $salesRepName = optional($lead?->salesRep)->name ?? 'Sales';
+        $this->notifyProjectUsers($project,
+            "🎉 Lead Converted: \"{$project->project_name}\" by {$salesRepName} has been converted into a project.",
+            ['sales_head', 'manager', 'eng_head']
+    );
+
         return response()->json([
             'message' => 'Lead converted to Project!',
             'project' => $project,
