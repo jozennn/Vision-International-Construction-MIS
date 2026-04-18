@@ -235,27 +235,23 @@ class ProjectController extends Controller
     // =========================================================================
 
     public function getNotifications(Request $request): JsonResponse
-    {
+{
     $user = $request->user();
     if (!$user) return response()->json([]);
 
-    $dept   = strtolower($user->dept ?? $user->department ?? '');
+    $dept   = strtolower($user->department ?? ''); // 👈 removed $user->dept
     $role   = strtolower($user->role ?? '');
-    $userId = $user->id; // 👈 was missing
+    $userId = $user->id;
 
     $notifications = AppNotification::where('is_read', false)
         ->where(function ($query) use ($dept, $role, $userId) {
 
-            // Admins/managers see everything
             if (in_array($role, ['admin', 'manager'])) return;
 
             $query
-                // Personal notification (assigned engineer / sales rep)
                 ->where('target_user_id', $userId)
-
-                // OR dept-wide notification
                 ->orWhere(function ($deptQ) use ($dept, $role) {
-                    $deptQ->whereNull('target_user_id') // 👈 don't double-show personal notifs
+                    $deptQ->whereNull('target_user_id')
                           ->whereRaw('LOWER(target_department) = ?', [$dept])
                           ->where(function ($roleQ) use ($role) {
                               $roleQ->whereNull('target_role')
@@ -267,7 +263,7 @@ class ProjectController extends Controller
         ->get();
 
     return response()->json($notifications);
-    }
+}
 
     public function markNotificationRead($id): JsonResponse
     {
@@ -287,7 +283,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Not Authenticated'], 401);
         }
 
-        $dept  = strtolower($user->dept ?? $user->department ?? '');
+        $dept = strtolower($user->department ?? '');
         $role  = strtolower($user->role ?? '');
         $email = strtolower($user->email ?? '');
 
@@ -415,7 +411,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Project not found'], 404);
         }
 
-        $dept  = strtolower($user->dept ?? $user->department ?? '');
+        $dept = strtolower($user->department ?? '');
         $role  = strtolower($user->role ?? '');
         $email = strtolower($user->email ?? '');
 
