@@ -233,3 +233,12 @@
 .notif-toast__close:hover {
     color: #1e293b;
 }
+
+.notif-item--read {
+    cursor: default;
+}
+
+.notif-text--read {
+    color: #94a3b8;
+    font-weight: 500;
+}

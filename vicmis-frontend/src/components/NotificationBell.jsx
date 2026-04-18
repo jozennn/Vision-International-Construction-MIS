@@ -13,19 +13,12 @@ const NotifToast = ({ notif, onClose, onView }) => {
 
     return (
         <div className={`notif-toast ${isRejected ? 'notif-toast--rejected' : ''}`}>
-            <div className="notif-toast__icon">
-                {isRejected ? '⚠️' : '🔔'}
-            </div>
+            <div className="notif-toast__icon">{isRejected ? '⚠️' : '🔔'}</div>
             <div className="notif-toast__body">
-                <p className="notif-toast__title">
-                    {isRejected ? 'Rejected' : 'New Notification'}
-                </p>
+                <p className="notif-toast__title">{isRejected ? 'Rejected' : 'New Notification'}</p>
                 <p className="notif-toast__msg">{notif.message}</p>
                 {notif.project_id && (
-                    <button
-                        className="notif-toast__link"
-                        onClick={() => { onView(notif); onClose(); }}
-                    >
+                    <button className="notif-toast__link" onClick={() => { onView(notif); onClose(); }}>
                         View project →
                     </button>
                 )}
@@ -38,6 +31,7 @@ const NotifToast = ({ notif, onClose, onView }) => {
 // ── Main bell ─────────────────────────────────────────────────────────────────
 const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
+    const [readIds, setReadIds]             = useState(new Set()); // 👈 track read ones locally
     const [isOpen, setIsOpen]               = useState(false);
     const [toasts, setToasts]               = useState([]);
     const prevIdsRef                        = useRef(new Set());
@@ -50,7 +44,12 @@ const NotificationBell = () => {
     const isMaterial  = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
     const isBilling   = (msg) => msg?.includes('Billing');
 
-    const getNotifStyle = (msg) => {
+    const getNotifStyle = (msg, isRead) => {
+        if (isRead) return {
+            borderLeft: '3px solid #cbd5e1',
+            backgroundColor: '#f8fafc',
+            opacity: 0.6,
+        };
         if (isRejected(msg))  return { borderLeft: '3px solid #b91c1c', backgroundColor: '#fef2f2' };
         if (isUrgent(msg))    return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
         if (isCompleted(msg)) return { borderLeft: '3px solid #15803d', backgroundColor: '#f0fdf4' };
@@ -59,7 +58,8 @@ const NotificationBell = () => {
         return { borderLeft: '3px solid #497B97', backgroundColor: '#f8fafc' };
     };
 
-    const getNotifIcon = (msg) => {
+    const getNotifIcon = (msg, isRead) => {
+        if (isRead)           return '✓';
         if (isRejected(msg))  return '⚠️';
         if (isUrgent(msg))    return '🔴';
         if (isCompleted(msg)) return '✅';
@@ -68,7 +68,7 @@ const NotificationBell = () => {
         return '🔔';
     };
 
-    // ── Navigate to project — fires events, App.jsx handles tab switch ────────
+    // ── Navigate to project ───────────────────────────────────────────────────
     const navigateToProject = (notif) => {
         if (!notif.project_id) return;
         sessionStorage.setItem('autoOpenProjectId', notif.project_id);
@@ -77,14 +77,15 @@ const NotificationBell = () => {
         setIsOpen(false);
     };
 
-    // ── Mark single as read ───────────────────────────────────────────────────
+    // ── Mark single as read — stays in list, just grayed ─────────────────────
     const markRead = async (notif) => {
+        if (readIds.has(notif.id)) return; // already read, just navigate
         try {
             await api.post(`/notifications/${notif.id}/read`);
         } catch (err) {
             console.error("Failed to mark as read", err);
         }
-        setNotifications(prev => prev.filter(n => n.id !== notif.id));
+        setReadIds(prev => new Set([...prev, notif.id]));
     };
 
     const handleNotificationClick = async (notif) => {
@@ -96,7 +97,7 @@ const NotificationBell = () => {
     const handleMarkAllRead = async () => {
         try {
             await Promise.all(notifications.map(n => api.post(`/notifications/${n.id}/read`)));
-            setNotifications([]);
+            setReadIds(new Set(notifications.map(n => n.id)));
         } catch (err) {
             console.error("Failed to mark all as read", err);
         }
@@ -143,6 +144,9 @@ const NotificationBell = () => {
     const removeToast = (toastId) =>
         setToasts(prev => prev.filter(t => t.toastId !== toastId));
 
+    // Unread count — excludes locally-read ones
+    const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <>
@@ -165,8 +169,9 @@ const NotificationBell = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"
                             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                     </svg>
-                    {notifications.length > 0 && (
-                        <span className="notif-badge">{notifications.length}</span>
+                    {/* Badge only counts unread */}
+                    {unreadCount > 0 && (
+                        <span className="notif-badge">{unreadCount}</span>
                     )}
                 </button>
 
@@ -176,8 +181,8 @@ const NotificationBell = () => {
                         <div className="notif-header">
                             <span>Alerts & Updates</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span className="notif-header-badge">{notifications.length} New</span>
-                                {notifications.length > 0 && (
+                                <span className="notif-header-badge">{unreadCount} New</span>
+                                {unreadCount > 0 && (
                                     <button className="notif-mark-all" onClick={handleMarkAllRead}>
                                         Mark all read
                                     </button>
@@ -189,21 +194,26 @@ const NotificationBell = () => {
                             {notifications.length === 0 ? (
                                 <div className="notif-empty">You're all caught up! 🎉</div>
                             ) : (
-                                notifications.map(notif => (
-                                    <div
-                                        key={notif.id}
-                                        className="notif-item"
-                                        style={getNotifStyle(notif.message)}
-                                        onClick={() => handleNotificationClick(notif)}
-                                    >
-                                        <p className="notif-text">
-                                            {getNotifIcon(notif.message)} {notif.message}
-                                        </p>
-                                        {notif.project_id && (
-                                            <p className="notif-hint">Click to view project →</p>
-                                        )}
-                                    </div>
-                                ))
+                                notifications.map(notif => {
+                                    const isRead = readIds.has(notif.id);
+                                    return (
+                                        <div
+                                            key={notif.id}
+                                            className={`notif-item ${isRead ? 'notif-item--read' : ''}`}
+                                            style={getNotifStyle(notif.message, isRead)}
+                                            onClick={() => handleNotificationClick(notif)}
+                                        >
+                                            <p className={`notif-text ${isRead ? 'notif-text--read' : ''}`}>
+                                                {getNotifIcon(notif.message, isRead)} {notif.message}
+                                            </p>
+                                            {notif.project_id && (
+                                                <p className="notif-hint">
+                                                    {isRead ? 'Click to view again →' : 'Click to view project →'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
                     </div>
