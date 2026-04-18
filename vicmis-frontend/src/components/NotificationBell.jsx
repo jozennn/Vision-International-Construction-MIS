@@ -9,13 +9,13 @@ const NotifToast = ({ notif, onClose, onView }) => {
         return () => clearTimeout(t);
     }, []);
 
-    const isRejected = notif.message?.includes('REJECTED');
+    const isRejectedMsg = notif.message?.includes('REJECTED') || notif.message?.includes('Rejected');
 
     return (
-        <div className={`notif-toast ${isRejected ? 'notif-toast--rejected' : ''}`}>
-            <div className="notif-toast__icon">{isRejected ? '⚠️' : '🔔'}</div>
+        <div className={`notif-toast ${isRejectedMsg ? 'notif-toast--rejected' : ''}`}>
+            <div className="notif-toast__icon">{isRejectedMsg ? '⚠️' : '🔔'}</div>
             <div className="notif-toast__body">
-                <p className="notif-toast__title">{isRejected ? 'Rejected' : 'New Notification'}</p>
+                <p className="notif-toast__title">{isRejectedMsg ? 'Rejected' : 'New Notification'}</p>
                 <p className="notif-toast__msg">{notif.message}</p>
                 {notif.project_id && (
                     <button className="notif-toast__link" onClick={() => { onView(notif); onClose(); }}>
@@ -37,35 +37,55 @@ const NotificationBell = () => {
     const prevIdsRef                        = useRef(new Set());
     const dropdownRef                       = useRef(null);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    const isRejected      = (msg) => msg?.includes('REJECTED');
+    // ── Message classifiers ───────────────────────────────────────────────────
+    // Each returns true if the message belongs to that category.
+    // Order matters in getNotifStyle/getNotifIcon — more specific first.
+
+    const isRejected      = (msg) => msg?.includes('REJECTED') || msg?.includes('Rejected');
+    const isNoStock       = (msg) => msg?.includes('NO STOCK');
+    const isLowStock      = (msg) => msg?.includes('LOW STOCK');
+    const isReorder       = (msg) => msg?.includes('Reorder') || msg?.includes('reorder');
+    const isDispatched    = (msg) => msg?.includes('Dispatched') || msg?.includes('In Transit');
+    const isShipment      = (msg) => msg?.includes('Shipment') || msg?.includes('🚢');
+    const isMaterial      = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
     const isUrgent        = (msg) => msg?.includes('Approval Needed') || msg?.includes('Action Required');
     const isCompleted     = (msg) => msg?.includes('✅');
-    const isMaterial      = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
     const isBilling       = (msg) => msg?.includes('Billing');
     const isLeadConverted = (msg) => msg?.includes('Lead Converted');
 
+    // ── Style map ─────────────────────────────────────────────────────────────
     const getNotifStyle = (msg, isRead) => {
         if (isRead) return {
-            borderLeft: '3px solid #cbd5e1',
+            borderLeft:      '3px solid #cbd5e1',
             backgroundColor: '#f8fafc',
-            opacity: 0.55,
+            opacity:         0.55,
         };
         if (isRejected(msg))      return { borderLeft: '3px solid #b91c1c', backgroundColor: '#fef2f2' };
+        if (isNoStock(msg))       return { borderLeft: '3px solid #dc2626', backgroundColor: '#fff1f2' };
+        if (isLowStock(msg))      return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
+        if (isReorder(msg))       return { borderLeft: '3px solid #ea580c', backgroundColor: '#fff7ed' };
+        if (isDispatched(msg))    return { borderLeft: '3px solid #2563eb', backgroundColor: '#eff6ff' };
+        if (isShipment(msg))      return { borderLeft: '3px solid #0891b2', backgroundColor: '#ecfeff' };
+        if (isMaterial(msg))      return { borderLeft: '3px solid #0369a1', backgroundColor: '#f0f9ff' };
         if (isUrgent(msg))        return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
         if (isCompleted(msg))     return { borderLeft: '3px solid #15803d', backgroundColor: '#f0fdf4' };
-        if (isMaterial(msg))      return { borderLeft: '3px solid #0369a1', backgroundColor: '#f0f9ff' };
         if (isBilling(msg))       return { borderLeft: '3px solid #7c3aed', backgroundColor: '#faf5ff' };
         if (isLeadConverted(msg)) return { borderLeft: '3px solid #059669', backgroundColor: '#ecfdf5' };
         return { borderLeft: '3px solid #497B97', backgroundColor: '#f8fafc' };
     };
 
+    // ── Icon map ──────────────────────────────────────────────────────────────
     const getNotifIcon = (msg, isRead) => {
         if (isRead)               return '✓';
-        if (isRejected(msg))      return '⚠️';
+        if (isRejected(msg))      return '❌';
+        if (isNoStock(msg))       return '🚨';
+        if (isLowStock(msg))      return '⚠️';
+        if (isReorder(msg))       return '🔄';
+        if (isDispatched(msg))    return '🚚';
+        if (isShipment(msg))      return '🚢';
+        if (isMaterial(msg))      return '📦';
         if (isUrgent(msg))        return '🔴';
         if (isCompleted(msg))     return '✅';
-        if (isMaterial(msg))      return '📦';
         if (isBilling(msg))       return '💳';
         if (isLeadConverted(msg)) return '🎉';
         return '🔔';
@@ -86,9 +106,8 @@ const NotificationBell = () => {
         try {
             await api.post(`/notifications/${notif.id}/read`);
         } catch (err) {
-            console.error("Failed to mark as read", err);
+            console.error('Failed to mark as read', err);
         }
-        // Always update local state regardless of API result
         setReadIds(prev => new Set([...prev, notif.id]));
     };
 
@@ -102,9 +121,8 @@ const NotificationBell = () => {
         try {
             await Promise.all(notifications.map(n => api.post(`/notifications/${n.id}/read`)));
         } catch (err) {
-            console.error("Failed to mark all as read", err);
+            console.error('Failed to mark all as read', err);
         }
-        // Always gray them all out locally regardless of API result
         setReadIds(new Set(notifications.map(n => n.id)));
     };
 
@@ -117,9 +135,7 @@ const NotificationBell = () => {
             // Seed readIds from server-side is_read so read state survives refresh
             setReadIds(prev => {
                 const next = new Set(prev);
-                data.forEach(n => {
-                    if (n.is_read) next.add(n.id);
-                });
+                data.forEach(n => { if (n.is_read) next.add(n.id); });
                 return next;
             });
 
@@ -134,7 +150,7 @@ const NotificationBell = () => {
             prevIdsRef.current = new Set(data.map(n => n.id));
             setNotifications(data);
         } catch (err) {
-            console.error("Failed to fetch notifications", err);
+            console.error('Failed to fetch notifications', err);
         }
     }, []);
 
@@ -159,7 +175,6 @@ const NotificationBell = () => {
     const removeToast = (toastId) =>
         setToasts(prev => prev.filter(t => t.toastId !== toastId));
 
-    // Unread count — excludes locally-read ones
     const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
 
     // ── Render ────────────────────────────────────────────────────────────────

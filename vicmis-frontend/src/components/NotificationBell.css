@@ -94,14 +94,6 @@
     filter: brightness(0.97);
 }
 
-.notif-item.rejected {
-    background-color: #fef2f2;
-}
-
-.notif-item.rejected:hover {
-    background-color: #fee2e2;
-}
-
 /* Read state — grayed out, stays in list */
 .notif-item--read {
     cursor: pointer;
@@ -120,10 +112,6 @@
     margin: 0 0 6px 0;
     line-height: 1.4;
     transition: color 0.4s ease;
-}
-
-.notif-text.rejected-text {
-    color: #b91c1c;
 }
 
 /* Read text — muted */

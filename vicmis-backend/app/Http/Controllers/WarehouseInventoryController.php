@@ -1,9 +1,10 @@
 <?php
-// app/Http/Controllers/WarehouseInventoryController.php - Updated version
+// app/Http/Controllers/WarehouseInventoryController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\WarehouseInventory;
+use App\Models\AppNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -103,6 +104,9 @@ class WarehouseInventoryController extends Controller
         $item->total_after_reserve = $item->total_after_reserve;
         $item->total_stock_value   = $item->total_stock_value;
 
+        // ── Notify Logistics if stock is already low/none on creation ──────────
+        $this->notifyStockAlert($item);
+
         return response()->json(['data' => $item, 'message' => 'Product added successfully.'], 201);
     }
 
@@ -119,6 +123,8 @@ class WarehouseInventoryController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $item = WarehouseInventory::withTrashed()->findOrFail($id);
+
+        $previousAvailability = $item->availability;
 
         $validated = $request->validate([
             'product_category' => 'sometimes|string|max:150',
@@ -145,6 +151,10 @@ class WarehouseInventoryController extends Controller
         $item->update($validated);
         $item->total_after_reserve = $item->total_after_reserve;
         $item->total_stock_value   = $item->total_stock_value;
+
+        // ── Notify Logistics only if availability worsened ─────────────────────
+        // e.g. ON STOCK → LOW STOCK, ON STOCK → NO STOCK, LOW STOCK → NO STOCK
+        $this->notifyStockAlertIfWorsened($item, $previousAvailability);
 
         return response()->json(['data' => $item, 'message' => 'Product updated successfully.']);
     }
@@ -196,5 +206,52 @@ class WarehouseInventoryController extends Controller
             'on_stock'     => $onStock,
             'total_alerts' => $noStock + $lowStock,
         ]);
+    }
+
+    // =========================================================================
+    // PRIVATE HELPERS
+    // =========================================================================
+
+    /**
+     * Fire a Logistics notification whenever a product is LOW STOCK or NO STOCK.
+     * Called on store() — always fires if availability is low/none.
+     */
+    private function notifyStockAlert(WarehouseInventory $item): void
+    {
+        if (!in_array($item->availability, ['LOW STOCK', 'NO STOCK'])) return;
+
+        $icon  = $item->availability === 'NO STOCK' ? '🚨' : '⚠️';
+        $label = $item->availability;
+
+        AppNotification::create([
+            'target_user_id'    => null,
+            'target_department' => 'Logistics',
+            'target_role'       => null,
+            'project_id'        => null,
+            'message'           => "{$icon} {$label}: \"{$item->product_code}\" ({$item->product_category})"
+                                 . " — current stock: {$item->current_stock} {$item->unit}. Please reorder.",
+        ]);
+    }
+
+    /**
+     * Fire a Logistics notification only when availability transitions to a worse state.
+     * Called on update() — avoids duplicate spam when nothing changed.
+     *
+     * Worsening transitions:
+     *   ON STOCK  → LOW STOCK
+     *   ON STOCK  → NO STOCK
+     *   LOW STOCK → NO STOCK
+     */
+    private function notifyStockAlertIfWorsened(WarehouseInventory $item, string $previousAvailability): void
+    {
+        $order = ['ON STOCK' => 2, 'LOW STOCK' => 1, 'NO STOCK' => 0];
+
+        $prev = $order[$previousAvailability] ?? 2;
+        $curr = $order[$item->availability]   ?? 2;
+
+        // Only notify if stock status got worse
+        if ($curr < $prev) {
+            $this->notifyStockAlert($item);
+        }
     }
 }
