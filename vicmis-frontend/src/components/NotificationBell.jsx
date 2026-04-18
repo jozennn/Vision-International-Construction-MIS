@@ -22,7 +22,10 @@ const NotifToast = ({ notif, onClose, onView }) => {
                 </p>
                 <p className="notif-toast__msg">{notif.message}</p>
                 {notif.project_id && (
-                    <button className="notif-toast__link" onClick={() => { onView(notif); onClose(); }}>
+                    <button
+                        className="notif-toast__link"
+                        onClick={() => { onView(notif); onClose(); }}
+                    >
                         View project →
                     </button>
                 )}
@@ -34,11 +37,11 @@ const NotifToast = ({ notif, onClose, onView }) => {
 
 // ── Main bell ─────────────────────────────────────────────────────────────────
 const NotificationBell = () => {
-    const [notifications, setNotifications]   = useState([]);
-    const [isOpen, setIsOpen]                 = useState(false);
-    const [toasts, setToasts]                 = useState([]);
-    const prevIdsRef                          = useRef(new Set());
-    const dropdownRef                         = useRef(null);
+    const [notifications, setNotifications] = useState([]);
+    const [isOpen, setIsOpen]               = useState(false);
+    const [toasts, setToasts]               = useState([]);
+    const prevIdsRef                        = useRef(new Set());
+    const dropdownRef                       = useRef(null);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const isRejected  = (msg) => msg?.includes('REJECTED');
@@ -48,11 +51,11 @@ const NotificationBell = () => {
     const isBilling   = (msg) => msg?.includes('Billing');
 
     const getNotifStyle = (msg) => {
-        if (isRejected(msg))  return { borderLeft: '3px solid #b91c1c',  backgroundColor: '#fef2f2' };
-        if (isUrgent(msg))    return { borderLeft: '3px solid #d97706',  backgroundColor: '#fffbeb' };
-        if (isCompleted(msg)) return { borderLeft: '3px solid #15803d',  backgroundColor: '#f0fdf4' };
-        if (isMaterial(msg))  return { borderLeft: '3px solid #0369a1',  backgroundColor: '#f0f9ff' };
-        if (isBilling(msg))   return { borderLeft: '3px solid #7c3aed',  backgroundColor: '#faf5ff' };
+        if (isRejected(msg))  return { borderLeft: '3px solid #b91c1c', backgroundColor: '#fef2f2' };
+        if (isUrgent(msg))    return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
+        if (isCompleted(msg)) return { borderLeft: '3px solid #15803d', backgroundColor: '#f0fdf4' };
+        if (isMaterial(msg))  return { borderLeft: '3px solid #0369a1', backgroundColor: '#f0f9ff' };
+        if (isBilling(msg))   return { borderLeft: '3px solid #7c3aed', backgroundColor: '#faf5ff' };
         return { borderLeft: '3px solid #497B97', backgroundColor: '#f8fafc' };
     };
 
@@ -65,7 +68,7 @@ const NotificationBell = () => {
         return '🔔';
     };
 
-    // ── Navigate to project ───────────────────────────────────────────────────
+    // ── Navigate to project — fires events, App.jsx handles tab switch ────────
     const navigateToProject = (notif) => {
         if (!notif.project_id) return;
         sessionStorage.setItem('autoOpenProjectId', notif.project_id);
@@ -74,7 +77,7 @@ const NotificationBell = () => {
         setIsOpen(false);
     };
 
-    // ── Mark as read ──────────────────────────────────────────────────────────
+    // ── Mark single as read ───────────────────────────────────────────────────
     const markRead = async (notif) => {
         try {
             await api.post(`/notifications/${notif.id}/read`);
@@ -89,6 +92,7 @@ const NotificationBell = () => {
         navigateToProject(notif);
     };
 
+    // ── Mark all as read ──────────────────────────────────────────────────────
     const handleMarkAllRead = async () => {
         try {
             await Promise.all(notifications.map(n => api.post(`/notifications/${n.id}/read`)));
@@ -98,13 +102,12 @@ const NotificationBell = () => {
         }
     };
 
-    // ── Fetch + detect new ────────────────────────────────────────────────────
+    // ── Fetch + detect new for toasts ─────────────────────────────────────────
     const fetchNotifications = useCallback(async () => {
         try {
             const res  = await api.get('/notifications');
             const data = res.data ?? [];
 
-            // Detect brand-new notifications and show toasts
             const newOnes = data.filter(n => !prevIdsRef.current.has(n.id));
             if (prevIdsRef.current.size > 0 && newOnes.length > 0) {
                 newOnes.forEach(n => {
@@ -126,7 +129,7 @@ const NotificationBell = () => {
         return () => clearInterval(interval);
     }, [fetchNotifications]);
 
-    // ── Close dropdown on outside click ──────────────────────────────────────
+    // ── Close on outside click ────────────────────────────────────────────────
     useEffect(() => {
         const handler = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -137,7 +140,8 @@ const NotificationBell = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const removeToast = (toastId) => setToasts(prev => prev.filter(t => t.toastId !== toastId));
+    const removeToast = (toastId) =>
+        setToasts(prev => prev.filter(t => t.toastId !== toastId));
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
