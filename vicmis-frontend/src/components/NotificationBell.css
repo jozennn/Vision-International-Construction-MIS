@@ -9,7 +9,7 @@
     cursor: pointer;
     position: relative;
     padding: 8px;
-    color: #497B97; /* Vision Blue */
+    color: #497B97;
     transition: color 0.2s ease;
     display: flex;
     align-items: center;
@@ -24,7 +24,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    background-color: #FF1817; /* Vision Red */
+    background-color: #FF1817;
     color: white;
     font-size: 11px;
     font-weight: 900;
@@ -85,12 +85,13 @@
     padding: 16px;
     border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
-    transition: background-color 0.2s;
+    /* Smooth transition when item becomes read */
+    transition: background-color 0.4s ease, opacity 0.4s ease, border-left-color 0.4s ease;
     background-color: white;
 }
 
 .notif-item:hover {
-    background-color: #f8fafc;
+    filter: brightness(0.97);
 }
 
 .notif-item.rejected {
@@ -101,16 +102,34 @@
     background-color: #fee2e2;
 }
 
+/* Read state — grayed out, stays in list */
+.notif-item--read {
+    cursor: pointer;
+    opacity: 0.55;
+}
+
+.notif-item--read:hover {
+    opacity: 0.75;
+    filter: brightness(0.96);
+}
+
 .notif-text {
     font-size: 13px;
     font-weight: 700;
     color: #1e293b;
     margin: 0 0 6px 0;
     line-height: 1.4;
+    transition: color 0.4s ease;
 }
 
 .notif-text.rejected-text {
     color: #b91c1c;
+}
+
+/* Read text — muted */
+.notif-text--read {
+    color: #94a3b8;
+    font-weight: 500;
 }
 
 .notif-hint {
@@ -122,7 +141,7 @@
 
 @keyframes pulse {
     0%, 100% { transform: translate(25%, -25%) scale(1); }
-    50% { transform: translate(25%, -25%) scale(1.1); }
+    50%       { transform: translate(25%, -25%) scale(1.1); }
 }
 
 /* ── Mark all button ─────────────────────────────────────────── */
@@ -232,13 +251,4 @@
 
 .notif-toast__close:hover {
     color: #1e293b;
-}
-
-.notif-item--read {
-    cursor: default;
-}
-
-.notif-text--read {
-    color: #94a3b8;
-    font-weight: 500;
 }
