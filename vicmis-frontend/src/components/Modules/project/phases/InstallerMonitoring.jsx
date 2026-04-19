@@ -5,7 +5,7 @@ import { useInstallerMonitoring, resolveRoster } from '../hooks/useInstallerMoni
 import '../css/InstallerMonitoring.css';
 
 const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
-const prevDateRef = useRef(selectedDate);
+
 // Helper to format date for input fields
 const formatDateForInput = (dateString) => {
     if (!dateString) return '';
@@ -47,6 +47,7 @@ const InstallerMonitoring = ({ project, user }) => {
     const fileMainRef = useRef();
     const file1Ref = useRef();
     const file2Ref = useRef();
+    const prevDateRef = useRef(selectedDate); // ✅ inside component, after selectedDate is defined
 
     const projectName = project?.project_name ?? '';
     const location = project?.location ?? '';
@@ -59,15 +60,15 @@ const InstallerMonitoring = ({ project, user }) => {
     });
 
     // Sync existing photo URLs whenever the server-mapped log updates them.
-    // Also clears pending new-file selections when switching dates.
+    // Does NOT clear staged files — only updates existing URL state.
     useEffect(() => {
-    setExistingPhotoUrl(currentLog.photo_url ?? null);
-    setExistingTeamPhoto1Url(currentLog.team_photo_1_url ?? null);
-    setExistingTeamPhoto2Url(currentLog.team_photo_2_url ?? null);
-}, [currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
+        setExistingPhotoUrl(currentLog.photo_url ?? null);
+        setExistingTeamPhoto1Url(currentLog.team_photo_1_url ?? null);
+        setExistingTeamPhoto2Url(currentLog.team_photo_2_url ?? null);
+    }, [currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
 
-    // Clear staged photos when switching to a different date
-   useEffect(() => {
+    // Clear staged photos ONLY when switching to a different date
+    useEffect(() => {
         if (prevDateRef.current !== selectedDate) {
             setPhotoMain(null);
             setPhoto1(null);
@@ -363,7 +364,6 @@ const InstallerMonitoring = ({ project, user }) => {
 
     if (loading) return <div className="im-loading">⏳ Loading logs...</div>;
 
-    
     return (
         <div className="im-section">
             <div className="im-page-header">
@@ -571,7 +571,6 @@ const InstallerMonitoring = ({ project, user }) => {
                                         onClick={() => {
                                             setPhotoMain(null);
                                             if (fileMainRef.current) fileMainRef.current.value = '';
-                                            // Restore existing URL if it was cleared for replacement
                                             setExistingPhotoUrl(currentLog.photo_url ?? null);
                                         }}
                                         style={{ fontSize: '12px', marginTop: '5px', background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
