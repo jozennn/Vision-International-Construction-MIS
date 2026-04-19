@@ -438,7 +438,7 @@ const AccountingDashboard = ({ user }) => {
         api.get('/inventory/reorder-requests').catch(() => ({ data: [] })),
       ]);
       setDeliveries((delRes.data?.data || delRes.data || []).slice(0, 10));
-      setShipments((shipRes.data || []).slice(0, 10));
+      setShipments((shipRes.data?.data || []).slice(0, 10));
       setReports(reportRes.data || []);
       setReorders(reorderRes.data || []);
     } catch (err) { console.error('Fetch error:', err); }
