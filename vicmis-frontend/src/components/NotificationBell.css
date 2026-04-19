@@ -9,7 +9,7 @@
     cursor: pointer;
     position: relative;
     padding: 8px;
-    color: #497B97; /* Vision Blue */
+    color: #497B97;
     transition: color 0.2s ease;
     display: flex;
     align-items: center;
@@ -24,7 +24,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    background-color: #FF1817; /* Vision Red */
+    background-color: #FF1817;
     color: white;
     font-size: 11px;
     font-weight: 900;
@@ -85,20 +85,24 @@
     padding: 16px;
     border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
-    transition: background-color 0.2s;
+    /* Smooth transition when item becomes read */
+    transition: background-color 0.4s ease, opacity 0.4s ease, border-left-color 0.4s ease;
     background-color: white;
 }
 
 .notif-item:hover {
-    background-color: #f8fafc;
+    filter: brightness(0.97);
 }
 
-.notif-item.rejected {
-    background-color: #fef2f2;
+/* Read state — grayed out, stays in list */
+.notif-item--read {
+    cursor: pointer;
+    opacity: 0.55;
 }
 
-.notif-item.rejected:hover {
-    background-color: #fee2e2;
+.notif-item--read:hover {
+    opacity: 0.75;
+    filter: brightness(0.96);
 }
 
 .notif-text {
@@ -107,10 +111,13 @@
     color: #1e293b;
     margin: 0 0 6px 0;
     line-height: 1.4;
+    transition: color 0.4s ease;
 }
 
-.notif-text.rejected-text {
-    color: #b91c1c;
+/* Read text — muted */
+.notif-text--read {
+    color: #94a3b8;
+    font-weight: 500;
 }
 
 .notif-hint {
@@ -122,5 +129,114 @@
 
 @keyframes pulse {
     0%, 100% { transform: translate(25%, -25%) scale(1); }
-    50% { transform: translate(25%, -25%) scale(1.1); }
+    50%       { transform: translate(25%, -25%) scale(1.1); }
+}
+
+/* ── Mark all button ─────────────────────────────────────────── */
+.notif-mark-all {
+    font-size: 11px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    text-decoration: underline;
+    padding: 0;
+    font-weight: 600;
+}
+
+.notif-mark-all:hover {
+    color: white;
+}
+
+/* ── Toast stack ─────────────────────────────────────────────── */
+.notif-toast-stack {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.notif-toast {
+    pointer-events: all;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border-left: 4px solid #497B97;
+    padding: 14px 16px;
+    width: 320px;
+    animation: toastIn 0.3s ease;
+}
+
+.notif-toast--rejected {
+    border-left-color: #b91c1c;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0);    }
+}
+
+.notif-toast__icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.notif-toast__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-toast__title {
+    font-size: 12px;
+    font-weight: 900;
+    color: #003049;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.notif-toast__msg {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 6px 0;
+    line-height: 1.4;
+}
+
+.notif-toast__link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: #497B97;
+    text-decoration: underline;
+}
+
+.notif-toast__link:hover {
+    color: #003049;
+}
+
+.notif-toast__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 0;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.notif-toast__close:hover {
+    color: #1e293b;
 }

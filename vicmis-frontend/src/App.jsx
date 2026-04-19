@@ -7,7 +7,6 @@ import ControlCenter from './components/Modules/System/ControlCenter.jsx';
 import EngineeringDashboard from './components/Dashboard/Engineering/EngineeringDashboard.jsx';
 import SalesDashboard from './components/Dashboard/Sales/SalesDashboard.jsx';
 import InventoryDashboard from './components/Dashboard/Inventory/InventoryDashboard.jsx';
-import InventoryEmployeeDashboard from './components/Dashboard/Inventory/InventoryEmployeeDashboard.jsx';
 import AccountingDashboard from './components/Dashboard/Accounting/AccountingDashboard.jsx';
 import SuperAdminDashboard from './components/Dashboard/SuperAdmin/SuperAdminDashboard.jsx';
 import ManagerDashboard from './components/Dashboard/ManagerDashboard/ManagerDashboard.jsx';
@@ -27,13 +26,12 @@ const App = () => {
   const [activeSubItem, setActiveSubItem] = useState(null);
   const [projects, setProjects]           = useState([]);
 
+  // ── Restore session on mount ───────────────────────────────────────────────
   useEffect(() => {
     const restoreSession = async () => {
       setSuppressRedirect(true);
-
       try {
         await initCsrf();
-
         try {
           const res = await api.get('/user');
           setUser(res.data);
@@ -41,7 +39,6 @@ const App = () => {
         } catch {
           // Session expired — fall through to refresh
         }
-
         try {
           await initCsrf();
           const res = await api.post('/refresh');
@@ -49,7 +46,6 @@ const App = () => {
         } catch {
           setUser(null);
         }
-
       } catch {
         setUser(null);
       } finally {
@@ -59,6 +55,26 @@ const App = () => {
     };
 
     restoreSession();
+  }, []);
+
+  // ── Notification navigation listeners ─────────────────────────────────────
+  useEffect(() => {
+    const handleSwitchTab = (e) => {
+      setActiveItem(e.detail); // e.g. 'Project'
+    };
+
+    const handleOpenProject = (e) => {
+      sessionStorage.setItem('autoOpenProjectId', e.detail);
+      setActiveItem('Project');
+    };
+
+    window.addEventListener('switch-tab', handleSwitchTab);
+    window.addEventListener('open-project', handleOpenProject);
+
+    return () => {
+      window.removeEventListener('switch-tab', handleSwitchTab);
+      window.removeEventListener('open-project', handleOpenProject);
+    };
   }, []);
 
   const checkAccess = useCallback((moduleName) => {
@@ -108,9 +124,7 @@ const App = () => {
       return <SalesDashboard user={user} projects={projects} />;
 
     if (dept === 'inventory' || dept === 'logistics')
-      return isManagement
-        ? <InventoryDashboard user={user} notifications={notifications} />
-        : <InventoryEmployeeDashboard user={user} />;
+      return <InventoryDashboard user={user} notifications={notifications} />;
 
     return (
       <div className="p-20 text-center bg-white rounded-lg shadow m-6">

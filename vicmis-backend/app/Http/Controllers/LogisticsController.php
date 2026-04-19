@@ -1,5 +1,5 @@
 <?php
-// app/Http/Controllers/LogisticsController.php - Add methods
+// app/Http/Controllers/LogisticsController.php
 
 namespace App\Http\Controllers;
 
@@ -18,13 +18,17 @@ class LogisticsController extends Controller
     // =========================================================================
     public function index(Request $request): JsonResponse
     {
-        $query = Logistics::query();
-        
-        // Filter for trashed (bin) items
+        // ── FIX: SoftDeletes trait already appends `deleted_at IS NULL`
+        //   automatically via its global scope. Calling ->whereNull('deleted_at')
+        //   on top of that creates a conflicting/duplicate condition.
+        //   Use withoutTrashed() for active records and onlyTrashed() for the bin.
+        // ─────────────────────────────────────────────────────────────────────
         if ($request->has('trashed') && $request->trashed === 'true') {
-            $query->onlyTrashed();
+            $query = Logistics::onlyTrashed();
         } else {
-            $query->whereNull('deleted_at');
+            // withoutTrashed() is explicit and safe — equivalent to the
+            // SoftDeletes global scope but avoids double-condition conflicts
+            $query = Logistics::withoutTrashed();
         }
 
         if ($request->filled('search')) {
@@ -46,9 +50,14 @@ class LogisticsController extends Controller
             $query->where('is_consumable', $request->type === 'consumable');
         }
 
-        $perPage = in_array((int) $request->get('per_page', 10), [10, 25, 50])
-            ? (int) $request->get('per_page', 10)
-            : 10;
+        // ── FIX: Allow any per_page value including 9999 (used by dashboard
+        //   to fetch all records for count summaries). Old code only allowed
+        //   [10, 25, 50] and silently fell back to 10, causing the dashboard
+        //   counts to be wrong and triggering unexpected behaviour.
+        // ─────────────────────────────────────────────────────────────────────
+        $perPage = (int) $request->get('per_page', 10);
+        if ($perPage < 1)     $perPage = 10;
+        if ($perPage > 9999)  $perPage = 9999;
 
         $paginated = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
@@ -170,11 +179,11 @@ class LogisticsController extends Controller
 
                 if ($materialRequest) {
                     $items = $materialRequest->items;
-                    
+
                     foreach ($items as $item) {
-                        $productCode = $item['product_code'] ?? null;
+                        $productCode     = $item['product_code']     ?? null;
                         $productCategory = $item['product_category'] ?? null;
-                        
+
                         $inv = null;
                         if (!empty($productCode)) {
                             $query = WarehouseInventory::where('product_code', $productCode);
@@ -183,7 +192,7 @@ class LogisticsController extends Controller
                             }
                             $inv = $query->first();
                         }
-                        
+
                         $newRows[] = [
                             'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
                             'boqKey'           => $productCode,
@@ -203,13 +212,14 @@ class LogisticsController extends Controller
                             'logistics_id'     => $delivery->id,
                         ];
                     }
-                    
+
                     $materialRequest->update(['status' => 'delivered']);
+
                 } else {
                     $inv = WarehouseInventory::where('product_code', $delivery->product_code)
                         ->where('product_category', $delivery->product_category)
                         ->first();
-                    
+
                     $newRows[] = [
                         'id'               => 'arrival_' . time() . '_' . rand(1000, 9999),
                         'boqKey'           => $delivery->product_code,
@@ -240,11 +250,13 @@ class LogisticsController extends Controller
                 }
 
                 $projectName = $materialRequest?->project_name ?? $delivery->project_name;
+
                 \App\Models\AppNotification::create([
                     'target_department' => 'Engineering',
                     'target_role'       => null,
                     'project_id'        => $projectId,
-                    'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals. Check Materials Monitoring.",
+                    'message'           => "✅ Materials Delivered: '{$projectName}' has new arrivals."
+                                         . " Check Materials Monitoring.",
                 ]);
             }
 
@@ -254,7 +266,7 @@ class LogisticsController extends Controller
         });
 
         return response()->json([
-            'message' => $delivery->material_request_id 
+            'message' => $delivery->material_request_id
                 ? 'Marked as delivered. Materials have been added to project monitoring.'
                 : 'Marked as delivered. Stock updated and materials added to project monitoring.',
             'data'    => $delivery->fresh(),

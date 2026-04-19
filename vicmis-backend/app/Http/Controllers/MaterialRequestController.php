@@ -8,6 +8,7 @@ use App\Models\WarehouseInventory;
 use App\Models\Logistics;
 use App\Models\ReorderRequest;
 use App\Models\Project;
+use App\Models\AppNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -28,13 +29,13 @@ class MaterialRequestController extends Controller
 
             $requests->each(function ($req) {
                 $req->requested_by_name = $req->requester_name ?? 'Unknown';
-                
+
                 $items = $req->items ?? [];
                 foreach ($items as $item) {
-                    $productCode = is_object($item) ? ($item->product_code ?? null) : ($item['product_code'] ?? null);
+                    $productCode     = is_object($item) ? ($item->product_code     ?? null) : ($item['product_code']     ?? null);
                     $productCategory = is_object($item) ? ($item->product_category ?? null) : ($item['product_category'] ?? null);
-                    $description = is_object($item) ? ($item->description ?? null) : ($item['description'] ?? null);
-                    
+                    $description     = is_object($item) ? ($item->description      ?? null) : ($item['description']      ?? null);
+
                     $inv = null;
 
                     // 1. Try exact match first (code + category)
@@ -49,7 +50,7 @@ class MaterialRequestController extends Controller
                         }
                     }
 
-                    // 2. Fallback: match by description/product_name if code is missing or not found
+                    // 2. Fallback: match by description/product_name
                     if (!$inv && !empty($description)) {
                         $inv = WarehouseInventory::where('product_name', $description)
                             ->orWhere('product_code', $description)
@@ -57,18 +58,17 @@ class MaterialRequestController extends Controller
                     }
 
                     $currentStock = $inv->current_stock ?? 0;
-                    $stockStatus = $inv->availability ?? 'NO STOCK';
-                    
+                    $stockStatus  = $inv->availability  ?? 'NO STOCK';
+
                     if (is_object($item)) {
                         $item->current_stock = $currentStock;
-                        $item->stock_status = $stockStatus;
-                        // Map the real product code back so frontend knows it
+                        $item->stock_status  = $stockStatus;
                         if (empty($item->product_code) && $inv) {
-                            $item->product_code = $inv->product_code; 
+                            $item->product_code = $inv->product_code;
                         }
                     } else {
                         $item['current_stock'] = $currentStock;
-                        $item['stock_status'] = $stockStatus;
+                        $item['stock_status']  = $stockStatus;
                         if (empty($item['product_code']) && $inv) {
                             $item['product_code'] = $inv->product_code;
                         }
@@ -77,7 +77,7 @@ class MaterialRequestController extends Controller
             });
 
             return response()->json($requests);
-            
+
         } catch (\Exception $e) {
             \Log::error('getProjectRequests Error: ' . $e->getMessage());
             return response()->json([]);
@@ -88,125 +88,119 @@ class MaterialRequestController extends Controller
     // GET /material-requests/pending
     // GET /inventory/material-requests
     // =========================================================================
-public function getPending(Request $request): JsonResponse
-{
-    try {
-        $status = $request->filled('status')
-            ? (is_array($request->status) ? $request->status : [$request->status])
-            : ['pending', 'reordering'];
+    public function getPending(Request $request): JsonResponse
+    {
+        try {
+            $status = $request->filled('status')
+                ? (is_array($request->status) ? $request->status : [$request->status])
+                : ['pending', 'reordering'];
 
-        $perPage = $request->input('per_page', 20);
-        
-        $query = MaterialRequest::whereIn('status', $status);
-        
-        if ($request->project_id) {
-            $query->where('project_id', $request->project_id);
-        }
-        
-        $query->latest();
+            $perPage = $request->input('per_page', 20);
 
-        if ($perPage >= 9999) {
-            $requests = $query->get();
-            
+            $query = MaterialRequest::whereIn('status', $status);
+
+            if ($request->project_id) {
+                $query->where('project_id', $request->project_id);
+            }
+
+            $query->latest();
+
+            if ($perPage >= 9999) {
+                $requests = $query->get();
+
+                $result = [];
+                foreach ($requests as $req) {
+                    $reqData                    = $req->toArray();
+                    $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
+
+                    $itemsData = [];
+                    foreach ($req->items as $item) {
+                        $productCode     = $item['product_code']     ?? null;
+                        $productCategory = $item['product_category'] ?? null;
+
+                        $item['current_stock'] = 0;
+                        $item['stock_status']  = 'NO STOCK';
+
+                        if (!empty($productCode)) {
+                            $invQuery = WarehouseInventory::where('product_code', $productCode);
+                            if (!empty($productCategory)) {
+                                $invQuery->where('product_category', $productCategory);
+                            }
+                            $inv = $invQuery->first();
+                            if ($inv) {
+                                $item['current_stock'] = (int) $inv->current_stock;
+                                $item['stock_status']  = $inv->availability;
+                            }
+                        }
+
+                        $itemsData[] = $item;
+                    }
+
+                    $reqData['items'] = $itemsData;
+                    $result[]         = $reqData;
+                }
+
+                return response()->json([
+                    'data'  => $result,
+                    'total' => count($result),
+                ]);
+            }
+
+            $paginated = $query->paginate($perPage);
+
             $result = [];
-            foreach ($requests as $req) {
-                $reqData = $req->toArray();
+            foreach ($paginated->items() as $req) {
+                $reqData                    = $req->toArray();
                 $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
-                
-                // items is already an array from the JSON cast
+
                 $itemsData = [];
                 foreach ($req->items as $item) {
-                    $productCode = $item['product_code'] ?? null;
+                    $productCode     = $item['product_code']     ?? null;
                     $productCategory = $item['product_category'] ?? null;
-                    
+
                     $item['current_stock'] = 0;
-                    $item['stock_status'] = 'NO STOCK';
-                    
+                    $item['stock_status']  = 'NO STOCK';
+
                     if (!empty($productCode)) {
                         $invQuery = WarehouseInventory::where('product_code', $productCode);
-                        
                         if (!empty($productCategory)) {
                             $invQuery->where('product_category', $productCategory);
                         }
-                        
                         $inv = $invQuery->first();
-                        
                         if ($inv) {
                             $item['current_stock'] = (int) $inv->current_stock;
-                            $item['stock_status'] = $inv->availability;
+                            $item['stock_status']  = $inv->availability;
                         }
                     }
-                    
+
                     $itemsData[] = $item;
                 }
-                
+
                 $reqData['items'] = $itemsData;
-                $result[] = $reqData;
+                $result[]         = $reqData;
             }
-            
+
             return response()->json([
-                'data' => $result,
-                'total' => count($result)
+                'data'         => $result,
+                'current_page' => $paginated->currentPage(),
+                'last_page'    => $paginated->lastPage(),
+                'per_page'     => $paginated->perPage(),
+                'total'        => $paginated->total(),
+                'from'         => $paginated->firstItem(),
+                'to'           => $paginated->lastItem(),
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('getPending Error: ' . $e->getMessage());
+            return response()->json([
+                'data'         => [],
+                'total'        => 0,
+                'current_page' => 1,
+                'last_page'    => 1,
             ]);
         }
-
-        $paginated = $query->paginate($perPage);
-        
-        $result = [];
-        foreach ($paginated->items() as $req) {
-            $reqData = $req->toArray();
-            $reqData['requested_by_name'] = $req->requester_name ?? 'Unknown';
-            
-            $itemsData = [];
-            foreach ($req->items as $item) {
-                $productCode = $item['product_code'] ?? null;
-                $productCategory = $item['product_category'] ?? null;
-                
-                $item['current_stock'] = 0;
-                $item['stock_status'] = 'NO STOCK';
-                
-                if (!empty($productCode)) {
-                    $invQuery = WarehouseInventory::where('product_code', $productCode);
-                    
-                    if (!empty($productCategory)) {
-                        $invQuery->where('product_category', $productCategory);
-                    }
-                    
-                    $inv = $invQuery->first();
-                    
-                    if ($inv) {
-                        $item['current_stock'] = (int) $inv->current_stock;
-                        $item['stock_status'] = $inv->availability;
-                    }
-                }
-                
-                $itemsData[] = $item;
-            }
-            
-            $reqData['items'] = $itemsData;
-            $result[] = $reqData;
-        }
-
-        return response()->json([
-            'data' => $result,
-            'current_page' => $paginated->currentPage(),
-            'last_page' => $paginated->lastPage(),
-            'per_page' => $paginated->perPage(),
-            'total' => $paginated->total(),
-            'from' => $paginated->firstItem(),
-            'to' => $paginated->lastItem(),
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('getPending Error: ' . $e->getMessage());
-        return response()->json([
-            'data' => [],
-            'total' => 0,
-            'current_page' => 1,
-            'last_page' => 1,
-        ]);
     }
-}
+
     // =========================================================================
     // POST /projects/{id}/material-requests
     // =========================================================================
@@ -241,32 +235,37 @@ public function getPending(Request $request): JsonResponse
                 foreach ($validated['items'] as $item) {
                     $req->items()->create([
                         'description'      => $item['description'],
-                        'product_code'     => $item['product_code']  ?? null,
+                        'product_code'     => $item['product_code']     ?? null,
                         'product_category' => $item['product_category'] ?? null,
-                        'unit'             => $item['unit']          ?? null,
+                        'unit'             => $item['unit']             ?? null,
                         'requested_qty'    => $item['requested_qty'],
-                        'unit_cost'        => $item['unit_cost']     ?? null,
-                        'total_cost'       => $item['total_cost']    ?? null,
+                        'unit_cost'        => $item['unit_cost']        ?? null,
+                        'total_cost'       => $item['total_cost']       ?? null,
                     ]);
                 }
 
                 return $req;
             });
 
+            // ── Notify Logistics of the new material request ───────────────────
+            $itemCount  = count($validated['items']);
             $totalValue = collect($validated['items'])->sum('total_cost');
-            $valueStr = $totalValue > 0 
-                ? ' (Total: ₱' . number_format($totalValue, 2) . ')' 
+            $valueStr   = $totalValue > 0
+                ? ' — Est. ₱' . number_format($totalValue, 2)
                 : '';
 
-            \App\Models\AppNotification::create([
+            AppNotification::create([
+                'target_user_id'    => null,
                 'target_department' => 'Logistics',
                 'target_role'       => null,
                 'project_id'        => $project->id,
-                'message'           => "📦 Material Request: '{$project->project_name}' needs materials{$valueStr}.",
+                'message'           => "📦 Material Request: \"{$project->project_name}\" submitted a request"
+                                     . " for {$itemCount} item" . ($itemCount !== 1 ? 's' : '')
+                                     . "{$valueStr}. Action required.",
             ]);
 
             return response()->json($materialRequest->load('items'), 201);
-            
+
         } catch (\Exception $e) {
             \Log::error('Material Request Store Error: ' . $e->getMessage());
             return response()->json([
@@ -280,7 +279,7 @@ public function getPending(Request $request): JsonResponse
     // =========================================================================
     public function updateStatus(Request $request, int $id): JsonResponse
     {
-        $req = MaterialRequest::with('items')->findOrFail($id);
+        $req    = MaterialRequest::with('items')->findOrFail($id);
         $action = $request->input('action');
 
         return match ($action) {
@@ -339,24 +338,25 @@ public function getPending(Request $request): JsonResponse
 
         try {
             $items = $req->items ?? [];
-            
+
             $deliveries = DB::transaction(function () use ($req, $validated, $items) {
                 $created = [];
 
                 foreach ($items as $item) {
-                    $productCode = $item['product_code'] ?? null;
+                    $productCode     = $item['product_code']     ?? null;
                     $productCategory = $item['product_category'] ?? '';
-                    $description = $item['description'] ?? '';
-                    
+                    $description     = $item['description']      ?? '';
+
                     $inv = null;
                     if (!empty($productCode)) {
                         $inv = WarehouseInventory::where('product_code', $productCode)
                             ->when(!empty($productCategory), fn($q) => $q->where('product_category', $productCategory))
                             ->first();
                     }
-
                     if (!$inv && !empty($description)) {
-                        $inv = WarehouseInventory::where('product_name', $description)->orWhere('product_code', $description)->first();
+                        $inv = WarehouseInventory::where('product_name', $description)
+                            ->orWhere('product_code', $description)
+                            ->first();
                     }
 
                     $finalProductCode = $inv->product_code ?? $productCode ?? $description;
@@ -380,11 +380,14 @@ public function getPending(Request $request): JsonResponse
 
                 $req->update(['status' => 'dispatched']);
 
-                \App\Models\AppNotification::create([
+                // ── Notify Engineering that their materials are on the way ──────
+                AppNotification::create([
+                    'target_user_id'    => null,
                     'target_department' => 'Engineering',
                     'target_role'       => null,
                     'project_id'        => $req->project_id,
-                    'message'           => "🚚 Materials dispatched for '{$req->project_name}'. Delivery is In Transit.",
+                    'message'           => "🚚 Materials Dispatched: \"{$req->project_name}\" — delivery is now In Transit"
+                                         . " via {$validated['trucking_service']}.",
                 ]);
 
                 return $created;
@@ -394,7 +397,7 @@ public function getPending(Request $request): JsonResponse
                 'message'    => 'Request dispatched. Delivery records created.',
                 'deliveries' => $deliveries,
             ]);
-            
+
         } catch (\Exception $e) {
             \Log::error('Dispatch Error: ' . $e->getMessage());
             return response()->json([
@@ -418,14 +421,14 @@ public function getPending(Request $request): JsonResponse
         try {
             DB::transaction(function () use ($req, $validated) {
                 $items = $req->items ?? [];
-                
+
                 foreach ($items as $item) {
-                    $productCode = is_array($item) ? ($item['product_code'] ?? null) : ($item->product_code ?? null);
+                    $productCode     = is_array($item) ? ($item['product_code']     ?? null) : ($item->product_code     ?? null);
                     $productCategory = is_array($item) ? ($item['product_category'] ?? null) : ($item->product_category ?? null);
-                    $description = is_array($item) ? ($item['description'] ?? '') : ($item->description ?? '');
-                    $unit = is_array($item) ? ($item['unit'] ?? 'Pcs') : ($item->unit ?? 'Pcs');
-                    $requestedQty = is_array($item) ? ($item['requested_qty'] ?? 1) : ($item->requested_qty ?? 1);
-                    
+                    $description     = is_array($item) ? ($item['description']      ?? '')   : ($item->description      ?? '');
+                    $unit            = is_array($item) ? ($item['unit']             ?? 'Pcs'): ($item->unit             ?? 'Pcs');
+                    $requestedQty    = is_array($item) ? ($item['requested_qty']    ?? 1)    : ($item->requested_qty    ?? 1);
+
                     $inv = null;
                     if (!empty($productCode)) {
                         $inv = WarehouseInventory::where('product_code', $productCode)
@@ -433,7 +436,9 @@ public function getPending(Request $request): JsonResponse
                             ->first();
                     }
                     if (!$inv && !empty($description)) {
-                        $inv = WarehouseInventory::where('product_name', $description)->orWhere('product_code', $description)->first();
+                        $inv = WarehouseInventory::where('product_name', $description)
+                            ->orWhere('product_code', $description)
+                            ->first();
                     }
 
                     $finalProductCode = $inv->product_code ?? $productCode ?? $description;
@@ -452,16 +457,29 @@ public function getPending(Request $request): JsonResponse
 
                 $req->update(['status' => 'reordering']);
 
-                \App\Models\AppNotification::create([
+                // ── Notify Procurement that a reorder is needed ────────────────
+                AppNotification::create([
+                    'target_user_id'    => null,
                     'target_department' => 'Accounting/Procurement',
                     'target_role'       => 'dept_head',
                     'project_id'        => $req->project_id,
-                    'message'           => "⚠️ Reorder Required: '{$req->project_name}' needs stock replenishment before delivery.",
+                    'message'           => "⚠️ Reorder Required: \"{$req->project_name}\" needs stock replenishment"
+                                         . " before delivery can proceed.",
+                ]);
+
+                // ── Also notify Logistics that request is now in reorder state ──
+                AppNotification::create([
+                    'target_user_id'    => null,
+                    'target_department' => 'Logistics',
+                    'target_role'       => null,
+                    'project_id'        => $req->project_id,
+                    'message'           => "🔄 Reorder Initiated: Material request for \"{$req->project_name}\""
+                                         . " is awaiting stock replenishment from Procurement.",
                 ]);
             });
 
             return response()->json(['message' => 'Reorder request sent to Procurement.']);
-            
+
         } catch (\Exception $e) {
             \Log::error('Reorder Error: ' . $e->getMessage());
             return response()->json([
@@ -486,11 +504,14 @@ public function getPending(Request $request): JsonResponse
             'reject_reason' => $request->reason ?? null,
         ]);
 
-        \App\Models\AppNotification::create([
+        // ── Notify Engineering that their request was rejected ─────────────────
+        AppNotification::create([
+            'target_user_id'    => null,
             'target_department' => 'Engineering',
             'target_role'       => null,
             'project_id'        => $req->project_id,
-            'message'           => "❌ Material request rejected for '{$req->project_name}'. " . ($request->reason ?? 'No reason given.'),
+            'message'           => "❌ Material Request Rejected: \"{$req->project_name}\" — "
+                                 . ($request->reason ?? 'No reason given.'),
         ]);
 
         return response()->json(['message' => 'Request rejected.']);

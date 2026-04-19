@@ -10,6 +10,7 @@ class AppNotification extends Model
     use HasFactory;
 
     protected $fillable = [
+        'target_user_id', 
         'target_department',
         'target_role',
         'project_id',

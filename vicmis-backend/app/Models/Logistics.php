@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Logistics extends Model
 {
     protected $table = 'logistics';
-     use SoftDeletes;
+    use SoftDeletes;
 
     protected $fillable = [
         'material_request_id', // ← NEW: links delivery back to the engineer's request
