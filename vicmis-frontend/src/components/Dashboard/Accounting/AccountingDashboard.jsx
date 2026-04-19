@@ -735,9 +735,15 @@ const AccountingDashboard = ({ user }) => {
               <div className="ac-form-row">
                 <div className="ac-form-group">
                   <label className="ac-label">Shipment Number <span className="ac-req">*</span></label>
-                  <input className="ac-input" required placeholder="e.g. SHIP-2026-001"
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    className="ac-input"
+                    required
+                    placeholder="e.g. SHIP-2026-001"
                     value={form.shipment_number}
-                    onChange={e => setForm(f => ({ ...f, shipment_number: e.target.value }))} />
+                    onChange={e => setForm(f => ({ ...f, shipment_number: e.target.value }))}
+                  />
                 </div>
                 <div className="ac-form-group">
                   <label className="ac-label">Container Type</label>
