@@ -61,23 +61,32 @@ const InstallerMonitoring = ({ project, user }) => {
     // Sync existing photo URLs whenever the server-mapped log updates them.
     // Also clears pending new-file selections when switching dates.
     useEffect(() => {
-        setExistingPhotoUrl(currentLog.photo_url ?? null);
-        setExistingTeamPhoto1Url(currentLog.team_photo_1_url ?? null);
-        setExistingTeamPhoto2Url(currentLog.team_photo_2_url ?? null);
+    setExistingPhotoUrl(currentLog.photo_url ?? null);
+    setExistingTeamPhoto1Url(currentLog.team_photo_1_url ?? null);
+    setExistingTeamPhoto2Url(currentLog.team_photo_2_url ?? null);
+}, [currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
 
-        // Clear any staged (unsaved) file selections when the log changes
+    // Clear staged photos when switching to a different date
+    useEffect(() => {
         setPhotoMain(null);
         setPhoto1(null);
         setPhoto2(null);
         if (fileMainRef.current) fileMainRef.current.value = '';
         if (file1Ref.current) file1Ref.current.value = '';
         if (file2Ref.current) file2Ref.current.value = '';
-    }, [currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
+    }, [selectedDate]);
 
     const handleSave = async () => {
         try {
             await saveLog({ photoMain, photo1, photo2 });
-            // Photo state is cleared inside the useEffect above once currentLog updates
+
+            // ✅ Clear staged files only after successful save
+            setPhotoMain(null);
+            setPhoto1(null);
+            setPhoto2(null);
+            if (fileMainRef.current) fileMainRef.current.value = '';
+            if (file1Ref.current) file1Ref.current.value = '';
+            if (file2Ref.current) file2Ref.current.value = '';
         } catch (err) {
             console.error('Save failed:', err);
         }
