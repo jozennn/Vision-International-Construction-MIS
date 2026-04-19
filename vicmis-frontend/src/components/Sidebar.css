@@ -111,8 +111,6 @@
     color: var(--sidebar-active-text);
   }
 
-  /* When Inventory is active but a sub-item is selected,
-     keep the parent row red but slightly less prominent */
   .sidebar-nav-item.active.has-open-submenu {
     background-color: var(--sidebar-active-bg);
     color: var(--sidebar-active-text);
@@ -150,7 +148,6 @@
     line-height: 1;
   }
 
-  /* When the nav item is NOT active (hovering), chevron is muted */
   .sidebar-nav-item:not(.active) .sidebar-chevron {
     color: var(--sidebar-text);
   }
@@ -164,14 +161,13 @@
     list-style: none;
     margin: 0;
     padding: 4px 0;
-    background-color: #F8FAFC; /* Very light grey, distinct from white sidebar */
+    background-color: #F8FAFC;
     border-bottom: 1px solid var(--sidebar-border);
     overflow: hidden;
   }
 
-  /* Each sub-menu row */
   .sidebar-submenu-item {
-    padding: 10px 20px 10px 56px; /* deep indent to align under parent label */
+    padding: 10px 20px 10px 56px;
     font-size: 0.88rem;
     font-weight: 400;
     color: var(--sidebar-text);
@@ -187,7 +183,7 @@
   }
 
   .sidebar-submenu-item.active {
-    background-color: #FEF2F2; /* Light red tint matching logout button */
+    background-color: #FEF2F2;
     color: var(--sidebar-active-bg);
     font-weight: 600;
     border-left-color: var(--sidebar-active-bg);
@@ -217,7 +213,138 @@
   .sidebar-btn-logout:hover {
     background-color: #FEE2E2;
   }
-  
+
+  /* =========================================================
+     LOGOUT CONFIRMATION MODAL
+     ========================================================= */
+
+  .logout-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(3px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeInOverlay 0.2s ease;
+  }
+
+  @keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .logout-modal {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: slideUpModal 0.25s ease;
+  }
+
+  @keyframes slideUpModal {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+
+  .logout-modal-icon {
+    width: 60px;
+    height: 60px;
+    background: #FEF2F2;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 1.6rem;
+  }
+
+  .logout-modal-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0 0 10px;
+  }
+
+  .logout-modal-message {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0 0 28px;
+    line-height: 1.5;
+  }
+
+  .logout-modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .logout-btn-cancel {
+    flex: 1;
+    padding: 11px 16px;
+    background: #F1F5F9;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .logout-btn-cancel:hover:not(:disabled) {
+    background: #E2E8F0;
+  }
+
+  .logout-btn-cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .logout-btn-confirm {
+    flex: 1;
+    padding: 11px 16px;
+    background: #DC2626;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s ease;
+  }
+
+  .logout-btn-confirm:hover:not(:disabled) {
+    background: #B91C1C;
+  }
+
+  .logout-btn-confirm:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  /* Spinner inside confirm button */
+  .logout-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
   /* =========================================================
      RESPONSIVE DESIGN (Tablet & Mobile)
      ========================================================= */
@@ -243,9 +370,12 @@
       display: block;
     }
 
-    /* Sub-items readable on mobile */
     .sidebar-submenu-item {
       padding: 11px 16px 11px 52px;
+    }
+
+    .logout-modal {
+      margin: 0 20px;
     }
   }
 

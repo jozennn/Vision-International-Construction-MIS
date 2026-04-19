@@ -3,11 +3,56 @@ import VicmisLogo from '../assets/logo.png';
 import api from '../api/axios';
 import './Sidebar.css';
 
+// ── Logout Confirmation Modal ─────────────────────────────────────────────────
+const LogoutModal = ({ onConfirm, onCancel, loading }) => (
+  <div className="logout-overlay" onClick={onCancel}>
+    <div className="logout-modal" onClick={e => e.stopPropagation()}>
+
+      <div className="logout-modal-icon">
+        <span>🚪</span>
+      </div>
+
+      <h2 className="logout-modal-title">Sign Out?</h2>
+      <p className="logout-modal-message">
+        Are you sure you want to sign out of VICMIS?
+      </p>
+
+      <div className="logout-modal-actions">
+        <button
+          className="logout-btn-cancel"
+          onClick={onCancel}
+          disabled={loading}
+        >
+          Cancel
+        </button>
+        <button
+          className="logout-btn-confirm"
+          onClick={onConfirm}
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <span className="logout-spinner" />
+              Signing out…
+            </>
+          ) : (
+            'Yes, Sign Out'
+          )}
+        </button>
+      </div>
+
+    </div>
+  </div>
+);
+
+// ── Main Sidebar ──────────────────────────────────────────────────────────────
 const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubItem, setActiveSubItem, user }) => {
   const [isOpen, setIsOpen]               = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen]   = useState(false);
   const [reportsOpen, setReportsOpen]     = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [logoutLoading, setLogoutLoading]     = useState(false);
 
   useEffect(() => {
     setInventoryOpen(activeItem === 'Inventory');
@@ -32,31 +77,17 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       { id: 'customer-reports',  label: '👤 Customer Reports'  },
     ];
 
-    // Privileged roles see everything
     if (['super_admin', 'admin', 'manager'].includes(role)) return all;
 
     const allowed = new Set();
-
-    // Sales → Customer Reports
-    if (dept.includes('sales')) allowed.add('customer-reports');
-
-    // Engineering → Project Reports
-    if (dept.includes('engineering')) allowed.add('project-reports');
-
-    // Inventory / Logistics → Inventory Reports
-    if (dept.includes('inventory') || dept.includes('logistics')) allowed.add('inventory-reports');
-
-    // Accounting / Procurement → Inventory + Project Reports
+    if (dept.includes('sales'))                                     allowed.add('customer-reports');
+    if (dept.includes('engineering'))                               allowed.add('project-reports');
+    if (dept.includes('inventory') || dept.includes('logistics'))   allowed.add('inventory-reports');
     if (dept.includes('accounting') || dept.includes('procurement')) {
       allowed.add('inventory-reports');
       allowed.add('project-reports');
     }
-
-    // dept_head gets their department's reports + Project Reports
-    if (role === 'dept_head') {
-      allowed.add('project-reports');
-      // They already have their dept-specific ones from above
-    }
+    if (role === 'dept_head') allowed.add('project-reports');
 
     return all.filter(s => allowed.has(s.id));
   })();
@@ -77,13 +108,22 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     { name: 'Setting',   icon: '⚙️', hasDropdown: true },
   ];
 
-  const handleLogout = async () => {
+  // ── Logout handlers ───────────────────────────────────────────────────────
+  const handleLogoutClick = () => {
+    setIsOpen(false); // close mobile sidebar if open
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setLogoutLoading(true);
     try {
       await api.post('/logout');
     } catch (error) {
       console.error('Logout API call failed', error);
     } finally {
       sessionStorage.clear();
+      setShowLogoutModal(false);
+      setLogoutLoading(false);
       if (setUser) {
         setUser(null);
       } else {
@@ -92,6 +132,12 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
     }
   };
 
+  const handleLogoutCancel = () => {
+    if (logoutLoading) return; // don't dismiss while in-flight
+    setShowLogoutModal(false);
+  };
+
+  // ── Nav handlers ──────────────────────────────────────────────────────────
   const handleItemClick = (name, isAllowed) => {
     if (!isAllowed) return;
 
@@ -110,7 +156,6 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
       setReportsOpen(true);
       setInventoryOpen(false);
       setSettingsOpen(false);
-      // Default to first allowed sub-item for this user
       if (setActiveSubItem) setActiveSubItem(reportsSubItems[0]?.id ?? 'inventory-reports');
       setIsOpen(false);
       return;
@@ -156,6 +201,15 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
 
   return (
     <>
+      {/* Logout confirmation modal */}
+      {showLogoutModal && (
+        <LogoutModal
+          onConfirm={handleLogoutConfirm}
+          onCancel={handleLogoutCancel}
+          loading={logoutLoading}
+        />
+      )}
+
       {!isOpen && (
         <button className="hamburger-btn" onClick={toggleSidebar}>☰</button>
       )}
@@ -216,7 +270,7 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
                       </ul>
                     )}
 
-                    {/* Reports sub-menu — filtered by role/dept */}
+                    {/* Reports sub-menu */}
                     {isReports && reportsOpen && isAllowed && (
                       <ul className="sidebar-submenu">
                         {reportsSubItems.map((sub) => (
@@ -253,7 +307,7 @@ const Sidebar = ({ activeItem, setActiveItem, checkAccess, setUser, activeSubIte
         </div>
 
         <div className="sidebar-footer">
-          <button className="sidebar-btn-logout" onClick={handleLogout}>
+          <button className="sidebar-btn-logout" onClick={handleLogoutClick}>
             <span className="sidebar-icon">🚪</span>
             Sign Out
           </button>
