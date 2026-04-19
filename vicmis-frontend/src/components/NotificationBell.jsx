@@ -28,12 +28,125 @@ const NotifToast = ({ notif, onClose, onView }) => {
     );
 };
 
+// ── Notification Detail Modal ─────────────────────────────────────────────────
+const NotificationDetailModal = ({ notif, onClose, onViewProject }) => {
+    if (!notif) return null;
+
+    const getModalStyle = (msg) => {
+        if (msg?.includes('REJECTED') || msg?.includes('Rejected')) {
+            return { borderTop: '3px solid #b91c1c' };
+        }
+        if (msg?.includes('NO STOCK')) {
+            return { borderTop: '3px solid #dc2626' };
+        }
+        if (msg?.includes('LOW STOCK')) {
+            return { borderTop: '3px solid #d97706' };
+        }
+        return { borderTop: '3px solid #C20100' };
+    };
+
+    const getModalIcon = (msg) => {
+        if (msg?.includes('REJECTED') || msg?.includes('Rejected')) return '❌';
+        if (msg?.includes('NO STOCK')) return '🚨';
+        if (msg?.includes('LOW STOCK')) return '⚠️';
+        if (msg?.includes('Dispatched') || msg?.includes('In Transit')) return '🚚';
+        if (msg?.includes('Shipment')) return '🚢';
+        if (msg?.includes('Material Request')) return '📦';
+        if (msg?.includes('Reorder')) return '🔄';
+        if (msg?.includes('✅')) return '✅';
+        return '🔔';
+    };
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '—';
+        return new Date(dateStr).toLocaleString('en-PH', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    return (
+        <div className="notif-modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="notif-modal" style={getModalStyle(notif.message)}>
+                <div className="notif-modal-header">
+                    <div className="notif-modal-header-left">
+                        <span className="notif-modal-icon">{getModalIcon(notif.message)}</span>
+                        <h3>Notification Details</h3>
+                    </div>
+                    <button className="notif-modal-close" onClick={onClose}>✕</button>
+                </div>
+
+                <div className="notif-modal-body">
+                    <div className="notif-modal-message">
+                        <p className="notif-modal-text">{notif.message}</p>
+                    </div>
+
+                    <div className="notif-modal-meta">
+                        <span className="notif-modal-label">Received:</span>
+                        <span className="notif-modal-value">{formatDate(notif.created_at)}</span>
+                    </div>
+
+                    {notif.project_id && (
+                        <div className="notif-modal-meta">
+                            <span className="notif-modal-label">Project ID:</span>
+                            <span className="notif-modal-value">#{notif.project_id}</span>
+                        </div>
+                    )}
+
+                    {notif.project_name && (
+                        <div className="notif-modal-meta">
+                            <span className="notif-modal-label">Project Name:</span>
+                            <span className="notif-modal-value">{notif.project_name}</span>
+                        </div>
+                    )}
+
+                    {notif.target_department && (
+                        <div className="notif-modal-meta">
+                            <span className="notif-modal-label">Department:</span>
+                            <span className="notif-modal-value">{notif.target_department}</span>
+                        </div>
+                    )}
+
+                    <div className="notif-modal-meta">
+                        <span className="notif-modal-label">Status:</span>
+                        <span className={`notif-modal-status ${notif.is_read ? 'status-read' : 'status-unread'}`}>
+                            {notif.is_read ? '✓ Read' : '🔴 Unread'}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="notif-modal-footer">
+                    {notif.project_id && (
+                        <button 
+                            className="notif-modal-btn notif-modal-btn-primary"
+                            onClick={() => {
+                                onClose();
+                                onViewProject(notif);
+                            }}
+                        >
+                            View Project
+                        </button>
+                    )}
+                    <button className="notif-modal-btn notif-modal-btn-secondary" onClick={onClose}>
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ── Main bell ─────────────────────────────────────────────────────────────────
 const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
     const [readIds, setReadIds]             = useState(new Set());
     const [isOpen, setIsOpen]               = useState(false);
     const [toasts, setToasts]               = useState([]);
+    const [selectedNotification, setSelectedNotification] = useState(null);
     const prevIdsRef                        = useRef(new Set());
     const dropdownRef                       = useRef(null);
 
@@ -82,39 +195,71 @@ const NotificationBell = () => {
         return '🔔';
     };
 
+    // ── Format message with details ──────────────────────────────────────────
+    const formatMessage = (notif) => {
+        let message = notif.message;
+        if (notif.project_name && !message.includes(notif.project_name)) {
+            message = `${message} (${notif.project_name})`;
+        }
+        return message;
+    };
+
+    // ── Show modal instead of navigating directly ────────────────────────────
+    const showNotificationModal = (notif) => {
+        setSelectedNotification(notif);
+        setIsOpen(false);
+    };
+
+    const closeModal = () => {
+        setSelectedNotification(null);
+    };
+
+    // ── Navigate to project (from modal) ─────────────────────────────────────
     const navigateToProject = useCallback((notif) => {
         if (!notif.project_id) return;
         sessionStorage.setItem('autoOpenProjectId', notif.project_id);
         window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'Project' }));
         window.dispatchEvent(new CustomEvent('open-project', { detail: notif.project_id }));
-        setIsOpen(false);
     }, []);
 
+    // ── Mark single as read ───────────────────────────────────────────────────
     const markRead = async (notif) => {
         if (readIds.has(notif.id)) return;
         try {
             await api.post(`/notifications/${notif.id}/read`);
             setReadIds(prev => new Set([...prev, notif.id]));
+            // Update the notification in the list to mark as read
+            setNotifications(prev => prev.map(n => 
+                n.id === notif.id ? { ...n, is_read: true } : n
+            ));
         } catch (err) {
             console.error('Failed to mark as read', err);
         }
     };
 
+    // ── Handle notification click - SHOW MODAL instead of direct navigation ───
     const handleNotificationClick = async (notif) => {
-        await markRead(notif);
-        navigateToProject(notif);
+        if (!readIds.has(notif.id)) {
+            await markRead(notif);
+        }
+        // Show the modal with notification details
+        showNotificationModal(notif);
     };
 
+    // ── Mark all as read ──────────────────────────────────────────────────────
     const handleMarkAllRead = async () => {
         try {
             const unread = notifications.filter(n => !readIds.has(n.id));
             await Promise.all(unread.map(n => api.post(`/notifications/${n.id}/read`)));
-            setReadIds(new Set(notifications.map(n => n.id)));
+            const allIds = new Set(notifications.map(n => n.id));
+            setReadIds(allIds);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         } catch (err) {
             console.error('Failed to mark all as read', err);
         }
     };
 
+    // ── Fetch notifications ───────────────────────────────────────────────────
     const fetchNotifications = useCallback(async () => {
         try {
             const res  = await api.get('/notifications');
@@ -146,6 +291,7 @@ const NotificationBell = () => {
         return () => clearInterval(interval);
     }, [fetchNotifications]);
 
+    // ── Close dropdown on outside click ──────────────────────────────────────
     useEffect(() => {
         const handler = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -161,6 +307,7 @@ const NotificationBell = () => {
 
     return (
         <>
+            {/* Toast stack */}
             <div className="notif-toast-stack">
                 {toasts.map(t => (
                     <NotifToast
@@ -172,10 +319,20 @@ const NotificationBell = () => {
                 ))}
             </div>
 
+            {/* Notification Detail Modal */}
+            {selectedNotification && (
+                <NotificationDetailModal 
+                    notif={selectedNotification} 
+                    onClose={closeModal}
+                    onViewProject={navigateToProject}
+                />
+            )}
+
+            {/* Bell and Dropdown */}
             <div className="notif-wrapper" ref={dropdownRef}>
                 <button 
                     onClick={(e) => {
-                        e.stopPropagation(); // Prevents instant closing by document listener
+                        e.stopPropagation();
                         setIsOpen(o => !o);
                     }} 
                     className="notif-button"
@@ -215,11 +372,11 @@ const NotificationBell = () => {
                                             onClick={() => handleNotificationClick(notif)}
                                         >
                                             <p className={`notif-text ${isRead ? 'notif-text--read' : ''}`}>
-                                                {getNotifIcon(notif.message, isRead)} {notif.message}
+                                                {getNotifIcon(notif.message, isRead)} {formatMessage(notif)}
                                             </p>
                                             {notif.project_id && (
                                                 <p className="notif-hint">
-                                                    {isRead ? 'Click to view again →' : 'Click to view project →'}
+                                                    Click to view details →
                                                 </p>
                                             )}
                                         </div>
