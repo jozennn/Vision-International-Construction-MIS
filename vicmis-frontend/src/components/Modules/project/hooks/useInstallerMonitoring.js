@@ -41,11 +41,13 @@ const buildBlankLog = (roster = [], date = today()) => ({
             remarks:  '',
           }))
         : [{ id: 0, name: '', position: '', timeIn: '08:00', timeOut: '17:00', remarks: '' }],
+    // Photo fields
+    photo_path:   null,
+    team_photo_1: null,
+    team_photo_2: null,
 });
 
 // ── Pre-fill a new date from the most recent existing log ─────────────────────
-// Carries over: clientStart, clientEnd, actualStart, totalArea, installer rows.
-// Resets: date, actualEnd, completion, remarks (these are day-specific).
 const buildPrefillLog = (latestLog, date, roster = []) => ({
     date,
     totalArea:   latestLog.totalArea   ?? '',
@@ -58,6 +60,10 @@ const buildPrefillLog = (latestLog, date, roster = []) => ({
     rows: latestLog.rows?.length > 0
         ? latestLog.rows.map(r => ({ ...r, id: Date.now() + Math.random(), remarks: '' }))
         : buildBlankLog(roster, date).rows,
+    // Don't copy photos to new date
+    photo_path:   null,
+    team_photo_1: null,
+    team_photo_2: null,
 });
 
 const parseInstallers = (raw) => {
@@ -69,20 +75,29 @@ const parseInstallers = (raw) => {
 const mapServerLog = (l, roster = []) => {
     const savedRows = parseInstallers(l.installers_data);
     return {
-        date:        l.log_date,
-        totalArea:   l.total_area             ?? '',
-        clientStart: l.client_start_date      ?? '',
-        clientEnd:   l.client_end_date        ?? '',
-        actualStart: l.start_date             ?? '',
-        actualEnd:   l.end_date               ?? '',
-        completion:  l.accomplishment_percent ?? '',
-        remarks:     l.remarks                ?? '',
-        rows: savedRows.length > 0 ? savedRows : buildBlankLog(roster, l.log_date).rows,
+        id:              l.id,
+        date:            l.log_date,
+        totalArea:       l.total_area             ?? '',
+        clientStart:     l.client_start_date      ?? '',
+        clientEnd:       l.client_end_date        ?? '',
+        actualStart:     l.start_date             ?? '',
+        actualEnd:       l.end_date               ?? '',
+        completion:      l.accomplishment_percent ?? '',
+        remarks:         l.remarks                ?? '',
+        rows:            savedRows.length > 0 ? savedRows : buildBlankLog(roster, l.log_date).rows,
+        // Photo fields - preserve from server
+        photo_path:      l.photo_path             ?? null,
+        team_photo_1:    l.team_photo_1           ?? null,
+        team_photo_2:    l.team_photo_2           ?? null,
+        // Photo URLs for display
+        photo_url:       l.photo_url              ?? null,
+        team_photo_1_url: l.team_photo_1_url      ?? null,
+        team_photo_2_url: l.team_photo_2_url      ?? null,
     };
 };
 
-// ── Map local log → server record shape (for optimistic updates) ──────────────
-const mapLocalToServerShape = (log, existingId = null) => ({
+// ── Map local log → server record shape ──────────────────────────────
+const mapLocalToServerShape = (log, existingId = null, existingLog = null) => ({
     id:                     existingId ?? Date.now(),
     log_date:               log.date,
     total_area:             log.totalArea,
@@ -93,13 +108,11 @@ const mapLocalToServerShape = (log, existingId = null) => ({
     accomplishment_percent: log.completion,
     remarks:                log.remarks,
     installers_data:        JSON.stringify(log.rows),
+    // Preserve existing photos if they exist and no new photos are being uploaded
+    photo_path:             log.photo_path ?? existingLog?.photo_path ?? null,
+    team_photo_1:           log.team_photo_1 ?? existingLog?.team_photo_1 ?? null,
+    team_photo_2:           log.team_photo_2 ?? existingLog?.team_photo_2 ?? null,
 });
-
-// ── Get the most recent log from the date-keyed map ───────────────────────────
-const getLatestLog = (logsByDate) => {
-    const dates = Object.keys(logsByDate).sort((a, b) => b.localeCompare(a));
-    return dates.length > 0 ? logsByDate[dates[0]] : null;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 export const useInstallerMonitoring = (projectId, roster = []) => {
@@ -108,16 +121,12 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     const [allLogs,      setAllLogs]      = useState([]);
     const [loading,      setLoading]      = useState(false);
     const [saving,       setSaving]       = useState(false);
-    const [saveStatus,   setSaveStatus]   = useState(null); // 'saving'|'saved'|'error'|null
+    const [saveStatus,   setSaveStatus]   = useState(null);
     const [error,        setError]        = useState(null);
 
     const autoSaveTimer = useRef(null);
     const isFirstLoad   = useRef(true);
-
-    // ── Dirty flag — true only when user actually edits the current date ──
-    // Prevents auto-save from firing just because we seeded a prefilled log
-    // when the user switched to a new date without typing anything.
-    const isDirty = useRef(false);
+    const isDirty       = useRef(false);
 
     // ── Fetch all saved logs ──────────────────────────────────────────────
     const fetchLogs = useCallback(async () => {
@@ -130,7 +139,9 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             setAllLogs(logs);
 
             const map = {};
-            logs.forEach(l => { map[l.log_date] = mapServerLog(l, roster); });
+            logs.forEach(l => { 
+                map[l.log_date] = mapServerLog(l, roster); 
+            });
             setLogsByDate(map);
         } catch (e) {
             setError(e.response?.data?.message ?? 'Failed to load daily logs.');
@@ -138,7 +149,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             setLoading(false);
             setTimeout(() => { isFirstLoad.current = false; }, 300);
         }
-    }, [projectId]);
+    }, [projectId, roster]);
 
     useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
@@ -159,17 +170,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     }, [roster.length]);
 
     // ── Seed logsByDate when switching to an unsaved date ────────────────
-    // This is MEMORY ONLY — no API call here.
-    // It pre-fills fields from the most recent saved log so the user doesn't
-    // have to re-type clientStart, clientEnd, totalArea, and installer rows
-    // every single day.
-    // The dirty flag is intentionally NOT set here — auto-save will only
-    // fire once the user actually edits a field.
     useEffect(() => {
-        // Check if the existing entry for this date actually has meaningful data.
-        // We can't just check if the key exists — the DB may have returned an
-        // empty/ghost record (all null fields) which mapServerLog turns into
-        // empty strings. In that case we still want to prefill from the latest log.
         const existing = logsByDate[selectedDate];
         const hasRealData = existing && (
             existing.totalArea?.trim()   ||
@@ -180,8 +181,6 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         );
         if (hasRealData) return;
 
-        // Find the most recent log that has actual data to prefill from.
-        // Skip the current selectedDate itself when looking for the latest.
         const latestEntry = (() => {
             const dates = Object.keys(logsByDate)
                 .filter(d => d !== selectedDate)
@@ -204,7 +203,6 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             : buildBlankLog(roster, selectedDate);
 
         setLogsByDate(prev => {
-            // Re-check inside setter to avoid race conditions between renders
             const prevExisting = prev[selectedDate];
             const prevHasData  = prevExisting && (
                 prevExisting.totalArea?.trim()   ||
@@ -219,21 +217,14 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     }, [selectedDate, logsByDate, roster]);
 
     // ── Reset dirty flag whenever the selected date changes ──────────────
-    // This ensures switching dates doesn't carry over the dirty state from
-    // a previous date's edits.
     useEffect(() => {
         isDirty.current = false;
     }, [selectedDate]);
 
     // ── Current log ───────────────────────────────────────────────────────
-    // Always read from logsByDate (seeded by the effect above if new date).
-    // Fallback to blank only as a safety net during the brief render cycle
-    // before the seed effect fires.
     const currentLog = logsByDate[selectedDate] ?? buildBlankLog(roster, selectedDate);
 
     // ── setCurrentLog marks the log as dirty ─────────────────────────────
-    // Any field edit (including row changes) goes through here, which sets
-    // isDirty = true and allows auto-save to proceed.
     const setCurrentLog = (updated) => {
         isDirty.current = true;
         setLogsByDate(prev => ({ ...prev, [selectedDate]: updated }));
@@ -277,32 +268,29 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     }, []);
 
     // ── Debounced auto-save (1.5 s after last change) ─────────────────────
-    // Only fires when isDirty is true — i.e. the user actually typed or
-    // changed something on this date. Switching dates alone does NOT trigger
-    // this even though logsByDate changes (because isDirty gets reset above).
     useEffect(() => {
         if (isFirstLoad.current) return;
         if (!projectId) return;
-        if (!isDirty.current) return; // ← KEY GUARD: skip if nothing was edited
+        if (!isDirty.current) return;
 
         if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
         autoSaveTimer.current = setTimeout(async () => {
             setSaveStatus('saving');
             try {
+                const fd = buildPayload(currentLog);
+                
                 await api.post(
                     `/projects/${projectId}/daily-logs`,
-                    buildPayload(currentLog),
+                    fd,
                     { headers: { 'Content-Type': 'multipart/form-data' } }
                 );
 
-                // Upsert allLogs in-memory so history list stays accurate
+                // Update allLogs in-memory
                 setAllLogs(prev => {
                     const existingIdx = prev.findIndex(l => l.log_date === currentLog.date);
-                    const updated     = mapLocalToServerShape(
-                        currentLog,
-                        existingIdx >= 0 ? prev[existingIdx].id : null,
-                    );
+                    const existingLog = existingIdx >= 0 ? prev[existingIdx] : null;
+                    const updated = mapLocalToServerShape(currentLog, existingLog?.id, existingLog);
                     if (existingIdx >= 0) {
                         const next = [...prev];
                         next[existingIdx] = updated;
@@ -311,10 +299,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                     return [...prev, updated];
                 });
 
-                // Reset dirty after a successful auto-save so we don't
-                // re-fire the save unless the user edits again.
                 isDirty.current = false;
-
                 setSaveStatus('saved');
                 setTimeout(() => setSaveStatus(null), 3000);
             } catch (e) {
@@ -327,29 +312,35 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         return () => clearTimeout(autoSaveTimer.current);
     }, [currentLog, projectId, buildPayload]);
 
-    // ── Manual save (also handles photo uploads) ──────────────────────────
+    // ── Manual save (handles photo uploads) ──────────────────────────────
     const saveLog = async ({ photoMain, photo1, photo2 } = {}) => {
         if (!projectId) return;
         setSaving(true);
         setError(null);
         try {
             const fd = buildPayload(currentLog);
-            if (photoMain) fd.append('photo',        photoMain);
+            
+            // Append photos if they exist
+            if (photoMain) fd.append('photo', photoMain);
             if (photo1)    fd.append('team_photo_1', photo1);
             if (photo2)    fd.append('team_photo_2', photo2);
 
-            await api.post(
+            const response = await api.post(
                 `/projects/${projectId}/daily-logs`,
                 fd,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
 
-            // Reset dirty after manual save too
+            // Reset dirty after manual save
             isDirty.current = false;
 
+            // Refresh logs to get updated photo paths
             await fetchLogs();
+            
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus(null), 3000);
+            
+            return response.data;
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save log.';
             setError(msg);

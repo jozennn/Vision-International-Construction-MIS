@@ -875,26 +875,26 @@ class ProjectController extends Controller
     // =========================================================================
 
     public function getDailyLogs($id): JsonResponse
-    {
-        $logs = DailySiteLog::where('project_id', $id)
-            ->orderBy('log_date', 'desc')
-            ->get()
-            ->map(function ($log) {
-                // Add full URLs for photos if they exist
-                if ($log->photo_path) {
-                    $log->photo_url = Storage::disk('public')->url($log->photo_path);
-                }
-                if ($log->team_photo_1) {
-                    $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
-                }
-                if ($log->team_photo_2) {
-                    $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
-                }
-                return $log;
-            });
+{
+    $logs = DailySiteLog::where('project_id', $id)
+        ->orderBy('log_date', 'desc')
+        ->get()
+        ->map(function ($log) {
+            // Add full URLs for photos if they exist
+            if ($log->photo_path) {
+                $log->photo_url = Storage::disk('public')->url($log->photo_path);
+            }
+            if ($log->team_photo_1) {
+                $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
+            }
+            if ($log->team_photo_2) {
+                $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
+            }
+            return $log;
+        });
 
-        return response()->json($logs);
-    }
+    return response()->json($logs);
+}
 
     public function storeDailyLog(Request $request, $id): JsonResponse
     {
