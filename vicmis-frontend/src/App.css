@@ -2,7 +2,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Stops horizontal scrolling completely */
+  overflow-x: hidden;
   max-width: 100vw;
   font-family: Arial, sans-serif;
   background-color: var(--bg-light);
@@ -12,7 +12,7 @@ html, body {
   --primary-color: #e53958; 
   --secondary-color: #ffc107; 
   --sidebar-width: 250px;
-  --bg-light: #f8fafc; /* Updated to match your light theme */
+  --bg-light: #f8fafc;
   --text-dark: #333;
 }
 
@@ -24,7 +24,7 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Pushes the entire right side (Header + Dashboard) past the fixed Sidebar */
+/* Pushes the entire right side (Header + content) past the fixed Sidebar */
 .content-area {
   margin-left: var(--sidebar-width); 
   width: calc(100% - var(--sidebar-width));
@@ -32,19 +32,20 @@ html, body {
   transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
   background-color: var(--bg-light); 
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Gives your dashboard and pages proper spacing */
+/* Full-width content wrapper — no centering, no max-width constraints */
 .main-content-wrapper {
   padding: 24px; 
   width: 100%;
   box-sizing: border-box;
+  flex: 1;
 }
 
 
 /* --- LEGACY UI / OTHER MODULE STYLES --- */
-/* (Kept these intact just in case your other modules still rely on them) */
-
 .header { padding-top: 30px; margin-bottom: 20px; border-bottom: 1px solid #eee; }
 .top-row { display: flex; justify-content: space-between; align-items: center; padding-right: 40px; margin-bottom: 20px; }
 .welcome-message { font-size: 1.8em; color: var(--text-dark); font-weight: normal; }
@@ -73,7 +74,7 @@ html, body {
 .low-stock { background-color: #f44336; }
 .edit-button { background-color: #9c27b0; color: white; padding: 5px 15px; border: none; border-radius: 5px; cursor: pointer; }
 
-/* LEGACY SIDEBAR STYLES (Consider moving these to Sidebar.css if you haven't already!) */
+/* LEGACY SIDEBAR STYLES */
 .sidebar { display: flex; flex-direction: column; justify-content: space-between; width: var(--sidebar-width); background-color: #ffffff; color: var(--text-dark); padding: 20px 0; border-right: 1px solid #e2e8f0; box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05); }
 .logo { display: flex; align-items: center; padding: 0 20px 30px; font-size: 1.2em; font-weight: bold; color: var(--primary-color); }
 .sidebar-logo-img { width: 30px; height: 30px; margin-right: 10px; }
@@ -104,15 +105,10 @@ html, body {
     width: 100%;
     padding: 16px; 
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* THIS centers Customer and Project modules */
   }
 
-  /* Make sure the header leaves space for the floating hamburger */
   header, .main-header {
     padding-left: 70px !important; 
-    padding-right: 70px !important; 
-    justify-content: center !important;
+    padding-right: 16px !important; 
   }
 }
