@@ -5,7 +5,7 @@ import './Login.css';
 const LOCKOUT_MINS = 15;
 const LOCKOUT_MS   = LOCKOUT_MINS * 60 * 1000;
 const OTP_SECONDS  = 300;
-const LS_KEY       = 'vicmis_lockout_until'; // localStorage key
+const LS_KEY       = 'vicmis_lockout_until';
 
 const Login = ({ onEnterSystem }) => {
     const [email, setEmail]                 = useState('');
@@ -30,7 +30,6 @@ const Login = ({ onEnterSystem }) => {
             if (until > Date.now()) {
                 setLockedUntil(until);
             } else {
-                // Lockout expired while away — clean up
                 localStorage.removeItem(LS_KEY);
             }
         }
@@ -118,9 +117,6 @@ const Login = ({ onEnterSystem }) => {
             const status = err.response.status;
             const data   = err.response.data;
 
-            // ── 429: Server-side lockout triggered ──────────────────────
-            // Backend returns remaining_seconds so we sync exactly with
-            // the server's cache TTL — survives page refresh via localStorage.
             if (status === 429) {
                 const remaining = data.remaining_seconds ?? (LOCKOUT_MINS * 60);
                 applyLockout(remaining);
@@ -128,7 +124,6 @@ const Login = ({ onEnterSystem }) => {
                 return;
             }
 
-            // ── 401: Wrong credentials ──────────────────────────────────
             setError('Wrong Email or Password. Please try again.');
         }
     };
@@ -159,7 +154,6 @@ const Login = ({ onEnterSystem }) => {
             const status = err.response.status;
             const data   = err.response.data;
 
-            // ── 429: 2FA lockout ────────────────────────────────────────
             if (status === 429) {
                 const remaining = data.remaining_seconds ?? (LOCKOUT_MINS * 60);
                 applyLockout(remaining);
@@ -214,7 +208,11 @@ const Login = ({ onEnterSystem }) => {
                     {show2FA ? 'Security Verification' : 'Management Information System'}
                 </p>
 
-                <form onSubmit={show2FA ? handleVerifyCode : handleLogin}>
+                {/* autoComplete="off" on the form prevents browser autofill icons */}
+                <form
+                    onSubmit={show2FA ? handleVerifyCode : handleLogin}
+                    autoComplete="off"
+                >
                     {!show2FA ? (
                         <>
                             <div className="input-group">
@@ -225,6 +223,7 @@ const Login = ({ onEnterSystem }) => {
                                     disabled={isLoading || !!lockedUntil}
                                     onChange={e => setEmail(e.target.value)}
                                     placeholder="Email"
+                                    autoComplete="off"
                                     required
                                 />
                             </div>
@@ -238,6 +237,7 @@ const Login = ({ onEnterSystem }) => {
                                         disabled={isLoading || !!lockedUntil}
                                         onChange={e => setPassword(e.target.value)}
                                         placeholder="Password"
+                                        autoComplete="new-password"
                                         required
                                     />
                                     <button
@@ -282,6 +282,7 @@ const Login = ({ onEnterSystem }) => {
                                 value={twoFactorCode}
                                 disabled={isLoading}
                                 onChange={e => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                                autoComplete="one-time-code"
                                 required
                                 autoFocus
                             />
@@ -299,7 +300,7 @@ const Login = ({ onEnterSystem }) => {
                         </div>
                     )}
 
-                    {/* Lockout banner — shows even after refresh */}
+                    {/* Lockout banner */}
                     {lockedUntil && (
                         <div className="lockout-banner">
                             🔒 Account temporarily locked. Try again in{' '}
@@ -310,11 +311,13 @@ const Login = ({ onEnterSystem }) => {
                     <button
                         type="submit"
                         className="enter-btn"
+                        autoComplete="off"
                         disabled={isLoading || !!lockedUntil}
                     >
                         {isLoading ? (
                             <span className="loader-container">
-                                <span className="spinner" /> Processing…
+                                <span className="spinner" />
+                                Processing…
                             </span>
                         ) : show2FA ? 'Verify & Enter' : 'Sign In'}
                     </button>
