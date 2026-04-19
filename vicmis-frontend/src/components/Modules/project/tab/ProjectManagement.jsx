@@ -226,7 +226,7 @@ const ProjectManagement = ({
                         data-tab="completed"
                         onClick={() => { setViewMode('completed'); setFilterStatus(""); setSearchQuery(""); }}
                     >
-                        Converted Projects
+                        Completed Projects
                         <span className="pm-tab-badge">
                             {tabCounts.completed}
                         </span>
