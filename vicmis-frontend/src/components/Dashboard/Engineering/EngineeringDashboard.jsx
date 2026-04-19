@@ -30,7 +30,6 @@ const useToast = () => {
   };
 };
 
-
 const ToastContainer = ({ toasts, removeToast }) => (
   <div className="toast-container">
     {toasts.map(t => (
@@ -50,7 +49,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     const count = payload[0].value;
     return (
       <div style={{
-        background: 'var(--fo-navy)', color: 'var(--fo-cream)',
+        background: '#003049', color: '#FDF0D5',
         borderRadius: '8px', padding: '10px 16px',
         fontSize: '13px', fontFamily: 'inherit',
         boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
@@ -60,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }) => {
           {count} <span style={{ fontSize: '11px', opacity: 0.6 }}>completed</span>
         </p>
         {count > 0 && (
-          <p style={{ margin: '6px 0 0', fontSize: '10px', color: 'var(--fo-red)', fontWeight: 700, letterSpacing: '0.05em' }}>
+          <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#C1121F', fontWeight: 700, letterSpacing: '0.05em' }}>
             ▶ CLICK BAR TO OPEN VAULT
           </p>
         )}
@@ -74,11 +73,11 @@ const CustomTooltip = ({ active, payload, label }) => {
 const EmptyState = ({ message }) => (
   <div style={{
     textAlign: 'center', padding: '60px 24px',
-    border: '2px dashed var(--border-soft)', borderRadius: '16px',
-    background: 'var(--bg-light)', marginTop: '8px'
+    border: '2px dashed #C8BDB8', borderRadius: '16px',
+    background: '#FAF8F6', marginTop: '8px'
   }}>
     <span style={{ fontSize: '36px', opacity: 0.4 }}>📋</span>
-    <p style={{ color: 'var(--text-muted)', fontWeight: 600, marginTop: '10px', fontSize: '13px' }}>
+    <p style={{ color: '#7A706C', fontWeight: 600, marginTop: '10px', fontSize: '13px' }}>
       {message}
     </p>
   </div>
@@ -122,7 +121,7 @@ const DEFAULT_STATS = {
 //  MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════════════
 const EngineeringDashboard = ({ user }) => {
-  const [showModal,          setShowModal]          = useState(false);
+  const [showModal,        setShowModal]        = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [archivePeriod,    setArchivePeriod]    = useState(null);
   const [chartView,        setChartView]        = useState('monthly');
@@ -130,12 +129,19 @@ const EngineeringDashboard = ({ user }) => {
   const [isAssigning,      setIsAssigning]      = useState(false);
   const [isExporting,      setIsExporting]      = useState(false);
   const [stats,            setStats]            = useState(DEFAULT_STATS);
+  const [chartReady,       setChartReady]       = useState(false);
   const [taskForm,         setTaskForm]         = useState({
     project_id: '', engineer_ids: [''], dispatch_count: 1, instructions: ''
   });
 
   const { toasts, toast, removeToast } = useToast();
   const fetchedRef = useRef(false);
+
+  // ── Delay chart mount by 150ms so the DOM has real pixel dimensions ──────
+  useEffect(() => {
+    const id = setTimeout(() => setChartReady(true), 150);
+    return () => clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     if (fetchedRef.current) return;
@@ -158,30 +164,22 @@ const EngineeringDashboard = ({ user }) => {
     }
   }, []);
 
-  // 🚨 THE ULTIMATE VIP TELEPORTER 🚨
   const jumpToProject = useCallback((projectId) => {
-    // 1. Write the target ID to memory so Project.jsx knows what to load
     sessionStorage.setItem('autoOpenProjectId', String(projectId));
-    
-    // 2. Fire the global event to force your Main Layout to switch to the Project Tab
     window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'Project' }));
-    
-    // 3. Fire the specific open event for Project.jsx to catch
     window.dispatchEvent(new CustomEvent('open-project', { detail: projectId }));
-
-    // 4. (Fallback) If your sidebar doesn't listen to 'switch-tab', try physical DOM clicking
     setTimeout(() => {
       const activeComponent = document.querySelector('.project-module-container');
       if (!activeComponent) {
-          const allElements = document.querySelectorAll('a, button, li, div, span, p');
-          for (let el of allElements) {
-              const text = el.textContent.trim().toLowerCase();
-              if (text === 'project management' || text === 'projects' || text === 'project') {
-                  if (typeof el.click === 'function') el.click();
-                  if (el.parentElement && typeof el.parentElement.click === 'function') el.parentElement.click();
-                  break;
-              }
+        const allElements = document.querySelectorAll('a, button, li, div, span, p');
+        for (let el of allElements) {
+          const text = el.textContent.trim().toLowerCase();
+          if (text === 'project management' || text === 'projects' || text === 'project') {
+            if (typeof el.click === 'function') el.click();
+            if (el.parentElement && typeof el.parentElement.click === 'function') el.parentElement.click();
+            break;
           }
+        }
       }
     }, 100);
   }, []);
@@ -219,7 +217,7 @@ const EngineeringDashboard = ({ user }) => {
     if (!taskForm.instructions.trim())                { toast.error('Please enter task instructions.');   return; }
     const unique = new Set(taskForm.engineer_ids);
     if (unique.size !== taskForm.engineer_ids.length) { toast.error('Each staff member can only be assigned once.'); return; }
-    
+
     try {
       setIsAssigning(true);
       await api.post('/engineering/assign-task', taskForm);
@@ -236,15 +234,15 @@ const EngineeringDashboard = ({ user }) => {
 
   const handlePickProject = async (projectId) => {
     try {
-        await api.post('/engineering/pick-project', { project_id: projectId });
-        toast.success('Project claimed! It is now in your active workspace.');
-        fetchEngineeringData();
+      await api.post('/engineering/pick-project', { project_id: projectId });
+      toast.success('Project claimed! It is now in your active workspace.');
+      fetchEngineeringData();
     } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to claim project.');
+      toast.error(error.response?.data?.message || 'Failed to claim project.');
     }
   };
 
-  // ── Excel export ─────────────────────────────────────────────────────────
+  // ── Excel export ──────────────────────────────────────────────────────────
   const exportSummaryToExcel = async () => {
     setIsExporting(true);
     try {
@@ -359,7 +357,9 @@ const EngineeringDashboard = ({ user }) => {
             <div className="task-flex">
               <h3 className="stat-value">{stats.pending_tasks}</h3>
               {user?.role === 'dept_head' && (
-                <button className="mini-assign-btn" style={{ background: 'var(--fo-red)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: '900', cursor: 'pointer' }} onClick={() => setShowModal(true)}>+ Assign</button>
+                <button className="mini-assign-btn" onClick={() => setShowModal(true)}>
+                  + Assign
+                </button>
               )}
             </div>
           </div>
@@ -375,17 +375,25 @@ const EngineeringDashboard = ({ user }) => {
 
         {/* ── Chart ── */}
         <div className="proj-card no-print" style={{ padding: '30px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px', marginBottom: '24px', borderBottom: '2px solid var(--border-soft)', paddingBottom: '20px' }}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+            flexWrap: 'wrap', gap: '15px', marginBottom: '24px',
+            borderBottom: '2px solid #E0D9D4', paddingBottom: '20px'
+          }}>
             <div>
               <h3 className="proj-title-lg" style={{ margin: 0 }}>Project Completions</h3>
               {currentChartData?.some(d => d.Completed > 0) && (
-                <p style={{ fontSize: '11px', color: 'var(--fo-red)', fontWeight: 700, marginTop: '5px', letterSpacing: '0.04em' }}>
+                <p style={{ fontSize: '11px', color: '#C1121F', fontWeight: 700, marginTop: '5px', letterSpacing: '0.04em' }}>
                   ▶ Click any bar to open that period's project vault
                 </p>
               )}
             </div>
             <div style={{ display: 'flex', gap: '15px' }}>
-              <select style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid var(--border-soft)', fontWeight: '900', outline: 'none', background: 'var(--bg-light)', color: 'var(--text-dark)', cursor: 'pointer' }} value={chartView} onChange={e => setChartView(e.target.value)}>
+              <select
+                style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid #E0D9D4', fontWeight: '900', outline: 'none', background: '#FAF8F6', color: '#221F1F', cursor: 'pointer' }}
+                value={chartView}
+                onChange={e => setChartView(e.target.value)}
+              >
                 <option value="monthly">Monthly View</option>
                 <option value="yearly">Yearly View</option>
               </select>
@@ -395,18 +403,25 @@ const EngineeringDashboard = ({ user }) => {
             </div>
           </div>
 
-          <div style={{ width: '100%', height: '300px' }}>
-            {currentChartData?.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+          {/* ── MAIN CHART — fixed pixel height, delayed mount ── */}
+          <div style={{ width: '100%', height: 300 }}>
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
+                Loading chart data…
+              </div>
+            ) : !chartReady ? (
+              <div style={{ height: 300 }} />
+            ) : currentChartData?.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={currentChartData}
                   margin={{ top: 8, right: 8, left: -10, bottom: 0 }}
                   onClick={handleBarClick}
                   style={{ cursor: 'default' }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-soft)" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)', fontWeight: 600 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} allowDecimals={false} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0D9D4" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C', fontWeight: 600 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C' }} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,48,73,0.05)' }} />
                   <Bar dataKey="Completed" radius={[6, 6, 0, 0]} maxBarSize={52}>
                     {currentChartData.map((entry, idx) => (
@@ -421,41 +436,40 @@ const EngineeringDashboard = ({ user }) => {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', height: '100%', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                {loading ? 'Loading chart data…' : 'No completion data yet.'}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
+                No completion data yet.
               </div>
             )}
           </div>
         </div>
 
-        {/* 🚨 AVAILABLE FOR PICKUP SECTION 🚨 */}
+        {/* ── Available for Pickup ── */}
         {!loading && stats.pickup_queue?.length > 0 && (
-          <div className="approval-section no-print" style={{ backgroundColor: 'var(--bg-light)', border: '2px dashed var(--fo-blue)', marginBottom: '32px' }}>
+          <div className="approval-section no-print" style={{ backgroundColor: '#FAF8F6', border: '2px dashed #497B97', marginBottom: '32px' }}>
             <div className="section-header" style={{ borderBottom: 'none', paddingBottom: '0', marginBottom: '20px' }}>
-              <h2 style={{ color: 'var(--fo-blue)' }}>📦 Available for Pickup</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '600', marginTop: '4px' }}>These projects have no engineer assigned. Pick one to claim it.</p>
+              <h2 style={{ color: '#497B97' }}>📦 Available for Pickup</h2>
+              <p style={{ color: '#7A706C', fontSize: '13px', fontWeight: '600', marginTop: '4px' }}>
+                These projects have no engineer assigned. Pick one to claim it.
+              </p>
             </div>
-            
             <div className="active-projects-grid">
               {stats.pickup_queue.map(proj => (
-                <div key={proj.id} className="project-task-card" style={{ backgroundColor: '#ffffff', borderColor: 'var(--border-soft)' }}>
+                <div key={proj.id} className="project-task-card" style={{ backgroundColor: '#ffffff', borderColor: '#E0D9D4' }}>
                   <div>
                     <div className="card-header-flex">
-                      <span className="tag-id" style={{ backgroundColor: 'var(--fo-cream)', color: 'var(--fo-navy)' }}>PRJ-{proj.id}</span>
-                      <span className="tag-progress" style={{ backgroundColor: '#fef2f2', color: 'var(--fo-red)' }}>UNCLAIMED</span>
+                      <span className="tag-id" style={{ backgroundColor: '#EBDBD6', color: '#221F1F' }}>PRJ-{proj.id}</span>
+                      <span className="tag-progress" style={{ backgroundColor: '#fef2f2', color: '#C20100', border: '1px solid rgba(194,1,0,.2)' }}>UNCLAIMED</span>
                     </div>
                     <h3 className="project-name-title" title={proj.name}>{proj.name}</h3>
                     <p className="project-client-sub">👤 Client: {proj.client}</p>
-                    <div className="phase-box" style={{ backgroundColor: 'var(--bg-light)' }}>
-                      <p className="phase-box-label" style={{ color: 'var(--text-muted)' }}>Current Phase</p>
-                      <p className="phase-box-value" style={{ color: 'var(--fo-navy)' }}>{proj.status}</p>
+                    <div className="phase-box" style={{ backgroundColor: '#FAF8F6' }}>
+                      <p className="phase-box-label" style={{ color: '#7A706C' }}>Current Phase</p>
+                      <p className="phase-box-value" style={{ color: '#221F1F' }}>{proj.status}</p>
                     </div>
                   </div>
                   <button
                     className="open-workspace-btn"
-                    style={{ backgroundColor: 'var(--fo-blue)', color: '#ffffff', border: 'none' }}
-                    onMouseOver={(e) => { e.target.style.opacity = '0.9' }}
-                    onMouseOut={(e) => { e.target.style.opacity = '1' }}
+                    style={{ backgroundColor: '#497B97', color: '#ffffff', border: 'none' }}
                     onClick={() => handlePickProject(proj.id)}
                   >
                     ✋ Claim This Project
@@ -469,7 +483,7 @@ const EngineeringDashboard = ({ user }) => {
         {/* ── Active Projects ── */}
         <div className="approval-section no-print">
           <div className="section-header">
-            <h2 style={{ color: 'var(--fo-navy)' }}>Active Project Tasks</h2>
+            <h2>Active Project Tasks</h2>
           </div>
           {loading ? (
             <EmptyState message="Syncing live engineering tasks…" />
@@ -510,40 +524,47 @@ const EngineeringDashboard = ({ user }) => {
               {!archivePeriod && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-                    <select style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid var(--border-soft)', fontWeight: '900', outline: 'none', background: 'var(--bg-light)', color: 'var(--text-dark)', cursor: 'pointer' }} value={chartView} onChange={e => setChartView(e.target.value)}>
+                    <select
+                      style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid #E0D9D4', fontWeight: '900', outline: 'none', background: '#FAF8F6', color: '#221F1F', cursor: 'pointer' }}
+                      value={chartView}
+                      onChange={e => setChartView(e.target.value)}
+                    >
                       <option value="monthly">Monthly View</option>
                       <option value="yearly">Yearly View</option>
                     </select>
                   </div>
 
-                  <div style={{ width: '100%', height: '200px', marginBottom: '24px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={currentChartData}
-                        margin={{ top: 4, right: 8, left: -10, bottom: 0 }}
-                        onClick={(data) => {
-                          if (!data?.activePayload?.[0]) return;
-                          const clicked = data.activePayload[0].payload;
-                          if (clicked.Completed > 0) setArchivePeriod(clicked.name);
-                        }}
-                        style={{ cursor: 'default' }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-soft)" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)', fontWeight: 600 }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} allowDecimals={false} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="Completed" radius={[5, 5, 0, 0]} maxBarSize={40}>
-                          {currentChartData.map((entry, idx) => (
-                            <Cell
-                              key={idx}
-                              fill={chartColor}
-                              fillOpacity={entry.Completed > 0 ? 0.85 : 0.2}
-                              style={{ cursor: entry.Completed > 0 ? 'pointer' : 'default' }}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                  {/* ── Modal mini chart — fixed pixel height ── */}
+                  <div style={{ width: '100%', height: 200, marginBottom: '24px' }}>
+                    {chartReady && currentChartData?.length > 0 && (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart
+                          data={currentChartData}
+                          margin={{ top: 4, right: 8, left: -10, bottom: 0 }}
+                          onClick={(data) => {
+                            if (!data?.activePayload?.[0]) return;
+                            const clicked = data.activePayload[0].payload;
+                            if (clicked.Completed > 0) setArchivePeriod(clicked.name);
+                          }}
+                          style={{ cursor: 'default' }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0D9D4" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C', fontWeight: 600 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C' }} allowDecimals={false} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Bar dataKey="Completed" radius={[5, 5, 0, 0]} maxBarSize={40}>
+                            {currentChartData.map((entry, idx) => (
+                              <Cell
+                                key={idx}
+                                fill={chartColor}
+                                fillOpacity={entry.Completed > 0 ? 0.85 : 0.2}
+                                style={{ cursor: entry.Completed > 0 ? 'pointer' : 'default' }}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
 
                   <div className="archive-periods-grid">
@@ -555,7 +576,11 @@ const EngineeringDashboard = ({ user }) => {
                       >
                         <p className="period-name">{data.name}</p>
                         <p className="period-count">{data.Completed}</p>
-                        {data.Completed > 0 && <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--fo-red)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Open Vault</p>}
+                        {data.Completed > 0 && (
+                          <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#C20100', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            Open Vault
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -622,10 +647,16 @@ const EngineeringDashboard = ({ user }) => {
               </div>
 
               <form onSubmit={handleAssignTask}>
-                
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: '900', color: 'var(--fo-navy)', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>Select Active Project</label>
-                  <select style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid var(--border-soft)', outline: 'none', fontWeight: '700', fontSize: '14px', background: 'var(--bg-light)' }} value={taskForm.project_id} onChange={e => setTaskForm(prev => ({ ...prev, project_id: e.target.value }))} required>
+                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
+                    Select Active Project
+                  </label>
+                  <select
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}
+                    value={taskForm.project_id}
+                    onChange={e => setTaskForm(prev => ({ ...prev, project_id: e.target.value }))}
+                    required
+                  >
                     <option value="">— Choose Project —</option>
                     {[...(stats.pickup_queue || []), ...(stats.active_projects || [])].map(proj => (
                       <option key={proj.id} value={proj.id}>PRJ-{proj.id} : {proj.name}</option>
@@ -634,8 +665,15 @@ const EngineeringDashboard = ({ user }) => {
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: '900', color: 'var(--fo-navy)', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>Staff Count <span style={{ color: 'var(--text-muted)', textTransform: 'none', fontWeight: 400 }}>(max 10)</span></label>
-                  <input type="number" min="1" max="10" style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid var(--border-soft)', outline: 'none', fontWeight: '700', fontSize: '14px', background: 'var(--bg-light)' }} value={taskForm.dispatch_count} onChange={handleDispatchChange} />
+                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
+                    Staff Count <span style={{ color: '#7A706C', textTransform: 'none', fontWeight: 400 }}>(max 10)</span>
+                  </label>
+                  <input
+                    type="number" min="1" max="10"
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}
+                    value={taskForm.dispatch_count}
+                    onChange={handleDispatchChange}
+                  />
                 </div>
 
                 <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '10px', marginBottom: '20px' }}>
@@ -643,10 +681,15 @@ const EngineeringDashboard = ({ user }) => {
                     const otherSelected = taskForm.engineer_ids.filter((_, i) => i !== index);
                     return (
                       <div key={index} style={{ marginBottom: '15px' }}>
-                        <label style={{ display: 'block', fontWeight: '900', color: index === 0 ? 'var(--fo-red)' : 'var(--text-muted)', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
+                        <label style={{ display: 'block', fontWeight: '900', color: index === 0 ? '#C20100' : '#7A706C', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
                           {index === 0 ? '👑 Lead Engineer' : `🛠 Support Staff ${index}`}
                         </label>
-                        <select style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid var(--border-soft)', outline: 'none', fontWeight: '700', fontSize: '14px', background: 'var(--bg-light)' }} value={engId} onChange={e => handleEngineerChange(index, e.target.value)} required>
+                        <select
+                          style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}
+                          value={engId}
+                          onChange={e => handleEngineerChange(index, e.target.value)}
+                          required
+                        >
                           <option value="">— Select Staff Member —</option>
                           {stats.engineers_list?.map(eng => (
                             <option key={eng.id} value={eng.id} disabled={otherSelected.includes(String(eng.id))}>
@@ -660,13 +703,21 @@ const EngineeringDashboard = ({ user }) => {
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: '900', color: 'var(--fo-navy)', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>Task Instructions</label>
-                  <textarea style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid var(--border-soft)', outline: 'none', fontWeight: '700', fontSize: '14px', background: 'var(--bg-light)', minHeight: '100px', resize: 'vertical' }} placeholder="Specify technical requirements, scope, and objectives…" value={taskForm.instructions} onChange={e => setTaskForm(prev => ({ ...prev, instructions: e.target.value }))} required />
+                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
+                    Task Instructions
+                  </label>
+                  <textarea
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6', minHeight: '100px', resize: 'vertical' }}
+                    placeholder="Specify technical requirements, scope, and objectives…"
+                    value={taskForm.instructions}
+                    onChange={e => setTaskForm(prev => ({ ...prev, instructions: e.target.value }))}
+                    required
+                  />
                 </div>
 
                 <div className="modal-actions">
                   <button type="button" className="btn-cancel" onClick={() => setShowModal(false)} disabled={isAssigning}>Cancel</button>
-                  <button type="submit" className="confirm-btn" disabled={isAssigning} style={{ background: 'var(--fo-navy)' }}>
+                  <button type="submit" className="confirm-btn" disabled={isAssigning} style={{ background: '#221F1F' }}>
                     {isAssigning ? '⏳ Assigning…' : '✓ Assign Team'}
                   </button>
                 </div>
