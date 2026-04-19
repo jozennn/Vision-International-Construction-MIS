@@ -375,11 +375,19 @@ const EngineeringDashboard = ({ user }) => {
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#E0D9D4" />
                 <XAxis dataKey="name" tick={{ fill: '#7A706C', fontSize: 12 }} />
-                <YAxis tick={{ fill: '#7A706C', fontSize: 12 }} allowDecimals={false} />
+                <YAxis 
+                  tick={{ fill: '#7A706C', fontSize: 12 }} 
+                  allowDecimals={false}
+                  domain={[0, 'auto']} 
+                />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="Completed" fill={chartColor} radius={[6, 6, 0, 0]} maxBarSize={60}>
                   {currentChartData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={chartColor} fillOpacity={entry.Completed > 0 ? 0.9 : 0.3} />
+                    <Cell 
+                      key={`cell-${idx}`} 
+                      fill={entry.Completed > 0 ? chartColor : 'transparent'}  
+                      fillOpacity={entry.Completed > 0 ? 0.9 : 0}            
+                    />
                   ))}
                 </Bar>
               </BarChart>
