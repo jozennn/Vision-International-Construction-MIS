@@ -367,7 +367,12 @@ const EngineeringDashboard = ({ user }) => {
               </div>
             ) : currentChartData && currentChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={currentChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} onClick={handleBarClick}>
+                <BarChart 
+                  data={currentChartData} 
+                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }} 
+                  onClick={handleBarClick}
+                  style={{ background: 'transparent' }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E0D9D4" />
                   <XAxis dataKey="name" tick={{ fill: '#7A706C', fontSize: 12 }} />
                   <YAxis tick={{ fill: '#7A706C', fontSize: 12 }} allowDecimals={false} />
@@ -380,9 +385,7 @@ const EngineeringDashboard = ({ user }) => {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
-                No completion data available.
-              </div>
+              <div>No data</div>
             )}
           </div>
         </div>
