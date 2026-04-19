@@ -367,7 +367,7 @@ const EngineeringDashboard = ({ user }) => {
               </div>
             ) : currentChartData && currentChartData.length > 0 ? (
               <BarChart
-                width={1100}
+                width={1350}
                 height={260}
                 data={currentChartData}
                 margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
