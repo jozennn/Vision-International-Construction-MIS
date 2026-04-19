@@ -7,6 +7,11 @@ import '../css/InstallerMonitoring.css';
 
 const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
 
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    return dateString.split('T')[0];
+};
+
 // ─── Save Indicator ───────────────────────────────────────────────────────────
 const SaveIndicator = ({ status }) => {
     if (!status) return null;
@@ -453,39 +458,50 @@ const InstallerMonitoring = ({ project, user }) => {
                         <div className="im-timeline-col">
                             <div className="im-input-group">
                                 <span className="im-input-label">From Client — Start</span>
-                                <input type="date" value={currentLog.clientStart}
+                                <input 
+                                    type="date" 
+                                    value={formatDateForInput(currentLog.clientStart)}
                                     onChange={e => setCurrentLog({ ...currentLog, clientStart: e.target.value })}
-                                    className="im-input" />
+                                    className="im-input" 
+                                />
                             </div>
                             <div className="im-input-group">
                                 <span className="im-input-label">Actual Start</span>
-                                <input type="date" value={currentLog.actualStart}
+                                <input 
+                                    type="date" 
+                                    value={formatDateForInput(currentLog.actualStart)}
                                     onChange={e => setCurrentLog({ ...currentLog, actualStart: e.target.value })}
-                                    className="im-input im-input-actual" />
+                                    className="im-input im-input-actual" 
+                                />
                             </div>
                         </div>
                         <div className="im-timeline-col">
                             <div className="im-input-group">
                                 <span className="im-input-label">From Client — End</span>
-                                <input type="date" value={currentLog.clientEnd}
+                                <input 
+                                    type="date" 
+                                    value={formatDateForInput(currentLog.clientEnd)}
                                     onChange={e => setCurrentLog({ ...currentLog, clientEnd: e.target.value })}
-                                    className="im-input" />
+                                    className="im-input" 
+                                />
                             </div>
                             <div className="im-input-group">
                                 <span className="im-input-label">Actual End</span>
-                                <input type="date" value={currentLog.actualEnd}
+                                <input 
+                                    type="date" 
+                                    value={formatDateForInput(currentLog.actualEnd)}
                                     onChange={e => setCurrentLog({ ...currentLog, actualEnd: e.target.value })}
-                                    className="im-input im-input-actual" />
+                                    className="im-input im-input-actual" 
+                                />
                             </div>
                         </div>
                     </div>
                 </div>
-
                 {/* Installer Table */}
                 <div className="im-table-card">
                     <div className="im-table-toolbar">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span className="im-table-title">👷 Installers — {selectedDate}</span>
+                            <span className="im-table-title">👷 Installers — {formatDateForInput(selectedDate)}</span>
                             {roster.length > 0 && (
                                 <span className="im-roster-badge">{roster.length} from roster</span>
                             )}
