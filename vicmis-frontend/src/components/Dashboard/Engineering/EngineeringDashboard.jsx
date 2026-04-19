@@ -116,6 +116,72 @@ const DEFAULT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 
 const CURRENT_YEAR = new Date().getFullYear();
 const DEFAULT_YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR];
 
+// Helper function to convert any data format to proper array format
+const normalizeToArray = (data) => {
+  // If it's null or undefined, return empty array
+  if (!data) return [];
+  
+  // If it's already an array, return it
+  if (Array.isArray(data)) return data;
+  
+  // If it's an object with numeric keys (like {0: {...}, 1: {...}}), convert to array
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    // Check if it has length property or numeric keys
+    if (data.length !== undefined) {
+      return Array.from(data);
+    }
+    // Try to convert object values to array
+    const values = Object.values(data);
+    if (values.length > 0 && values.some(v => typeof v === 'object')) {
+      return values;
+    }
+    // If it's a single object, wrap it in an array
+    if (data.name !== undefined || data.Completed !== undefined) {
+      return [data];
+    }
+  }
+  
+  return [];
+};
+
+// Helper function to normalize chart data
+const normalizeChartData = (data, type = 'monthly') => {
+  // First, ensure we have an array
+  let dataArray = normalizeToArray(data);
+  
+  console.log(`Normalizing ${type} data:`, dataArray); // Debug log
+  
+  if (!dataArray || dataArray.length === 0) {
+    return type === 'monthly' 
+      ? DEFAULT_MONTHS.map(month => ({ name: month, Completed: 0 }))
+      : DEFAULT_YEARS.map(year => ({ name: String(year), Completed: 0 }));
+  }
+  
+  // Transform each item to have the correct structure
+  return dataArray.map(item => {
+    // If item is already in correct format
+    if (item.name !== undefined && item.Completed !== undefined) {
+      return {
+        name: item.name,
+        Completed: Number(item.Completed) || 0
+      };
+    }
+    
+    // Try to extract name from various possible fields
+    const name = item.name || item.month || item.period || item.year || 'Unknown';
+    
+    // Try to extract Completed count from various possible fields
+    let completed = 0;
+    if (item.Completed !== undefined) completed = Number(item.Completed);
+    else if (item.completed !== undefined) completed = Number(item.completed);
+    else if (item.count !== undefined) completed = Number(item.count);
+    else if (item.value !== undefined) completed = Number(item.value);
+    else if (item.projects_completed !== undefined) completed = Number(item.projects_completed);
+    
+    return { name, Completed: completed };
+  });
+};
+
 const DEFAULT_STATS = {
   total_projects: 0, 
   pending_tasks: 0, 
@@ -127,20 +193,6 @@ const DEFAULT_STATS = {
   pickup_queue: [], 
   chart_data_monthly: DEFAULT_MONTHS.map(month => ({ name: month, Completed: 0 })),
   chart_data_yearly: DEFAULT_YEARS.map(year => ({ name: String(year), Completed: 0 }))
-};
-
-// Helper function to normalize chart data
-const normalizeChartData = (data, type = 'monthly') => {
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return type === 'monthly' 
-      ? DEFAULT_STATS.chart_data_monthly 
-      : DEFAULT_STATS.chart_data_yearly;
-  }
-  
-  return data.map(item => ({
-    name: item.name || item.month || item.period || item.year || 'Unknown',
-    Completed: Number(item.Completed || item.completed || item.count || item.value || 0)
-  }));
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -173,21 +225,41 @@ const EngineeringDashboard = ({ user }) => {
       setLoading(true);
       const response = await api.get('/engineering/dashboard-stats');
       
+      console.log('Full API Response:', response.data); // Debug log
+      
       if (response.data?.LARAVEL_CRASHED) throw new Error(response.data.message);
       
-      // Normalize the chart data to ensure it has the correct structure
+      // Extract data with proper normalization
+      const rawData = response.data || {};
+      
+      // Log the raw chart data to debug
+      console.log('Raw monthly data:', rawData.chart_data_monthly);
+      console.log('Raw yearly data:', rawData.chart_data_yearly);
+      
+      // Normalize the chart data
+      const normalizedMonthly = normalizeChartData(rawData.chart_data_monthly, 'monthly');
+      const normalizedYearly = normalizeChartData(rawData.chart_data_yearly, 'yearly');
+      
+      console.log('Normalized monthly:', normalizedMonthly);
+      console.log('Normalized yearly:', normalizedYearly);
+      
+      // Ensure other arrays are proper arrays
+      const activeProjects = normalizeToArray(rawData.active_projects);
+      const completedProjects = normalizeToArray(rawData.completed_projects);
+      const pickupQueue = normalizeToArray(rawData.pickup_queue);
+      const engineersList = normalizeToArray(rawData.engineers_list);
+      
       const normalizedData = {
-        ...response.data,
-        chart_data_monthly: normalizeChartData(response.data?.chart_data_monthly, 'monthly'),
-        chart_data_yearly: normalizeChartData(response.data?.chart_data_yearly, 'yearly'),
-        project_progress: response.data?.project_progress || '0%',
-        total_projects: response.data?.total_projects || 0,
-        pending_tasks: response.data?.pending_tasks || 0,
-        total_engineers: response.data?.total_engineers || 0,
-        engineers_list: response.data?.engineers_list || [],
-        active_projects: response.data?.active_projects || [],
-        completed_projects: response.data?.completed_projects || [],
-        pickup_queue: response.data?.pickup_queue || []
+        total_projects: rawData.total_projects || 0,
+        pending_tasks: rawData.pending_tasks || 0,
+        project_progress: rawData.project_progress || '0%',
+        total_engineers: rawData.total_engineers || 0,
+        engineers_list: engineersList,
+        active_projects: activeProjects,
+        completed_projects: completedProjects,
+        pickup_queue: pickupQueue,
+        chart_data_monthly: normalizedMonthly,
+        chart_data_yearly: normalizedYearly
       };
       
       setStats(normalizedData);
@@ -410,6 +482,11 @@ const EngineeringDashboard = ({ user }) => {
           </div>
         </div>
 
+        {/* ── Chart Debug Info (Remove after testing) ── */}
+        <div style={{ background: '#f5f5f5', padding: '10px', margin: '10px 20px', borderRadius: '8px', fontSize: '12px', display: loading ? 'block' : 'none' }}>
+          <strong>Debug:</strong> Loading: {String(loading)} | Chart View: {chartView} | Data Length: {currentChartData?.length} | Has Data: {String(hasChartData)}
+        </div>
+
         {/* ── Chart ── */}
         <div className="proj-card no-print" style={{ padding: '20px' }}>
           <div style={{
@@ -446,7 +523,7 @@ const EngineeringDashboard = ({ user }) => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
                 Loading chart data…
               </div>
-            ) : currentChartData.length > 0 ? (
+            ) : currentChartData && currentChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={currentChartData}
@@ -581,7 +658,7 @@ const EngineeringDashboard = ({ user }) => {
 
                   {/* ── Modal mini chart ── */}
                   <div style={{ width: '100%', height: 200, marginBottom: '24px' }}>
-                    {currentChartData.length > 0 && (
+                    {currentChartData && currentChartData.length > 0 && (
                       <ResponsiveContainer width="100%" height={200}>
                         <BarChart
                           data={currentChartData}
@@ -613,7 +690,7 @@ const EngineeringDashboard = ({ user }) => {
                   </div>
 
                   <div className="archive-periods-grid">
-                    {currentChartData.map((data, idx) => (
+                    {currentChartData && currentChartData.map((data, idx) => (
                       <div
                         key={idx}
                         onClick={() => data.Completed > 0 && setArchivePeriod(data.name)}
