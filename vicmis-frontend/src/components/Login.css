@@ -347,24 +347,6 @@
    LOADING SPINNER
    ========================================= */
 
-.loader-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2.5px solid rgba(255, 255, 255, 0.35);
-  border-radius: 50%;
-  border-top-color: #fff;
-  animation: spin 0.75s linear infinite;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
 .checking-pulse { animation: pulse 1.5s infinite; }
 
 /* =========================================

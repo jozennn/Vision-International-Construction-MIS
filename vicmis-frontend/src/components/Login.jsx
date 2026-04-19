@@ -314,12 +314,7 @@ const Login = ({ onEnterSystem }) => {
                         autoComplete="off"
                         disabled={isLoading || !!lockedUntil}
                     >
-                        {isLoading ? (
-                            <span className="loader-container">
-                                <span className="spinner" />
-                                Processing…
-                            </span>
-                        ) : show2FA ? 'Verify & Enter' : 'Sign In'}
+                        {isLoading ? 'Processing…' : show2FA ? 'Verify & Enter' : 'Sign In'}
                     </button>
 
                     {show2FA && (
