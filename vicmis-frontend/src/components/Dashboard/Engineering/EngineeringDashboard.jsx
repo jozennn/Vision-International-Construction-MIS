@@ -19,24 +19,14 @@ const useToast = () => {
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
-  return {
-    toasts,
-    toast: {
-      success: (m) => addToast(m, 'success'),
-      error:   (m) => addToast(m, 'error'),
-      info:    (m) => addToast(m, 'info'),
-    },
-    removeToast,
-  };
+  return { toasts, toast: { success: (m) => addToast(m, 'success'), error: (m) => addToast(m, 'error'), info: (m) => addToast(m, 'info') }, removeToast };
 };
 
 const ToastContainer = ({ toasts, removeToast }) => (
   <div className="toast-container">
     {toasts.map(t => (
       <div key={t.id} className={`toast toast-${t.type}`} onClick={() => removeToast(t.id)}>
-        <span className="toast-icon">
-          {t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : 'ℹ'}
-        </span>
+        <span className="toast-icon">{t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : 'ℹ'}</span>
         {t.message}
       </div>
     ))}
@@ -46,23 +36,15 @@ const ToastContainer = ({ toasts, removeToast }) => (
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
-    const count = payload[0].value;
     return (
       <div style={{
-        background: '#221F1F', color: '#EBDBD6',
-        borderRadius: '8px', padding: '10px 16px',
-        fontSize: '13px', fontFamily: 'inherit',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+        background: '#221F1F', color: '#EBDBD6', borderRadius: '8px', padding: '10px 16px',
+        fontSize: '13px', fontFamily: 'DM Sans, sans-serif', boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
       }}>
-        <p style={{ margin: 0, fontWeight: 700, opacity: 0.7, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+        <p style={{ margin: 0, fontWeight: 700, opacity: 0.7, fontSize: '11px' }}>{label}</p>
         <p style={{ margin: '4px 0 0', fontWeight: 900, fontSize: '20px' }}>
-          {count} <span style={{ fontSize: '11px', opacity: 0.6 }}>completed</span>
+          {payload[0].value} <span style={{ fontSize: '11px', opacity: 0.6 }}>completed</span>
         </p>
-        {count > 0 && (
-          <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#C20100', fontWeight: 700, letterSpacing: '0.05em' }}>
-            ▶ CLICK BAR TO OPEN VAULT
-          </p>
-        )}
       </div>
     );
   }
@@ -77,9 +59,7 @@ const EmptyState = ({ message }) => (
     background: '#FAF8F6', marginTop: '8px'
   }}>
     <span style={{ fontSize: '36px', opacity: 0.4 }}>📋</span>
-    <p style={{ color: '#7A706C', fontWeight: 600, marginTop: '10px', fontSize: '13px' }}>
-      {message}
-    </p>
+    <p style={{ color: '#7A706C', fontWeight: 600, marginTop: '10px', fontSize: '13px' }}>{message}</p>
   </div>
 );
 
@@ -93,7 +73,7 @@ const ProjectCard = ({ proj, onOpen, completed }) => (
           {completed ? 'FINISHED' : `${proj.progress || 0}% DONE`}
         </span>
       </div>
-      <h3 className="project-name-title" title={proj.name}>{proj.name}</h3>
+      <h3 className="project-name-title">{proj.name}</h3>
       <p className="project-client-sub">👤 Client: {proj.client}</p>
       <div className="phase-box">
         <p className="phase-box-label">{completed ? 'Final Status' : 'Current Phase'}</p>
@@ -102,114 +82,40 @@ const ProjectCard = ({ proj, onOpen, completed }) => (
         </p>
       </div>
     </div>
-    <button
-      className={`open-workspace-btn ${completed ? 'finished' : ''}`}
-      onClick={() => onOpen(proj.id)}
-    >
+    <button className={`open-workspace-btn ${completed ? 'finished' : ''}`} onClick={() => onOpen(proj.id)}>
       {completed ? '📁 Open Archive' : '🚀 Open Workspace'}
     </button>
   </div>
 );
 
-// Default months for fallback data
-const DEFAULT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const CURRENT_YEAR = new Date().getFullYear();
-const DEFAULT_YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR];
+const DEFAULT_MONTHLY_DATA = [
+  { name: 'Jan', Completed: 0 }, { name: 'Feb', Completed: 0 }, { name: 'Mar', Completed: 0 },
+  { name: 'Apr', Completed: 0 }, { name: 'May', Completed: 0 }, { name: 'Jun', Completed: 0 },
+  { name: 'Jul', Completed: 0 }, { name: 'Aug', Completed: 0 }, { name: 'Sep', Completed: 0 },
+  { name: 'Oct', Completed: 0 }, { name: 'Nov', Completed: 0 }, { name: 'Dec', Completed: 0 }
+];
 
-// Helper function to convert any data format to proper array format
-const normalizeToArray = (data) => {
-  // If it's null or undefined, return empty array
-  if (!data) return [];
-  
-  // If it's already an array, return it
-  if (Array.isArray(data)) return data;
-  
-  // If it's an object with numeric keys (like {0: {...}, 1: {...}}), convert to array
-  if (typeof data === 'object' && !Array.isArray(data)) {
-    // Check if it has length property or numeric keys
-    if (data.length !== undefined) {
-      return Array.from(data);
-    }
-    // Try to convert object values to array
-    const values = Object.values(data);
-    if (values.length > 0 && values.some(v => typeof v === 'object')) {
-      return values;
-    }
-    // If it's a single object, wrap it in an array
-    if (data.name !== undefined || data.Completed !== undefined) {
-      return [data];
-    }
-  }
-  
-  return [];
-};
-
-// Helper function to normalize chart data
-const normalizeChartData = (data, type = 'monthly') => {
-  // First, ensure we have an array
-  let dataArray = normalizeToArray(data);
-  
-  console.log(`Normalizing ${type} data:`, dataArray); // Debug log
-  
-  if (!dataArray || dataArray.length === 0) {
-    return type === 'monthly' 
-      ? DEFAULT_MONTHS.map(month => ({ name: month, Completed: 0 }))
-      : DEFAULT_YEARS.map(year => ({ name: String(year), Completed: 0 }));
-  }
-  
-  // Transform each item to have the correct structure
-  return dataArray.map(item => {
-    // If item is already in correct format
-    if (item.name !== undefined && item.Completed !== undefined) {
-      return {
-        name: item.name,
-        Completed: Number(item.Completed) || 0
-      };
-    }
-    
-    // Try to extract name from various possible fields
-    const name = item.name || item.month || item.period || item.year || 'Unknown';
-    
-    // Try to extract Completed count from various possible fields
-    let completed = 0;
-    if (item.Completed !== undefined) completed = Number(item.Completed);
-    else if (item.completed !== undefined) completed = Number(item.completed);
-    else if (item.count !== undefined) completed = Number(item.count);
-    else if (item.value !== undefined) completed = Number(item.value);
-    else if (item.projects_completed !== undefined) completed = Number(item.projects_completed);
-    
-    return { name, Completed: completed };
-  });
-};
-
-const DEFAULT_STATS = {
-  total_projects: 0, 
-  pending_tasks: 0, 
-  project_progress: '0%',
-  total_engineers: 0, 
-  engineers_list: [], 
-  active_projects: [],
-  completed_projects: [], 
-  pickup_queue: [], 
-  chart_data_monthly: DEFAULT_MONTHS.map(month => ({ name: month, Completed: 0 })),
-  chart_data_yearly: DEFAULT_YEARS.map(year => ({ name: String(year), Completed: 0 }))
-};
+const DEFAULT_YEARLY_DATA = [
+  { name: '2024', Completed: 0 }, { name: '2025', Completed: 0 }, { name: '2026', Completed: 0 }
+];
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════════════
 const EngineeringDashboard = ({ user }) => {
-  const [showModal,        setShowModal]        = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [archivePeriod,    setArchivePeriod]    = useState(null);
-  const [chartView,        setChartView]        = useState('monthly');
-  const [loading,          setLoading]          = useState(true);
-  const [isAssigning,      setIsAssigning]      = useState(false);
-  const [isExporting,      setIsExporting]      = useState(false);
-  const [stats,            setStats]            = useState(DEFAULT_STATS);
-  const [taskForm,         setTaskForm]         = useState({
-    project_id: '', engineer_ids: [''], dispatch_count: 1, instructions: ''
+  const [archivePeriod, setArchivePeriod] = useState(null);
+  const [chartView, setChartView] = useState('monthly');
+  const [loading, setLoading] = useState(true);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [stats, setStats] = useState({
+    total_projects: 0, pending_tasks: 0, project_progress: '0%', total_engineers: 0,
+    engineers_list: [], active_projects: [], completed_projects: [], pickup_queue: [],
+    chart_data_monthly: DEFAULT_MONTHLY_DATA, chart_data_yearly: DEFAULT_YEARLY_DATA
   });
+  const [taskForm, setTaskForm] = useState({ project_id: '', engineer_ids: [''], dispatch_count: 1, instructions: '' });
 
   const { toasts, toast, removeToast } = useToast();
   const fetchedRef = useRef(false);
@@ -220,53 +126,65 @@ const EngineeringDashboard = ({ user }) => {
     fetchEngineeringData();
   }, []);
 
+  const safeArray = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (typeof data === 'object') {
+      if (data.length !== undefined) return Array.from(data);
+      const values = Object.values(data);
+      if (values.length && (values[0]?.name !== undefined || values[0]?.Completed !== undefined)) {
+        return values;
+      }
+    }
+    return [];
+  };
+
   const fetchEngineeringData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/engineering/dashboard-stats');
       
-      console.log('Full API Response:', response.data); // Debug log
+      console.log('API Response:', response.data);
       
-      if (response.data?.LARAVEL_CRASHED) throw new Error(response.data.message);
+      const raw = response.data || {};
       
-      // Extract data with proper normalization
-      const rawData = response.data || {};
+      let monthlyData = safeArray(raw.chart_data_monthly);
+      let yearlyData = safeArray(raw.chart_data_yearly);
       
-      // Log the raw chart data to debug
-      console.log('Raw monthly data:', rawData.chart_data_monthly);
-      console.log('Raw yearly data:', rawData.chart_data_yearly);
+      if (monthlyData.length === 0 || !monthlyData[0]?.name) {
+        monthlyData = DEFAULT_MONTHLY_DATA;
+      } else {
+        monthlyData = monthlyData.map(item => ({
+          name: item.name || item.month || 'Unknown',
+          Completed: Number(item.Completed || item.completed || item.count || 0)
+        }));
+      }
       
-      // Normalize the chart data
-      const normalizedMonthly = normalizeChartData(rawData.chart_data_monthly, 'monthly');
-      const normalizedYearly = normalizeChartData(rawData.chart_data_yearly, 'yearly');
+      if (yearlyData.length === 0 || !yearlyData[0]?.name) {
+        yearlyData = DEFAULT_YEARLY_DATA;
+      } else {
+        yearlyData = yearlyData.map(item => ({
+          name: item.name || item.year || 'Unknown',
+          Completed: Number(item.Completed || item.completed || item.count || 0)
+        }));
+      }
       
-      console.log('Normalized monthly:', normalizedMonthly);
-      console.log('Normalized yearly:', normalizedYearly);
+      setStats({
+        total_projects: raw.total_projects || 0,
+        pending_tasks: raw.pending_tasks || 0,
+        project_progress: raw.project_progress || '0%',
+        total_engineers: raw.total_engineers || 0,
+        engineers_list: safeArray(raw.engineers_list),
+        active_projects: safeArray(raw.active_projects),
+        completed_projects: safeArray(raw.completed_projects),
+        pickup_queue: safeArray(raw.pickup_queue),
+        chart_data_monthly: monthlyData,
+        chart_data_yearly: yearlyData
+      });
       
-      // Ensure other arrays are proper arrays
-      const activeProjects = normalizeToArray(rawData.active_projects);
-      const completedProjects = normalizeToArray(rawData.completed_projects);
-      const pickupQueue = normalizeToArray(rawData.pickup_queue);
-      const engineersList = normalizeToArray(rawData.engineers_list);
-      
-      const normalizedData = {
-        total_projects: rawData.total_projects || 0,
-        pending_tasks: rawData.pending_tasks || 0,
-        project_progress: rawData.project_progress || '0%',
-        total_engineers: rawData.total_engineers || 0,
-        engineers_list: engineersList,
-        active_projects: activeProjects,
-        completed_projects: completedProjects,
-        pickup_queue: pickupQueue,
-        chart_data_monthly: normalizedMonthly,
-        chart_data_yearly: normalizedYearly
-      };
-      
-      setStats(normalizedData);
     } catch (error) {
-      console.error('Engineering API Error:', error);
-      toast.error('Failed to load dashboard data. Using default values.');
-      setStats(DEFAULT_STATS);
+      console.error('API Error:', error);
+      toast.error('Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -276,56 +194,21 @@ const EngineeringDashboard = ({ user }) => {
     sessionStorage.setItem('autoOpenProjectId', String(projectId));
     window.dispatchEvent(new CustomEvent('switch-tab', { detail: 'Project' }));
     window.dispatchEvent(new CustomEvent('open-project', { detail: projectId }));
-    setTimeout(() => {
-      const activeComponent = document.querySelector('.project-module-container');
-      if (!activeComponent) {
-        const allElements = document.querySelectorAll('a, button, li, div, span, p');
-        for (let el of allElements) {
-          const text = el.textContent.trim().toLowerCase();
-          if (text === 'project management' || text === 'projects' || text === 'project') {
-            if (typeof el.click === 'function') el.click();
-            if (el.parentElement && typeof el.parentElement.click === 'function') el.parentElement.click();
-            break;
-          }
-        }
-      }
-    }, 100);
   }, []);
 
   const handleBarClick = useCallback((data) => {
-    if (!data || !data.activePayload?.[0]) return;
-    const clicked = data.activePayload[0].payload;
-    if (clicked.Completed > 0) {
-      setArchivePeriod(clicked.name);
+    if (data?.activePayload?.[0]?.payload?.Completed > 0) {
+      setArchivePeriod(data.activePayload[0].payload.name);
       setShowSummaryModal(true);
     }
   }, []);
 
-  const handleDispatchChange = useCallback((e) => {
-    const count = Math.min(10, Math.max(1, parseInt(e.target.value) || 1));
-    setTaskForm(prev => {
-      const ids = prev.engineer_ids.slice(0, count);
-      while (ids.length < count) ids.push('');
-      return { ...prev, dispatch_count: count, engineer_ids: ids };
-    });
-  }, []);
-
-  const handleEngineerChange = useCallback((index, value) => {
-    setTaskForm(prev => {
-      const newIds = [...prev.engineer_ids];
-      newIds[index] = value;
-      return { ...prev, engineer_ids: newIds };
-    });
-  }, []);
-
   const handleAssignTask = async (e) => {
     e.preventDefault();
-    if (!taskForm.project_id)                         { toast.error('Please select a project.');          return; }
-    if (taskForm.engineer_ids.some(id => !id))        { toast.error('Please select all staff members.'); return; }
-    if (!taskForm.instructions.trim())                { toast.error('Please enter task instructions.');   return; }
-    const unique = new Set(taskForm.engineer_ids);
-    if (unique.size !== taskForm.engineer_ids.length) { toast.error('Each staff member can only be assigned once.'); return; }
-
+    if (!taskForm.project_id) { toast.error('Please select a project.'); return; }
+    if (taskForm.engineer_ids.some(id => !id)) { toast.error('Please select all staff members.'); return; }
+    if (!taskForm.instructions.trim()) { toast.error('Please enter task instructions.'); return; }
+    
     try {
       setIsAssigning(true);
       await api.post('/engineering/assign-task', taskForm);
@@ -343,85 +226,71 @@ const EngineeringDashboard = ({ user }) => {
   const handlePickProject = async (projectId) => {
     try {
       await api.post('/engineering/pick-project', { project_id: projectId });
-      toast.success('Project claimed! It is now in your active workspace.');
+      toast.success('Project claimed!');
       fetchEngineeringData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to claim project.');
     }
   };
 
-  // ── Excel export ──────────────────────────────────────────────────────────
+  const handleDispatchChange = (e) => {
+    const count = Math.min(10, Math.max(1, parseInt(e.target.value) || 1));
+    setTaskForm(prev => {
+      const ids = prev.engineer_ids.slice(0, count);
+      while (ids.length < count) ids.push('');
+      return { ...prev, dispatch_count: count, engineer_ids: ids };
+    });
+  };
+
+  const handleEngineerChange = (index, value) => {
+    setTaskForm(prev => {
+      const newIds = [...prev.engineer_ids];
+      newIds[index] = value;
+      return { ...prev, engineer_ids: newIds };
+    });
+  };
+
   const exportSummaryToExcel = async () => {
     setIsExporting(true);
     try {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Analytics Summary');
       sheet.columns = [{ width: 25 }, { width: 25 }, { width: 25 }, { width: 25 }];
-
+      
       sheet.mergeCells('A1:D2');
-      const titleCell = sheet.getCell('A1');
-      titleCell.value = 'VICMIS ANALYTICS & COMPLETION REPORT';
-      titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF221F1F' } };
-      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
+      sheet.getCell('A1').value = 'VICMIS ANALYTICS & COMPLETION REPORT';
+      sheet.getCell('A1').font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+      sheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF221F1F' } };
+      sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      
       sheet.mergeCells('A3:D3');
-      const dateCell = sheet.getCell('A3');
-      dateCell.value = `Date Generated: ${new Date().toLocaleDateString()}`;
-      dateCell.font = { italic: true, color: { argb: 'FF64748B' } };
-      dateCell.alignment = { horizontal: 'right' };
+      sheet.getCell('A3').value = `Date Generated: ${new Date().toLocaleDateString()}`;
+      sheet.getCell('A3').alignment = { horizontal: 'right' };
+      
       sheet.addRow([]);
-
       sheet.mergeCells('A5:B5');
-      sheet.getCell('A5').value = 'MONTHLY BREAKDOWN (Current Year)';
-      sheet.getCell('A5').font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      sheet.getCell('A5').value = 'MONTHLY BREAKDOWN';
       sheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF221F1F' } };
-      sheet.getCell('A5').alignment = { horizontal: 'center' };
-
       sheet.mergeCells('C5:D5');
-      sheet.getCell('C5').value = 'YEARLY BREAKDOWN (All Time)';
-      sheet.getCell('C5').font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      sheet.getCell('C5').value = 'YEARLY BREAKDOWN';
       sheet.getCell('C5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF497B97' } };
-      sheet.getCell('C5').alignment = { horizontal: 'center' };
-
+      
       ['A6', 'B6', 'C6', 'D6'].forEach((cell, i) => {
-        sheet.getCell(cell).value = ['Month', 'Projects Completed', 'Year', 'Projects Completed'][i];
-        sheet.getCell(cell).font  = { bold: true, color: { argb: 'FF221F1F' } };
-        sheet.getCell(cell).fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBDBD6' } };
-        sheet.getCell(cell).border = { bottom: { style: 'medium', color: { argb: 'FFCBD5E1' } } };
-        sheet.getCell(cell).alignment = { horizontal: 'center' };
+        sheet.getCell(cell).value = ['Month', 'Completed', 'Year', 'Completed'][i];
+        sheet.getCell(cell).font = { bold: true };
       });
-
+      
       const maxRows = Math.max(stats.chart_data_monthly.length, stats.chart_data_yearly.length);
       for (let i = 0; i < maxRows; i++) {
-        const m = stats.chart_data_monthly[i] || { name: '', Completed: '' };
-        const y = stats.chart_data_yearly[i]  || { name: '', Completed: '' };
-        const row = sheet.addRow([
-          m.name, m.Completed !== '' ? Number(m.Completed) : '',
-          y.name, y.Completed !== '' ? Number(y.Completed) : ''
-        ]);
-        row.eachCell(cell => {
-          cell.alignment = { horizontal: 'center' };
-          cell.border = { bottom: { style: 'dotted', color: { argb: 'FFE2E8F0' } } };
-        });
+        const m = stats.chart_data_monthly[i] || { name: '', Completed: 0 };
+        const y = stats.chart_data_yearly[i] || { name: '', Completed: 0 };
+        sheet.addRow([m.name, m.Completed, y.name, y.Completed]);
       }
-
-      sheet.addRow([]);
-      const totalMonthly = stats.chart_data_monthly.reduce((s, d) => s + Number(d.Completed || 0), 0);
-      const totalYearly  = stats.chart_data_yearly.reduce((s, d) => s + Number(d.Completed || 0), 0);
-      const totalRow = sheet.addRow(['YTD TOTAL:', totalMonthly, 'ALL-TIME TOTAL:', totalYearly]);
-      totalRow.eachCell((cell, col) => {
-        cell.font = { bold: true, size: 12, color: { argb: col % 2 === 0 ? 'FF16A34A' : 'FF221F1F' } };
-        cell.alignment = { horizontal: col % 2 === 0 ? 'center' : 'right' };
-        cell.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
-      });
-
+      
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `VICMIS_Completion_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
+      saveAs(new Blob([buffer]), `VICMIS_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
       toast.success('Excel report exported!');
     } catch (error) {
-      console.error('Excel Export Error:', error);
       toast.error('Failed to generate Excel report.');
     } finally {
       setIsExporting(false);
@@ -429,33 +298,25 @@ const EngineeringDashboard = ({ user }) => {
   };
 
   const currentChartData = chartView === 'monthly' ? stats.chart_data_monthly : stats.chart_data_yearly;
-  const chartColor       = chartView === 'monthly' ? '#C20100' : '#497B97';
-  const hasChartData = currentChartData.some(item => item.Completed > 0);
-
-  const filteredArchive = stats.completed_projects?.filter(p =>
-    chartView === 'monthly'
-      ? p.completion_month === archivePeriod
-      : p.completion_year === archivePeriod
-  ) || [];
+  const chartColor = chartView === 'monthly' ? '#C20100' : '#497B97';
 
   return (
     <>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-
+      
       <div className="dashboard-wrapper">
-
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="dashboard-header no-print">
           <div className="header-text">
             <h2>Engineering Command Center</h2>
             <p>Project milestones and technical resource allocation</p>
           </div>
-          <button className="refresh-btn" onClick={fetchEngineeringData} disabled={loading} title="Refresh">
+          <button className="refresh-btn" onClick={fetchEngineeringData} disabled={loading}>
             {loading ? '…' : '↻'}
           </button>
         </div>
-
-        {/* ── Stats ── */}
+        
+        {/* Stats Cards */}
         <div className="stats-grid no-print">
           <div className="stat-card">
             <p className="stat-label">Total Projects</p>
@@ -466,9 +327,7 @@ const EngineeringDashboard = ({ user }) => {
             <div className="task-flex">
               <h3 className="stat-value">{stats.pending_tasks}</h3>
               {user?.role === 'dept_head' && (
-                <button className="mini-assign-btn" onClick={() => setShowModal(true)}>
-                  + Assign
-                </button>
+                <button className="mini-assign-btn" onClick={() => setShowModal(true)}>+ Assign</button>
               )}
             </div>
           </div>
@@ -481,33 +340,16 @@ const EngineeringDashboard = ({ user }) => {
             <h3 className="stat-value">{stats.project_progress}</h3>
           </div>
         </div>
-
-        {/* ── Chart Debug Info (Remove after testing) ── */}
-        <div style={{ background: '#f5f5f5', padding: '10px', margin: '10px 20px', borderRadius: '8px', fontSize: '12px', display: loading ? 'block' : 'none' }}>
-          <strong>Debug:</strong> Loading: {String(loading)} | Chart View: {chartView} | Data Length: {currentChartData?.length} | Has Data: {String(hasChartData)}
-        </div>
-
-        {/* ── Chart ── */}
-        <div className="proj-card no-print" style={{ padding: '20px' }}>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-            flexWrap: 'wrap', gap: '15px', marginBottom: '24px',
-            borderBottom: '2px solid #E0D9D4', paddingBottom: '20px'
-          }}>
+        
+        {/* CHART SECTION - Using div wrapper to avoid CSS conflicts */}
+        <div className="proj-card no-print">
+          {/* Header with inline styles to avoid CSS conflicts */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px', marginBottom: '24px', borderBottom: '2px solid #E0D9D4', padding: '20px 20px 0 20px' }}>
             <div>
               <h3 className="proj-title-lg" style={{ margin: 0 }}>Project Completions</h3>
-              {hasChartData && (
-                <p style={{ fontSize: '11px', color: '#C20100', fontWeight: 700, marginTop: '5px', letterSpacing: '0.04em' }}>
-                  ▶ Click any bar to open that period's project vault
-                </p>
-              )}
             </div>
             <div style={{ display: 'flex', gap: '15px' }}>
-              <select
-                style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid #E0D9D4', fontWeight: '900', outline: 'none', background: '#FAF8F6', color: '#221F1F', cursor: 'pointer' }}
-                value={chartView}
-                onChange={e => setChartView(e.target.value)}
-              >
+              <select value={chartView} onChange={e => setChartView(e.target.value)} style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid #E0D9D4', fontWeight: '900', outline: 'none', background: '#FAF8F6', color: '#221F1F', cursor: 'pointer' }}>
                 <option value="monthly">Monthly View</option>
                 <option value="yearly">Yearly View</option>
               </select>
@@ -516,43 +358,23 @@ const EngineeringDashboard = ({ user }) => {
               </button>
             </div>
           </div>
-
-          {/* ── MAIN CHART ── */}
-          <div style={{ width: '100%', height: 300 }}>
+          
+          {/* CRITICAL FIX: Wrapper div with explicit height to prevent collapse */}
+          <div style={{ width: '100%', height: '400px', padding: '0 20px 20px 20px' }}>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
-                Loading chart data…
+                Loading chart data...
               </div>
             ) : currentChartData && currentChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={currentChartData}
-                  margin={{ top: 8, right: 8, left: -10, bottom: 0 }}
-                  onClick={handleBarClick}
-                  style={{ cursor: 'default' }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0D9D4" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 11, fill: '#7A706C', fontWeight: 600 }} 
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 11, fill: '#7A706C' }} 
-                    allowDecimals={false} 
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(34,31,31,0.05)' }} />
-                  <Bar dataKey="Completed" radius={[6, 6, 0, 0]} maxBarSize={52}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={currentChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} onClick={handleBarClick}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E0D9D4" />
+                  <XAxis dataKey="name" tick={{ fill: '#7A706C', fontSize: 12 }} />
+                  <YAxis tick={{ fill: '#7A706C', fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="Completed" fill={chartColor} radius={[6, 6, 0, 0]} maxBarSize={60}>
                     {currentChartData.map((entry, idx) => (
-                      <Cell
-                        key={idx}
-                        fill={chartColor}
-                        fillOpacity={entry.Completed > 0 ? (idx === currentChartData.length - 1 ? 1 : 0.7) : 0.2}
-                        style={{ cursor: entry.Completed > 0 ? 'pointer' : 'default' }}
-                      />
+                      <Cell key={`cell-${idx}`} fill={chartColor} fillOpacity={entry.Completed > 0 ? 0.9 : 0.3} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -564,8 +386,8 @@ const EngineeringDashboard = ({ user }) => {
             )}
           </div>
         </div>
-
-        {/* ── Available for Pickup ── */}
+        
+        {/* Available for Pickup */}
         {!loading && stats.pickup_queue?.length > 0 && (
           <div className="approval-section no-print" style={{ backgroundColor: '#FAF8F6', border: '2px dashed #497B97', marginBottom: '32px' }}>
             <div className="section-header" style={{ borderBottom: 'none', paddingBottom: '0', marginBottom: '20px' }}>
@@ -582,18 +404,14 @@ const EngineeringDashboard = ({ user }) => {
                       <span className="tag-id" style={{ backgroundColor: '#EBDBD6', color: '#221F1F' }}>PRJ-{proj.id}</span>
                       <span className="tag-progress" style={{ backgroundColor: '#fef2f2', color: '#C20100', border: '1px solid rgba(194,1,0,.2)' }}>UNCLAIMED</span>
                     </div>
-                    <h3 className="project-name-title" title={proj.name}>{proj.name}</h3>
+                    <h3 className="project-name-title">{proj.name}</h3>
                     <p className="project-client-sub">👤 Client: {proj.client}</p>
                     <div className="phase-box" style={{ backgroundColor: '#FAF8F6' }}>
-                      <p className="phase-box-label" style={{ color: '#7A706C' }}>Current Phase</p>
-                      <p className="phase-box-value" style={{ color: '#221F1F' }}>{proj.status || 'Awaiting Assignment'}</p>
+                      <p className="phase-box-label">Current Phase</p>
+                      <p className="phase-box-value">{proj.status || 'Awaiting Assignment'}</p>
                     </div>
                   </div>
-                  <button
-                    className="open-workspace-btn"
-                    style={{ backgroundColor: '#497B97', color: '#ffffff', border: 'none' }}
-                    onClick={() => handlePickProject(proj.id)}
-                  >
+                  <button className="open-workspace-btn" style={{ backgroundColor: '#497B97', color: '#ffffff', border: 'none' }} onClick={() => handlePickProject(proj.id)}>
                     ✋ Claim This Project
                   </button>
                 </div>
@@ -601,8 +419,8 @@ const EngineeringDashboard = ({ user }) => {
             </div>
           </div>
         )}
-
-        {/* ── Active Projects ── */}
+        
+        {/* Active Projects */}
         <div className="approval-section no-print">
           <div className="section-header">
             <h2>Active Project Tasks</h2>
@@ -619,132 +437,71 @@ const EngineeringDashboard = ({ user }) => {
             <EmptyState message="Your workspace is currently clear." />
           )}
         </div>
-
-        {/* ══ ARCHIVE MODAL ═════════════════════════════════════════════════ */}
+        
+        {/* Archive Modal */}
         {showSummaryModal && (
-          <div
-            className="modal-overlay no-print"
-            onClick={e => e.target === e.currentTarget && setShowSummaryModal(false)}
-          >
+          <div className="modal-overlay no-print" onClick={e => e.target === e.currentTarget && setShowSummaryModal(false)}>
             <div className="modal-content large">
               <div className="modal-header">
                 <div>
-                  <h3>
-                    {archivePeriod
-                      ? `📁 Project Vault — ${archivePeriod}`
-                      : `📊 ${chartView === 'monthly' ? 'Monthly' : 'Yearly'} Completion Archive`}
-                  </h3>
-                  <p>
-                    {archivePeriod
-                      ? `${filteredArchive.length} finalized project${filteredArchive.length !== 1 ? 's' : ''} for ${archivePeriod}`
-                      : 'Select a period below or click a chart bar to open its vault.'}
-                  </p>
+                  <h3>{archivePeriod ? `📁 Project Vault — ${archivePeriod}` : `📊 ${chartView === 'monthly' ? 'Monthly' : 'Yearly'} Completion Archive`}</h3>
+                  <p>{archivePeriod ? `${stats.completed_projects.filter(p => chartView === 'monthly' ? p.completion_month === archivePeriod : p.completion_year === archivePeriod).length} finalized project(s)` : 'Select a period below or click a chart bar to open its vault.'}</p>
                 </div>
                 <button className="close-modal" onClick={() => setShowSummaryModal(false)}>&times;</button>
               </div>
-
+              
               {!archivePeriod && (
-                <div>
+                <div style={{ padding: '1rem 1.2rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-                    <select
-                      style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid #E0D9D4', fontWeight: '900', outline: 'none', background: '#FAF8F6', color: '#221F1F', cursor: 'pointer' }}
-                      value={chartView}
-                      onChange={e => setChartView(e.target.value)}
-                    >
+                    <select value={chartView} onChange={e => setChartView(e.target.value)} style={{ padding: '10px 20px', borderRadius: '12px', border: '2px solid #E0D9D4', fontWeight: '900', outline: 'none', background: '#FAF8F6', color: '#221F1F', cursor: 'pointer' }}>
                       <option value="monthly">Monthly View</option>
                       <option value="yearly">Yearly View</option>
                     </select>
                   </div>
-
-                  {/* ── Modal mini chart ── */}
-                  <div style={{ width: '100%', height: 200, marginBottom: '24px' }}>
-                    {currentChartData && currentChartData.length > 0 && (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <BarChart
-                          data={currentChartData}
-                          margin={{ top: 4, right: 8, left: -10, bottom: 0 }}
-                          onClick={(data) => {
-                            if (!data?.activePayload?.[0]) return;
-                            const clicked = data.activePayload[0].payload;
-                            if (clicked.Completed > 0) setArchivePeriod(clicked.name);
-                          }}
-                          style={{ cursor: 'default' }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0D9D4" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C', fontWeight: 600 }} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C' }} allowDecimals={false} />
-                          <Tooltip content={<CustomTooltip />} />
-                          <Bar dataKey="Completed" radius={[5, 5, 0, 0]} maxBarSize={40}>
-                            {currentChartData.map((entry, idx) => (
-                              <Cell
-                                key={idx}
-                                fill={chartColor}
-                                fillOpacity={entry.Completed > 0 ? 0.85 : 0.2}
-                                style={{ cursor: entry.Completed > 0 ? 'pointer' : 'default' }}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
+                  
+                  <div style={{ width: '100%', height: '200px', marginBottom: '24px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={currentChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="Completed" fill={chartColor} radius={[4, 4, 0, 0]}>
+                          {currentChartData.map((entry, idx) => (
+                            <Cell key={idx} fill={chartColor} fillOpacity={entry.Completed > 0 ? 0.85 : 0.2} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-
+                  
                   <div className="archive-periods-grid">
-                    {currentChartData && currentChartData.map((data, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => data.Completed > 0 && setArchivePeriod(data.name)}
-                        className={`period-card ${data.Completed > 0 ? 'active' : 'disabled'}`}
-                      >
+                    {currentChartData.map((data, idx) => (
+                      <div key={idx} onClick={() => data.Completed > 0 && setArchivePeriod(data.name)} className={`period-card ${data.Completed > 0 ? 'active' : 'disabled'}`}>
                         <p className="period-name">{data.name}</p>
                         <p className="period-count">{data.Completed}</p>
-                        {data.Completed > 0 && (
-                          <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#C20100', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Open Vault
-                          </p>
-                        )}
+                        {data.Completed > 0 && <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#C20100', marginTop: '8px' }}>Open Vault</p>}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-
+              
               {archivePeriod && (
                 <div style={{ paddingBottom: '4px' }}>
-                  <button className="back-btn" onClick={() => setArchivePeriod(null)}>
-                    ← Back to All Periods
-                  </button>
-                  <div>
-                    {filteredArchive.length > 0 ? (
-                      <div className="active-projects-grid">
-                        {filteredArchive.map(proj => (
-                          <ProjectCard
-                            key={proj.id}
-                            proj={proj}
-                            completed={true}
-                            onOpen={(id) => {
-                              setShowSummaryModal(false);
-                              jumpToProject(id);
-                            }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyState message={`No archived projects found for ${archivePeriod}.`} />
-                    )}
+                  <button className="back-btn" onClick={() => setArchivePeriod(null)}>← Back to All Periods</button>
+                  <div className="active-projects-grid">
+                    {stats.completed_projects.filter(p => chartView === 'monthly' ? p.completion_month === archivePeriod : p.completion_year === archivePeriod).map(proj => (
+                      <ProjectCard key={proj.id} proj={proj} completed={true} onOpen={(id) => { setShowSummaryModal(false); jumpToProject(id); }} />
+                    ))}
                   </div>
                 </div>
               )}
-
+              
               <div className="modal-actions">
                 <button className="btn-cancel" onClick={() => setShowSummaryModal(false)}>Close</button>
                 {!archivePeriod && (
-                  <button
-                    className="confirm-btn"
-                    style={{ backgroundColor: '#16a34a' }}
-                    onClick={exportSummaryToExcel}
-                    disabled={isExporting}
-                  >
+                  <button className="confirm-btn" style={{ backgroundColor: '#16a34a' }} onClick={exportSummaryToExcel} disabled={isExporting}>
                     {isExporting ? '⏳ Generating…' : '⬇️ Export Excel Report'}
                   </button>
                 )}
@@ -752,52 +509,31 @@ const EngineeringDashboard = ({ user }) => {
             </div>
           </div>
         )}
-
-        {/* ══ ASSIGN MODAL ══════════════════════════════════════════════════ */}
+        
+        {/* Assign Modal */}
         {showModal && (
-          <div
-            className="modal-overlay no-print"
-            onClick={e => e.target === e.currentTarget && !isAssigning && setShowModal(false)}
-          >
+          <div className="modal-overlay no-print" onClick={e => e.target === e.currentTarget && !isAssigning && setShowModal(false)}>
             <div className="modal-content">
               <div className="modal-header">
-                <div>
-                  <h3>Assign Staff to Project</h3>
-                  <p>Select a project and dispatch your engineering team.</p>
-                </div>
+                <div><h3>Assign Staff to Project</h3><p>Select a project and dispatch your engineering team.</p></div>
                 <button className="close-modal" onClick={() => setShowModal(false)} disabled={isAssigning}>&times;</button>
               </div>
-
-              <form onSubmit={handleAssignTask}>
+              <form onSubmit={handleAssignTask} style={{ padding: '1rem 1.2rem' }}>
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
-                    Select Active Project
-                  </label>
-                  <select
-                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}
-                    value={taskForm.project_id}
-                    onChange={e => setTaskForm(prev => ({ ...prev, project_id: e.target.value }))}
-                    required
-                  >
+                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>Select Active Project</label>
+                  <select value={taskForm.project_id} onChange={e => setTaskForm(prev => ({ ...prev, project_id: e.target.value }))} required style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}>
                     <option value="">— Choose Project —</option>
                     {[...(stats.pickup_queue || []), ...(stats.active_projects || [])].map(proj => (
                       <option key={proj.id} value={proj.id}>PRJ-{proj.id} : {proj.name}</option>
                     ))}
                   </select>
                 </div>
-
+                
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
-                    Staff Count <span style={{ color: '#7A706C', textTransform: 'none', fontWeight: 400 }}>(max 10)</span>
-                  </label>
-                  <input
-                    type="number" min="1" max="10"
-                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}
-                    value={taskForm.dispatch_count}
-                    onChange={handleDispatchChange}
-                  />
+                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>Staff Count <span style={{ color: '#7A706C' }}>(max 10)</span></label>
+                  <input type="number" min="1" max="10" value={taskForm.dispatch_count} onChange={handleDispatchChange} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }} />
                 </div>
-
+                
                 <div style={{ maxHeight: '250px', overflowY: 'auto', paddingRight: '10px', marginBottom: '20px' }}>
                   {taskForm.engineer_ids.map((engId, index) => {
                     const otherSelected = taskForm.engineer_ids.filter((_, i) => i !== index);
@@ -806,12 +542,7 @@ const EngineeringDashboard = ({ user }) => {
                         <label style={{ display: 'block', fontWeight: '900', color: index === 0 ? '#C20100' : '#7A706C', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
                           {index === 0 ? '👑 Lead Engineer' : `🛠 Support Staff ${index}`}
                         </label>
-                        <select
-                          style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}
-                          value={engId}
-                          onChange={e => handleEngineerChange(index, e.target.value)}
-                          required
-                        >
+                        <select value={engId} onChange={e => handleEngineerChange(index, e.target.value)} required style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6' }}>
                           <option value="">— Select Staff Member —</option>
                           {stats.engineers_list?.map(eng => (
                             <option key={eng.id} value={eng.id} disabled={otherSelected.includes(String(eng.id))}>
@@ -823,31 +554,20 @@ const EngineeringDashboard = ({ user }) => {
                     );
                   })}
                 </div>
-
+                
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>
-                    Task Instructions
-                  </label>
-                  <textarea
-                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6', minHeight: '100px', resize: 'vertical' }}
-                    placeholder="Specify technical requirements, scope, and objectives…"
-                    value={taskForm.instructions}
-                    onChange={e => setTaskForm(prev => ({ ...prev, instructions: e.target.value }))}
-                    required
-                  />
+                  <label style={{ display: 'block', fontWeight: '900', color: '#221F1F', marginBottom: '8px', fontSize: '12px', textTransform: 'uppercase' }}>Task Instructions</label>
+                  <textarea value={taskForm.instructions} onChange={e => setTaskForm(prev => ({ ...prev, instructions: e.target.value }))} required style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '2px solid #E0D9D4', outline: 'none', fontWeight: '700', fontSize: '14px', background: '#FAF8F6', minHeight: '100px', resize: 'vertical' }} />
                 </div>
-
+                
                 <div className="modal-actions">
                   <button type="button" className="btn-cancel" onClick={() => setShowModal(false)} disabled={isAssigning}>Cancel</button>
-                  <button type="submit" className="confirm-btn" disabled={isAssigning} style={{ background: '#221F1F' }}>
-                    {isAssigning ? '⏳ Assigning…' : '✓ Assign Team'}
-                  </button>
+                  <button type="submit" className="confirm-btn" disabled={isAssigning} style={{ background: '#221F1F' }}>{isAssigning ? '⏳ Assigning…' : '✓ Assign Team'}</button>
                 </div>
               </form>
             </div>
           </div>
         )}
-
       </div>
     </>
   );
