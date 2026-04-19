@@ -428,6 +428,12 @@ const AccountingDashboard = ({ user }) => {
     }).catch(console.error);
   }, []);
 
+  useEffect(() => {
+  const hasModal = showConfirmModal || showErrorModal || !!selectedReport;
+  document.body.classList.toggle('modal-open', hasModal);
+  return () => document.body.classList.remove('modal-open');
+}, [showConfirmModal, showErrorModal, selectedReport]);
+
   const fetchData = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);

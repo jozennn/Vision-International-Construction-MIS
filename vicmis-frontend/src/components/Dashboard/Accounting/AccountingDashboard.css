@@ -776,14 +776,20 @@
 /* ── Report detail modal ──────────────────────────────────── */
 .ac-overlay {
   position: fixed;
+  z-index: 9999;
   inset: 0;
   background: rgba(34,31,31,.55);
   backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
   padding: 1rem;
+}
+
+.ac-modal-report {
+  width: calc(100vw - 2rem);
+  max-width: 580px;
+  margin: 0 auto;
 }
 
 .ac-modal {
@@ -832,6 +838,8 @@
 
 .ac-modal-body {
   padding: 1rem 1.2rem;
+  overflow-x: auto;              /* add this */
+  -webkit-overflow-scrolling: touch; /* add this */
 }
 
 /* Report table */
@@ -842,6 +850,7 @@
   border: 1px solid #E0D9D4;
   border-radius: 8px;
   overflow: hidden;
+  min-width: 440px;
 }
 .ac-report-table thead tr { background: #221F1F; }
 .ac-report-table thead th {
