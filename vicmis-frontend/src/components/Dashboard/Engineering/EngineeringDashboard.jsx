@@ -49,7 +49,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     const count = payload[0].value;
     return (
       <div style={{
-        background: '#003049', color: '#FDF0D5',
+        background: '#221F1F', color: '#EBDBD6',
         borderRadius: '8px', padding: '10px 16px',
         fontSize: '13px', fontFamily: 'inherit',
         boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
@@ -59,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }) => {
           {count} <span style={{ fontSize: '11px', opacity: 0.6 }}>completed</span>
         </p>
         {count > 0 && (
-          <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#C1121F', fontWeight: 700, letterSpacing: '0.05em' }}>
+          <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#C20100', fontWeight: 700, letterSpacing: '0.05em' }}>
             ▶ CLICK BAR TO OPEN VAULT
           </p>
         )}
@@ -90,7 +90,7 @@ const ProjectCard = ({ proj, onOpen, completed }) => (
       <div className="card-header-flex">
         <span className="tag-id">PRJ-{proj.id}</span>
         <span className={`tag-progress ${completed ? 'finished' : ''}`}>
-          {completed ? 'FINISHED' : `${proj.progress}% DONE`}
+          {completed ? 'FINISHED' : `${proj.progress || 0}% DONE`}
         </span>
       </div>
       <h3 className="project-name-title" title={proj.name}>{proj.name}</h3>
@@ -98,7 +98,7 @@ const ProjectCard = ({ proj, onOpen, completed }) => (
       <div className="phase-box">
         <p className="phase-box-label">{completed ? 'Final Status' : 'Current Phase'}</p>
         <p className={`phase-box-value ${completed ? 'finished' : ''}`}>
-          {completed ? proj.status.toUpperCase() : proj.status}
+          {completed ? (proj.status || 'COMPLETED').toUpperCase() : (proj.status || 'In Progress')}
         </p>
       </div>
     </div>
@@ -111,10 +111,36 @@ const ProjectCard = ({ proj, onOpen, completed }) => (
   </div>
 );
 
+// Default months for fallback data
+const DEFAULT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR];
+
 const DEFAULT_STATS = {
-  total_projects: 0, pending_tasks: 0, project_progress: '0%',
-  total_engineers: 0, engineers_list: [], active_projects: [],
-  completed_projects: [], pickup_queue: [], chart_data_monthly: [], chart_data_yearly: []
+  total_projects: 0, 
+  pending_tasks: 0, 
+  project_progress: '0%',
+  total_engineers: 0, 
+  engineers_list: [], 
+  active_projects: [],
+  completed_projects: [], 
+  pickup_queue: [], 
+  chart_data_monthly: DEFAULT_MONTHS.map(month => ({ name: month, Completed: 0 })),
+  chart_data_yearly: DEFAULT_YEARS.map(year => ({ name: String(year), Completed: 0 }))
+};
+
+// Helper function to normalize chart data
+const normalizeChartData = (data, type = 'monthly') => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return type === 'monthly' 
+      ? DEFAULT_STATS.chart_data_monthly 
+      : DEFAULT_STATS.chart_data_yearly;
+  }
+  
+  return data.map(item => ({
+    name: item.name || item.month || item.period || item.year || 'Unknown',
+    Completed: Number(item.Completed || item.completed || item.count || item.value || 0)
+  }));
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -129,19 +155,12 @@ const EngineeringDashboard = ({ user }) => {
   const [isAssigning,      setIsAssigning]      = useState(false);
   const [isExporting,      setIsExporting]      = useState(false);
   const [stats,            setStats]            = useState(DEFAULT_STATS);
-  const [chartReady,       setChartReady]       = useState(false);
   const [taskForm,         setTaskForm]         = useState({
     project_id: '', engineer_ids: [''], dispatch_count: 1, instructions: ''
   });
 
   const { toasts, toast, removeToast } = useToast();
   const fetchedRef = useRef(false);
-
-  // ── Delay chart mount by 150ms so the DOM has real pixel dimensions ──────
-  useEffect(() => {
-    const id = setTimeout(() => setChartReady(true), 150);
-    return () => clearTimeout(id);
-  }, []);
 
   useEffect(() => {
     if (fetchedRef.current) return;
@@ -153,16 +172,33 @@ const EngineeringDashboard = ({ user }) => {
     try {
       setLoading(true);
       const response = await api.get('/engineering/dashboard-stats');
+      
       if (response.data?.LARAVEL_CRASHED) throw new Error(response.data.message);
-      setStats(response.data);
+      
+      // Normalize the chart data to ensure it has the correct structure
+      const normalizedData = {
+        ...response.data,
+        chart_data_monthly: normalizeChartData(response.data?.chart_data_monthly, 'monthly'),
+        chart_data_yearly: normalizeChartData(response.data?.chart_data_yearly, 'yearly'),
+        project_progress: response.data?.project_progress || '0%',
+        total_projects: response.data?.total_projects || 0,
+        pending_tasks: response.data?.pending_tasks || 0,
+        total_engineers: response.data?.total_engineers || 0,
+        engineers_list: response.data?.engineers_list || [],
+        active_projects: response.data?.active_projects || [],
+        completed_projects: response.data?.completed_projects || [],
+        pickup_queue: response.data?.pickup_queue || []
+      };
+      
+      setStats(normalizedData);
     } catch (error) {
       console.error('Engineering API Error:', error);
-      toast.error('Failed to load dashboard data.');
+      toast.error('Failed to load dashboard data. Using default values.');
       setStats(DEFAULT_STATS);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const jumpToProject = useCallback((projectId) => {
     sessionStorage.setItem('autoOpenProjectId', String(projectId));
@@ -254,7 +290,7 @@ const EngineeringDashboard = ({ user }) => {
       const titleCell = sheet.getCell('A1');
       titleCell.value = 'VICMIS ANALYTICS & COMPLETION REPORT';
       titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003049' } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF221F1F' } };
       titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
       sheet.mergeCells('A3:D3');
@@ -267,19 +303,19 @@ const EngineeringDashboard = ({ user }) => {
       sheet.mergeCells('A5:B5');
       sheet.getCell('A5').value = 'MONTHLY BREAKDOWN (Current Year)';
       sheet.getCell('A5').font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      sheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003049' } };
+      sheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF221F1F' } };
       sheet.getCell('A5').alignment = { horizontal: 'center' };
 
       sheet.mergeCells('C5:D5');
       sheet.getCell('C5').value = 'YEARLY BREAKDOWN (All Time)';
       sheet.getCell('C5').font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      sheet.getCell('C5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF669BBC' } };
+      sheet.getCell('C5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF497B97' } };
       sheet.getCell('C5').alignment = { horizontal: 'center' };
 
       ['A6', 'B6', 'C6', 'D6'].forEach((cell, i) => {
         sheet.getCell(cell).value = ['Month', 'Projects Completed', 'Year', 'Projects Completed'][i];
-        sheet.getCell(cell).font  = { bold: true, color: { argb: 'FF003049' } };
-        sheet.getCell(cell).fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0D5' } };
+        sheet.getCell(cell).font  = { bold: true, color: { argb: 'FF221F1F' } };
+        sheet.getCell(cell).fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBDBD6' } };
         sheet.getCell(cell).border = { bottom: { style: 'medium', color: { argb: 'FFCBD5E1' } } };
         sheet.getCell(cell).alignment = { horizontal: 'center' };
       });
@@ -303,7 +339,7 @@ const EngineeringDashboard = ({ user }) => {
       const totalYearly  = stats.chart_data_yearly.reduce((s, d) => s + Number(d.Completed || 0), 0);
       const totalRow = sheet.addRow(['YTD TOTAL:', totalMonthly, 'ALL-TIME TOTAL:', totalYearly]);
       totalRow.eachCell((cell, col) => {
-        cell.font = { bold: true, size: 12, color: { argb: col % 2 === 0 ? 'FF16A34A' : 'FF003049' } };
+        cell.font = { bold: true, size: 12, color: { argb: col % 2 === 0 ? 'FF16A34A' : 'FF221F1F' } };
         cell.alignment = { horizontal: col % 2 === 0 ? 'center' : 'right' };
         cell.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } } };
       });
@@ -321,7 +357,8 @@ const EngineeringDashboard = ({ user }) => {
   };
 
   const currentChartData = chartView === 'monthly' ? stats.chart_data_monthly : stats.chart_data_yearly;
-  const chartColor       = chartView === 'monthly' ? '#C1121F' : '#669BBC';
+  const chartColor       = chartView === 'monthly' ? '#C20100' : '#497B97';
+  const hasChartData = currentChartData.some(item => item.Completed > 0);
 
   const filteredArchive = stats.completed_projects?.filter(p =>
     chartView === 'monthly'
@@ -374,7 +411,7 @@ const EngineeringDashboard = ({ user }) => {
         </div>
 
         {/* ── Chart ── */}
-        <div className="proj-card no-print" style={{ padding: '30px' }}>
+        <div className="proj-card no-print" style={{ padding: '20px' }}>
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
             flexWrap: 'wrap', gap: '15px', marginBottom: '24px',
@@ -382,8 +419,8 @@ const EngineeringDashboard = ({ user }) => {
           }}>
             <div>
               <h3 className="proj-title-lg" style={{ margin: 0 }}>Project Completions</h3>
-              {currentChartData?.some(d => d.Completed > 0) && (
-                <p style={{ fontSize: '11px', color: '#C1121F', fontWeight: 700, marginTop: '5px', letterSpacing: '0.04em' }}>
+              {hasChartData && (
+                <p style={{ fontSize: '11px', color: '#C20100', fontWeight: 700, marginTop: '5px', letterSpacing: '0.04em' }}>
                   ▶ Click any bar to open that period's project vault
                 </p>
               )}
@@ -403,15 +440,13 @@ const EngineeringDashboard = ({ user }) => {
             </div>
           </div>
 
-          {/* ── MAIN CHART — fixed pixel height, delayed mount ── */}
+          {/* ── MAIN CHART ── */}
           <div style={{ width: '100%', height: 300 }}>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
                 Loading chart data…
               </div>
-            ) : !chartReady ? (
-              <div style={{ height: 300 }} />
-            ) : currentChartData?.length > 0 ? (
+            ) : currentChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={currentChartData}
@@ -420,15 +455,25 @@ const EngineeringDashboard = ({ user }) => {
                   style={{ cursor: 'default' }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0D9D4" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C', fontWeight: 600 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#7A706C' }} allowDecimals={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,48,73,0.05)' }} />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 11, fill: '#7A706C', fontWeight: 600 }} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 11, fill: '#7A706C' }} 
+                    allowDecimals={false} 
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(34,31,31,0.05)' }} />
                   <Bar dataKey="Completed" radius={[6, 6, 0, 0]} maxBarSize={52}>
                     {currentChartData.map((entry, idx) => (
                       <Cell
                         key={idx}
                         fill={chartColor}
-                        fillOpacity={entry.Completed > 0 ? (idx === currentChartData.length - 1 ? 1 : 0.6) : 0.2}
+                        fillOpacity={entry.Completed > 0 ? (idx === currentChartData.length - 1 ? 1 : 0.7) : 0.2}
                         style={{ cursor: entry.Completed > 0 ? 'pointer' : 'default' }}
                       />
                     ))}
@@ -437,7 +482,7 @@ const EngineeringDashboard = ({ user }) => {
               </ResponsiveContainer>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
-                No completion data yet.
+                No completion data available.
               </div>
             )}
           </div>
@@ -464,7 +509,7 @@ const EngineeringDashboard = ({ user }) => {
                     <p className="project-client-sub">👤 Client: {proj.client}</p>
                     <div className="phase-box" style={{ backgroundColor: '#FAF8F6' }}>
                       <p className="phase-box-label" style={{ color: '#7A706C' }}>Current Phase</p>
-                      <p className="phase-box-value" style={{ color: '#221F1F' }}>{proj.status}</p>
+                      <p className="phase-box-value" style={{ color: '#221F1F' }}>{proj.status || 'Awaiting Assignment'}</p>
                     </div>
                   </div>
                   <button
@@ -534,9 +579,9 @@ const EngineeringDashboard = ({ user }) => {
                     </select>
                   </div>
 
-                  {/* ── Modal mini chart — fixed pixel height ── */}
+                  {/* ── Modal mini chart ── */}
                   <div style={{ width: '100%', height: 200, marginBottom: '24px' }}>
-                    {chartReady && currentChartData?.length > 0 && (
+                    {currentChartData.length > 0 && (
                       <ResponsiveContainer width="100%" height={200}>
                         <BarChart
                           data={currentChartData}
