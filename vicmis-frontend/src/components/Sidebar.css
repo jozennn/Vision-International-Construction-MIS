@@ -64,30 +64,32 @@
   }
   
   /* --- Logo Section --- */
+/* --- Updated Logo Section for Center-Grouped Alignment --- */
 .sidebar-logo-container {
-  display: flex;
-  flex-direction: column; /* Stack logo above text for a cleaner centered look */
-  align-items: center;    /* Center items horizontally */
-  justify-content: center; /* Center items vertically */
-  gap: 8px;               /* Space between logo and text */
-  padding: 24px 16px;     /* Even padding on both sides */
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;    /* Vertical center */
+    justify-content: center; /* Horizontal center of the whole group */
+    gap: 12px;              /* Space between logo and "VICMIS" */
+    padding: 24px 16px;     /* Remove the large left padding (24px) that pushes it off-center */
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--sidebar-border);
+    width: 100%;            /* Ensure it takes full width of the sidebar */
 }
 
 .sidebar-logo-img {
-  width: 64px;            /* Increased slightly for better visibility when centered */
-  height: 64px;
-  object-fit: contain;
-  flex-shrink: 0;
+    width: 42px;            /* Adjusted slightly to match standard sidebar proportions */
+    height: 42px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 .sidebar-logo-text {
-  font-weight: 800;
-  font-size: 1.4rem;
-  color: #000000;
-  margin: 0;              /* Ensure no default margins interfere */
-  text-align: center;
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: #000000;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    margin: 0;              /* Prevents default margins from causing misalignment */
 }
   
   /* --- Navigation Menu --- */
