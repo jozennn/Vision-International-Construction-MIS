@@ -38,7 +38,7 @@ html, body {
 
 /* Full-width content wrapper — no centering, no max-width constraints */
 .main-content-wrapper {
-  padding: 24px; 
+  padding: 0px; 
   width: 100%;
   box-sizing: border-box;
   flex: 1;
