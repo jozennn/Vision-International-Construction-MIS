@@ -899,46 +899,44 @@ class ProjectController extends Controller
     return response()->json($logs);
 }
 
-    public function storeDailyLog(Request $request, $id): JsonResponse
+    public function storeDailyLog(Request $request, $id)
 {
     $request->validate(['log_date' => 'required|date']);
-    
     $project = Project::findOrFail($id);
-    
-    // Find existing log
+
+    // Get existing log for this date
     $existingLog = DailySiteLog::where('project_id', $id)
         ->where('log_date', $request->log_date)
         ->first();
-    
-    // Handle main photo
+
+    // Main photo
     $photoPath = $existingLog ? $existingLog->photo_path : null;
     if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
         $photoPath = $request->file('photo')->store('daily_logs', 'public');
     }
-    
-    // 🔧 FIXED: Handle team photo 1
+
+    // Team photo 1 – FIXED
     $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
-    if ($request->hasFile('team_photo_1') && $request->file('team_photo_1')->isValid()) {
+    if ($request->hasFile('team_photo_1')) {
         $file = $request->file('team_photo_1');
-        $teamPhoto1Path = $file->store('daily_logs/team', 'public');
-        \Log::info('Team photo 1 saved to: ' . $teamPhoto1Path);
-    } else {
-        // If no new file, keep existing path (but ensure it's not the string "0")
-        if ($teamPhoto1Path === "0" || $teamPhoto1Path === 0) {
-            $teamPhoto1Path = null;
+        if ($file && $file->isValid()) {
+            $teamPhoto1Path = $file->store('daily_logs/team', 'public');
         }
     }
-    
-    // 🔧 FIXED: Handle team photo 2
+    if ($teamPhoto1Path === "0" || $teamPhoto1Path === 0) {
+        $teamPhoto1Path = null;
+    }
+
+    // Team photo 2 – FIXED
     $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
-    if ($request->hasFile('team_photo_2') && $request->file('team_photo_2')->isValid()) {
+    if ($request->hasFile('team_photo_2')) {
         $file = $request->file('team_photo_2');
-        $teamPhoto2Path = $file->store('daily_logs/team', 'public');
-        \Log::info('Team photo 2 saved to: ' . $teamPhoto2Path);
-    } else {
-        if ($teamPhoto2Path === "0" || $teamPhoto2Path === 0) {
-            $teamPhoto2Path = null;
+        if ($file && $file->isValid()) {
+            $teamPhoto2Path = $file->store('daily_logs/team', 'public');
         }
+    }
+    if ($teamPhoto2Path === "0" || $teamPhoto2Path === 0) {
+        $teamPhoto2Path = null;
     }
     
     $installersData = json_decode($request->installers_data, true) ?? [];
