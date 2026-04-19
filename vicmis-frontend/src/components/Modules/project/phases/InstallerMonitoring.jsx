@@ -723,7 +723,7 @@ const InstallerMonitoring = ({ project, user }) => {
                                         key={l.id} 
                                         className="im-history-item"
                                         onClick={() => {
-                                            const dateToSelect = l.log_date ? l.log_date.split('T')[0] : l.log_date;
+                                            const dateToSelect = l.log_date_formatted || (l.log_date ? l.log_date.split('T')[0] : l.log_date);
                                             setSelectedDate(dateToSelect);
                                         }}
                                     >
