@@ -584,8 +584,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #A00101;
-  color: #fff;
+  background: var(--brand-black);
+  color: #A00101;
   border: none;
   padding: .5rem 1.3rem;
   border-radius: var(--r-sm);
