@@ -67,20 +67,26 @@
   .sidebar-logo-container {
     display: flex;
     align-items: center;
-    padding: 24px;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 20px 24px;
     margin-bottom: 8px;
+    border-bottom: 1px solid var(--sidebar-border);
   }
   
   .sidebar-logo-img {
-    width: 32px;
-    height: 32px;
-    margin-right: 12px;
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
   }
   
   .sidebar-logo-text {
     font-weight: 800;
-    font-size: 1.3rem;
+    font-size: 1.4rem;
     color: #000000;
+    letter-spacing: 0.5px;
+    line-height: 1;
   }
   
   /* --- Navigation Menu --- */
