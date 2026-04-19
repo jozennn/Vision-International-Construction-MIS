@@ -43,6 +43,66 @@ const PhaseDivider = ({ label }) => (
   </div>
 );
 
+/* ─────────────────── Floor Plan Viewer Modal ─────────────────── */
+const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const handleImageError = () => {
+    setIsLoading(false);
+    setError('Failed to load floor plan image. The file may be missing or corrupted.');
+  };
+
+  const handleImageLoad = () => {
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="floorplan-modal-overlay" onClick={onClose}>
+      <div className="floorplan-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="floorplan-modal-header">
+          <h3>📐 Floor Plan Reference - {projectName}</h3>
+          <button className="floorplan-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="floorplan-modal-body">
+          {isLoading && !error && (
+            <div className="floorplan-loading">
+              <div className="floorplan-spinner"></div>
+              <span>Loading floor plan...</span>
+            </div>
+          )}
+          {error && (
+            <div className="floorplan-error">
+              <span>⚠️</span>
+              <p>{error}</p>
+              <button onClick={onClose} className="floorplan-error-btn">Close</button>
+            </div>
+          )}
+          {!error && (
+            <div className="floorplan-image-container">
+              <img 
+                src={imageUrl} 
+                alt="Floor Plan"
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                style={{ display: isLoading ? 'none' : 'block', maxWidth: '100%', maxHeight: '70vh' }}
+              />
+            </div>
+          )}
+        </div>
+        <div className="floorplan-modal-footer">
+          <button onClick={onClose} className="floorplan-modal-btn">Close</button>
+          {!error && !isLoading && (
+            <a href={imageUrl} download="floor_plan.jpg" className="floorplan-download-btn">
+              Download Image
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─────────────────── Measurement card ─────────────────── */
 const MeasurementCard = ({
   title, sqmValue, onSqmChange,
@@ -94,12 +154,24 @@ const PhaseBoq = ({
 }) => {
 
   const [saveStatus, setSaveStatus]   = useState('idle');
+  const [showFloorPlanModal, setShowFloorPlanModal] = useState(false);
   const draftTimerRef                 = useRef(null);
   const statusTimerRef                = useRef(null);
-  // Skip the very first render so we don't auto-save the data
-  // that was just loaded from the DB via initFromProject.
   const isFirstRender                 = useRef(true);
   const isActual                      = phase === 'actual';
+
+  // Get floor plan image URL
+  const getFloorPlanUrl = () => {
+    if (project?.floor_plan_image) {
+      if (project.floor_plan_image.startsWith('http')) {
+        return project.floor_plan_image;
+      }
+      return `${process.env.REACT_APP_API_URL || '/api'}/storage/${project.floor_plan_image}`;
+    }
+    return null;
+  };
+
+  const floorPlanUrl = getFloorPlanUrl();
 
   /* ── Auto-populate finalBOQ from planBOQ when entering actual phase ── */
   useEffect(() => {
@@ -143,7 +215,6 @@ const PhaseBoq = ({
 
   /* ── Watch boqData — debounce draft save by 1.5s after last change ── */
   useEffect(() => {
-    // Skip first render — data was just loaded from DB, nothing new to save
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
@@ -320,6 +391,15 @@ const PhaseBoq = ({
     setTimeout(() => { win.print(); }, 500);
   };
 
+  // Handle floor plan click - open modal instead of new tab
+  const handleViewFloorPlan = () => {
+    if (floorPlanUrl) {
+      setShowFloorPlanModal(true);
+    } else {
+      alert('No floor plan image uploaded yet.');
+    }
+  };
+
   return (
     <div className="boq-phase-root">
 
@@ -331,8 +411,38 @@ const PhaseBoq = ({
         </div>
       )}
 
-      {/* Floor plan reference */}
-      {renderDocumentLink?.('Floor Plan Reference', project?.floor_plan_image)}
+      {/* Floor plan reference - Custom button with modal trigger */}
+      <div className="pm-card-gray" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 className="pm-title-md">📐 Floor Plan Reference</h3>
+            <p className="pm-text-muted" style={{ margin: 0 }}>
+              {floorPlanUrl ? 'Click the button below to view the uploaded floor plan.' : 'No floor plan uploaded yet.'}
+            </p>
+          </div>
+          <button 
+            onClick={handleViewFloorPlan}
+            disabled={!floorPlanUrl}
+            className="boq-export-btn"
+            style={{
+              background: floorPlanUrl ? '#497B97' : '#ccc',
+              color: 'white',
+              border: 'none',
+            }}
+          >
+            📄 View Floor Plan Reference
+          </button>
+        </div>
+      </div>
+
+      {/* Floor Plan Modal */}
+      {showFloorPlanModal && floorPlanUrl && (
+        <FloorPlanViewer 
+          imageUrl={floorPlanUrl}
+          onClose={() => setShowFloorPlanModal(false)}
+          projectName={project?.project_name || project?.name || 'Project'}
+        />
+      )}
 
       {/* ══ PLAN SECTION ══ */}
       <PhaseDivider label="Plan Phase" />
