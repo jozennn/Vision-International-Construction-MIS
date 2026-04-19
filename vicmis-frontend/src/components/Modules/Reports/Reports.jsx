@@ -18,7 +18,6 @@ const SECTIONS = {
     label: 'Project Reports', icon: '📝', color: '#6366f1',
     reports: [
       { id: 'project-status',    label: 'Project Status Summary',  component: ProjectStatus    },
-      { id: 'material-requests', label: 'Material Request Report', component: MaterialRequests },
     ],
   },
   'customer-reports': {
