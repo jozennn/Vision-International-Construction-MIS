@@ -43,7 +43,7 @@ const PhaseDivider = ({ label }) => (
   </div>
 );
 
-/* ─────────────────── Floor Plan Viewer Modal (UPDATED) ─────────────────── */
+/* ─────────────────── Floor Plan Viewer Modal ─────────────────── */
 const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -73,7 +73,7 @@ const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
           padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
         }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>📐 Floor Plan Reference - {projectName}</h3>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>📐 Floor Plan: {projectName}</h3>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', fontSize: '1.5rem', 
             cursor: 'pointer', color: '#64748b', padding: '5px'
@@ -197,16 +197,21 @@ const PhaseBoq = ({
   const isFirstRender                 = useRef(true);
   const isActual                      = phase === 'actual';
 
-  /* ── Get floor plan image URL (FIXED) ── */
+  /* ── Get floor plan image URL (SMART FIX) ── */
   const getFloorPlanUrl = () => {
-    if (project?.floor_plan_image) {
-      if (project.floor_plan_image.startsWith('http')) {
-        return project.floor_plan_image;
-      }
-      // Access storage directly via domain to avoid /api/ router issues
-      return `https://visionintlconstopc.com/storage/${project.floor_plan_image}`;
+    if (!project?.floor_plan_image) return null;
+    
+    if (project.floor_plan_image.startsWith('http')) {
+      return project.floor_plan_image;
     }
-    return null;
+
+    // Logic: if the filename already contains 'project_documents/', don't add it again.
+    const fileName = project.floor_plan_image;
+    const path = fileName.includes('project_documents/') 
+      ? fileName 
+      : `project_documents/${fileName}`;
+
+    return `https://visionintlconstopc.com/storage/${path}`;
   };
 
   const floorPlanUrl = getFloorPlanUrl();
