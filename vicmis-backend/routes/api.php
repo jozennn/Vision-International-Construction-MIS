@@ -50,6 +50,21 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     });
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    Route::get('/project-image/{path}', function ($path) {
+        $fullPath = storage_path('app/public/' . $path);
+        
+        if (!file_exists($fullPath)) {
+            return response()->json(['error' => 'Image not found', 'path' => $fullPath], 404);
+        }
+        
+        $mime = mime_content_type($fullPath);
+        
+        return response()->file($fullPath, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=3600'
+        ]);
+    })->where('path', '.*');
+
     // --- NOTIFICATIONS ---
     Route::get('/notifications',            [ProjectController::class, 'getNotifications']);
     Route::post('/notifications/{id}/read', [ProjectController::class, 'markNotificationRead']);

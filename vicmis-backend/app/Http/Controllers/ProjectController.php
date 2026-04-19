@@ -1381,7 +1381,12 @@ public function forceDelete(int $id): JsonResponse
             'status'                => $project->status,
             'is_completed'          => $project->is_completed,
             'contract_amount'       => $project->contract_amount,
-            'floor_plan_image'      => $project->floor_plan_image,
+            
+            // 👇 CHANGE THIS LINE
+            'floor_plan_image'      => $project->floor_plan_image 
+                ? url('/api/project-image/' . $project->floor_plan_image)
+                : null,
+            
             'created_at'            => $project->created_at,
             'created_by'            => $project->created_by,
             'created_by_name'       => $project->created_by_name,
