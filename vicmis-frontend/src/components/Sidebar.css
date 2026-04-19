@@ -64,30 +64,31 @@
   }
   
   /* --- Logo Section --- */
-  .sidebar-logo-container {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 12px;
-    padding: 40px 24px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--sidebar-border);
-  }
-  
-  .sidebar-logo-img {
-    width: 48px;
-    height: 48px;
-    object-fit: contain;
-    flex-shrink: 0;
-  }
-  
-  .sidebar-logo-text {
-    font-weight: 800;
-    font-size: 1.4rem;
-    color: #000000;
-    letter-spacing: 0.5px;
-    line-height: 1;
-  }
+.sidebar-logo-container {
+  display: flex;
+  flex-direction: column; /* Stack logo above text for a cleaner centered look */
+  align-items: center;    /* Center items horizontally */
+  justify-content: center; /* Center items vertically */
+  gap: 8px;               /* Space between logo and text */
+  padding: 24px 16px;     /* Even padding on both sides */
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.sidebar-logo-img {
+  width: 64px;            /* Increased slightly for better visibility when centered */
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-text {
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: #000000;
+  margin: 0;              /* Ensure no default margins interfere */
+  text-align: center;
+}
   
   /* --- Navigation Menu --- */
   .sidebar-nav-menu ul {
