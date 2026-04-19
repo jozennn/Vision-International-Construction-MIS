@@ -123,16 +123,46 @@ const NotificationDetailModal = ({ notif, onClose, onViewProject }) => {
 
 // ── Main Bell Component ───────────────────────────────────────────────────────
 const NotificationBell = () => {
-    const [notifications, setNotifications]               = useState([]);
-    const [readIds, setReadIds]                           = useState(new Set());
-    const [isOpen, setIsOpen]                             = useState(false);
+    const [notifications, setNotifications]           = useState([]);
+    const [readIds, setReadIds]                       = useState(new Set());
+    const [isOpen, setIsOpen]                         = useState(false);
     const [selectedNotification, setSelectedNotification] = useState(null);
-    const [toasts, setToasts]                             = useState([]);
-    const prevIdsRef                                      = useRef(new Set());
-    const wrapperRef                                      = useRef(null);
+    const [toasts, setToasts]                         = useState([]);
+    // dropdownPos stores the fixed {top, right} position calculated from the bell button
+    const [dropdownPos, setDropdownPos]               = useState({ top: 0, right: 0 });
+    const prevIdsRef                                  = useRef(new Set());
+    const buttonRef                                   = useRef(null);
+    const dropdownRef                                 = useRef(null);
+
+    // ── Calculate fixed dropdown position from bell button bounds ────────────
+    const calculatePosition = () => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+        const dropdownWidth = Math.min(420, window.innerWidth - 24);
+        // right: distance from right edge of viewport to right edge of button
+        const right = window.innerWidth - rect.right;
+        // top: just below the button with a small gap
+        const top = rect.bottom + 8;
+        setDropdownPos({ top, right });
+    };
 
     // ── Open / close bell ─────────────────────────────────────────────────────
-    const handleBellClick = () => setIsOpen(o => !o);
+    const handleBellClick = () => {
+        if (!isOpen) calculatePosition();
+        setIsOpen(o => !o);
+    };
+
+    // ── Recalculate on resize / scroll ────────────────────────────────────────
+    useEffect(() => {
+        if (!isOpen) return;
+        const update = () => calculatePosition();
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => {
+            window.removeEventListener('resize', update);
+            window.removeEventListener('scroll', update, true);
+        };
+    }, [isOpen]);
 
     // ── Message classifiers ───────────────────────────────────────────────────
     const getNotifStyle = (msg, isRead) => {
@@ -266,7 +296,10 @@ const NotificationBell = () => {
     useEffect(() => {
         if (!isOpen) return;
         const handler = (e) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+            if (
+                dropdownRef.current && !dropdownRef.current.contains(e.target) &&
+                buttonRef.current   && !buttonRef.current.contains(e.target)
+            ) {
                 setIsOpen(false);
             }
         };
@@ -274,8 +307,9 @@ const NotificationBell = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [isOpen]);
 
-    const removeToast = (toastId) => setToasts(prev => prev.filter(t => t.toastId !== toastId));
-    const unreadCount = notifications.filter(n => !readIds.has(n.id)).length;
+    const removeToast    = (toastId) => setToasts(prev => prev.filter(t => t.toastId !== toastId));
+    const unreadCount    = notifications.filter(n => !readIds.has(n.id)).length;
+    const isMobile       = typeof window !== 'undefined' && window.innerWidth <= 640;
 
     return (
         <>
@@ -300,9 +334,9 @@ const NotificationBell = () => {
                 />
             )}
 
-            {/* Bell button + dropdown — all inside wrapper for natural anchoring */}
-            <div className="notif-wrapper" ref={wrapperRef}>
-                <button onClick={handleBellClick} className="notif-button">
+            {/* Bell button */}
+            <div className="notif-wrapper">
+                <button ref={buttonRef} onClick={handleBellClick} className="notif-button">
                     <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"
                             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
@@ -311,89 +345,93 @@ const NotificationBell = () => {
                         <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
                     )}
                 </button>
+            </div>
 
-                {/* Dropdown — sits inside wrapper, positioned absolutely below the bell */}
-                {isOpen && (
-                    <div className="notif-dropdown">
-                        <div className="notif-header">
-                            <span>🔔 Alerts & Updates</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span className="notif-header-badge">{unreadCount} New</span>
-                                {unreadCount > 0 && (
-                                    <button className="notif-mark-all" onClick={handleMarkAllRead}>
-                                        Mark all read
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="notif-body">
-                            {notifications.length === 0 ? (
-                                <div className="notif-empty">
-                                    <span>📭</span>
-                                    <p>You're all caught up!</p>
-                                    <small>No new notifications</small>
-                                </div>
-                            ) : (
-                                notifications.map(notif => {
-                                    const isRead = readIds.has(notif.id);
-                                    const style  = getNotifStyle(notif.message, isRead);
-                                    return (
-                                        <div
-                                            key={notif.id}
-                                            className={`notif-item ${isRead ? 'notif-item--read' : ''}`}
-                                            style={{
-                                                borderLeft:      `3px solid ${style.borderLeftColor}`,
-                                                backgroundColor: style.backgroundColor,
-                                                opacity:         style.opacity || 1,
-                                            }}
-                                            onClick={() => openNotificationDetail(notif)}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                                <span style={{ fontSize: '18px', flexShrink: 0 }}>
-                                                    {getNotifIcon(notif.message, isRead)}
-                                                </span>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p className="notif-text" style={{ margin: '0 0 6px 0' }}>
-                                                        {formatMessage(notif.message)}
-                                                    </p>
-                                                    <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#94a3b8', flexWrap: 'wrap' }}>
-                                                        <span>🕐 {formatTime(notif.created_at)}</span>
-                                                        {notif.project_name && (
-                                                            <span>📁 {notif.project_name.length > 20
-                                                                ? notif.project_name.substring(0, 20) + '...'
-                                                                : notif.project_name}
-                                                            </span>
-                                                        )}
-                                                        {notif.target_department && (
-                                                            <span>🏢 {notif.target_department}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {!isRead && (
-                                                    <div style={{
-                                                        width: '8px', height: '8px',
-                                                        backgroundColor: '#C20100',
-                                                        borderRadius: '50%',
-                                                        flexShrink: 0,
-                                                        marginTop: '6px',
-                                                    }} />
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })
+            {/* Dropdown — rendered outside the wrapper via portal-like fixed positioning */}
+            {isOpen && (
+                <div
+                    ref={dropdownRef}
+                    className="notif-dropdown"
+                    style={isMobile ? {} : { top: dropdownPos.top, right: dropdownPos.right }}
+                >
+                    <div className="notif-header">
+                        <span>🔔 Alerts & Updates</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="notif-header-badge">{unreadCount} New</span>
+                            {unreadCount > 0 && (
+                                <button className="notif-mark-all" onClick={handleMarkAllRead}>
+                                    Mark all read
+                                </button>
                             )}
                         </div>
+                    </div>
 
-                        {notifications.length > 0 && (
-                            <div className="notif-footer">
-                                {notifications.length} total notification{notifications.length !== 1 ? 's' : ''}
+                    <div className="notif-body">
+                        {notifications.length === 0 ? (
+                            <div className="notif-empty">
+                                <span>📭</span>
+                                <p>You're all caught up!</p>
+                                <small>No new notifications</small>
                             </div>
+                        ) : (
+                            notifications.map(notif => {
+                                const isRead = readIds.has(notif.id);
+                                const style  = getNotifStyle(notif.message, isRead);
+                                return (
+                                    <div
+                                        key={notif.id}
+                                        className={`notif-item ${isRead ? 'notif-item--read' : ''}`}
+                                        style={{
+                                            borderLeft:      `3px solid ${style.borderLeftColor}`,
+                                            backgroundColor: style.backgroundColor,
+                                            opacity:         style.opacity || 1,
+                                        }}
+                                        onClick={() => openNotificationDetail(notif)}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                            <span style={{ fontSize: '18px', flexShrink: 0 }}>
+                                                {getNotifIcon(notif.message, isRead)}
+                                            </span>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <p className="notif-text" style={{ margin: '0 0 6px 0' }}>
+                                                    {formatMessage(notif.message)}
+                                                </p>
+                                                <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#94a3b8', flexWrap: 'wrap' }}>
+                                                    <span>🕐 {formatTime(notif.created_at)}</span>
+                                                    {notif.project_name && (
+                                                        <span>📁 {notif.project_name.length > 20
+                                                            ? notif.project_name.substring(0, 20) + '...'
+                                                            : notif.project_name}
+                                                        </span>
+                                                    )}
+                                                    {notif.target_department && (
+                                                        <span>🏢 {notif.target_department}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {!isRead && (
+                                                <div style={{
+                                                    width: '8px', height: '8px',
+                                                    backgroundColor: '#C20100',
+                                                    borderRadius: '50%',
+                                                    flexShrink: 0,
+                                                    marginTop: '6px',
+                                                }} />
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
-                )}
-            </div>
+
+                    {notifications.length > 0 && (
+                        <div className="notif-footer">
+                            {notifications.length} total notification{notifications.length !== 1 ? 's' : ''}
+                        </div>
+                    )}
+                </div>
+            )}
         </>
     );
 };
