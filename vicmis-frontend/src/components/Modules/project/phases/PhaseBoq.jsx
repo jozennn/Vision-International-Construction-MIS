@@ -43,7 +43,7 @@ const PhaseDivider = ({ label }) => (
   </div>
 );
 
-/* ─────────────────── Floor Plan Viewer Modal ─────────────────── */
+/* ─────────────────── Floor Plan Viewer Modal (UPDATED) ─────────────────── */
 const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,43 +58,80 @@ const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
   };
 
   return (
-    <div className="floorplan-modal-overlay" onClick={onClose}>
-      <div className="floorplan-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="floorplan-modal-header">
-          <h3>📐 Floor Plan Reference - {projectName}</h3>
-          <button className="floorplan-modal-close" onClick={onClose}>✕</button>
+    <div className="floorplan-modal-overlay" onClick={onClose} style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'flex',
+      justifyContent: 'center', alignItems: 'center', zIndex: 9999,
+      backdropFilter: 'blur(4px)'
+    }}>
+      <div className="floorplan-modal-content" onClick={(e) => e.stopPropagation()} style={{
+        backgroundColor: '#fff', borderRadius: '12px', width: '90%', maxWidth: '1000px',
+        maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+      }}>
+        <div className="floorplan-modal-header" style={{
+          padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>📐 Floor Plan Reference - {projectName}</h3>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', fontSize: '1.5rem', 
+            cursor: 'pointer', color: '#64748b', padding: '5px'
+          }}>✕</button>
         </div>
-        <div className="floorplan-modal-body">
+
+        <div className="floorplan-modal-body" style={{
+          backgroundColor: '#f1f5f9', flex: 1, overflow: 'auto',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          minHeight: '400px', padding: '20px'
+        }}>
           {isLoading && !error && (
-            <div className="floorplan-loading">
+            <div style={{ textAlign: 'center' }}>
               <div className="floorplan-spinner"></div>
-              <span>Loading floor plan...</span>
+              <p style={{ marginTop: '10px', color: '#64748b' }}>Opening document...</p>
             </div>
           )}
-          {error && (
-            <div className="floorplan-error">
-              <span>⚠️</span>
+          
+          {error ? (
+            <div style={{ textAlign: 'center', color: '#ef4444' }}>
+              <span style={{ fontSize: '3rem' }}>⚠️</span>
               <p>{error}</p>
-              <button onClick={onClose} className="floorplan-error-btn">Close</button>
             </div>
-          )}
-          {!error && (
-            <div className="floorplan-image-container">
-              <img 
-                src={imageUrl} 
-                alt="Floor Plan"
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                style={{ display: isLoading ? 'none' : 'block', maxWidth: '100%', maxHeight: '70vh' }}
-              />
-            </div>
+          ) : (
+            <img 
+              src={imageUrl} 
+              alt="Floor Plan"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              style={{ 
+                display: isLoading ? 'none' : 'block', 
+                maxWidth: '100%', 
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                borderRadius: '4px'
+              }}
+            />
           )}
         </div>
-        <div className="floorplan-modal-footer">
-          <button onClick={onClose} className="floorplan-modal-btn">Close</button>
+
+        <div className="floorplan-modal-footer" style={{
+          padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0',
+          display: 'flex', justifyContent: 'flex-end', gap: '10px'
+        }}>
+          <button onClick={onClose} className="pm-btn-secondary" style={{ padding: '8px 20px' }}>Close</button>
           {!error && !isLoading && (
-            <a href={imageUrl} download="floor_plan.jpg" className="floorplan-download-btn">
-              Download Image
+            <a 
+              href={imageUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ 
+                padding: '8px 20px', backgroundColor: '#C20100', 
+                color: 'white', textDecoration: 'none', borderRadius: '6px',
+                fontSize: '14px', fontWeight: '600'
+              }}
+            >
+              Open Full Image
             </a>
           )}
         </div>
@@ -160,13 +197,14 @@ const PhaseBoq = ({
   const isFirstRender                 = useRef(true);
   const isActual                      = phase === 'actual';
 
-  // Get floor plan image URL
+  /* ── Get floor plan image URL (FIXED) ── */
   const getFloorPlanUrl = () => {
     if (project?.floor_plan_image) {
       if (project.floor_plan_image.startsWith('http')) {
         return project.floor_plan_image;
       }
-      return `${process.env.REACT_APP_API_URL || '/api'}/storage/${project.floor_plan_image}`;
+      // Access storage directly via domain to avoid /api/ router issues
+      return `https://visionintlconstopc.com/storage/${project.floor_plan_image}`;
     }
     return null;
   };
@@ -181,7 +219,7 @@ const PhaseBoq = ({
     if (planRows.length > 0 && finalRows.length === 0) {
       setBoqData(prev => ({ ...prev, finalBOQ: planRows.map(r => ({ ...r })) }));
     }
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase]); 
 
   /* ── Draft save function ── */
   const saveDraft = useCallback(async () => {
@@ -232,7 +270,7 @@ const PhaseBoq = ({
     boqData.actualSqm,
     boqData.actualMeasurement,
     boqData.finalBOQ,
-  ]); // eslint-disable-line react-hooks/exhaustive-deps
+  ]);
 
   /* Cleanup timers on unmount */
   useEffect(() => {
@@ -391,7 +429,7 @@ const PhaseBoq = ({
     setTimeout(() => { win.print(); }, 500);
   };
 
-  // Handle floor plan click - open modal instead of new tab
+  /* ── Handle floor plan click ── */
   const handleViewFloorPlan = () => {
     if (floorPlanUrl) {
       setShowFloorPlanModal(true);
@@ -411,7 +449,7 @@ const PhaseBoq = ({
         </div>
       )}
 
-      {/* Floor plan reference - Custom button with modal trigger */}
+      {/* Floor plan reference */}
       <div className="pm-card-gray" style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
@@ -428,6 +466,9 @@ const PhaseBoq = ({
               background: floorPlanUrl ? '#497B97' : '#ccc',
               color: 'white',
               border: 'none',
+              padding: '10px 20px',
+              borderRadius: '6px',
+              cursor: floorPlanUrl ? 'pointer' : 'not-allowed'
             }}
           >
             📄 View Floor Plan Reference
