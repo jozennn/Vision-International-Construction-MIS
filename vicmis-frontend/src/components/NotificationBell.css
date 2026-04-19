@@ -45,13 +45,14 @@
     50%       { transform: translate(25%, -25%) scale(1.1); }
 }
 
-/* ── Dropdown Styles ───────────────────────────────────────────────────────── */
+/* ── Dropdown Styles - WIDER ───────────────────────────────────────────────── */
 .notif-dropdown {
     position: absolute;
     top: 130%;
     right: 0;
-    width: 380px;
+    width: 450px;
     max-width: 90vw;
+    min-width: 320px;
     background-color: white;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
@@ -97,15 +98,15 @@
     color: white;
 }
 
-/* IMPORTANT: This is the scrollable body that contains notifications */
+/* Scrollable body */
 .notif-body {
-    max-height: 400px;
+    max-height: 450px;
     overflow-y: auto;
     overflow-x: hidden;
     text-align: left;
 }
 
-/* Custom scrollbar for the dropdown */
+/* Custom scrollbar */
 .notif-body::-webkit-scrollbar {
     width: 6px;
 }
@@ -132,8 +133,9 @@
     font-style: italic;
 }
 
+/* Notification Item - Better spacing */
 .notif-item {
-    padding: 14px 16px;
+    padding: 16px 18px;
     border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -154,11 +156,21 @@
     color: #1e293b;
     margin: 0;
     line-height: 1.4;
+    word-break: break-word;
 }
 
 .notif-text--read {
     color: #94a3b8;
     font-weight: 500;
+}
+
+/* Time and project info inside dropdown */
+.notif-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 10px;
+    color: #94a3b8;
 }
 
 /* ── Toast Stack (Popup Notifications) ──────────────────────────────────────── */
@@ -223,6 +235,7 @@
     color: #1e293b;
     margin: 0 0 6px 0;
     line-height: 1.4;
+    word-break: break-word;
 }
 
 .notif-toast__link {
@@ -255,7 +268,7 @@
     color: #1e293b;
 }
 
-/* ── Notification Detail Modal (opens when clicking a notification) ─────────── */
+/* ── Notification Detail Modal ──────────────────────────────────────────────── */
 .notif-modal-overlay {
     position: fixed;
     top: 0;
@@ -362,6 +375,7 @@
     line-height: 1.5;
     color: #1A1A2E;
     font-weight: 500;
+    word-break: break-word;
 }
 
 .notif-detail-info {
@@ -462,6 +476,7 @@
 @media (max-width: 480px) {
     .notif-dropdown {
         width: 95vw;
+        min-width: unset;
         right: -10px;
     }
     
@@ -471,7 +486,7 @@
     }
     
     .notif-item {
-        padding: 12px;
+        padding: 12px 14px;
     }
     
     .notif-text {
@@ -520,6 +535,6 @@
 
 @media (min-width: 481px) and (max-width: 768px) {
     .notif-dropdown {
-        width: 360px;
+        width: 400px;
     }
 }
