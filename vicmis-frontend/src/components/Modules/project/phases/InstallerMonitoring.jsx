@@ -80,6 +80,12 @@ const InstallerMonitoring = ({ project, user }) => {
     }, [currentLog.id, currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
 
     const handleSave = async () => {
+
+        console.log('=== SAVING PHOTOS ===');
+        console.log('Main photo before save:', photoMain instanceof File ? photoMain.name : 'No file');
+        console.log('Team photo 1 before save:', photo1 instanceof File ? photo1.name : 'No file');
+        console.log('Team photo 2 before save:', photo2 instanceof File ? photo2.name : 'No file');
+
         try {
             await saveLog({ photoMain, photo1, photo2 });
             
@@ -359,6 +365,13 @@ const InstallerMonitoring = ({ project, user }) => {
     };
 
     if (loading) return <div className="im-loading">⏳ Loading logs...</div>;
+
+    useEffect(() => {
+    console.log('=== PHOTO DEBUG ===');
+    console.log('Main photo:', photoMain instanceof File ? photoMain.name : photoMain);
+    console.log('Team photo 1:', photo1 instanceof File ? photo1.name : photo1);
+    console.log('Team photo 2:', photo2 instanceof File ? photo2.name : photo2);
+    }, [photoMain, photo1, photo2]);
 
     return (
         <div className="im-section">
