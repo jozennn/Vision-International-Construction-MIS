@@ -30,16 +30,19 @@
 }
 
 /* ============================================================
-   CONTAINER — full width, no centering
+   CONTAINER — Fixed to fill remaining space next to sidebar
    ============================================================ */
 .customer-container {
   padding: 28px 32px;
   width: 100%;
+  flex: 1; /* <-- This forces the container to fill the empty right space */
+  max-width: 100%; 
   box-sizing: border-box;
   background: var(--vision-bg);
   min-height: 100vh;
   font-family: 'DM Sans', sans-serif;
   animation: fadeIn 0.35s ease;
+  overflow-x: hidden; /* Prevents horizontal scrolling */
 }
 
 /* ============================================================
@@ -147,7 +150,8 @@
    ============================================================ */
 .lead-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  /* Changed from auto-fill to auto-fit so cards fill the row evenly */
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
   gap: 18px;
   animation: fadeIn 0.4s ease;
 }
