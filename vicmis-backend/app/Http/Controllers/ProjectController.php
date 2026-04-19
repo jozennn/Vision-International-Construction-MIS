@@ -878,29 +878,60 @@ class ProjectController extends Controller
     {
         $logs = DailySiteLog::where('project_id', $id)
             ->orderBy('log_date', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($log) {
+                // Add full URLs for photos if they exist
+                if ($log->photo_path) {
+                    $log->photo_url = Storage::disk('public')->url($log->photo_path);
+                }
+                if ($log->team_photo_1) {
+                    $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
+                }
+                if ($log->team_photo_2) {
+                    $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
+                }
+                return $log;
+            });
 
         return response()->json($logs);
     }
 
     public function storeDailyLog(Request $request, $id): JsonResponse
     {
-        $request->validate(['log_date' => 'required|date']);
 
+         \Log::info('Daily Log Request', [
+        'project_id' => $id,
+        'log_date' => $request->log_date,
+        'has_photo' => $request->hasFile('photo'),
+        'has_team_photo_1' => $request->hasFile('team_photo_1'),
+        'has_team_photo_2' => $request->hasFile('team_photo_2'),
+        'all_files' => array_keys($request->allFiles()),
+        'content_type' => $request->header('Content-Type'),
+        ]);
+
+        $request->validate(['log_date' => 'required|date']);
+        
+        $project = Project::findOrFail($id);
+        
+        // Handle main photo
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photoPath = $request->file('photo')->store('daily_logs', 'public');
         }
-
-        $installersData = json_decode($request->installers_data, true) ?? [];
-        foreach ($installersData as $key => &$installer) {
-            if ($request->hasFile("installer_photo_$key")) {
-                $installer['photo_path'] = $request->file("installer_photo_$key")
-                    ->store('daily_logs/installers', 'public');
-            }
+        
+        // Handle team photos - using separate columns
+        $teamPhoto1Path = null;
+        if ($request->hasFile('team_photo_1')) {
+            $teamPhoto1Path = $request->file('team_photo_1')->store('daily_logs/team', 'public');
         }
-        unset($installer);
-
+        
+        $teamPhoto2Path = null;
+        if ($request->hasFile('team_photo_2')) {
+            $teamPhoto2Path = $request->file('team_photo_2')->store('daily_logs/team', 'public');
+        }
+        
+        $installersData = json_decode($request->installers_data, true) ?? [];
+        
         $data = [
             'client_start_date'      => $request->client_start_date ?: null,
             'client_end_date'        => $request->client_end_date   ?: null,
@@ -913,11 +944,18 @@ class ProjectController extends Controller
             'installers_data'        => json_encode($installersData),
             'remarks'                => $request->remarks,
         ];
-
+        
+        // Add photos if they exist
         if ($photoPath !== null) {
             $data['photo_path'] = $photoPath;
         }
-
+        if ($teamPhoto1Path !== null) {
+            $data['team_photo_1'] = $teamPhoto1Path;
+        }
+        if ($teamPhoto2Path !== null) {
+            $data['team_photo_2'] = $teamPhoto2Path;
+        }
+        
         $log = DailySiteLog::updateOrCreate(
             [
                 'project_id' => $id,
@@ -925,7 +963,7 @@ class ProjectController extends Controller
             ],
             $data
         );
-
+        
         return response()->json([
             'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
             'log'     => $log,
