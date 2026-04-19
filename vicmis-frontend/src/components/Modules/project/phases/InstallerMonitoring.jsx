@@ -54,9 +54,9 @@ const InstallerMonitoring = ({ project, user }) => {
     const leadMan = roster.find(i => i.position === 'Lead Installer')?.name ?? roster[0]?.name ?? '—';
     
     const logExists = allLogs.some(l => {
-        const logDate = l.log_date ? l.log_date.split('T')[0] : l.log_date;
-        return logDate === selectedDate;
-    });
+    const logDate = l.log_date_formatted || (l.log_date ? l.log_date.split('T')[0] : null);
+    return logDate === selectedDate;
+});
 
     // Load existing photos when currentLog changes
     useEffect(() => {

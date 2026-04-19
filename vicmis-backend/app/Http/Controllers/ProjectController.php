@@ -880,6 +880,9 @@ class ProjectController extends Controller
         ->orderBy('log_date', 'desc')
         ->get()
         ->map(function ($log) {
+            // Format dates to YYYY-MM-DD
+            $log->log_date_formatted = $log->log_date ? date('Y-m-d', strtotime($log->log_date)) : null;
+            
             // Add full URLs for photos if they exist
             if ($log->photo_path) {
                 $log->photo_url = Storage::disk('public')->url($log->photo_path);
@@ -897,9 +900,8 @@ class ProjectController extends Controller
 }
 
     public function storeDailyLog(Request $request, $id): JsonResponse
-    {
-
-         \Log::info('Daily Log Request', [
+{
+    \Log::info('Daily Log Request', [
         'project_id' => $id,
         'log_date' => $request->log_date,
         'has_photo' => $request->hasFile('photo'),
@@ -907,69 +909,89 @@ class ProjectController extends Controller
         'has_team_photo_2' => $request->hasFile('team_photo_2'),
         'all_files' => array_keys($request->allFiles()),
         'content_type' => $request->header('Content-Type'),
-        ]);
+    ]);
 
-        $request->validate(['log_date' => 'required|date']);
-        
-        $project = Project::findOrFail($id);
-        
-        // Handle main photo
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('daily_logs', 'public');
-        }
-        
-        // Handle team photos - using separate columns
-        $teamPhoto1Path = null;
-        if ($request->hasFile('team_photo_1')) {
-            $teamPhoto1Path = $request->file('team_photo_1')->store('daily_logs/team', 'public');
-        }
-        
-        $teamPhoto2Path = null;
-        if ($request->hasFile('team_photo_2')) {
-            $teamPhoto2Path = $request->file('team_photo_2')->store('daily_logs/team', 'public');
-        }
-        
-        $installersData = json_decode($request->installers_data, true) ?? [];
-        
-        $data = [
-            'client_start_date'      => $request->client_start_date ?: null,
-            'client_end_date'        => $request->client_end_date   ?: null,
-            'start_date'             => $request->start_date        ?: null,
-            'end_date'               => $request->end_date          ?: null,
-            'lead_man'               => $request->lead_man,
-            'total_area'             => $request->total_area,
-            'accomplishment_percent' => $request->accomplishment_percent,
-            'workers_count'          => $request->workers_count,
-            'installers_data'        => json_encode($installersData),
-            'remarks'                => $request->remarks,
-        ];
-        
-        // Add photos if they exist
-        if ($photoPath !== null) {
-            $data['photo_path'] = $photoPath;
-        }
-        if ($teamPhoto1Path !== null) {
-            $data['team_photo_1'] = $teamPhoto1Path;
-        }
-        if ($teamPhoto2Path !== null) {
-            $data['team_photo_2'] = $teamPhoto2Path;
-        }
-        
-        $log = DailySiteLog::updateOrCreate(
-            [
-                'project_id' => $id,
-                'log_date'   => $request->log_date,
-            ],
-            $data
-        );
-        
-        return response()->json([
-            'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
-            'log'     => $log,
-        ]);
+    $request->validate(['log_date' => 'required|date']);
+    
+    $project = Project::findOrFail($id);
+    
+    // IMPORTANT: Find existing log to preserve existing photos
+    $existingLog = DailySiteLog::where('project_id', $id)
+        ->where('log_date', $request->log_date)
+        ->first();
+    
+    // Handle main photo - ONLY update if a new file is uploaded
+    $photoPath = $existingLog ? $existingLog->photo_path : null;
+    if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
+        $photoPath = $request->file('photo')->store('daily_logs', 'public');
+        \Log::info('New main photo uploaded: ' . $photoPath);
+    } else {
+        \Log::info('Preserving existing main photo: ' . $photoPath);
     }
-
+    
+    // Handle team photo 1 - ONLY update if a new file is uploaded
+    $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
+    if ($request->hasFile('team_photo_1') && $request->file('team_photo_1')->isValid()) {
+        $teamPhoto1Path = $request->file('team_photo_1')->store('daily_logs/team', 'public');
+        \Log::info('New team photo 1 uploaded: ' . $teamPhoto1Path);
+    } else {
+        \Log::info('Preserving existing team photo 1: ' . $teamPhoto1Path);
+    }
+    
+    // Handle team photo 2 - ONLY update if a new file is uploaded
+    $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
+    if ($request->hasFile('team_photo_2') && $request->file('team_photo_2')->isValid()) {
+        $teamPhoto2Path = $request->file('team_photo_2')->store('daily_logs/team', 'public');
+        \Log::info('New team photo 2 uploaded: ' . $teamPhoto2Path);
+    } else {
+        \Log::info('Preserving existing team photo 2: ' . $teamPhoto2Path);
+    }
+    
+    $installersData = json_decode($request->installers_data, true) ?? [];
+    
+    $data = [
+        'client_start_date'      => $request->client_start_date ?: null,
+        'client_end_date'        => $request->client_end_date   ?: null,
+        'start_date'             => $request->start_date        ?: null,
+        'end_date'               => $request->end_date          ?: null,
+        'lead_man'               => $request->lead_man,
+        'total_area'             => $request->total_area,
+        'accomplishment_percent' => $request->accomplishment_percent,
+        'workers_count'          => $request->workers_count,
+        'installers_data'        => json_encode($installersData),
+        'remarks'                => $request->remarks,
+        'photo_path'             => $photoPath,
+        'team_photo_1'           => $teamPhoto1Path,
+        'team_photo_2'           => $teamPhoto2Path,
+    ];
+    
+    $log = DailySiteLog::updateOrCreate(
+        [
+            'project_id' => $id,
+            'log_date'   => $request->log_date,
+        ],
+        $data
+    );
+    
+    // Refresh to get the latest data
+    $log->refresh();
+    
+    // Add URLs to the response
+    if ($log->photo_path) {
+        $log->photo_url = Storage::disk('public')->url($log->photo_path);
+    }
+    if ($log->team_photo_1) {
+        $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
+    }
+    if ($log->team_photo_2) {
+        $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
+    }
+    
+    return response()->json([
+        'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
+        'log'     => $log,
+    ]);
+}
     public function getIssues($id): JsonResponse
     {
         return response()->json(ProjectIssue::where('project_id', $id)->latest()->get());
