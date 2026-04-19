@@ -21,30 +21,34 @@
     color: #003049;
 }
 
+/* ── Notification Bell Wrapper ─────────────────────────────────────────────── */
 .notif-badge {
     position: absolute;
-    top: 0;
-    right: 0;
+    /* Bring the badge slightly inside the button to avoid adjacent elements */
+    top: 2px; 
+    right: 2px; 
     background-color: #FF1817;
     color: white;
     font-size: 11px;
     font-weight: 900;
     min-width: 18px;
     height: 18px;
-    border-radius: 50%;
+    /* Use 99px instead of 50% so double-digits create a pill shape, not an oval */
+    border-radius: 99px; 
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 5px;
-    transform: translate(25%, -25%);
+    padding: 0 4px;
+    /* Removed the translate so it doesn't push out of bounds */
     animation: pulse 2s infinite;
-    /* Stay above header content */
-    z-index: 1;
+    /* Increased z-index so it stays above the avatar next to it */
+    z-index: 10; 
 }
 
 @keyframes pulse {
-    0%, 100% { transform: translate(25%, -25%) scale(1); }
-    50%       { transform: translate(25%, -25%) scale(1.1); }
+    /* Removed the translate from the animation to match the new positioning */
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.1); }
 }
 
 /* ── Dropdown — FIXED positioning to escape any overflow:hidden parent ─────── */
