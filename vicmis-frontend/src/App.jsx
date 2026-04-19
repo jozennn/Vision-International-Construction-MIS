@@ -60,7 +60,7 @@ const App = () => {
   // ── Notification navigation listeners ─────────────────────────────────────
   useEffect(() => {
     const handleSwitchTab = (e) => {
-      setActiveItem(e.detail); // e.g. 'Project'
+      setActiveItem(e.detail);
     };
 
     const handleOpenProject = (e) => {
@@ -102,8 +102,7 @@ const App = () => {
   };
 
   const renderDashboard = () => {
-    const dept         = user.department?.toLowerCase();
-    const isManagement = ['admin', 'super_admin', 'manager', 'dept_head'].includes(user.role);
+    const dept = user.department?.toLowerCase();
 
     const notifications = {
       inventoryCount:  projects?.filter(p => p.activeStage === 2).length || 0,
@@ -206,7 +205,7 @@ const App = () => {
   if (!user) return <Login onEnterSystem={handleLoginSuccess} />;
 
   return (
-    <div className="app-container flex h-screen w-full overflow-hidden bg-gray-50">
+    <div className="app-container">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -225,7 +224,8 @@ const App = () => {
         user={user}
       />
 
-      <main className="content-area flex-1 h-full overflow-y-auto">
+      {/* content-area handles margin-left, width, height via App.css only */}
+      <main className="content-area">
         <Header user={user} onLogout={handleLogout} />
         <div className="main-content-wrapper">
           {renderContent()}
