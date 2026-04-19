@@ -30,12 +30,11 @@
 }
 
 /* ============================================================
-   CONTAINER
+   CONTAINER — full width, no centering
    ============================================================ */
 .customer-container {
   padding: 28px 32px;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
   box-sizing: border-box;
   background: var(--vision-bg);
   min-height: 100vh;
@@ -481,7 +480,6 @@
 }
 .btn-restore:hover { background: var(--vision-green-deep); transform: translateY(-1px); }
 
-/* Trash bin button — subtle */
 .btn-trash-bin {
   background: var(--vision-white);
   color: var(--vision-charcoal-mid);
@@ -575,7 +573,6 @@
 .history-list::-webkit-scrollbar-thumb { background: var(--vision-off-white); border-radius: 10px; }
 .history-list::-webkit-scrollbar-thumb:hover { background: var(--vision-blue); }
 
-/* History modal body padding */
 .history-modal-body { padding: 16px 28px 0; }
 
 .history-item {
@@ -600,7 +597,7 @@
 .history-item-location { color: #94a3b8; font-size: 0.78rem; }
 
 /* ============================================================
-   FLOATING HISTORY BUTTON — matches dashboard pill style
+   FLOATING HISTORY BUTTON
    ============================================================ */
 .floating-history-btn {
   position: fixed;
@@ -629,7 +626,6 @@
   box-shadow: var(--shadow-red), var(--shadow-lg);
 }
 
-/* badge on floating btn */
 .floating-history-btn .pill-count {
   background: var(--vision-red);
   color: white;
@@ -644,7 +640,7 @@
 .floating-history-btn:hover .pill-count { background: white; color: var(--vision-red); }
 
 /* ============================================================
-   SECTION DIVIDER (optional use between sections)
+   SECTION DIVIDER
    ============================================================ */
 .section-label {
   font-family: 'Syne', sans-serif;
@@ -732,7 +728,6 @@
   flex-wrap: wrap;
 }
 
-/* ── Tabs ── */
 .lead-tabs {
   display: flex;
   background: var(--vision-white);
@@ -760,12 +755,9 @@
   font-size: 0.68rem; font-weight: 800;
   padding: 1px 7px; border-radius: 20px; min-width: 18px; text-align: center;
 }
-.tab-count.converted {
-  background: #7c3aed;
-}
+.tab-count.converted { background: #7c3aed; }
 .lead-tab.active .tab-count { background: rgba(255,255,255,0.2); }
 
-/* ── Search + Filter ── */
 .search-filter-row {
   display: flex; align-items: center; gap: 8px; flex: 1;
   justify-content: flex-end;
@@ -775,9 +767,7 @@
   position: relative; display: flex; align-items: center;
   max-width: 320px; width: 100%;
 }
-.search-icon {
-  position: absolute; left: 11px; pointer-events: none;
-}
+.search-icon { position: absolute; left: 11px; pointer-events: none; }
 .search-input {
   width: 100%; padding: 9px 12px 9px 34px;
   border: 1.5px solid var(--vision-border);
@@ -799,7 +789,6 @@
 }
 .search-clear:hover { color: var(--vision-red); background: #fee2e2; }
 
-/* Filter Button + Dropdown */
 .filter-wrap { position: relative; }
 .btn-filter {
   display: flex; align-items: center; gap: 6px;
@@ -866,7 +855,6 @@
 }
 .pipeline-dot.active { background: var(--dot-color, #3b82f6); transform: scale(1.2); }
 
-/* Modal variant */
 .pipeline-progress-wrap.in-modal { margin-top: 12px; padding: 0 2px; }
 .in-modal .pipeline-progress-track { height: 5px; background: rgba(255,255,255,0.15); }
 .in-modal .pipeline-progress-fill { background: linear-gradient(90deg, #60a5fa 0%, #34d399 100%); }
@@ -943,7 +931,6 @@
   border: 1.5px dashed #e2e8f0; border-radius: 8px; margin-top: 4px;
 }
 
-/* Kanban Card */
 .kanban-card {
   background: var(--vision-white); border: 1px solid var(--vision-border);
   border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
@@ -976,7 +963,22 @@
 @media screen and (max-width: 1024px) {
   .stage-chip { display: none; }
 }
+
 @media screen and (max-width: 768px) {
+  .customer-container { padding: 16px; }
+  .customer-header {
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .header-actions { flex-direction: column; width: 100%; }
+  .btn-add-lead, .btn-cancel, .btn-trash-bin { width: 100%; justify-content: center; }
+  .stats-bar { flex-wrap: wrap; }
+  .stat-chip { flex: 1 1 calc(50% - 7px); min-width: 130px; }
+  .lead-grid { grid-template-columns: 1fr; }
+  .compact-grid { grid-template-columns: 1fr; }
+  .form-group-compact.full-width { grid-column: span 1; }
   .kanban-board { flex-direction: column; overflow-x: hidden; }
   .kanban-column { max-width: 100%; min-width: 0; flex: none; width: 100%; }
   .tab-search-row { flex-direction: column; align-items: stretch; }
@@ -987,47 +989,6 @@
   .btn-export-report span { display: none; }
 }
 
-
-/* ============================================================
-   KEYFRAMES
-   ============================================================ */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(18px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
-}
-
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
-@media screen and (max-width: 768px) {
-  .customer-container { padding: 16px; }
-
-  .customer-header {
-    flex-direction: column;
-    gap: 14px;
-    padding: 18px 20px;
-    text-align: center;
-  }
-  .header-actions { flex-direction: column; width: 100%; }
-  .btn-add-lead, .btn-cancel, .btn-trash-bin { width: 100%; justify-content: center; }
-
-  .stats-bar { flex-wrap: wrap; }
-  .stat-chip { flex: 1 1 calc(50% - 7px); min-width: 130px; }
-
-  .lead-grid { grid-template-columns: 1fr; }
-  .compact-grid { grid-template-columns: 1fr; }
-  .form-group-compact.full-width { grid-column: span 1; }
-}
-
 @media screen and (max-width: 480px) {
   .compact-modal { margin: 12px; max-height: 92vh; overflow-y: auto; border-radius: var(--radius-md); }
   .lead-form-compact { padding: 18px 18px 14px; }
@@ -1036,4 +997,19 @@
   .btn-save-lead, .btn-cancel, .btn-delete { width: 100%; text-align: center; }
   .floating-history-btn { bottom: 16px; right: 16px; padding: 11px 18px; font-size: 0.82rem; }
   .stat-chip { flex: 1 1 100%; }
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
 }
