@@ -25,7 +25,6 @@ export const resolveRoster = (project) => {
 // Helper to format date from ISO to YYYY-MM-DD
 const formatDate = (dateString) => {
     if (!dateString) return '';
-    // Remove time part if present (handles "2026-04-20T00:00:00.000000Z" -> "2026-04-20")
     return dateString.split('T')[0];
 };
 
@@ -52,6 +51,9 @@ const buildBlankLog = (roster = [], date = today()) => ({
     photo_path: null,
     team_photo_1: null,
     team_photo_2: null,
+    photo_url: null,
+    team_photo_1_url: null,
+    team_photo_2_url: null,
 });
 
 const buildPrefillLog = (latestLog, date, roster = []) => ({
@@ -70,6 +72,9 @@ const buildPrefillLog = (latestLog, date, roster = []) => ({
     photo_path: null,
     team_photo_1: null,
     team_photo_2: null,
+    photo_url: null,
+    team_photo_1_url: null,
+    team_photo_2_url: null,
 });
 
 const parseInstallers = (raw) => {
@@ -93,6 +98,9 @@ const mapServerLog = (l, roster = []) => {
         photo_path: l.photo_path ?? null,
         team_photo_1: l.team_photo_1 ?? null,
         team_photo_2: l.team_photo_2 ?? null,
+        photo_url: l.photo_url ?? null,
+        team_photo_1_url: l.team_photo_1_url ?? null,
+        team_photo_2_url: l.team_photo_2_url ?? null,
     };
 };
 
@@ -234,30 +242,35 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     const saveToServer = async (log, photos = {}) => {
         const fd = new FormData();
         
-        // Only append non-empty values to prevent overwriting
-        if (log.date) fd.append('log_date', log.date);
-        if (log.totalArea) fd.append('total_area', log.totalArea);
-        if (log.clientStart) fd.append('client_start_date', log.clientStart);
-        if (log.clientEnd) fd.append('client_end_date', log.clientEnd);
-        if (log.actualStart) fd.append('start_date', log.actualStart);
-        if (log.actualEnd) fd.append('end_date', log.actualEnd);
-        if (log.completion) fd.append('accomplishment_percent', log.completion);
-        if (log.remarks) fd.append('remarks', log.remarks);
-        
+        fd.append('log_date', log.date);
+        fd.append('total_area', log.totalArea || '');
+        fd.append('client_start_date', log.clientStart || '');
+        fd.append('client_end_date', log.clientEnd || '');
+        fd.append('start_date', log.actualStart || '');
+        fd.append('end_date', log.actualEnd || '');
+        fd.append('accomplishment_percent', log.completion || '');
+        fd.append('remarks', log.remarks || '');
         fd.append('workers_count', log.rows.length);
         fd.append('installers_data', JSON.stringify(log.rows));
         
-        // Append photos if they exist and are File objects
-        if (photos.photoMain instanceof File) fd.append('photo', photos.photoMain);
-        if (photos.photo1 instanceof File) fd.append('team_photo_1', photos.photo1);
-        if (photos.photo2 instanceof File) fd.append('team_photo_2', photos.photo2);
+        if (photos.photoMain instanceof File) {
+            fd.append('photo', photos.photoMain);
+        }
+        if (photos.photo1 instanceof File) {
+            fd.append('team_photo_1', photos.photo1);
+        }
+        if (photos.photo2 instanceof File) {
+            fd.append('team_photo_2', photos.photo2);
+        }
 
-        return await api.post(`/projects/${projectId}/daily-logs`, fd, {
+        const response = await api.post(`/projects/${projectId}/daily-logs`, fd, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
+        
+        return response.data;
     };
 
-    // Auto-save - only for non-photo changes
+    // Auto-save
     useEffect(() => {
         if (isFirstLoad.current) return;
         if (!projectId) return;
@@ -268,7 +281,6 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         autoSaveTimer.current = setTimeout(async () => {
             setSaveStatus('saving');
             try {
-                // Auto-save without photos
                 await saveToServer(currentLog, {});
                 await fetchLogs();
                 isDirty.current = false;
@@ -290,12 +302,30 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         setError(null);
         
         try {
-            await saveToServer(currentLog, { photoMain, photo1, photo2 });
-            isDirty.current = false;
-            await fetchLogs();
+            const result = await saveToServer(currentLog, { photoMain, photo1, photo2 });
             
+            if (result.log) {
+                const mappedLog = mapServerLog(result.log, roster);
+                setLogsByDate(prev => ({
+                    ...prev,
+                    [selectedDate]: mappedLog
+                }));
+                
+                setAllLogs(prev => {
+                    const existingIdx = prev.findIndex(l => l.log_date === result.log.log_date);
+                    if (existingIdx >= 0) {
+                        const next = [...prev];
+                        next[existingIdx] = result.log;
+                        return next;
+                    }
+                    return [...prev, result.log];
+                });
+            }
+            
+            isDirty.current = false;
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus(null), 3000);
+            
         } catch (e) {
             const msg = e.response?.data?.message ?? 'Failed to save log.';
             setError(msg);
