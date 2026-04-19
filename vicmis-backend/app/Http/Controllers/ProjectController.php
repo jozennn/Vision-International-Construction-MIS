@@ -871,116 +871,117 @@ class ProjectController extends Controller
     }
 
     // =========================================================================
-    // 10. DAILY LOGS & ISSUES — UNCHANGED
+    // 10. DAILY LOGS & ISSUES
     // =========================================================================
 
     public function getDailyLogs($id): JsonResponse
-{
-    $logs = DailySiteLog::where('project_id', $id)
-        ->orderBy('log_date', 'desc')
-        ->get()
-        ->map(function ($log) {
-            // Format dates to YYYY-MM-DD
-            $log->log_date_formatted = $log->log_date ? date('Y-m-d', strtotime($log->log_date)) : null;
-            
-            // Add full URLs for photos if they exist
-            if ($log->photo_path) {
-                $log->photo_url = Storage::disk('public')->url($log->photo_path);
-            }
-            if ($log->team_photo_1) {
-                $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
-            }
-            if ($log->team_photo_2) {
-                $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
-            }
-            return $log;
-        });
+    {
+        $logs = DailySiteLog::where('project_id', $id)
+            ->orderBy('log_date', 'desc')
+            ->get()
+            ->map(function ($log) {
+                // Format date to YYYY-MM-DD
+                $log->log_date_formatted = $log->log_date
+                    ? date('Y-m-d', strtotime($log->log_date))
+                    : null;
 
-    return response()->json($logs);
-}
+                // Append full storage URLs for all three photo fields
+                $log->photo_url        = $log->photo_path   ? Storage::disk('public')->url($log->photo_path)   : null;
+                $log->team_photo_1_url = $log->team_photo_1 ? Storage::disk('public')->url($log->team_photo_1) : null;
+                $log->team_photo_2_url = $log->team_photo_2 ? Storage::disk('public')->url($log->team_photo_2) : null;
+
+                return $log;
+            });
+
+        return response()->json($logs);
+    }
 
     public function storeDailyLog(Request $request, $id)
-{
-    $request->validate(['log_date' => 'required|date']);
-    $project = Project::findOrFail($id);
+    {
+        $request->validate(['log_date' => 'required|date']);
+        $project = Project::findOrFail($id);
 
-    // Get existing log for this date
-    $existingLog = DailySiteLog::where('project_id', $id)
-        ->where('log_date', $request->log_date)
-        ->first();
+        // Get existing log for this date so we can preserve photos not being replaced
+        $existingLog = DailySiteLog::where('project_id', $id)
+            ->where('log_date', $request->log_date)
+            ->first();
 
-    // Main photo
-    $photoPath = $existingLog ? $existingLog->photo_path : null;
-    if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
-        $photoPath = $request->file('photo')->store('daily_logs', 'public');
-    }
-
-    // Team photo 1 – FIXED
-    $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
-    if ($request->hasFile('team_photo_1')) {
-        $file = $request->file('team_photo_1');
-        if ($file && $file->isValid()) {
-            $teamPhoto1Path = $file->store('daily_logs/team', 'public');
+        // ── Main progress photo ───────────────────────────────────────────────
+        $photoPath = $existingLog ? $existingLog->photo_path : null;
+        if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
+            $photoPath = $request->file('photo')->store('daily_logs', 'public');
         }
-    }
-    if ($teamPhoto1Path === "0" || $teamPhoto1Path === 0) {
-        $teamPhoto1Path = null;
+        // Normalise any falsy DB value to null
+        if (!$photoPath || in_array($photoPath, ['0', 0, false], true)) {
+            $photoPath = null;
+        }
+
+        // ── Team photo 1 ──────────────────────────────────────────────────────
+        $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
+        if ($request->hasFile('team_photo_1')) {
+            $file = $request->file('team_photo_1');
+            if ($file && $file->isValid()) {
+                $teamPhoto1Path = $file->store('daily_logs/team', 'public');
+            }
+        }
+        // Normalise any falsy / corrupted DB value to null
+        if (!$teamPhoto1Path || in_array($teamPhoto1Path, ['0', 0, false], true)) {
+            $teamPhoto1Path = null;
+        }
+
+        // ── Team photo 2 ──────────────────────────────────────────────────────
+        $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
+        if ($request->hasFile('team_photo_2')) {
+            $file = $request->file('team_photo_2');
+            if ($file && $file->isValid()) {
+                $teamPhoto2Path = $file->store('daily_logs/team', 'public');
+            }
+        }
+        // Normalise any falsy / corrupted DB value to null
+        if (!$teamPhoto2Path || in_array($teamPhoto2Path, ['0', 0, false], true)) {
+            $teamPhoto2Path = null;
+        }
+
+        $installersData = json_decode($request->installers_data, true) ?? [];
+
+        $data = [
+            'client_start_date'      => $request->client_start_date ?: null,
+            'client_end_date'        => $request->client_end_date   ?: null,
+            'start_date'             => $request->start_date        ?: null,
+            'end_date'               => $request->end_date          ?: null,
+            'lead_man'               => $request->lead_man,
+            'total_area'             => $request->total_area,
+            'accomplishment_percent' => $request->accomplishment_percent,
+            'workers_count'          => $request->workers_count,
+            'installers_data'        => json_encode($installersData),
+            'remarks'                => $request->remarks,
+            'photo_path'             => $photoPath,
+            'team_photo_1'           => $teamPhoto1Path,
+            'team_photo_2'           => $teamPhoto2Path,
+        ];
+
+        $log = DailySiteLog::updateOrCreate(
+            [
+                'project_id' => $id,
+                'log_date'   => $request->log_date,
+            ],
+            $data
+        );
+
+        // ── Append full URLs to the response (mirrors getDailyLogs exactly) ──
+        $log->log_date_formatted = $log->log_date
+            ? date('Y-m-d', strtotime($log->log_date))
+            : null;
+        $log->photo_url        = $log->photo_path   ? Storage::disk('public')->url($log->photo_path)   : null;
+        $log->team_photo_1_url = $log->team_photo_1 ? Storage::disk('public')->url($log->team_photo_1) : null;
+        $log->team_photo_2_url = $log->team_photo_2 ? Storage::disk('public')->url($log->team_photo_2) : null;
+
+        return response()->json([
+            'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
+            'log'     => $log,
+        ]);
     }
 
-    // Team photo 2 – FIXED
-    $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
-    if ($request->hasFile('team_photo_2')) {
-        $file = $request->file('team_photo_2');
-        if ($file && $file->isValid()) {
-            $teamPhoto2Path = $file->store('daily_logs/team', 'public');
-        }
-    }
-    if ($teamPhoto2Path === "0" || $teamPhoto2Path === 0) {
-        $teamPhoto2Path = null;
-    }
-    
-    $installersData = json_decode($request->installers_data, true) ?? [];
-    
-    $data = [
-        'client_start_date'      => $request->client_start_date ?: null,
-        'client_end_date'        => $request->client_end_date   ?: null,
-        'start_date'             => $request->start_date        ?: null,
-        'end_date'               => $request->end_date          ?: null,
-        'lead_man'               => $request->lead_man,
-        'total_area'             => $request->total_area,
-        'accomplishment_percent' => $request->accomplishment_percent,
-        'workers_count'          => $request->workers_count,
-        'installers_data'        => json_encode($installersData),
-        'remarks'                => $request->remarks,
-        'photo_path'             => $photoPath,
-        'team_photo_1'           => $teamPhoto1Path,
-        'team_photo_2'           => $teamPhoto2Path,
-    ];
-    
-    $log = DailySiteLog::updateOrCreate(
-        [
-            'project_id' => $id,
-            'log_date'   => $request->log_date,
-        ],
-        $data
-    );
-    
-    // Add URLs to response
-    if ($log->photo_path) {
-        $log->photo_url = Storage::disk('public')->url($log->photo_path);
-    }
-    if ($log->team_photo_1 && $log->team_photo_1 !== '0') {
-        $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
-    }
-    if ($log->team_photo_2 && $log->team_photo_2 !== '0') {
-        $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
-    }
-    
-    return response()->json([
-        'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
-        'log'     => $log,
-    ]);
-}
     public function getIssues($id): JsonResponse
     {
         return response()->json(ProjectIssue::where('project_id', $id)->latest()->get());
@@ -1004,25 +1005,8 @@ class ProjectController extends Controller
 
     // =========================================================================
     // 11. MATERIALS MONITORING — NEW METHODS
-    //
-    // These live here because materials tracking is stored on project_materials
-    // (the 'materials' relationship on Project), consistent with how
-    // saveTrackingMaterials already works.
     // =========================================================================
 
-    /**
-     * PATCH /projects/{id}/material-items/{itemIndex}/acknowledge
-     *
-     * Called when the engineer clicks "Acknowledge" on a "🆕 New Arrival" row
-     * in the Materials Monitoring table.
-     *
-     * Sets is_new_arrival = false on that specific item in the JSON array,
-     * so the badge disappears.
-     *
-     * Route to add in api.php:
-     * Route::patch('/projects/{id}/material-items/{itemIndex}/acknowledge',
-     *              [ProjectController::class, 'acknowledgeNewArrival']);
-     */
     public function acknowledgeNewArrival(Request $request, int $id, int $itemIndex): JsonResponse
     {
         $project     = Project::with('materials')->findOrFail($id);
@@ -1047,16 +1031,6 @@ class ProjectController extends Controller
         return response()->json(['message' => 'New arrival acknowledged.']);
     }
 
-    /**
-     * PATCH /projects/{id}/material-items/acknowledge-all
-     *
-     * Acknowledges ALL new arrival items at once.
-     * Useful if the engineer wants to dismiss all badges in one click.
-     *
-     * Route to add in api.php:
-     * Route::patch('/projects/{id}/material-items/acknowledge-all',
-     *              [ProjectController::class, 'acknowledgeAllNewArrivals']);
-     */
     public function acknowledgeAllNewArrivals(int $id): JsonResponse
     {
         $project     = Project::with('materials')->findOrFail($id);
@@ -1299,101 +1273,77 @@ class ProjectController extends Controller
 
 
     // =========================================================================
-// 17. SOFT DELETE / ARCHIVE METHODS
-// =========================================================================
+    // 17. SOFT DELETE / ARCHIVE METHODS
+    // =========================================================================
 
-/**
- * GET /projects/trashed
- * Get all soft-deleted (archived) projects
- */
-public function trashed(): JsonResponse
-{
-    $user = request()->user();
-    if (!$user) {
-        return response()->json(['message' => 'Not Authenticated'], 401);
+    public function trashed(): JsonResponse
+    {
+        $user = request()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Not Authenticated'], 401);
+        }
+
+        $projects = Project::onlyTrashed()
+            ->with(self::EAGER)
+            ->latest('deleted_at')
+            ->get();
+        
+        $formatted = $projects->map(fn($p) => $this->formatProject($p));
+        
+        return response()->json($formatted);
     }
 
-    $projects = Project::onlyTrashed()
-        ->with(self::EAGER)
-        ->latest('deleted_at')
-        ->get();
-    
-    // Format the projects
-    $formatted = $projects->map(fn($p) => $this->formatProject($p));
-    
-    return response()->json($formatted);
-}
+    public function destroy(int $id): JsonResponse
+    {
+        $project = Project::findOrFail($id);
+        $projectName = $project->project_name;
+        
+        $project->delete();
+        
+        \App\Models\AppNotification::create([
+            'target_department' => 'Management',
+            'target_role'       => 'dept_head',
+            'project_id'        => $id,
+            'message'           => "📦 Project '{$projectName}' has been archived.",
+        ]);
+        
+        return response()->json([
+            'message' => 'Project archived successfully.',
+            'project' => $this->formatProject($project),
+        ]);
+    }
 
-/**
- * DELETE /projects/{id}
- * Soft delete (archive) a project
- */
-public function destroy(int $id): JsonResponse
-{
-    $project = Project::findOrFail($id);
-    $projectName = $project->project_name;
-    
-    $project->delete();
-    
-    \App\Models\AppNotification::create([
-        'target_department' => 'Management',
-        'target_role'       => 'dept_head',
-        'project_id'        => $id,
-        'message'           => "📦 Project '{$projectName}' has been archived.",
-    ]);
-    
-    return response()->json([
-        'message' => 'Project archived successfully.',
-        'project' => $this->formatProject($project),
-    ]);
-}
+    public function restore(int $id): JsonResponse
+    {
+        $project = Project::withTrashed()->findOrFail($id);
+        $projectName = $project->project_name;
+        
+        $project->restore();
+        
+        \App\Models\AppNotification::create([
+            'target_department' => 'Management',
+            'target_role'       => 'dept_head',
+            'project_id'        => $id,
+            'message'           => "🔄 Project '{$projectName}' has been restored from archive.",
+        ]);
+        
+        return response()->json([
+            'message' => 'Project restored successfully.',
+            'project' => $this->formatProject($project),
+        ]);
+    }
 
-/**
- * POST /projects/{id}/restore
- * Restore a soft-deleted project
- */
-public function restore(int $id): JsonResponse
-{
-    $project = Project::withTrashed()->findOrFail($id);
-    $projectName = $project->project_name;
-    
-    $project->restore();
-    
-    \App\Models\AppNotification::create([
-        'target_department' => 'Management',
-        'target_role'       => 'dept_head',
-        'project_id'        => $id,
-        'message'           => "🔄 Project '{$projectName}' has been restored from archive.",
-    ]);
-    
-    return response()->json([
-        'message' => 'Project restored successfully.',
-        'project' => $this->formatProject($project),
-    ]);
-}
-
-/**
- * DELETE /projects/{id}/force
- * Permanently delete a project (cannot be restored)
- */
-public function forceDelete(int $id): JsonResponse
-{
-    $project = Project::withTrashed()->findOrFail($id);
-    $projectName = $project->project_name;
-    
-    // Optional: Delete related data
-    // $project->materials()->delete();
-    // $project->boqPlan()->delete();
-    // $project->boqActual()->delete();
-    // $project->siteInspection()->delete();
-    // $project->mobilization()->delete();
-    
-    $project->forceDelete();
-    
-    return response()->json([
-        'message' => "Project '{$projectName}' permanently deleted.",
-    ]);
-}
+    public function forceDelete(int $id): JsonResponse
+    {
+        $project = Project::withTrashed()->findOrFail($id);
+        $projectName = $project->project_name;
+        
+        $project->forceDelete();
+        
+        return response()->json([
+            'message' => "Project '{$projectName}' permanently deleted.",
+        ]);
+    }
 
     public function saveMobilizationDraftRoster(Request $request, int $id): JsonResponse
     {
@@ -1430,12 +1380,9 @@ public function forceDelete(int $id): JsonResponse
             'status'                => $project->status,
             'is_completed'          => $project->is_completed,
             'contract_amount'       => $project->contract_amount,
-            
-            // 👇 CHANGE THIS LINE
             'floor_plan_image'      => $project->floor_plan_image 
                 ? url('/api/project-image/' . $project->floor_plan_image)
                 : null,
-            
             'created_at'            => $project->created_at,
             'created_by'            => $project->created_by,
             'created_by_name'       => $project->created_by_name,

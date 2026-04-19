@@ -54,42 +54,30 @@ const InstallerMonitoring = ({ project, user }) => {
     const leadMan = roster.find(i => i.position === 'Lead Installer')?.name ?? roster[0]?.name ?? '—';
     
     const logExists = allLogs.some(l => {
-    const logDate = l.log_date_formatted || (l.log_date ? l.log_date.split('T')[0] : null);
-    return logDate === selectedDate;
-});
+        const logDate = l.log_date_formatted || (l.log_date ? l.log_date.split('T')[0] : null);
+        return logDate === selectedDate;
+    });
 
-    // Load existing photos when currentLog changes
+    // Sync existing photo URLs whenever the server-mapped log updates them.
+    // Also clears pending new-file selections when switching dates.
     useEffect(() => {
-        if (currentLog.photo_url) {
-            setExistingPhotoUrl(currentLog.photo_url);
-        } else {
-            setExistingPhotoUrl(null);
-        }
-        
-        if (currentLog.team_photo_1_url) {
-            setExistingTeamPhoto1Url(currentLog.team_photo_1_url);
-        } else {
-            setExistingTeamPhoto1Url(null);
-        }
-        
-        if (currentLog.team_photo_2_url) {
-            setExistingTeamPhoto2Url(currentLog.team_photo_2_url);
-        } else {
-            setExistingTeamPhoto2Url(null);
-        }
-    }, [currentLog.id, currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
+        setExistingPhotoUrl(currentLog.photo_url ?? null);
+        setExistingTeamPhoto1Url(currentLog.team_photo_1_url ?? null);
+        setExistingTeamPhoto2Url(currentLog.team_photo_2_url ?? null);
+
+        // Clear any staged (unsaved) file selections when the log changes
+        setPhotoMain(null);
+        setPhoto1(null);
+        setPhoto2(null);
+        if (fileMainRef.current) fileMainRef.current.value = '';
+        if (file1Ref.current) file1Ref.current.value = '';
+        if (file2Ref.current) file2Ref.current.value = '';
+    }, [currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
 
     const handleSave = async () => {
         try {
             await saveLog({ photoMain, photo1, photo2 });
-            
-            setPhotoMain(null);
-            setPhoto1(null);
-            setPhoto2(null);
-            
-            if (fileMainRef.current) fileMainRef.current.value = '';
-            if (file1Ref.current) file1Ref.current.value = '';
-            if (file2Ref.current) file2Ref.current.value = '';
+            // Photo state is cleared inside the useEffect above once currentLog updates
         } catch (err) {
             console.error('Save failed:', err);
         }
@@ -568,6 +556,8 @@ const InstallerMonitoring = ({ project, user }) => {
                                         onClick={() => {
                                             setPhotoMain(null);
                                             if (fileMainRef.current) fileMainRef.current.value = '';
+                                            // Restore existing URL if it was cleared for replacement
+                                            setExistingPhotoUrl(currentLog.photo_url ?? null);
                                         }}
                                         style={{ fontSize: '12px', marginTop: '5px', background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
                                     >
@@ -626,6 +616,7 @@ const InstallerMonitoring = ({ project, user }) => {
                                         onClick={() => {
                                             setPhoto1(null);
                                             if (file1Ref.current) file1Ref.current.value = '';
+                                            setExistingTeamPhoto1Url(currentLog.team_photo_1_url ?? null);
                                         }}
                                         style={{ fontSize: '12px', marginTop: '5px', background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
                                     >
@@ -684,6 +675,7 @@ const InstallerMonitoring = ({ project, user }) => {
                                         onClick={() => {
                                             setPhoto2(null);
                                             if (file2Ref.current) file2Ref.current.value = '';
+                                            setExistingTeamPhoto2Url(currentLog.team_photo_2_url ?? null);
                                         }}
                                         style={{ fontSize: '12px', marginTop: '5px', background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer' }}
                                     >

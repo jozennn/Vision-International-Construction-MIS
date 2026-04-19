@@ -116,6 +116,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
     const autoSaveTimer = useRef(null);
     const isFirstLoad = useRef(true);
     const isDirty = useRef(false);
+    const justManuallySaved = useRef(false); // ← NEW: prevents auto-save racing after manual save
 
     const fetchLogs = useCallback(async () => {
         if (!projectId) return;
@@ -270,15 +271,22 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         return response.data;
     };
 
-    // Auto-save
+    // Auto-save — skips if a manual save just ran, or if there are no dirty changes
     useEffect(() => {
         if (isFirstLoad.current) return;
         if (!projectId) return;
         if (!isDirty.current) return;
 
+        // ← NEW: if manual save just completed, skip this auto-save cycle
+        if (justManuallySaved.current) {
+            justManuallySaved.current = false;
+            return;
+        }
+
         if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
         autoSaveTimer.current = setTimeout(async () => {
+            if (!isDirty.current) return; // double-check before firing
             setSaveStatus('saving');
             try {
                 await saveToServer(currentLog, {});
@@ -301,6 +309,12 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
         setSaving(true);
         setError(null);
         
+        // Cancel any pending auto-save timer
+        if (autoSaveTimer.current) {
+            clearTimeout(autoSaveTimer.current);
+            autoSaveTimer.current = null;
+        }
+
         try {
             const result = await saveToServer(currentLog, { photoMain, photo1, photo2 });
             
@@ -312,7 +326,9 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
                 }));
                 
                 setAllLogs(prev => {
-                    const existingIdx = prev.findIndex(l => l.log_date === result.log.log_date);
+                    const existingIdx = prev.findIndex(l =>
+                        formatDate(l.log_date) === formatDate(result.log.log_date)
+                    );
                     if (existingIdx >= 0) {
                         const next = [...prev];
                         next[existingIdx] = result.log;
@@ -323,6 +339,7 @@ export const useInstallerMonitoring = (projectId, roster = []) => {
             }
             
             isDirty.current = false;
+            justManuallySaved.current = true; // ← NEW: block next auto-save cycle
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus(null), 3000);
             
