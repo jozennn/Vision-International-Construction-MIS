@@ -360,13 +360,13 @@ const EngineeringDashboard = ({ user }) => {
           </div>
           
           {/* CRITICAL FIX: Wrapper div with explicit height to prevent collapse */}
-          <div style={{ width: '100%', height: '400px', padding: '0 20px 20px 20px' }}>
+          <div style={{ width: '100%', height: '300px', minHeight: '300px', padding: '0 20px 20px 20px' }}>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7A706C', fontWeight: 'bold' }}>
                 Loading chart data...
               </div>
             ) : currentChartData && currentChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={currentChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }} onClick={handleBarClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E0D9D4" />
                   <XAxis dataKey="name" tick={{ fill: '#7A706C', fontSize: 12 }} />
