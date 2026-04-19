@@ -32,8 +32,11 @@
      font-family: var(--tg-font);
      color: var(--tg-black);
      width: 100%;
-     max-width: 100%; /* KEY FIX: hard cap */
-     overflow-x: hidden; /* KEY FIX: stops children blowing out viewport */
+     max-width: 100%;
+     overflow-x: hidden;
+     /* KEY FIX: ensure section starts at left edge, no bleed */
+     padding: 0;
+     margin: 0;
      animation: tg-fadein 0.22s ease;
    }
    
@@ -67,7 +70,7 @@
       ============================================================ */
    .tg-summary {
      display: grid;
-     grid-template-columns: repeat(2, 1fr); /* mobile: 2 col */
+     grid-template-columns: repeat(2, 1fr);
      gap: 0;
      background: var(--tg-white);
      border: 1px solid var(--tg-border);
@@ -75,15 +78,20 @@
      overflow: hidden;
      box-shadow: var(--tg-shadow);
      width: 100%;
+     /* KEY FIX: prevent any child from blowing out grid */
+     min-width: 0;
    }
    
    .tg-summary-card {
-     display: flex; flex-direction: column; gap: 6px;
-     padding: 14px 16px;
+     display: flex; flex-direction: column; gap: 4px;
+     /* KEY FIX: reduce padding on mobile so values fit */
+     padding: 10px 12px;
      border-right: 1px solid var(--tg-border);
      border-bottom: 1px solid var(--tg-border);
      position: relative;
-     min-width: 0; /* KEY FIX: prevent overflow from long values */
+     /* KEY FIX: prevent overflow from long values */
+     min-width: 0;
+     overflow: hidden;
    }
    
    /* Mobile 2-col borders */
@@ -102,18 +110,23 @@
    .tg-summary-label {
      font-size: 9px; font-weight: 800; letter-spacing: 1.2px;
      text-transform: uppercase; color: #999;
+     /* KEY FIX: never let label push card wider */
+     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
    }
    
    .tg-summary-value {
-     font-size: 14px; font-weight: 700; color: var(--tg-black);
-     line-height: 1.2; word-break: break-word; /* KEY FIX */
+     /* KEY FIX: shrink font slightly on mobile so values don't overflow */
+     font-size: 12px; font-weight: 700; color: var(--tg-black);
+     line-height: 1.2;
+     word-break: break-word;
+     overflow-wrap: anywhere;
    }
    
    .tg-summary-card.card-duration .tg-summary-value {
-     color: var(--tg-red); font-size: 18px; font-weight: 900;
+     color: var(--tg-red); font-size: 16px; font-weight: 900;
    }
    
-   .tg-summary-empty { font-size: 14px; color: #ccc; font-weight: 400; }
+   .tg-summary-empty { font-size: 12px; color: #ccc; font-weight: 400; }
    
    /* ── Autosave badge ── */
    .tg-autosave-badge {
@@ -135,16 +148,21 @@
      display: flex;
      align-items: center;
      justify-content: flex-end;
-     gap: 8px;
-     flex-wrap: wrap; /* KEY FIX: buttons wrap on narrow screens */
+     gap: 6px;
+     /* KEY FIX: wrap AND allow left-alignment on very small screens */
+     flex-wrap: wrap;
      width: 100%;
+     min-width: 0;
    }
    
    .tg-btn {
      display: inline-flex; align-items: center; gap: 6px;
-     padding: 8px 14px; border-radius: var(--tg-radius);
-     font-family: var(--tg-font); font-size: 12px; font-weight: 700;
+     /* KEY FIX: reduce padding on mobile */
+     padding: 7px 11px; border-radius: var(--tg-radius);
+     font-family: var(--tg-font); font-size: 11px; font-weight: 700;
      cursor: pointer; border: none; transition: all 0.18s ease; white-space: nowrap;
+     /* KEY FIX: shrink to content, never overflow parent */
+     flex-shrink: 0;
    }
    .tg-btn-navy    { background: var(--tg-navy); color: var(--tg-white); }
    .tg-btn-navy:hover    { background: #0f0f22; }
@@ -159,27 +177,34 @@
      background: var(--tg-white); border: 1px solid var(--tg-border);
      border-radius: var(--tg-radius); overflow: hidden;
      box-shadow: var(--tg-shadow); width: 100%;
+     /* KEY FIX */
+     min-width: 0;
    }
    
    .tg-card-header {
      display: flex; align-items: center; justify-content: space-between;
-     gap: 8px; padding: 10px 14px;
+     gap: 6px; padding: 8px 12px;
      background: var(--tg-navy); border-bottom: 2px solid var(--tg-red);
-     flex-wrap: wrap; /* KEY FIX */
+     flex-wrap: wrap;
+     /* KEY FIX: don't let header overflow */
+     min-width: 0;
    }
    
    .tg-card-title {
-     font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+     font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
      color: rgba(255,255,255,0.9);
+     /* KEY FIX */
+     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+     min-width: 0;
    }
    
-   .tg-header-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+   .tg-header-btns { display: flex; gap: 5px; flex-wrap: wrap; }
    
    .tg-add-btn {
-     padding: 5px 12px;
+     padding: 4px 10px;
      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9);
      border: 1px solid rgba(255,255,255,0.22); border-radius: 6px;
-     font-family: var(--tg-font); font-size: 11px; font-weight: 700;
+     font-family: var(--tg-font); font-size: 10px; font-weight: 700;
      cursor: pointer; transition: background 0.18s; white-space: nowrap;
    }
    .tg-add-btn:hover { background: rgba(255,255,255,0.22); }
@@ -192,17 +217,23 @@
      -webkit-overflow-scrolling: touch;
      width: 100%;
      display: block;
+     /* KEY FIX: smooth scrollbar on iOS */
+     scroll-behavior: smooth;
    }
+   /* KEY FIX: show scrollbar hint on mobile */
+   .tg-scroll::-webkit-scrollbar { height: 4px; }
+   .tg-scroll::-webkit-scrollbar-thumb { background: var(--tg-border); border-radius: 2px; }
    
    .tg-table {
      width: 100%; border-collapse: collapse;
      font-size: 12px; font-family: var(--tg-font);
-     min-width: 480px; /* table scrolls on mobile instead of overflowing page */
+     /* KEY FIX: reduced min-width so it starts scrolling sooner */
+     min-width: 460px;
    }
    
    .tg-table thead tr { background: var(--tg-navy); }
    .tg-table thead th {
-     padding: 9px 10px; text-align: center;
+     padding: 8px 8px; text-align: center;
      font-size: 8px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
      color: rgba(255,255,255,0.65);
      border-right: 1px solid rgba(255,255,255,0.06); white-space: nowrap;
@@ -218,7 +249,7 @@
    .tg-table tbody tr.tr-group   { background: #f1f5f9; }
    
    .tg-table td {
-     padding: 6px 8px; vertical-align: middle; text-align: center;
+     padding: 5px 7px; vertical-align: middle; text-align: center;
      border-right: 1px solid var(--tg-border);
    }
    .tg-table td:last-child { border-right: none; }
@@ -226,11 +257,11 @@
    .tg-table td.td-dur     { font-weight: 900; color: var(--tg-red); font-size: 13px; }
    
    .tg-input {
-     width: 100%; padding: 5px 8px;
+     width: 100%; padding: 5px 7px;
      border: 1.5px solid transparent; border-radius: 5px;
      font-family: var(--tg-font); font-size: 12px; color: var(--tg-black);
      background: transparent; outline: none; transition: all 0.15s;
-     min-width: 0; /* KEY FIX */
+     min-width: 0;
    }
    .tg-input:hover { border-color: var(--tg-border); background: var(--tg-white); }
    .tg-input:focus { border-color: var(--tg-blue); background: var(--tg-white); box-shadow: 0 0 0 2px rgba(73,123,151,0.12); }
@@ -242,7 +273,7 @@
    .tg-input.group-input:focus { border-bottom: 2px solid var(--tg-red); }
    
    .tg-select {
-     width: 100%; padding: 5px 8px;
+     width: 100%; padding: 5px 7px;
      border: 1.5px solid transparent; border-radius: 5px;
      font-family: var(--tg-font); font-size: 12px; color: var(--tg-black);
      background: transparent; outline: none; cursor: pointer; transition: all 0.15s;
@@ -255,17 +286,17 @@
      font-weight: 700; color: var(--tg-green);
    }
    .tg-percent-input {
-     width: 44px; padding: 4px 5px;
+     width: 40px; padding: 4px 4px;
      border: 1px solid var(--tg-border); border-radius: 4px;
      font-family: var(--tg-font); font-size: 12px; text-align: center; outline: none;
    }
    
    .tg-remove-btn {
      display: flex; align-items: center; justify-content: center;
-     width: 26px; height: 26px; margin: 0 auto;
+     width: 24px; height: 24px; margin: 0 auto;
      background: #fee2e2; color: var(--tg-red);
      border: none; border-radius: 5px; font-size: 11px; font-weight: 700;
-     cursor: pointer; transition: all 0.15s; flex-shrink: 0; /* KEY FIX */
+     cursor: pointer; transition: all 0.15s; flex-shrink: 0;
    }
    .tg-remove-btn:hover { background: var(--tg-red); color: var(--tg-white); }
    
@@ -276,16 +307,18 @@
      background: var(--tg-white); border: 1px solid var(--tg-border);
      border-radius: var(--tg-radius); overflow: hidden;
      box-shadow: var(--tg-shadow); width: 100%;
+     min-width: 0; /* KEY FIX */
    }
    
    .tg-gantt-header {
      display: flex; align-items: center; justify-content: space-between;
-     gap: 8px; padding: 10px 14px;
+     gap: 6px; padding: 8px 12px;
      background: var(--tg-navy); border-bottom: 2px solid var(--tg-red);
-     flex-wrap: wrap; /* KEY FIX */
+     flex-wrap: wrap;
+     min-width: 0; /* KEY FIX */
    }
    
-   .tg-gantt-legend { display: flex; gap: 12px; font-size: 11px; font-weight: 700; flex-wrap: wrap; }
+   .tg-gantt-legend { display: flex; gap: 10px; font-size: 10px; font-weight: 700; flex-wrap: wrap; }
    .tg-legend-target { color: #ff8a87; }
    .tg-legend-actual { color: #86efac; }
    
@@ -295,51 +328,59 @@
      -webkit-overflow-scrolling: touch;
      width: 100%;
      display: block;
+     scroll-behavior: smooth;
    }
+   .tg-gantt-scroll::-webkit-scrollbar { height: 4px; }
+   .tg-gantt-scroll::-webkit-scrollbar-thumb { background: var(--tg-border); border-radius: 2px; }
    
    .tg-gantt-table {
      width: 100%; border-collapse: collapse;
      font-size: 11px; font-family: var(--tg-font);
      table-layout: fixed;
-     min-width: 560px; /* minimum for gantt to be readable; wrapper scrolls it */
+     /* KEY FIX: slightly smaller minimum so content is readable sooner */
+     min-width: 520px;
    }
    
    .tg-gantt-table thead tr { background: var(--tg-navy); }
    .tg-gantt-table thead th {
-     padding: 7px 3px; text-align: center;
-     font-size: 8px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+     padding: 6px 2px; text-align: center;
+     font-size: 7px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
      color: rgba(255,255,255,0.6);
      border-right: 1px solid rgba(255,255,255,0.05); white-space: nowrap;
    }
    
+   /* KEY FIX: narrower task column on mobile */
    .tg-gantt-task-col {
-     width: 140px; /* reduced for mobile, overridden at 600px+ */
+     width: 120px;
      text-align: left !important;
      position: sticky; left: 0; z-index: 2;
-     background: var(--tg-navy); padding-left: 10px !important;
+     background: var(--tg-navy); padding-left: 8px !important;
    }
-   .tg-gantt-date-col { min-width: 36px; }
+   .tg-gantt-date-col { min-width: 32px; }
    
    .tg-gantt-table tbody tr { background: var(--tg-white); }
    .tg-gantt-table tbody tr.tr-group { background: #f1f5f9; }
    
    .tg-gantt-name {
-     text-align: left; font-size: 11px; color: var(--tg-black);
-     padding: 4px 8px !important;
+     text-align: left; font-size: 10px; color: var(--tg-black);
+     padding: 4px 6px !important;
      position: sticky; left: 0; background: var(--tg-white); z-index: 1;
-     min-width: 130px; border-right: 1px solid var(--tg-border);
+     /* KEY FIX: match task col width */
+     min-width: 110px;
+     max-width: 120px;
+     border-right: 1px solid var(--tg-border);
      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
    }
    .tg-gantt-name.name-group {
-     background: #f1f5f9; font-weight: 700; font-size: 10px;
+     background: #f1f5f9; font-weight: 700; font-size: 9px;
      letter-spacing: 0.5px; text-transform: uppercase; color: #777;
    }
-   .tg-gantt-name.name-actual { color: #bbb; font-size: 10px; }
+   .tg-gantt-name.name-actual { color: #bbb; font-size: 9px; }
    
    .tg-label-tag {
      display: inline-flex; align-items: center; justify-content: center;
-     width: 14px; height: 14px; border-radius: 3px;
-     font-size: 8px; font-weight: 900; color: white; margin-right: 4px; flex-shrink: 0;
+     width: 13px; height: 13px; border-radius: 3px;
+     font-size: 7px; font-weight: 900; color: white; margin-right: 3px; flex-shrink: 0;
    }
    .tg-label-target { background: var(--tg-red); }
    .tg-label-actual { background: var(--tg-green); }
@@ -355,7 +396,7 @@
    .tg-gantt-cell.cell-clickable:hover { background: rgba(22,163,74,0.18) !important; }
    
    .tg-gantt-hint {
-     font-size: 11px; color: #bbb; padding: 7px 14px;
+     font-size: 10px; color: #bbb; padding: 6px 12px;
      border-top: 1px solid var(--tg-border); margin: 0; font-style: italic;
    }
    
@@ -366,16 +407,64 @@
      border-radius: var(--tg-radius); border: 1px dashed var(--tg-border);
      font-style: italic; width: 100%;
    }
+
+   /* ============================================================
+      SCROLL HINT — subtle fade on right edge of scroll containers
+      ============================================================ */
+   .tg-scroll-wrap {
+     position: relative;
+     width: 100%;
+     min-width: 0;
+   }
+   .tg-scroll-wrap::after {
+     content: '';
+     position: absolute;
+     top: 0; right: 0; bottom: 0;
+     width: 24px;
+     background: linear-gradient(to right, transparent, rgba(255,255,255,0.85));
+     pointer-events: none;
+     border-radius: 0 var(--tg-radius) var(--tg-radius) 0;
+   }
    
    /* ============================================================
       RESPONSIVE
       ============================================================ */
+
+   /* ── 360–479px: very small phones ── */
+   @media (max-width: 479px) {
+     .tg-summary-value { font-size: 11px; }
+     .tg-summary-card.card-duration .tg-summary-value { font-size: 14px; }
+     .tg-summary-label { font-size: 8px; letter-spacing: 0.8px; }
+     .tg-summary-card { padding: 8px 10px; }
+
+     .tg-btn { font-size: 10px; padding: 6px 9px; }
+     .tg-add-btn { font-size: 9px; padding: 3px 8px; }
+
+     .tg-card-title { font-size: 9px; }
+
+     /* Stack toolbar buttons full-width on tiny screens */
+     .tg-toolbar { justify-content: stretch; }
+     .tg-toolbar .tg-btn { flex: 1 1 auto; justify-content: center; }
+
+     .tg-gantt-task-col { width: 100px; }
+     .tg-gantt-name { min-width: 90px; max-width: 100px; }
+   }
+
+   /* ── 480–599px: large phones ── */
+   @media (min-width: 480px) and (max-width: 599px) {
+     .tg-summary-value { font-size: 13px; }
+     .tg-summary-card.card-duration .tg-summary-value { font-size: 15px; }
+     .tg-gantt-task-col { width: 130px; }
+     .tg-gantt-name { min-width: 120px; max-width: 130px; }
+   }
+
+   /* ── 600px+: tablet & desktop ── */
    @media (min-width: 600px) {
      .tg-section { gap: 20px; }
    
      /* Summary: switch to 4-col, clear mobile border overrides */
      .tg-summary { grid-template-columns: repeat(4, 1fr); }
-     .tg-summary-card              { border-bottom: none; }
+     .tg-summary-card              { border-bottom: none; padding: 14px 16px; }
      .tg-summary-card:nth-child(2n) { border-right: 1px solid var(--tg-border); }
      .tg-summary-card:last-child   { border-right: none; }
      .tg-summary-card.card-project,
@@ -384,8 +473,13 @@
    
      .tg-summary-value { font-size: 15px; }
      .tg-summary-card.card-duration .tg-summary-value { font-size: 20px; }
-   
+
+     .tg-btn { font-size: 12px; padding: 8px 14px; }
+     .tg-add-btn { font-size: 11px; padding: 5px 12px; }
+     .tg-card-title { font-size: 11px; }
+
      .tg-gantt-task-col { width: 180px; }
+     .tg-gantt-name { min-width: 170px; max-width: 180px; font-size: 11px; }
    }
    
    @media (min-width: 900px) {
@@ -395,4 +489,5 @@
      .tg-summary-card { padding: 20px 24px; }
      .tg-table { min-width: unset; }
      .tg-gantt-task-col { width: 200px; }
+     .tg-gantt-name { min-width: 190px; max-width: 200px; }
    }
