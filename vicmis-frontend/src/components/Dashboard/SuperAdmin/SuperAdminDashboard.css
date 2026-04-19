@@ -290,7 +290,10 @@
 
 /* ── Live Server Graph ──────────────────────────────────────────────────────── */
 .sa-graph-wrapper {
-  padding: 0 1.75rem 1.5rem 1.75rem; 
+  /* Changed to match the top-padding standard of your other grids */
+  padding: 1.5rem 1.75rem 0; 
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .sa-graph-card {
