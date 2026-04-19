@@ -1,5 +1,5 @@
 /* ============================================================
-   CommandCenter.css — RESPONSIVE FIX v3
+   CommandCenter.css — RESPONSIVE FIX v2
    Vision International Construction OPC
    Colors: #221F1F | #497B97 | #EBDBD6 | #FF1817 | #C20100
    Font: DM Sans
@@ -30,12 +30,47 @@
    }
 
    /* ============================================================
-      BASE SECTION
-      NOTE: No wildcard [class*="..."] rules — those were stripping
-      padding from the app shell and making everything too narrow.
-      All fixes are scoped to .cc- prefixed classes only.
+      ROOT FIX — the clipping culprit
+      The page/app shell likely has padding or a fixed width that
+      pushes content rightward while the viewport clips the left.
+      These rules ensure every top-level wrapper is fully contained.
       ============================================================ */
 
+   /* Catch-all: any element that acts as the page/modal shell */
+   html, body {
+     overflow-x: hidden;
+     width: 100%;
+     max-width: 100%;
+   }
+
+   /* KEY FIX: common wrapper class names used in React dashboards.
+      Add your actual root wrapper class here if different. */
+   .app-root,
+   .app-shell,
+   .main-content,
+   .page-wrapper,
+   .dashboard-wrapper,
+   .command-center,
+   .cc-page,
+   [class*="layout"],
+   [class*="container"],
+   [class*="wrapper"] {
+     max-width: 100%;
+     overflow-x: hidden;
+     /* Remove any left offset that could cause clipping */
+     margin-left: 0 !important;
+     padding-left: 0 !important;
+   }
+
+   /* KEY FIX: Tab/nav bars that overflow and cause horizontal bleed */
+   [class*="tab"],
+   [class*="nav"],
+   [class*="menu"] {
+     max-width: 100%;
+     overflow-x: hidden;
+   }
+
+   /* ── Base section ── */
    .cc-section {
      display: flex;
      flex-direction: column;
@@ -44,9 +79,13 @@
      color: var(--cc-black);
      width: 100%;
      max-width: 100%;
-     /* overflow-x: clip stops children overflowing without
-        creating a new scroll container (keeps sticky working) */
+     /* KEY FIX: clips internal overflow without hiding scrollable children */
      overflow-x: clip;
+     /* KEY FIX: zero out any inherited horizontal spacing */
+     padding-left: 0;
+     padding-right: 0;
+     margin-left: 0;
+     margin-right: 0;
    }
 
    /* ============================================================
@@ -63,7 +102,7 @@
      padding: 16px;
      box-shadow: var(--cc-shadow);
      width: 100%;
-     min-width: 0;
+     min-width: 0; /* KEY FIX */
    }
 
    .cc-project-meta {
@@ -102,6 +141,7 @@
 
    .cc-meta-empty { color: #aaa; font-style: italic; }
 
+   /* Date picker block */
    .cc-date-picker-block {
      display: flex;
      flex-direction: column;
@@ -133,6 +173,7 @@
      max-width: 220px;
      min-width: 0;
    }
+
    .cc-date-input:focus { border-color: var(--cc-red); }
 
    .cc-date-badge {
@@ -145,6 +186,7 @@
      white-space: nowrap;
    }
 
+   /* Field row */
    .cc-field-row {
      display: flex;
      flex-wrap: wrap;
@@ -161,10 +203,7 @@
      min-width: 0;
    }
 
-   /* ============================================================
-      SECTIONS
-      ============================================================ */
-
+   /* Timeline section */
    .cc-timeline-section { padding: 16px; width: 100%; min-width: 0; }
 
    .cc-section-title {
@@ -188,6 +227,7 @@
      text-align: center;
    }
 
+   /* Photo section */
    .cc-photo-section { padding: 16px; width: 100%; min-width: 0; }
 
    .cc-photo-grid {
@@ -213,6 +253,7 @@
      word-break: break-all;
      min-width: 0;
    }
+
    .cc-upload-zone:hover {
      background: rgba(73,123,151,0.10);
      border-color: var(--cc-red);
@@ -220,10 +261,7 @@
 
    .cc-file-hidden { display: none; }
 
-   /* ============================================================
-      HISTORY
-      ============================================================ */
-
+   /* History */
    .cc-history-block {
      border-top: 2px solid var(--cc-border);
      padding-top: 16px;
@@ -260,6 +298,7 @@
      transition: border-color 0.18s, background 0.18s;
      min-width: 0;
    }
+
    .cc-history-item:hover {
      border-color: var(--cc-blue);
      background: rgba(73,123,151,0.04);
@@ -272,6 +311,7 @@
      white-space: nowrap;
    }
 
+   /* Date Selector Row */
    .cc-date-selector-row {
      display: flex;
      flex-wrap: wrap;
@@ -296,91 +336,144 @@
    }
 
    .cc-date-status {
-     font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.75rem;
-     border-radius: 20px; background: #e2e8f0; color: #475569; white-space: nowrap;
+     font-size: 0.75rem;
+     font-weight: 600;
+     padding: 0.25rem 0.75rem;
+     border-radius: 20px;
+     background: #e2e8f0;
+     color: #475569;
+     white-space: nowrap;
    }
    .cc-date-status.exists { background: #dcfce7; color: #166534; }
    .cc-date-status.new    { background: #fef3c7; color: #92400e; }
 
    .cc-date-hint {
-     font-size: 0.8rem; color: #64748b; font-style: italic;
-     word-break: break-word; min-width: 0;
+     font-size: 0.8rem;
+     color: #64748b;
+     font-style: italic;
+     word-break: break-word;
+     min-width: 0;
    }
 
+   /* Save Indicator */
    .cc-saving-dot {
-     width: 8px; height: 8px; border-radius: 50%;
+     width: 8px; height: 8px;
+     border-radius: 50%;
      background: #6b7280;
      animation: cc-pulse 1.5s ease-in-out infinite;
      flex-shrink: 0;
    }
+
    @keyframes cc-pulse {
      0%, 100% { opacity: 1; }
      50%       { opacity: 0.4; }
    }
 
+   /* History Section */
    .cc-history-section {
-     margin-top: 1.5rem; border: 1px solid #e2e8f0;
-     border-radius: 10px; overflow: hidden; width: 100%; min-width: 0;
+     margin-top: 1.5rem;
+     border: 1px solid #e2e8f0;
+     border-radius: 10px;
+     overflow: hidden;
+     width: 100%;
+     min-width: 0;
    }
+
    .cc-history-title  { font-weight: 600; color: #1e293b; margin-right: 0.5rem; }
    .cc-history-count  {
      font-size: 0.7rem; background: #e2e8f0; color: #475569;
      padding: 0.15rem 0.5rem; border-radius: 20px; font-weight: 600;
    }
    .cc-history-toggle { color: #64748b; font-size: 0.8rem; }
+
    .cc-history-list {
-     border-top: 1px solid #e2e8f0; max-height: 250px; overflow-y: auto;
+     border-top: 1px solid #e2e8f0;
+     max-height: 250px;
+     overflow-y: auto;
    }
+
    .cc-history-date { font-weight: 600; color: #1e293b; font-size: 0.85rem; }
    .cc-history-badge {
-     font-size: 0.65rem; font-weight: 600; padding: 0.15rem 0.6rem;
-     border-radius: 20px; background: #e2e8f0; color: #475569; white-space: nowrap;
+     font-size: 0.65rem; font-weight: 600;
+     padding: 0.15rem 0.6rem; border-radius: 20px;
+     background: #e2e8f0; color: #475569;
+     white-space: nowrap;
    }
    .cc-history-item.active .cc-history-badge { background: #3b82f6; color: white; }
    .cc-history-item.active { background: #eff6ff; border-left: 3px solid #3b82f6; }
 
-   /* Inspection */
+   /* Inspection header colors */
    .cc-insp-header-red   { background: #fef2f2 !important; color: #991b1b !important; border-bottom: 2px solid #ef4444 !important; }
    .cc-insp-header-green { background: #f0fdf4 !important; color: #166534 !important; border-bottom: 2px solid #22c55e !important; }
 
+   /* Empty state */
    .cc-insp-empty-state {
-     padding: 1.5rem; text-align: center; color: #9ca3af;
-     font-style: italic; font-size: 0.85rem;
-     background: #f9fafb; border-radius: 8px; margin: 0.5rem 0;
+     padding: 1.5rem;
+     text-align: center;
+     color: #9ca3af;
+     font-style: italic;
+     font-size: 0.85rem;
+     background: #f9fafb;
+     border-radius: 8px;
+     margin: 0.5rem 0;
    }
 
+   /* Available Dates Chips */
    .cc-available-dates {
-     display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-     padding: 0.75rem 1rem; background: #f8fafc; border-radius: 8px;
-     margin-bottom: 1rem; border: 1px solid #e2e8f0; width: 100%; min-width: 0;
+     display: flex;
+     flex-wrap: wrap;
+     align-items: center;
+     gap: 8px;
+     padding: 0.75rem 1rem;
+     background: #f8fafc;
+     border-radius: 8px;
+     margin-bottom: 1rem;
+     border: 1px solid #e2e8f0;
+     width: 100%;
+     min-width: 0;
    }
+
    .cc-dates-label {
-     font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
-     letter-spacing: 0.05em; color: #64748b; white-space: nowrap;
+     font-size: 0.75rem; font-weight: 600;
+     text-transform: uppercase; letter-spacing: 0.05em;
+     color: #64748b; white-space: nowrap;
    }
+
    .cc-dates-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
    .cc-date-chip {
-     padding: 0.25rem 0.75rem; background: white; border: 1px solid #cbd5e1;
-     border-radius: 20px; font-size: 0.75rem; font-weight: 500; color: #475569;
+     padding: 0.25rem 0.75rem;
+     background: white; border: 1px solid #cbd5e1; border-radius: 20px;
+     font-size: 0.75rem; font-weight: 500; color: #475569;
      cursor: pointer; transition: all 0.15s; white-space: nowrap;
    }
    .cc-date-chip:hover  { background: #e2e8f0; border-color: #94a3b8; }
    .cc-date-chip.active { background: #1e3a8a; border-color: #1e3a8a; color: white; }
 
    /* ============================================================
-      TABLES
+      TABLES (shared)
       ============================================================ */
 
    .cc-table-card {
-     background: var(--cc-white); border: 1px solid var(--cc-border);
-     border-radius: var(--cc-radius); overflow: hidden;
-     box-shadow: var(--cc-shadow); width: 100%; min-width: 0;
+     background: var(--cc-white);
+     border: 1px solid var(--cc-border);
+     border-radius: var(--cc-radius);
+     overflow: hidden;
+     box-shadow: var(--cc-shadow);
+     width: 100%;
+     min-width: 0;
    }
 
    .cc-table-head-bar {
-     display: flex; flex-wrap: wrap; justify-content: space-between;
-     align-items: center; gap: 8px; padding: 10px 14px;
-     background: var(--cc-navy); border-bottom: 2px solid var(--cc-red); min-width: 0;
+     display: flex;
+     flex-wrap: wrap;
+     justify-content: space-between;
+     align-items: center;
+     gap: 8px;
+     padding: 10px 14px;
+     background: var(--cc-navy);
+     border-bottom: 2px solid var(--cc-red);
+     min-width: 0;
    }
 
    .cc-table-title {
@@ -405,25 +498,33 @@
 
    .cc-btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
 
+   /* KEY FIX: table scroll wrapper */
    .cc-table-scroll {
-     overflow-x: auto; -webkit-overflow-scrolling: touch;
-     width: 100%; display: block;
-     scrollbar-width: thin; scrollbar-color: var(--cc-border) transparent;
+     overflow-x: auto;
+     -webkit-overflow-scrolling: touch;
+     width: 100%;
+     display: block;
    }
    .cc-table-scroll::-webkit-scrollbar { height: 4px; }
    .cc-table-scroll::-webkit-scrollbar-thumb { background: var(--cc-border); border-radius: 2px; }
 
    .cc-table {
-     width: 100%; border-collapse: collapse;
-     font-size: 12px; font-family: var(--cc-font); min-width: 480px;
+     width: 100%;
+     border-collapse: collapse;
+     font-size: 12px;
+     font-family: var(--cc-font);
+     min-width: 480px;
    }
+
    .cc-table thead tr { background: var(--cc-navy); border-bottom: 2px solid var(--cc-red); }
+
    .cc-table thead th {
      padding: 10px 12px; text-align: center;
      color: rgba(255,255,255,0.9); font-size: 10px; font-weight: 700;
      letter-spacing: 0.6px; text-transform: uppercase;
      border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;
    }
+
    .cc-table tbody tr {
      border-bottom: 1px solid var(--cc-border);
      background: var(--cc-white); transition: background 0.15s;
@@ -432,16 +533,20 @@
    .cc-table tbody tr:hover      { background: #fafafa; }
    .cc-table tbody tr.cc-tr-filled { background: #f6fbf8; }
    .cc-table tbody tr.cc-tr-group  { background: #f1f5f9; }
+
    .cc-table td {
      padding: 7px 10px; vertical-align: middle;
      text-align: center; border: 1px solid var(--cc-border);
    }
 
+   /* Cell inputs */
    .cc-cell-input {
-     width: 100%; padding: 6px 10px; border: 1px solid var(--cc-border);
-     border-radius: 5px; font-family: var(--cc-font); font-size: 12px;
+     width: 100%; padding: 6px 10px;
+     border: 1px solid var(--cc-border); border-radius: 5px;
+     font-family: var(--cc-font); font-size: 12px;
      color: var(--cc-black); background: white; outline: none;
-     transition: border-color 0.18s; min-width: 0;
+     transition: border-color 0.18s;
+     min-width: 0;
    }
    .cc-cell-input:focus { border-color: var(--cc-blue); }
    .cc-group-input { font-weight: 700; text-transform: uppercase; background: transparent; border: none; }
@@ -457,9 +562,10 @@
    .cc-remove-btn {
      display: flex; align-items: center; justify-content: center;
      width: 26px; height: 26px; margin: 0 auto;
-     background: #fee2e2; color: var(--cc-red); border: none;
-     border-radius: 5px; font-size: 11px; font-weight: 700;
-     cursor: pointer; transition: background 0.15s; flex-shrink: 0;
+     background: #fee2e2; color: var(--cc-red);
+     border: none; border-radius: 5px; font-size: 11px; font-weight: 700;
+     cursor: pointer; transition: background 0.15s;
+     flex-shrink: 0;
    }
    .cc-remove-btn:hover:not(:disabled) { background: var(--cc-red); color: white; }
    .cc-remove-btn:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -474,9 +580,12 @@
      background: var(--cc-white); border: 1px solid var(--cc-border);
      border-radius: var(--cc-radius); padding: 12px 18px;
      display: flex; flex-direction: column; gap: 4px;
-     min-width: 0; box-shadow: var(--cc-shadow); flex: 1 1 110px;
+     min-width: 0; /* KEY FIX: was 110px which caused overflow on mobile */
+     box-shadow: var(--cc-shadow);
+     flex: 1 1 110px;
    }
    .cc-summary-card.cc-summary-red .cc-summary-val { color: var(--cc-red); font-weight: 900; }
+
    .cc-summary-label { font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #888; }
    .cc-summary-val   { font-size: 15px; font-weight: 700; color: var(--cc-navy); word-break: break-word; }
    .cc-summary-input {
@@ -485,39 +594,69 @@
      outline: none; font-family: var(--cc-font);
    }
 
-   .cc-percent-cell { display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700; color: var(--cc-green); }
+   .cc-percent-cell {
+     display: flex; align-items: center; justify-content: center; gap: 4px;
+     font-weight: 700; color: var(--cc-green);
+   }
    .cc-percent-input {
      width: 50px; border: 1px solid var(--cc-border); border-radius: 5px;
-     padding: 4px 6px; text-align: center; font-family: var(--cc-font); font-size: 12px; outline: none;
+     padding: 4px 6px; text-align: center; font-family: var(--cc-font);
+     font-size: 12px; outline: none;
    }
 
+   /* Gantt */
    .cc-gantt-table { table-layout: fixed; min-width: 700px; }
-   .cc-gantt-task-col { width: 160px; text-align: left !important; position: sticky; left: 0; z-index: 2; background: var(--cc-navy); }
+
+   .cc-gantt-task-col {
+     width: 160px; text-align: left !important;
+     position: sticky; left: 0; z-index: 2; background: var(--cc-navy);
+   }
    .cc-gantt-date-col { min-width: 40px; font-size: 9px !important; padding: 6px 4px !important; }
+
    .cc-gantt-task-name {
      text-align: left; font-size: 11px; color: var(--cc-black);
      padding: 5px 10px !important; position: sticky; left: 0;
      background: var(--cc-white); z-index: 1; min-width: 160px;
      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
    }
+
    .cc-gantt-actual-label { color: #aaa; font-size: 10px; }
    .cc-group-cell { background: #f1f5f9 !important; }
    .cc-gantt-group-cell { background: #f1f5f9 !important; }
-   .cc-gantt-cell { padding: 3px !important; min-width: 40px; height: 18px; border: 1px solid #e5e5e5; }
+
+   .cc-gantt-cell {
+     padding: 3px !important; min-width: 40px; height: 18px;
+     border: 1px solid #e5e5e5;
+   }
    .cc-gantt-target   { background: var(--cc-red)   !important; }
    .cc-gantt-actual   { background: var(--cc-green) !important; }
    .cc-gantt-clickable { cursor: pointer; transition: background 0.15s; }
    .cc-gantt-clickable:hover { background: rgba(22,163,74,0.2); }
    .cc-gantt-target-row td { height: 18px; }
    .cc-gantt-actual-row td { height: 16px; }
+
    .cc-gantt-legend { display: flex; gap: 12px; font-size: 12px; font-weight: 600; flex-wrap: wrap; }
    .cc-legend-red   { color: var(--cc-red); }
    .cc-legend-green { color: var(--cc-green); }
-   .cc-gantt-hint { font-size: 11px; color: #aaa; padding: 8px 16px; border-top: 1px solid var(--cc-border); margin: 0; }
-   .cc-gantt-empty { text-align: center; color: #aaa; font-size: 13px; padding: 24px; background: var(--cc-surface); border-radius: var(--cc-radius); border: 1px dashed var(--cc-border); }
-   .cc-gantt-label-tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; color: white; margin-right: 4px; }
+
+   .cc-gantt-hint {
+     font-size: 11px; color: #aaa; padding: 8px 16px;
+     border-top: 1px solid var(--cc-border); margin: 0;
+   }
+
+   .cc-gantt-empty {
+     text-align: center; color: #aaa; font-size: 13px;
+     padding: 24px; background: var(--cc-surface); border-radius: var(--cc-radius);
+     border: 1px dashed var(--cc-border);
+   }
+
+   .cc-gantt-label-tag {
+     display: inline-block; padding: 1px 5px; border-radius: 3px;
+     font-size: 9px; font-weight: 700; color: white; margin-right: 4px;
+   }
    .cc-tag-target { background: var(--cc-red); }
    .cc-tag-actual { background: var(--cc-green); }
+
    .cc-mb-20 { margin-bottom: 20px; }
 
    /* ============================================================
@@ -525,17 +664,36 @@
       ============================================================ */
 
    .cc-materials-meta { padding: 16px; width: 100%; min-width: 0; }
-   .cc-meta-grid-6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-   .cc-meta-grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-   .cc-tab-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; width: 100%; min-width: 0; }
+
+   .cc-meta-grid-6 {
+     display: grid;
+     grid-template-columns: repeat(2, 1fr);
+     gap: 12px;
+   }
+
+   .cc-meta-grid-4 {
+     display: grid;
+     grid-template-columns: repeat(2, 1fr);
+     gap: 12px;
+   }
+
+   .cc-tab-toolbar {
+     display: flex; align-items: center; justify-content: space-between;
+     flex-wrap: wrap; gap: 12px; width: 100%; min-width: 0;
+   }
+
    .cc-date-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
    .cc-btn-row  { display: flex; gap: 8px; flex-wrap: wrap; }
    .cc-no-margin { margin: 0 !important; }
+
    .cc-materials-table { min-width: max-content; }
+
    .cc-th-date-col { background: #fef2f2 !important; color: var(--cc-red) !important; }
+
    .cc-text-blue  { color: var(--cc-blue)  !important; font-weight: 700; }
    .cc-text-red   { color: var(--cc-red)   !important; font-weight: 700; }
    .cc-text-green { color: var(--cc-green) !important; font-weight: 700; }
+
    .cc-w-full { min-width: 100px; }
    .cc-w-num  { max-width: 70px; text-align: center; }
    .cc-th-left { text-align: left !important; }
@@ -545,38 +703,99 @@
       ============================================================ */
 
    .cc-insp-meta { padding: 16px; width: 100%; min-width: 0; }
-   .cc-insp-form-row { display: grid; grid-template-columns: 1fr; gap: 16px; }
-   .cc-insp-block { background: var(--cc-white); border: 1px solid var(--cc-border); border-radius: var(--cc-radius); overflow: hidden; box-shadow: var(--cc-shadow); width: 100%; min-width: 0; }
-   .cc-insp-block-header { font-size: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 16px; }
+
+   .cc-insp-form-row {
+     display: grid;
+     grid-template-columns: 1fr;
+     gap: 16px;
+   }
+
+   .cc-insp-block {
+     background: var(--cc-white); border: 1px solid var(--cc-border);
+     border-radius: var(--cc-radius); overflow: hidden; box-shadow: var(--cc-shadow);
+     width: 100%; min-width: 0;
+   }
+
+   .cc-insp-block-header {
+     font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
+     text-transform: uppercase; padding: 10px 16px;
+   }
    .cc-insp-header-green { background: #D6E4BC; color: #2d5016; }
-   .cc-insp-textarea { width: 100%; border: none !important; border-radius: 0 !important; resize: vertical; padding: 14px 16px; font-family: var(--cc-font); font-size: 13px; }
+
+   .cc-insp-textarea {
+     width: 100%; border: none !important; border-radius: 0 !important;
+     resize: vertical; padding: 14px 16px;
+     font-family: var(--cc-font); font-size: 13px;
+   }
+
+   /* Problem/Solution section */
    .cc-insp-ps-header { display: grid; grid-template-columns: 1fr 1fr; }
    .cc-insp-col-header { flex: 1; }
-   .cc-insp-ps-row { display: grid; grid-template-columns: 28px 1fr 1fr 28px; gap: 0; border-bottom: 1px solid var(--cc-border); align-items: stretch; }
-   .cc-insp-ps-num { display: flex; align-items: flex-start; justify-content: center; padding: 12px 4px; font-size: 11px; font-weight: 700; color: #aaa; border-right: 1px solid var(--cc-border); background: #f9f9f9; }
-   .cc-insp-ps-area { border: none !important; border-radius: 0 !important; border-right: 1px solid var(--cc-border) !important; resize: none; padding: 12px 14px; font-size: 13px; font-family: var(--cc-font); width: 100%; min-width: 0; }
+
+   .cc-insp-ps-row {
+     display: grid;
+     grid-template-columns: 28px 1fr 1fr 28px;
+     gap: 0;
+     border-bottom: 1px solid var(--cc-border);
+     align-items: stretch;
+   }
+
+   .cc-insp-ps-num {
+     display: flex; align-items: flex-start; justify-content: center;
+     padding: 12px 4px; font-size: 11px; font-weight: 700; color: #aaa;
+     border-right: 1px solid var(--cc-border); background: #f9f9f9;
+   }
+
+   .cc-insp-ps-area {
+     border: none !important; border-radius: 0 !important;
+     border-right: 1px solid var(--cc-border) !important;
+     resize: none; padding: 12px 14px;
+     font-size: 13px; font-family: var(--cc-font);
+     width: 100%; min-width: 0;
+   }
+
    .cc-ps-remove { margin: 8px auto !important; align-self: flex-start; }
-   .cc-add-problem-btn { display: block; width: 100%; padding: 12px; background: rgba(73,123,151,0.06); border: none; border-top: 1px dashed var(--cc-border); font-family: var(--cc-font); font-size: 13px; font-weight: 600; color: var(--cc-blue); cursor: pointer; text-align: center; transition: background 0.2s; }
+
+   .cc-add-problem-btn {
+     display: block; width: 100%; padding: 12px;
+     background: rgba(73,123,151,0.06); border: none;
+     border-top: 1px dashed var(--cc-border);
+     font-family: var(--cc-font); font-size: 13px; font-weight: 600;
+     color: var(--cc-blue); cursor: pointer; text-align: center;
+     transition: background 0.2s;
+   }
    .cc-add-problem-btn:hover { background: rgba(73,123,151,0.12); }
 
    /* ============================================================
       SHARED UTILITIES
       ============================================================ */
 
-   .cc-action-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; width: 100%; min-width: 0; }
+   .cc-action-row {
+     display: flex; gap: 12px; align-items: center;
+     flex-wrap: wrap; width: 100%; min-width: 0;
+   }
 
-   /* Tab bar — scoped to .cc- classes only, no wildcards */
+   /* ============================================================
+      TAB / NAV BAR — KEY FIX
+      Tab bars that use negative margins or absolute widths are the
+      most common cause of the left-bleed clipping seen in the screenshot.
+      ============================================================ */
    .cc-tabs,
    .cc-tab-bar,
    .cc-nav-tabs {
      display: flex;
-     flex-wrap: nowrap;
+     flex-wrap: nowrap;        /* tabs scroll horizontally, don't wrap */
      overflow-x: auto;
      overflow-y: hidden;
      -webkit-overflow-scrolling: touch;
      width: 100%;
      max-width: 100%;
-     scrollbar-width: none;
+     /* KEY FIX: remove any negative margin that bleeds outside parent */
+     margin-left: 0;
+     margin-right: 0;
+     padding-left: 0;
+     gap: 0;
+     scrollbar-width: none;    /* hide scrollbar on Firefox */
    }
    .cc-tabs::-webkit-scrollbar,
    .cc-tab-bar::-webkit-scrollbar,
@@ -584,7 +803,7 @@
 
    .cc-tab,
    .cc-tab-item {
-     flex-shrink: 0;
+     flex-shrink: 0;           /* tabs don't squish */
      white-space: nowrap;
    }
 
