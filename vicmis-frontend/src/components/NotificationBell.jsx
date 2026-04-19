@@ -28,7 +28,7 @@ const NotifToast = ({ notif, onClose, onView }) => {
     );
 };
 
-// ── Notification Detail Modal (opens when clicking a notification) ────────────
+// ── Notification Detail Modal ─────────────────────────────────────────────────
 const NotificationDetailModal = ({ notif, onClose, onViewProject }) => {
     if (!notif) return null;
 
@@ -129,7 +129,7 @@ const NotificationDetailModal = ({ notif, onClose, onViewProject }) => {
     );
 };
 
-// ── Main Bell Component with Dropdown ─────────────────────────────────────────
+// ── Main Bell Component ──────────────────────────────────────────────────────
 const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
     const [readIds, setReadIds]             = useState(new Set());
@@ -140,49 +140,54 @@ const NotificationBell = () => {
     const dropdownRef                       = useRef(null);
 
     // ── Message classifiers for styling ───────────────────────────────────────
-    const isRejected      = (msg) => msg?.includes('REJECTED') || msg?.includes('Rejected');
-    const isNoStock       = (msg) => msg?.includes('NO STOCK');
-    const isLowStock      = (msg) => msg?.includes('LOW STOCK');
-    const isReorder       = (msg) => msg?.includes('Reorder') || msg?.includes('reorder');
-    const isDispatched    = (msg) => msg?.includes('Dispatched') || msg?.includes('In Transit');
-    const isShipment      = (msg) => msg?.includes('Shipment') || msg?.includes('🚢');
-    const isMaterial      = (msg) => msg?.includes('Material Request') || msg?.includes('📦');
-    const isCompleted     = (msg) => msg?.includes('✅');
-    const isLeadConverted = (msg) => msg?.includes('Lead Converted');
-
     const getNotifStyle = (msg, isRead) => {
-        if (isRead) return { borderLeft: '3px solid #cbd5e1', backgroundColor: '#f8fafc', opacity: 0.55 };
-        if (isRejected(msg))      return { borderLeft: '3px solid #b91c1c', backgroundColor: '#fef2f2' };
-        if (isNoStock(msg))       return { borderLeft: '3px solid #dc2626', backgroundColor: '#fff1f2' };
-        if (isLowStock(msg))      return { borderLeft: '3px solid #d97706', backgroundColor: '#fffbeb' };
-        if (isReorder(msg))       return { borderLeft: '3px solid #ea580c', backgroundColor: '#fff7ed' };
-        if (isDispatched(msg))    return { borderLeft: '3px solid #2563eb', backgroundColor: '#eff6ff' };
-        if (isShipment(msg))      return { borderLeft: '3px solid #0891b2', backgroundColor: '#ecfeff' };
-        if (isMaterial(msg))      return { borderLeft: '3px solid #0369a1', backgroundColor: '#f0f9ff' };
-        if (isCompleted(msg))     return { borderLeft: '3px solid #15803d', backgroundColor: '#f0fdf4' };
-        if (isLeadConverted(msg)) return { borderLeft: '3px solid #059669', backgroundColor: '#ecfdf5' };
-        return { borderLeft: '3px solid #497B97', backgroundColor: '#f8fafc' };
+        if (isRead) return { borderLeftColor: '#cbd5e1', backgroundColor: '#f8fafc', opacity: 0.55 };
+        
+        if (msg?.includes('REJECTED') || msg?.includes('Rejected')) {
+            return { borderLeftColor: '#b91c1c', backgroundColor: '#fef2f2' };
+        }
+        if (msg?.includes('NO STOCK')) {
+            return { borderLeftColor: '#dc2626', backgroundColor: '#fff1f2' };
+        }
+        if (msg?.includes('LOW STOCK')) {
+            return { borderLeftColor: '#d97706', backgroundColor: '#fffbeb' };
+        }
+        if (msg?.includes('Dispatched') || msg?.includes('In Transit')) {
+            return { borderLeftColor: '#2563eb', backgroundColor: '#eff6ff' };
+        }
+        if (msg?.includes('Shipment')) {
+            return { borderLeftColor: '#0891b2', backgroundColor: '#ecfeff' };
+        }
+        if (msg?.includes('Material Request')) {
+            return { borderLeftColor: '#0369a1', backgroundColor: '#f0f9ff' };
+        }
+        if (msg?.includes('Reorder')) {
+            return { borderLeftColor: '#ea580c', backgroundColor: '#fff7ed' };
+        }
+        if (msg?.includes('✅')) {
+            return { borderLeftColor: '#15803d', backgroundColor: '#f0fdf4' };
+        }
+        return { borderLeftColor: '#497B97', backgroundColor: '#ffffff' };
     };
 
     const getNotifIcon = (msg, isRead) => {
         if (isRead) return '✓';
-        if (isRejected(msg))      return '❌';
-        if (isNoStock(msg))       return '🚨';
-        if (isLowStock(msg))      return '⚠️';
-        if (isReorder(msg))       return '🔄';
-        if (isDispatched(msg))    return '🚚';
-        if (isShipment(msg))      return '🚢';
-        if (isMaterial(msg))      return '📦';
-        if (isCompleted(msg))     return '✅';
-        if (isLeadConverted(msg)) return '🎉';
+        if (msg?.includes('REJECTED') || msg?.includes('Rejected')) return '❌';
+        if (msg?.includes('NO STOCK')) return '🚨';
+        if (msg?.includes('LOW STOCK')) return '⚠️';
+        if (msg?.includes('Dispatched') || msg?.includes('In Transit')) return '🚚';
+        if (msg?.includes('Shipment')) return '🚢';
+        if (msg?.includes('Material Request')) return '📦';
+        if (msg?.includes('Reorder')) return '🔄';
+        if (msg?.includes('✅')) return '✅';
         return '🔔';
     };
 
     // ── Format message for dropdown ──────────────────────────────────────────
-    const formatMessage = (notif) => {
-        let message = notif.message;
+    const formatMessage = (message) => {
+        if (!message) return 'No message';
         if (message.length > 80) {
-            message = message.substring(0, 77) + '...';
+            return message.substring(0, 77) + '...';
         }
         return message;
     };
@@ -241,7 +246,7 @@ const NotificationBell = () => {
 
     // ── Show detail modal when clicking a notification ────────────────────────
     const openNotificationDetail = (notif) => {
-        setIsOpen(false); // Close dropdown first
+        setIsOpen(false);
         if (!readIds.has(notif.id)) {
             markRead(notif.id);
         }
@@ -257,6 +262,7 @@ const NotificationBell = () => {
         try {
             const res = await api.get('/notifications');
             const data = res.data ?? [];
+            console.log('Notifications fetched:', data.length);
 
             setReadIds(prev => {
                 const next = new Set(prev);
@@ -341,7 +347,7 @@ const NotificationBell = () => {
                 {isOpen && (
                     <div className="notif-dropdown">
                         <div className="notif-header">
-                            <span>Alerts & Updates</span>
+                            <span>🔔 Alerts & Updates</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span className="notif-header-badge">{unreadCount} New</span>
                                 {unreadCount > 0 && (
@@ -354,34 +360,59 @@ const NotificationBell = () => {
 
                         <div className="notif-body">
                             {notifications.length === 0 ? (
-                                <div className="notif-empty">You're all caught up! 🎉</div>
+                                <div className="notif-empty">
+                                    <span>📭</span>
+                                    <p>You're all caught up!</p>
+                                    <small>No new notifications</small>
+                                </div>
                             ) : (
                                 notifications.map(notif => {
                                     const isRead = readIds.has(notif.id);
+                                    const style = getNotifStyle(notif.message, isRead);
                                     return (
                                         <div
                                             key={notif.id}
                                             className={`notif-item ${isRead ? 'notif-item--read' : ''}`}
-                                            style={getNotifStyle(notif.message, isRead)}
+                                            style={{ 
+                                                borderLeft: `3px solid ${style.borderLeftColor}`,
+                                                backgroundColor: style.backgroundColor,
+                                                opacity: style.opacity || 1
+                                            }}
                                             onClick={() => openNotificationDetail(notif)}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                                <span style={{ fontSize: '16px' }}>{getNotifIcon(notif.message, isRead)}</span>
-                                                <div style={{ flex: 1 }}>
-                                                    <p className={`notif-text ${isRead ? 'notif-text--read' : ''}`}>
-                                                        {formatMessage(notif)}
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                                <span style={{ fontSize: '18px', flexShrink: 0 }}>
+                                                    {getNotifIcon(notif.message, isRead)}
+                                                </span>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p className="notif-text" style={{ margin: '0 0 6px 0' }}>
+                                                        {formatMessage(notif.message)}
                                                     </p>
-                                                    <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '10px', color: '#94a3b8' }}>
-                                                        <span>{formatTime(notif.created_at)}</span>
-                                                        {notif.project_name && <span>📁 {notif.project_name}</span>}
+                                                    <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#94a3b8', flexWrap: 'wrap' }}>
+                                                        <span>🕐 {formatTime(notif.created_at)}</span>
+                                                        {notif.project_name && (
+                                                            <span>📁 {notif.project_name.length > 20 ? notif.project_name.substring(0, 20) + '...' : notif.project_name}</span>
+                                                        )}
+                                                        {notif.target_department && (
+                                                            <span>🏢 {notif.target_department}</span>
+                                                        )}
                                                     </div>
                                                 </div>
+                                                {!isRead && (
+                                                    <div style={{ width: '8px', height: '8px', backgroundColor: '#C20100', borderRadius: '50%', flexShrink: 0, marginTop: '6px' }} />
+                                                )}
                                             </div>
                                         </div>
                                     );
                                 })
                             )}
                         </div>
+                        
+                        {notifications.length > 0 && (
+                            <div className="notif-footer">
+                                <span>{notifications.length} total notifications</span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
