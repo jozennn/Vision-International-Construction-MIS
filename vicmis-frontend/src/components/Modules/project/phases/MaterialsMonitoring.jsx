@@ -8,7 +8,7 @@ import {
     getRemainingInventory,
     getTotalInstalledUpToDate,
 } from '../hooks/useMaterialsMonitoring.js';
-import '../css/MonitoringComponents.css';
+import '../css/MaterialsMonitoring.css';
 
 // Save Indicator Component
 const SaveIndicator = ({ status }) => {
@@ -358,66 +358,66 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
     })();
 
     return (
-        <div className="mon-section">
+        <div className="mm-section">
             {/* Header */}
-            <div className="mon-page-header">
-                <div className="mon-header-meta">
+            <div className="mm-page-header">
+                <div className="mm-header-meta">
                     {[['Project', projectName], ['Location', location],
                       ['Requirement', requirement], ['Engineer', leadEngineer],
                       ['Sales Agent', salesAgent]].map(([l, v]) => (
-                        <div key={l} className="mon-header-field">
-                            <span className="mon-header-label">{l}</span>
-                            <span className="mon-header-value">{v || '—'}</span>
+                        <div key={l} className="mm-header-field">
+                            <span className="mm-header-label">{l}</span>
+                            <span className="mm-header-value">{v || '—'}</span>
                         </div>
                     ))}
                 </div>
-                <div className="mon-header-actions">
+                <div className="mm-header-actions">
                     <SaveIndicator status={saveStatus} />
-                    <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
-                    <button className="mon-btn mon-btn-navy" onClick={saveMaterials} disabled={saving}>
+                    <button className="mm-btn mm-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
+                    <button className="mm-btn mm-btn-navy" onClick={saveMaterials} disabled={saving}>
                         {saving ? 'Saving…' : '💾 Save'}
                     </button>
                 </div>
             </div>
 
             {/* Body */}
-            <div className="mon-body">
-                {error       && <div className="mon-error">⚠️ {error}</div>}
-                {saveSuccess && <div className="mon-success">✅ Materials saved!</div>}
+            <div className="mm-body">
+                {error       && <div className="mm-error">⚠️ {error}</div>}
+                {saveSuccess && <div className="mm-success">✅ Materials saved!</div>}
 
                 {boqData && Object.values(boqData).flat().some(r => r?.product_code) && (
-                    <div className="mon-boq-notice">
-                        <span className="mon-boq-notice-icon">🔗</span>
+                    <div className="mm-boq-notice">
+                        <span className="mm-boq-notice-icon">🔗</span>
                         Items synced from the approved BOQ are marked with a
-                        <span className="mon-boq-badge">BOQ</span> badge.
+                        <span className="mm-boq-badge">BOQ</span> badge.
                     </div>
                 )}
 
                 {/* Date selector */}
-                <div className="mon-mat-toolbar">
-                    <div className="mon-date-row">
-                        <span className="mon-field-label">📅 Date</span>
+                <div className="mm-mat-toolbar">
+                    <div className="mm-date-row">
+                        <span className="mm-field-label">📅 Date</span>
                         <input type="date" value={currentDate}
                             onChange={e => setCurrentDate(e.target.value)}
-                            className="mon-date-input" />
+                            className="mm-date-input" />
                     </div>
-                    <div className="mon-date-hint">
+                    <div className="mm-date-hint">
                         Showing data for {currentDateLabel}. Switch date to view another day.
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="mon-table-card">
-                    <div className="mon-table-toolbar">
-                        <span className="mon-table-title">📦 Materials Monitoring</span>
-                        <button className="mon-add-btn" onClick={addItem}>+ Add Item</button>
+                <div className="mm-table-card">
+                    <div className="mm-table-toolbar">
+                        <span className="mm-table-title">📦 Materials Monitoring</span>
+                        <button className="mm-add-btn" onClick={addItem}>+ Add Item</button>
                     </div>
-                    <div className="mon-table-scroll">
-                        <table className="mon-table">
+                    <div className="mm-table-scroll">
+                        <table className="mm-table">
                             <thead>
                                 <tr>
-                                    <th className="th-left" style={{ minWidth: 120 }}>CATEGORY</th>
-                                    <th className="th-left" style={{ minWidth: 140 }}>NAME</th>
+                                    <th className="mm-th-left" style={{ minWidth: 120 }}>CATEGORY</th>
+                                    <th className="mm-th-left" style={{ minWidth: 140 }}>NAME</th>
                                     <th style={{ minWidth: 120 }}>DESCRIPTION</th>
                                     <th>DELIVERY DATE</th>
                                     <th>QTY</th>
@@ -446,42 +446,42 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                     const totalInstalled     = getTotalInstalledUpToDate(item, currentDate);
 
                                     return (
-                                        <tr key={item.id} className={fromBoq ? 'mon-row-boq' : ''}>
-                                            <td className="td-left">
-                                                <span className="mon-category-badge">
+                                        <tr key={item.id} className={fromBoq ? 'mm-row-boq' : ''}>
+                                            <td className="mm-td-left">
+                                                <span className="mm-category-badge">
                                                     {item.product_category || '—'}
                                                 </span>
                                             </td>
-                                            <td className="td-left">
+                                            <td className="mm-td-left">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                    {fromBoq && <span className="mon-boq-badge" title={item.boqKey}>BOQ</span>}
+                                                    {fromBoq && <span className="mm-boq-badge" title={item.boqKey}>BOQ</span>}
                                                     <input type="text" value={item.name}
                                                         onChange={e => updateItem(item.id, 'name', e.target.value)}
-                                                        className="mon-cell-input input-wide" placeholder="Item name" />
+                                                        className="mm-cell-input mm-input-wide" placeholder="Item name" />
                                                 </div>
                                             </td>
                                             <td>
                                                 <input type="text" value={item.description}
                                                     onChange={e => updateItem(item.id, 'description', e.target.value)}
-                                                    className="mon-cell-input input-wide" placeholder="Description" />
+                                                    className="mm-cell-input mm-input-wide" placeholder="Description" />
                                             </td>
                                             <td>
                                                 <input type="date" value={lastDel.date ?? ''}
                                                     onChange={e => updateDelivery(item.id, item.deliveries.length - 1, 'date', e.target.value)}
-                                                    className="mon-cell-input input-date" />
+                                                    className="mm-cell-input mm-input-date" />
                                             </td>
                                             <td>
                                                 <input type="number" value={lastDel.qty ?? 0}
                                                     onChange={e => updateDelivery(item.id, item.deliveries.length - 1, 'qty', e.target.value)}
-                                                    className="mon-cell-input input-num" min="0" />
+                                                    className="mm-cell-input mm-input-num" min="0" />
                                             </td>
-                                            <td className="td-bold">{delivered}</td>
+                                            <td className="mm-td-bold">{delivered}</td>
                                             <td>
                                                 <div style={{ position: 'relative' }}>
                                                     <input type="number"
                                                         value={installedToday}
                                                         onChange={e => updateInstalled(item.id, e.target.value)}
-                                                        className="mon-cell-input input-num"
+                                                        className="mm-cell-input mm-input-num"
                                                         style={{
                                                             background:   installedToday > 0 ? '#f0f9ff' : '#fff',
                                                             borderColor:  installedToday > 0 ? '#3b82f6' : '#e5e7eb',
@@ -500,7 +500,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className={`td-bold ${remainingInventory <= 0 ? 'td-red' : remainingInventory < 10 ? 'td-orange' : 'td-green'}`}>
+                                            <td className={`mm-td-bold ${remainingInventory <= 0 ? 'mm-td-red' : remainingInventory < 10 ? 'mm-td-orange' : 'mm-td-green'}`}>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                                                     {remainingInventory}
                                                     {totalInstalled > 0 && (
@@ -513,10 +513,10 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                                             <td>
                                                 <input type="text" value={item.remarks ?? ''}
                                                     onChange={e => updateItem(item.id, 'remarks', e.target.value)}
-                                                    className="mon-cell-input input-wide" placeholder="Notes" />
+                                                    className="mm-cell-input mm-input-wide" placeholder="Notes" />
                                             </td>
                                             <td>
-                                                <button className="mon-remove-btn" onClick={() => removeItem(item.id)}>✕</button>
+                                                <button className="mm-remove-btn" onClick={() => removeItem(item.id)}>✕</button>
                                             </td>
                                         </tr>
                                     );
@@ -524,7 +524,7 @@ const MaterialsMonitoring = ({ project, trackingData, boqData }) => {
                             </tbody>
                         </table>
                     </div>
-                    <div className="mon-table-footer-hint">
+                    <div className="mm-table-footer-hint">
                         <span>💡 Remaining = Total Delivered ({displayItems.reduce((s, i) => s + totalDelivered(i), 0)}) - Total Installed ({displayItems.reduce((s, i) => s + getTotalInstalledUpToDate(i, currentDate), 0)})</span>
                     </div>
                 </div>

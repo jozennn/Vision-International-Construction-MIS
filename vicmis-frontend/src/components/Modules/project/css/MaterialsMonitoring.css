@@ -1,0 +1,149 @@
+/* ============================================================
+   MaterialsMonitoring.css
+   Scope Prefix: .mm-
+   ============================================================ */
+
+   *, *::before, *::after { box-sizing: border-box; }
+
+   :root {
+     --mm-navy:       #1A1A2E;
+     --mm-blue:       #497B97;
+     --mm-red:        #FF1817;
+     --mm-red-dark:   #C20100;
+     --mm-black:      #221F1F;
+     --mm-cream:      #EBDBD6;
+     --mm-white:      #FFFFFF;
+     --mm-surface:    #F8F6F3;
+     --mm-border:     #E2D9D2;
+     --mm-border-md:  #C8BDB5;
+     --mm-green:      #15803d;
+     --mm-green-bg:   #f0fdf4;
+     --mm-red-bg:     #fff1f1;
+     --mm-blue-bg:    #EEF4F8;
+     --mm-shadow-xs:  0 1px 3px rgba(34,31,31,0.07);
+     --mm-shadow-sm:  0 2px 8px rgba(34,31,31,0.08);
+     --mm-shadow-md:  0 4px 16px rgba(34,31,31,0.10);
+     --mm-radius-sm:  6px;
+     --mm-radius:     10px;
+     --mm-radius-lg:  14px;
+     --mm-font:       'DM Sans', sans-serif;
+     --mm-transition: all 0.18s ease;
+   }
+   
+   /* ── WRAPPER ────────────────────────────────────────────────────────── */
+   .mm-section {
+     display: flex; flex-direction: column; width: 100%;
+     max-width: 100vw; min-width: 0; overflow-x: hidden;
+     font-family: var(--mm-font); color: var(--mm-black);
+     animation: mm-fadein 0.25s ease;
+   }
+   @keyframes mm-fadein {
+     from { opacity: 0; transform: translateY(6px); }
+     to   { opacity: 1; transform: translateY(0); }
+   }
+   
+   /* ── HEADER ─────────────────────────────────────────────────────────── */
+   .mm-page-header {
+     display: flex; align-items: flex-start; justify-content: space-between;
+     gap: clamp(8px, 2vw, 12px);
+     padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 24px);
+     background: var(--mm-navy); border-radius: var(--mm-radius-lg) var(--mm-radius-lg) 0 0;
+     border-bottom: 3px solid var(--mm-red); flex-wrap: wrap; width: 100%;
+   }
+   
+   .mm-header-meta {
+     display: flex; flex-wrap: wrap; gap: 10px clamp(10px, 3vw, 20px);
+     flex: 1 1 auto; min-width: 0;
+   }
+   
+   .mm-header-field { display: flex; flex-direction: column; gap: 1px; min-width: 70px; max-width: 100%; flex: 1 1 auto; }
+   .mm-header-label { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+   .mm-header-value { font-size: clamp(11px, 2.5vw, 13px); font-weight: 600; color: rgba(255,255,255,0.92); word-wrap: break-word; overflow-wrap: break-word; }
+   
+   .mm-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; flex: 1 1 100%; }
+   .mm-btn {
+     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+     font-size: 11px; font-weight: 700; padding: 7px 12px; border-radius: 6px;
+     border: none; cursor: pointer; transition: var(--mm-transition);
+     white-space: nowrap; font-family: var(--mm-font); flex: 1 1 auto;
+   }
+   .mm-btn-outline { background: rgba(235,219,214,0.12); color: var(--mm-cream); border: 1.5px solid rgba(235,219,214,0.35); }
+   .mm-btn-outline:hover { background: rgba(235,219,214,0.22); }
+   .mm-btn-navy { background: var(--mm-red); color: var(--mm-white); }
+   .mm-btn-navy:hover { background: var(--mm-red-dark); }
+   .mm-btn-navy:disabled { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+   
+   /* ── BODY ───────────────────────────────────────────────────────────── */
+   .mm-body {
+     background: var(--mm-white); border: 1px solid var(--mm-border); border-top: none;
+     border-radius: 0 0 var(--mm-radius-lg) var(--mm-radius-lg);
+     padding: clamp(14px, 4vw, 24px) clamp(12px, 3vw, 20px) clamp(20px, 5vw, 32px);
+     display: flex; flex-direction: column; gap: clamp(14px, 3vw, 24px); width: 100%; min-width: 0;
+   }
+   
+   .mm-error, .mm-success { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--mm-radius-sm); font-size: clamp(11px, 2.5vw, 13px); font-weight: 500; width: 100%; word-break: break-word; }
+   .mm-error { background: var(--mm-red-bg); border: 1px solid #fecaca; border-left: 4px solid var(--mm-red); color: var(--mm-red-dark); }
+   .mm-success { background: var(--mm-green-bg); border: 1px solid #86efac; border-left: 4px solid var(--mm-green); color: var(--mm-green); }
+   
+   /* ── BOQ SPECIFIC ───────────────────────────────────────────────────── */
+   .mm-boq-notice { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--mm-blue-bg); border: 1px solid rgba(73,123,151,0.25); border-radius: var(--mm-radius-sm); font-size: clamp(11px, 2.5vw, 12px); color: var(--mm-blue); flex-wrap: wrap; width: 100%; }
+   .mm-boq-notice-icon { font-size: 15px; flex-shrink: 0; }
+   .mm-boq-badge { display: inline-block; padding: 1px 7px; background: var(--mm-blue); color: var(--mm-white); border-radius: 4px; font-size: 9px; font-weight: 800; letter-spacing: 0.5px; margin: 0 2px; vertical-align: middle; white-space: nowrap; }
+   .mm-row-boq { background: #f8fbfd !important; }
+   
+   /* ── MATERIALS TOOLBAR ──────────────────────────────────────────────── */
+   .mm-mat-toolbar { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+   .mm-date-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+   .mm-field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--mm-black); white-space: nowrap; }
+   .mm-date-input { padding: 8px 12px; border: 2px solid var(--mm-border-md); border-radius: var(--mm-radius-sm); font-family: var(--mm-font); font-size: 13px; font-weight: 600; color: var(--mm-navy); background: var(--mm-white); outline: none; cursor: pointer; transition: var(--mm-transition); width: 100%; flex: 1 1 140px; }
+   .mm-date-input:focus { border-color: var(--mm-blue); box-shadow: 0 0 0 3px rgba(73,123,151,0.12); }
+   .mm-date-hint { font-size: 11px; color: #6b7280; font-style: italic; line-height: 1.4; word-wrap: break-word; }
+   
+   /* ── TABLE CARD ─────────────────────────────────────────────────────── */
+   .mm-table-card { border: 1px solid var(--mm-border); border-radius: var(--mm-radius); overflow: hidden; box-shadow: var(--mm-shadow-xs); width: 100%; max-width: 100%; }
+   .mm-table-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--mm-navy); border-bottom: 2px solid var(--mm-red); gap: 8px; flex-wrap: wrap; }
+   .mm-table-title { font-size: clamp(10px, 2.5vw, 11px); font-weight: 700; letter-spacing: 0.5px; color: rgba(255,255,255,0.9); }
+   .mm-add-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.2); border-radius: var(--mm-radius-sm); font-family: var(--mm-font); font-size: 11px; font-weight: 700; cursor: pointer; transition: var(--mm-transition); white-space: nowrap; }
+   .mm-add-btn:hover { background: rgba(255,255,255,0.22); }
+   
+   .mm-table-scroll { width: 100%; max-width: 100vw; overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; }
+   .mm-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mm-font); min-width: 560px; }
+   .mm-table thead tr { background: var(--mm-navy); }
+   .mm-table thead th { padding: 9px 10px; text-align: center; font-size: 8px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.7); border-right: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+   .mm-table thead th:last-child { border-right: none; }
+   .mm-th-left { text-align: left !important; }
+   
+   .mm-table tbody tr { border-bottom: 1px solid var(--mm-border); background: var(--mm-white); transition: background 0.12s; }
+   .mm-table tbody tr:last-child { border-bottom: none; }
+   .mm-table tbody tr:hover { background: #fdfcfb; }
+   .mm-table td { padding: 6px 8px; vertical-align: middle; text-align: center; border-right: 1px solid var(--mm-border); }
+   .mm-table td:last-child { border-right: none; }
+   .mm-td-left { text-align: left !important; }
+   .mm-td-bold { font-weight: 700; }
+   .mm-td-red  { color: var(--mm-red); font-weight: 700; }
+   .mm-td-green { color: var(--mm-green); font-weight: 700; }
+   .mm-td-orange { color: #ea580c; font-weight: 700; }
+   
+   .mm-cell-input { width: 100%; padding: 5px 8px; border: 1.5px solid transparent; border-radius: 5px; font-family: var(--mm-font); font-size: 12px; color: var(--mm-black); background: transparent; outline: none; transition: var(--mm-transition); }
+   .mm-cell-input:hover { border-color: var(--mm-border); background: var(--mm-white); }
+   .mm-cell-input:focus { border-color: var(--mm-blue); background: var(--mm-white); box-shadow: 0 0 0 2px rgba(73,123,151,0.12); }
+   .mm-cell-input::placeholder { color: #ccc; }
+   .mm-input-wide { min-width: 100px; }
+   .mm-input-num  { max-width: 64px; text-align: center; }
+   .mm-input-date { min-width: 110px; }
+   
+   .mm-remove-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin: 0 auto; background: #fee2e2; color: var(--mm-red); border: none; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; transition: var(--mm-transition); }
+   .mm-remove-btn:hover:not(:disabled) { background: var(--mm-red); color: var(--mm-white); }
+   
+   .mm-category-badge { display: inline-block; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: normal; word-wrap: break-word; max-width: 100%; text-transform: uppercase; letter-spacing: 0.03em; }
+   .mm-row-boq .mm-category-badge { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+   .mm-table-footer-hint { padding: 10px; background: #f8fafc; font-size: 10px; color: #64748b; text-align: center; border-top: 1px solid var(--mm-border); }
+   
+   /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
+   @media (min-width: 480px) {
+     .mm-header-actions { flex: 0 1 auto; }
+   }
+   @media (min-width: 900px) {
+     .mm-page-header { flex-wrap: nowrap; }
+     .mm-table       { min-width: unset; width: 100%; } 
+   }

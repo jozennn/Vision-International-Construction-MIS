@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { useInstallerMonitoring, resolveRoster } from '../hooks/useInstallerMonitoring.js';
-import '../css/MonitoringComponents.css';
+import '../css/InstallerMonitoring.css';
 
 const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
 
@@ -390,115 +390,115 @@ const InstallerMonitoring = ({ project, user }) => {
         );
     };
 
-    if (loading) return <div className="mon-loading">⏳ Loading logs...</div>;
+    if (loading) return <div className="im-loading">⏳ Loading logs...</div>;
 
     return (
-        <div className="mon-section" style={{ minWidth: 0, width: '100%', overflowX: 'hidden' }}>
+        <div className="im-section">
             {/* Header */}
-            <div className="mon-page-header">
-                <div className="mon-header-meta">
+            <div className="im-page-header">
+                <div className="im-header-meta">
                     {[['Project', projectName], ['Location', location],
                       ['Requirement', requirement], ['Lead Installer', leadMan]].map(([l, v]) => (
-                        <div key={l} className="mon-header-field">
-                            <span className="mon-header-label">{l}</span>
-                            <span className="mon-header-value">{v}</span>
+                        <div key={l} className="im-header-field">
+                            <span className="im-header-label">{l}</span>
+                            <span className="im-header-value">{v}</span>
                         </div>
                     ))}
                 </div>
-                <div className="mon-header-actions">
+                <div className="im-header-actions">
                     <SaveIndicator status={saveStatus} />
-                    <button className="mon-btn mon-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
-                    <button className="mon-btn mon-btn-navy" onClick={handleSave} disabled={saving}>
+                    <button className="im-btn im-btn-outline" onClick={exportExcel}>⬇️ Excel</button>
+                    <button className="im-btn im-btn-navy" onClick={handleSave} disabled={saving}>
                         {saving ? 'Saving…' : '💾 Save'}
                     </button>
                 </div>
             </div>
 
             {/* Body */}
-            <div className="mon-body">
-                {error && <div className="mon-error">⚠️ {error}</div>}
+            <div className="im-body">
+                {error && <div className="im-error">⚠️ {error}</div>}
 
                 {/* Top info row */}
-                <div className="mon-top-row">
-                    <div className="mon-top-field">
-                        <span className="mon-input-label">Total Area Logged</span>
+                <div className="im-top-row">
+                    <div className="im-top-field">
+                        <span className="im-input-label">Total Area Logged</span>
                         <input type="text" value={currentLog.totalArea}
                             onChange={e => setCurrentLog({ ...currentLog, totalArea: e.target.value })}
-                            className="mon-input" placeholder="e.g. 134 Lm" />
+                            className="im-input" placeholder="e.g. 134 Lm" />
                     </div>
-                    <div className="mon-top-field mon-top-remarks">
-                        <span className="mon-input-label">Status / Remarks</span>
+                    <div className="im-top-field im-top-remarks">
+                        <span className="im-input-label">Status / Remarks</span>
                         <textarea value={currentLog.remarks}
                             onChange={e => setCurrentLog({ ...currentLog, remarks: e.target.value })}
-                            className="mon-textarea mon-textarea-sm"
+                            className="im-textarea im-textarea-sm"
                             rows={2} placeholder="Describe current site status..." />
                     </div>
-                    <div className="mon-top-datepicker">
-                        <span className="mon-input-label">📅 Log Date</span>
+                    <div className="im-top-datepicker">
+                        <span className="im-input-label">📅 Log Date</span>
                         <input type="date" value={selectedDate}
                             onChange={e => setSelectedDate(e.target.value)}
-                            className="mon-date-input-inline" style={{ width: '100%', maxWidth: '100%' }} />
-                        <span className={`mon-date-status ${logExists ? 'exists' : 'new'}`}>
+                            className="im-date-input-inline" />
+                        <span className={`im-date-status ${logExists ? 'im-exists' : 'im-new'}`}>
                             {logExists ? '✅ Log exists' : '🆕 New entry'}
                         </span>
                     </div>
                 </div>
 
                 {/* Timeline logs */}
-                <div className="mon-timeline-block">
-                    <div className="mon-block-header">
-                        <span className="mon-block-title">📅 Timeline Logs</span>
+                <div className="im-timeline-block">
+                    <div className="im-block-header">
+                        <span className="im-block-title">📅 Timeline Logs</span>
                     </div>
-                    <div className="mon-timeline-paired" style={{ flexWrap: 'wrap' }}>
-                        <div className="mon-timeline-col">
-                            <div className="mon-input-group">
-                                <span className="mon-input-label">From Client — Start</span>
+                    <div className="im-timeline-paired">
+                        <div className="im-timeline-col">
+                            <div className="im-input-group">
+                                <span className="im-input-label">From Client — Start</span>
                                 <input type="date" value={currentLog.clientStart}
                                     onChange={e => setCurrentLog({ ...currentLog, clientStart: e.target.value })}
-                                    className="mon-input" />
+                                    className="im-input" />
                             </div>
-                            <div className="mon-input-group">
-                                <span className="mon-input-label">Actual Start</span>
+                            <div className="im-input-group">
+                                <span className="im-input-label">Actual Start</span>
                                 <input type="date" value={currentLog.actualStart}
                                     onChange={e => setCurrentLog({ ...currentLog, actualStart: e.target.value })}
-                                    className="mon-input mon-input-actual" />
+                                    className="im-input im-input-actual" />
                             </div>
                         </div>
-                        <div className="mon-timeline-col">
-                            <div className="mon-input-group">
-                                <span className="mon-input-label">From Client — End</span>
+                        <div className="im-timeline-col">
+                            <div className="im-input-group">
+                                <span className="im-input-label">From Client — End</span>
                                 <input type="date" value={currentLog.clientEnd}
                                     onChange={e => setCurrentLog({ ...currentLog, clientEnd: e.target.value })}
-                                    className="mon-input" />
+                                    className="im-input" />
                             </div>
-                            <div className="mon-input-group">
-                                <span className="mon-input-label">Actual End</span>
+                            <div className="im-input-group">
+                                <span className="im-input-label">Actual End</span>
                                 <input type="date" value={currentLog.actualEnd}
                                     onChange={e => setCurrentLog({ ...currentLog, actualEnd: e.target.value })}
-                                    className="mon-input mon-input-actual" />
+                                    className="im-input im-input-actual" />
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Installer Table */}
-                <div className="mon-table-card">
-                    <div className="mon-table-toolbar">
+                <div className="im-table-card">
+                    <div className="im-table-toolbar">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span className="mon-table-title">👷 Installers — {selectedDate}</span>
+                            <span className="im-table-title">👷 Installers — {selectedDate}</span>
                             {roster.length > 0 && (
-                                <span className="mon-roster-badge">{roster.length} from roster</span>
+                                <span className="im-roster-badge">{roster.length} from roster</span>
                             )}
                         </div>
-                        <button className="mon-add-btn" onClick={addRow}>+ Add Row</button>
+                        <button className="im-add-btn" onClick={addRow}>+ Add Row</button>
                     </div>
-                    <div className="mon-table-scroll">
-                        <table className="mon-table">
+                    <div className="im-table-scroll">
+                        <table className="im-table">
                             <thead>
                                 <tr>
                                     <th style={{ width: 36, minWidth: 36 }}>#</th>
-                                    <th className="th-left" style={{ minWidth: 120 }}>Name</th>
-                                    <th className="th-left" style={{ minWidth: 100 }}>Position</th>
+                                    <th className="im-th-left" style={{ minWidth: 120 }}>Name</th>
+                                    <th className="im-th-left" style={{ minWidth: 100 }}>Position</th>
                                     <th style={{ minWidth: 80 }}>Time In</th>
                                     <th style={{ minWidth: 80 }}>Time Out</th>
                                     <th style={{ minWidth: 100 }}>Remarks</th>
@@ -507,17 +507,17 @@ const InstallerMonitoring = ({ project, user }) => {
                             </thead>
                             <tbody>
                                 {currentLog.rows.map((row, idx) => (
-                                    <tr key={row.id} className={row.name ? 'row-filled' : ''}>
-                                        <td className="td-num">{idx + 1}</td>
-                                        <td className="td-left">
+                                    <tr key={row.id} className={row.name ? 'im-row-filled' : ''}>
+                                        <td className="im-td-num">{idx + 1}</td>
+                                        <td className="im-td-left">
                                             <input type="text" value={row.name}
                                                 onChange={e => updateRow(row.id, 'name', e.target.value)}
-                                                className="mon-cell-input input-wide" placeholder="Full name" />
+                                                className="im-cell-input im-input-wide" placeholder="Full name" />
                                         </td>
-                                        <td className="td-left">
+                                        <td className="im-td-left">
                                             <select value={row.position}
                                                 onChange={e => updateRow(row.id, 'position', e.target.value)}
-                                                className="mon-cell-select">
+                                                className="im-cell-select">
                                                 <option value="">— Select —</option>
                                                 {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                                             </select>
@@ -525,20 +525,20 @@ const InstallerMonitoring = ({ project, user }) => {
                                         <td>
                                             <input type="time" value={row.timeIn}
                                                 onChange={e => updateRow(row.id, 'timeIn', e.target.value)}
-                                                className="mon-cell-input" />
+                                                className="im-cell-input" />
                                         </td>
                                         <td>
                                             <input type="time" value={row.timeOut}
                                                 onChange={e => updateRow(row.id, 'timeOut', e.target.value)}
-                                                className="mon-cell-input" />
+                                                className="im-cell-input" />
                                         </td>
                                         <td>
                                             <input type="text" value={row.remarks}
                                                 onChange={e => updateRow(row.id, 'remarks', e.target.value)}
-                                                className="mon-cell-input input-wide" placeholder="Notes…" />
+                                                className="im-cell-input im-input-wide" placeholder="Notes…" />
                                         </td>
                                         <td>
-                                            <button className="mon-remove-btn"
+                                            <button className="im-remove-btn"
                                                 onClick={() => removeRow(row.id)}
                                                 disabled={currentLog.rows.length <= 1}>✕</button>
                                         </td>
@@ -548,11 +548,11 @@ const InstallerMonitoring = ({ project, user }) => {
                         </table>
                     </div>
                     {roster.length > 0 && (
-                        <div className="mon-roster-summary" style={{ flexWrap: 'wrap' }}>
+                        <div className="im-roster-summary">
                             {['Lead Installer', 'Installer', 'Helper', 'Supervisor'].map(pos => {
                                 const count = roster.filter(r => r.position === pos).length;
                                 return count > 0 ? (
-                                    <span key={pos} className="mon-roster-pill">{count} {pos}</span>
+                                    <span key={pos} className="im-roster-pill">{count} {pos}</span>
                                 ) : null;
                             })}
                         </div>
@@ -560,25 +560,25 @@ const InstallerMonitoring = ({ project, user }) => {
                 </div>
 
                 {/* Photo Uploads */}
-                <div className="mon-photo-section">
-                    <div className="mon-block-header">
-                        <span className="mon-block-title">📸 Photo Attachments</span>
+                <div className="im-photo-section">
+                    <div className="im-block-header">
+                        <span className="im-block-title">📸 Photo Attachments</span>
                     </div>
-                    <div className="mon-photo-grid">
+                    <div className="im-photo-grid">
                         {[['Main Progress Photo', photoMain, setPhotoMain, fileMainRef],
                           ['Team Photo 1',        photo1,    setPhoto1,    file1Ref],
                           ['Team Photo 2',        photo2,    setPhoto2,    file2Ref]
                         ].map(([label, state, setter, ref]) => (
-                            <div key={label} className="mon-photo-item" style={{ minWidth: 0 }}>
-                                <span className="mon-photo-label">{label}</span>
-                                <label className={`mon-upload-trigger ${state ? 'has-file' : ''}`} style={{ flexWrap: 'wrap' }}>
-                                    <span className="mon-upload-icon">{state ? '✅' : '📎'}</span>
-                                    <span className="mon-upload-name" style={{ wordBreak: 'break-word' }}>
+                            <div key={label} className="im-photo-item">
+                                <span className="im-photo-label">{label}</span>
+                                <label className={`im-upload-trigger ${state ? 'im-has-file' : ''}`}>
+                                    <span className="im-upload-icon">{state ? '✅' : '📎'}</span>
+                                    <span className="im-upload-name">
                                         {state ? state.name : 'Click to choose image…'}
                                     </span>
                                     <input type="file" accept="image/*" ref={ref}
                                         onChange={e => setter(e.target.files[0])}
-                                        className="mon-file-hidden" />
+                                        className="im-file-hidden" />
                                 </label>
                             </div>
                         ))}
@@ -587,28 +587,28 @@ const InstallerMonitoring = ({ project, user }) => {
 
                 {/* History */}
                 {allLogs.length > 0 && (
-                    <div className="mon-history">
-                        <div className="mon-history-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                    <div className="im-history">
+                        <div className="im-history-header">
                             <div>
-                                <span className="mon-history-title">Log History</span>
-                                <span className="mon-history-count">{allLogs.length}</span>
+                                <span className="im-history-title">Log History</span>
+                                <span className="im-history-count">{allLogs.length}</span>
                             </div>
-                            <button className="mon-toggle-btn" onClick={() => setShowHistory(!showHistory)}>
+                            <button className="im-toggle-btn" onClick={() => setShowHistory(!showHistory)}>
                                 {showHistory ? 'Hide' : 'Show all'}
                             </button>
                         </div>
                         {showHistory && (
-                            <div className="mon-history-list">
+                            <div className="im-history-list">
                                 {allLogs.map(l => (
-                                    <div key={l.id} className="mon-history-item"
+                                    <div key={l.id} className="im-history-item"
                                         onClick={() => setSelectedDate(l.log_date)}>
                                         <div style={{ minWidth: 0, flex: 1 }}>
-                                            <div className="mon-history-date">{l.log_date}</div>
-                                            <div className="mon-history-meta" style={{ wordBreak: 'break-word' }}>
+                                            <div className="im-history-date">{l.log_date}</div>
+                                            <div className="im-history-meta">
                                                 {l.accomplishment_percent ?? 0}% · Area: {l.total_area ?? '—'}
                                             </div>
                                         </div>
-                                        <span className="mon-history-badge">View</span>
+                                        <span className="im-history-badge">View</span>
                                     </div>
                                 ))}
                             </div>

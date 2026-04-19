@@ -1,5 +1,5 @@
 /* ============================================================
-   PhaseCommandCenter.css
+   PhaseCommandCenter.css — RESPONSIVE FIX
    Vision International Construction OPC — Brand
    Colors: #221F1F | #497B97 | #EBDBD6 | #FF1817 | #C20100
    Font: DM Sans
@@ -7,6 +7,7 @@
 
    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
+   /* ── GLOBAL RESET ── */
    *, *::before, *::after { box-sizing: border-box; }
    
    /* ── Variables ── */
@@ -32,7 +33,9 @@
      flex-direction: column;
      gap: 16px;
      width: 100%;
+     max-width: 100%;       /* KEY FIX: hard cap at viewport */
      min-width: 0;
+     overflow-x: hidden;    /* KEY FIX: prevents children from stretching page */
      font-family: var(--cc-font);
    }
    
@@ -44,6 +47,7 @@
      overflow: hidden;
      box-shadow: var(--cc-shadow);
      min-width: 0;
+     width: 100%;
    }
    
    .pm-cc-body {
@@ -51,6 +55,8 @@
      display: flex;
      flex-direction: column;
      gap: 16px;
+     width: 100%;
+     min-width: 0; /* KEY FIX: allows flex children to shrink */
    }
    
    /* ── Tabs ── */
@@ -62,16 +68,17 @@
      scrollbar-width: none;
      border-bottom: 2px solid var(--cc-border);
      background: var(--cc-white);
+     width: 100%;
    }
    .pm-tabs-wrapper::-webkit-scrollbar { display: none; }
    
    .pm-tab-btn {
      flex-shrink: 0;
      white-space: nowrap;
-     padding: 10px 14px;
-     font-size: 11px;
+     padding: 9px 10px;      /* mobile-first: compact */
+     font-size: 10px;
      font-weight: 700;
-     letter-spacing: 0.04em;
+     letter-spacing: 0.03em;
      text-transform: uppercase;
      border: none;
      border-bottom: 3px solid transparent;
@@ -81,7 +88,7 @@
      color: #6b7280;
      font-family: var(--cc-font);
    }
-   .pm-tab-btn:hover { color: var(--cc-navy); background: rgba(26,26,46,0.04); }
+   .pm-tab-btn:hover  { color: var(--cc-navy); background: rgba(26,26,46,0.04); }
    .pm-tab-btn.active {
      color: var(--cc-red-dark);
      border-bottom-color: var(--cc-red-dark);
@@ -93,12 +100,11 @@
      border: none;
      border-top: 1px solid var(--cc-border);
      margin: 0;
+     width: 100%;
    }
    
    /* ── Fade-in animation ── */
-   .pm-animate-fadein {
-     animation: cc-fadein 0.22s ease;
-   }
+   .pm-animate-fadein { animation: cc-fadein 0.22s ease; }
    @keyframes cc-fadein {
      from { opacity: 0; transform: translateY(4px); }
      to   { opacity: 1; transform: translateY(0); }
@@ -107,8 +113,9 @@
    /* ── Action cards grid — 1 col mobile → 3 col desktop ── */
    .pm-action-cards-grid {
      display: grid;
-     grid-template-columns: 1fr;
+     grid-template-columns: 1fr; /* mobile: single col */
      gap: 12px;
+     width: 100%;
    }
    
    .pm-action-card {
@@ -120,6 +127,7 @@
      flex-direction: column;
      gap: 8px;
      min-width: 0;
+     width: 100%;
    }
    
    .pm-action-card[data-variant="orange"] { border-top: 3px solid #f97316; }
@@ -131,22 +139,25 @@
      font-weight: 700;
      color: var(--cc-black);
      margin: 0;
+     word-break: break-word; /* KEY FIX: long titles wrap */
    }
    
-   /* ── Issues grid — stacks on mobile ── */
+   /* ── Issues grid ── */
    .pm-issues-grid {
      display: grid;
-     grid-template-columns: 1fr;
+     grid-template-columns: 1fr; /* mobile: single col */
      gap: 12px;
      margin-bottom: 12px;
+     width: 100%;
    }
    
    /* ── Checklist grid ── */
    .pm-checklist-grid {
      display: grid;
-     grid-template-columns: 1fr;
+     grid-template-columns: 1fr; /* mobile: single col */
      gap: 10px;
      margin-bottom: 16px;
+     width: 100%;
    }
    
    .pm-checklist-item {
@@ -161,8 +172,11 @@
      font-size: 13px;
      font-weight: 500;
      font-family: var(--cc-font);
+     word-break: break-word; /* KEY FIX */
    }
-   .pm-checklist-item input[type="checkbox"] { flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; }
+   .pm-checklist-item input[type="checkbox"] {
+     flex-shrink: 0; width: 16px; height: 16px; cursor: pointer;
+   }
    
    /* ── Modal overlay ── */
    .pm-modal-overlay {
@@ -172,7 +186,7 @@
      display: flex;
      align-items: flex-start;
      justify-content: center;
-     padding: 12px;
+     padding: 10px;          /* KEY FIX: tighter mobile padding */
      z-index: 1000;
      overflow-y: auto;
      -webkit-overflow-scrolling: touch;
@@ -181,7 +195,7 @@
    .pm-modal-content {
      background: var(--cc-white);
      border-radius: 10px;
-     padding: 20px 16px;
+     padding: 14px 12px;     /* mobile-first: compact */
      width: 100%;
      max-width: 960px;
      margin: auto;
@@ -195,10 +209,17 @@
      justify-content: space-between;
      gap: 8px;
      margin-bottom: 12px;
-     flex-wrap: wrap;
+     flex-wrap: wrap;         /* KEY FIX: title wraps instead of overflowing */
    }
    
-   .pm-modal-desc { margin-bottom: 12px; font-size: 13px; }
+   .pm-modal-header h3 {
+     font-size: 14px;         /* mobile-first: smaller */
+     word-break: break-word;  /* KEY FIX */
+     min-width: 0;
+     flex: 1;
+   }
+   
+   .pm-modal-desc { margin-bottom: 12px; font-size: 13px; word-break: break-word; }
    
    /* ── Requester info ── */
    .pm-requester-info {
@@ -210,28 +231,26 @@
      border: 1px solid #bae6fd;
      border-radius: 8px;
      margin-bottom: 12px;
-     flex-wrap: wrap;
+     flex-wrap: wrap;          /* KEY FIX */
    }
    .pm-requester-icon  { font-size: 18px; flex-shrink: 0; }
    .pm-requester-label {
-     font-size: 10px;
-     font-weight: 700;
-     text-transform: uppercase;
-     letter-spacing: 0.05em;
-     color: #0369a1;
-     display: block;
+     font-size: 10px; font-weight: 700;
+     text-transform: uppercase; letter-spacing: 0.05em;
+     color: #0369a1; display: block;
    }
-   .pm-requester-name  { font-size: 14px; font-weight: 600; color: #0c4a6e; }
+   .pm-requester-name { font-size: 14px; font-weight: 600; color: #0c4a6e; word-break: break-word; }
    
    /* ── Modal table scroll ── */
    .pm-modal-table-scroll {
      width: 100%;
      max-width: 100%;
-     overflow-x: auto;
+     overflow-x: auto;        /* KEY FIX: table scrolls, not the page */
      -webkit-overflow-scrolling: touch;
      border: 1px solid #e5e7eb;
      border-radius: 6px;
      margin-bottom: 12px;
+     display: block;          /* KEY FIX: ensures block scroll context */
    }
    
    /* ── Modal table ── */
@@ -239,15 +258,12 @@
      width: 100%;
      border-collapse: collapse;
      font-size: 12px;
-     min-width: 560px;
+     min-width: 520px;        /* KEY FIX: table has minimum width, wrapper scrolls it */
    }
    .pm-table thead th {
      padding: 9px 10px;
-     font-size: 9px;
-     font-weight: 800;
-     letter-spacing: 0.06em;
-     text-transform: uppercase;
-     white-space: nowrap;
+     font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
+     text-transform: uppercase; white-space: nowrap;
      background: #1a1a2e;
      color: rgba(255,255,255,0.85);
      border-right: 1px solid rgba(255,255,255,0.08);
@@ -258,7 +274,7 @@
    
    .pm-table tbody tr { border-bottom: 1px solid #e5e7eb; transition: background 0.12s; }
    .pm-table tbody tr:last-child { border-bottom: none; }
-   .pm-table tbody tr:hover { background: #fafafa; }
+   .pm-table tbody tr:hover      { background: #fafafa; }
    .pm-table tbody tr.pm-tr-selected { background: #f0fdf4; }
    
    .pm-table tbody td { padding: 8px 10px; vertical-align: middle; }
@@ -271,48 +287,32 @@
    .pm-category-badge {
      display: inline-block;
      padding: 2px 7px;
-     background: #f3f4f6;
-     color: #374151;
-     border: 1px solid #d1d5db;
-     border-radius: 4px;
-     font-size: 10px;
-     font-weight: 600;
-     text-transform: uppercase;
-     letter-spacing: 0.04em;
-     white-space: nowrap;
-     max-width: 120px;
-     overflow: hidden;
-     text-overflow: ellipsis;
-     vertical-align: middle;
+     background: #f3f4f6; color: #374151;
+     border: 1px solid #d1d5db; border-radius: 4px;
+     font-size: 10px; font-weight: 600;
+     text-transform: uppercase; letter-spacing: 0.04em;
+     white-space: nowrap; max-width: 120px;
+     overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
    }
    
    /* ── Qty input ── */
    .pm-req-qty-input {
-     min-width: 60px;
-     max-width: 90px;
-     width: 100%;
+     min-width: 56px; max-width: 90px; width: 100%;
      padding: 5px 8px;
-     border: 1.5px solid #e5e7eb;
-     border-radius: 5px;
-     font-size: 12px;
-     text-align: center;
-     outline: none;
+     border: 1.5px solid #e5e7eb; border-radius: 5px;
+     font-size: 12px; text-align: center; outline: none;
      font-family: var(--cc-font);
    }
-   .pm-req-qty-input:focus      { border-color: var(--cc-blue); }
-   .pm-req-qty-input:disabled   { background: #f9fafb; cursor: not-allowed; }
-   .pm-req-qty-active            { border-color: #16a34a !important; background: #f0fdf4; }
+   .pm-req-qty-input:focus    { border-color: var(--cc-blue); }
+   .pm-req-qty-input:disabled { background: #f9fafb; cursor: not-allowed; }
+   .pm-req-qty-active          { border-color: #16a34a !important; background: #f0fdf4; }
    
-   .pm-req-checkbox {
-     width: 18px;
-     height: 18px;
-     cursor: pointer;
-   }
+   .pm-req-checkbox { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
    
    /* ── Modal actions ── */
    .pm-modal-actions {
      display: grid;
-     grid-template-columns: 1fr 1fr;
+     grid-template-columns: 1fr; /* mobile: stacked */
      gap: 10px;
      margin-top: 8px;
    }
@@ -323,27 +323,22 @@
      align-items: flex-start;
      gap: 12px;
      padding: 14px 16px;
-     background: #f0fdf4;
-     border: 1.5px solid #86efac;
-     border-radius: 8px;
-     font-size: 13px;
-     flex-wrap: wrap;
+     background: #f0fdf4; border: 1.5px solid #86efac;
+     border-radius: 8px; font-size: 13px;
+     flex-wrap: wrap;          /* KEY FIX */
+     flex-direction: column;   /* mobile-first: stacked */
+     width: 100%;
    }
    .pm-req-sent-icon { font-size: 18px; flex-shrink: 0; }
-   .pm-req-sent-body { flex: 1; min-width: 0; }
+   .pm-req-sent-body { flex: 1; min-width: 0; word-break: break-word; }
    .pm-req-sent-msg  { margin: 4px 0 0; font-size: 12px; color: #6b7280; }
    
    /* ── Close button ── */
    .pm-close-btn {
-     background: none;
-     border: none;
-     cursor: pointer;
-     font-size: 14px;
-     color: #6b7280;
-     padding: 2px 6px;
-     border-radius: 4px;
-     flex-shrink: 0;
-     transition: background 0.15s;
+     background: none; border: none; cursor: pointer;
+     font-size: 14px; color: #6b7280;
+     padding: 2px 6px; border-radius: 4px;
+     flex-shrink: 0; transition: background 0.15s;
      font-family: var(--cc-font);
    }
    .pm-close-btn:hover { background: #f3f4f6; }
@@ -354,36 +349,43 @@
      display: flex;
      flex-direction: column;
      gap: 10px;
+     width: 100%;
    }
    
    /* ── Shared text helpers ── */
-   .pm-text-muted   { font-size: 13px; color: #6b7280; margin: 0; }
-   .pm-text-white   { color: #fff; }
-   .pm-text-orange  { color: #ea580c; }
+   .pm-text-muted       { font-size: 13px; color: #6b7280; margin: 0; word-break: break-word; }
+   .pm-text-white       { color: #fff; }
+   .pm-text-orange      { color: #ea580c; }
    .pm-text-orange-dark { color: #9a3412; }
-   .pm-no-margin    { margin: 0; }
-   .pm-title-lg     { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
-   .pm-title-md     { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
-   .pm-label        { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 6px; }
-   .pm-label-red    { color: #991b1b; }
-   .pm-label-green  { color: #166534; }
-   .pm-textarea     { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 6px; font-family: var(--cc-font); font-size: 13px; resize: vertical; outline: none; }
+   .pm-no-margin        { margin: 0; }
+   .pm-title-lg         { font-size: 16px; font-weight: 700; margin: 0 0 4px; word-break: break-word; }
+   .pm-title-md         { font-size: 14px; font-weight: 700; margin: 0 0 4px; word-break: break-word; }
+   .pm-label {
+     font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+     text-transform: uppercase; display: block; margin-bottom: 6px;
+   }
+   .pm-label-red   { color: #991b1b; }
+   .pm-label-green { color: #166534; }
+   
+   .pm-textarea {
+     width: 100%; min-height: 80px; padding: 10px 12px;
+     border: 1.5px solid #e5e7eb; border-radius: 6px;
+     font-family: var(--cc-font); font-size: 13px; resize: vertical; outline: none;
+   }
    .pm-textarea:focus { border-color: var(--cc-blue); }
    
    .pm-card-red {
-     background: #fff1f1;
-     border: 1.5px solid #fecaca;
-     border-radius: 8px;
-     padding: 14px;
+     background: #fff1f1; border: 1.5px solid #fecaca;
+     border-radius: 8px; padding: 14px;
+     min-width: 0; width: 100%;
    }
    .pm-card.pm-card-solution {
-     background: #f0fdf4;
-     border: 1.5px solid #86efac;
-     border-radius: 8px;
-     padding: 14px;
+     background: #f0fdf4; border: 1.5px solid #86efac;
+     border-radius: 8px; padding: 14px;
+     min-width: 0; width: 100%;
    }
-   .pm-card-navy    { background: var(--cc-navy); padding: 14px 16px; }
-   .pm-card-cream   { background: #fffbf5; padding: 14px; border-radius: 8px; }
+   .pm-card-navy  { background: var(--cc-navy); padding: 14px 16px; min-width: 0; }
+   .pm-card-cream { background: #fffbf5; padding: 14px; border-radius: 8px; min-width: 0; }
    .pm-navy-orange  { border-bottom: 3px solid #f97316; }
    .pm-cream-orange { border: 1px solid #fed7aa; }
    
@@ -395,11 +397,11 @@
      padding: 10px 16px;
      border-radius: 6px;
      font-family: var(--cc-font);
-     font-size: 13px;
-     font-weight: 600;
-     cursor: pointer;
-     border: none;
+     font-size: 13px; font-weight: 600;
+     cursor: pointer; border: none;
      transition: all 0.18s;
+     white-space: nowrap;
+     min-width: 0;
    }
    .pm-btn-outline {
      background: transparent;
@@ -410,34 +412,33 @@
    .pm-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
    
    /* ============================================================
-      RESPONSIVE
+      RESPONSIVE BREAKPOINTS
       ============================================================ */
    
-   /* ── ≥ 600px: tabs show full labels, issues go 2-col ── */
+   /* ── ≥ 480px: modal actions go side-by-side, banner row ── */
+   @media (min-width: 480px) {
+     .pm-modal-actions   { grid-template-columns: 1fr 1fr; }
+     .pm-req-sent-banner { flex-direction: row; }
+   }
+   
+   /* ── ≥ 600px: issues 2-col, checklist 2-col, bigger tabs ── */
    @media (min-width: 600px) {
      .pm-issues-grid    { grid-template-columns: 1fr 1fr; }
-     .pm-checklist-grid { grid-template-columns: repeat(3, 1fr); }
-     .pm-tab-btn        { font-size: 12px; padding: 10px 16px; }
+     .pm-checklist-grid { grid-template-columns: repeat(2, 1fr); }
+     .pm-tab-btn        { font-size: 11px; padding: 10px 14px; letter-spacing: 0.04em; }
+     .pm-modal-header h3 { font-size: 16px; }
    }
    
-   /* ── ≥ 768px: modal gets more padding ── */
+   /* ── ≥ 768px: larger modal padding, 3-col action cards ── */
    @media (min-width: 768px) {
-     .pm-cc-body        { padding: 20px; }
-     .pm-modal-content  { padding: 24px; }
+     .pm-cc-body           { padding: 20px; }
+     .pm-modal-content     { padding: 24px; }
      .pm-action-cards-grid { grid-template-columns: repeat(3, 1fr); }
+     .pm-checklist-grid    { grid-template-columns: repeat(3, 1fr); }
+     .pm-tab-btn           { font-size: 12px; padding: 10px 16px; }
    }
    
-   /* ── ≥ 1024px ── */
+   /* ── ≥ 1024px: full padding ── */
    @media (min-width: 1024px) {
      .pm-cc-body { padding: 24px; }
-   }
-   
-   /* ── ≤ 480px ── */
-   @media (max-width: 480px) {
-     .pm-tab-btn         { padding: 9px 10px; font-size: 10px; letter-spacing: 0.02em; }
-     .pm-modal-content   { padding: 14px 12px; }
-     .pm-modal-actions   { grid-template-columns: 1fr; }
-     .pm-modal-header h3 { font-size: 14px; }
-     .pm-req-sent-banner { flex-direction: column; }
-     .pm-action-cards-grid { grid-template-columns: 1fr; }
    }
