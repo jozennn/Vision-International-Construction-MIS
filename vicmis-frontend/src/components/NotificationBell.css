@@ -97,10 +97,31 @@
     color: white;
 }
 
+/* IMPORTANT: This is the scrollable body that contains notifications */
 .notif-body {
     max-height: 400px;
     overflow-y: auto;
+    overflow-x: hidden;
     text-align: left;
+}
+
+/* Custom scrollbar for the dropdown */
+.notif-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.notif-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.notif-body::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.notif-body::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 .notif-empty {
