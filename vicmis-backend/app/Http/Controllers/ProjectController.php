@@ -901,50 +901,44 @@ class ProjectController extends Controller
 
     public function storeDailyLog(Request $request, $id): JsonResponse
 {
-    \Log::info('Daily Log Request', [
-        'project_id' => $id,
-        'log_date' => $request->log_date,
-        'has_photo' => $request->hasFile('photo'),
-        'has_team_photo_1' => $request->hasFile('team_photo_1'),
-        'has_team_photo_2' => $request->hasFile('team_photo_2'),
-        'all_files' => array_keys($request->allFiles()),
-        'content_type' => $request->header('Content-Type'),
-    ]);
-
     $request->validate(['log_date' => 'required|date']);
     
     $project = Project::findOrFail($id);
     
-    // IMPORTANT: Find existing log to preserve existing photos
+    // Find existing log
     $existingLog = DailySiteLog::where('project_id', $id)
         ->where('log_date', $request->log_date)
         ->first();
     
-    // Handle main photo - ONLY update if a new file is uploaded
+    // Handle main photo
     $photoPath = $existingLog ? $existingLog->photo_path : null;
     if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
         $photoPath = $request->file('photo')->store('daily_logs', 'public');
-        \Log::info('New main photo uploaded: ' . $photoPath);
-    } else {
-        \Log::info('Preserving existing main photo: ' . $photoPath);
     }
     
-    // Handle team photo 1 - ONLY update if a new file is uploaded
+    // 🔧 FIXED: Handle team photo 1
     $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
     if ($request->hasFile('team_photo_1') && $request->file('team_photo_1')->isValid()) {
-        $teamPhoto1Path = $request->file('team_photo_1')->store('daily_logs/team', 'public');
-        \Log::info('New team photo 1 uploaded: ' . $teamPhoto1Path);
+        $file = $request->file('team_photo_1');
+        $teamPhoto1Path = $file->store('daily_logs/team', 'public');
+        \Log::info('Team photo 1 saved to: ' . $teamPhoto1Path);
     } else {
-        \Log::info('Preserving existing team photo 1: ' . $teamPhoto1Path);
+        // If no new file, keep existing path (but ensure it's not the string "0")
+        if ($teamPhoto1Path === "0" || $teamPhoto1Path === 0) {
+            $teamPhoto1Path = null;
+        }
     }
     
-    // Handle team photo 2 - ONLY update if a new file is uploaded
+    // 🔧 FIXED: Handle team photo 2
     $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
     if ($request->hasFile('team_photo_2') && $request->file('team_photo_2')->isValid()) {
-        $teamPhoto2Path = $request->file('team_photo_2')->store('daily_logs/team', 'public');
-        \Log::info('New team photo 2 uploaded: ' . $teamPhoto2Path);
+        $file = $request->file('team_photo_2');
+        $teamPhoto2Path = $file->store('daily_logs/team', 'public');
+        \Log::info('Team photo 2 saved to: ' . $teamPhoto2Path);
     } else {
-        \Log::info('Preserving existing team photo 2: ' . $teamPhoto2Path);
+        if ($teamPhoto2Path === "0" || $teamPhoto2Path === 0) {
+            $teamPhoto2Path = null;
+        }
     }
     
     $installersData = json_decode($request->installers_data, true) ?? [];
@@ -973,17 +967,14 @@ class ProjectController extends Controller
         $data
     );
     
-    // Refresh to get the latest data
-    $log->refresh();
-    
-    // Add URLs to the response
+    // Add URLs to response
     if ($log->photo_path) {
         $log->photo_url = Storage::disk('public')->url($log->photo_path);
     }
-    if ($log->team_photo_1) {
+    if ($log->team_photo_1 && $log->team_photo_1 !== '0') {
         $log->team_photo_1_url = Storage::disk('public')->url($log->team_photo_1);
     }
-    if ($log->team_photo_2) {
+    if ($log->team_photo_2 && $log->team_photo_2 !== '0') {
         $log->team_photo_2_url = Storage::disk('public')->url($log->team_photo_2);
     }
     
