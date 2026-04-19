@@ -5,7 +5,7 @@ import { useInstallerMonitoring, resolveRoster } from '../hooks/useInstallerMoni
 import '../css/InstallerMonitoring.css';
 
 const POSITIONS = ['Lead Installer', 'Installer', 'Helper', 'Supervisor'];
-
+const prevDateRef = useRef(selectedDate);
 // Helper to format date for input fields
 const formatDateForInput = (dateString) => {
     if (!dateString) return '';
@@ -67,26 +67,32 @@ const InstallerMonitoring = ({ project, user }) => {
 }, [currentLog.photo_url, currentLog.team_photo_1_url, currentLog.team_photo_2_url]);
 
     // Clear staged photos when switching to a different date
-    useEffect(() => {
-        setPhotoMain(null);
-        setPhoto1(null);
-        setPhoto2(null);
-        if (fileMainRef.current) fileMainRef.current.value = '';
-        if (file1Ref.current) file1Ref.current.value = '';
-        if (file2Ref.current) file2Ref.current.value = '';
+   useEffect(() => {
+        if (prevDateRef.current !== selectedDate) {
+            setPhotoMain(null);
+            setPhoto1(null);
+            setPhoto2(null);
+            if (fileMainRef.current) fileMainRef.current.value = '';
+            if (file1Ref.current)    file1Ref.current.value    = '';
+            if (file2Ref.current)    file2Ref.current.value    = '';
+            prevDateRef.current = selectedDate;
+        }
     }, [selectedDate]);
 
     const handleSave = async () => {
         try {
             await saveLog({ photoMain, photo1, photo2 });
 
-            // ✅ Clear staged files only after successful save
-            setPhotoMain(null);
-            setPhoto1(null);
-            setPhoto2(null);
-            if (fileMainRef.current) fileMainRef.current.value = '';
-            if (file1Ref.current) file1Ref.current.value = '';
-            if (file2Ref.current) file2Ref.current.value = '';
+            // Wait for state to propagate before clearing staged files
+            setTimeout(() => {
+                setPhotoMain(null);
+                setPhoto1(null);
+                setPhoto2(null);
+                if (fileMainRef.current) fileMainRef.current.value = '';
+                if (file1Ref.current)    file1Ref.current.value    = '';
+                if (file2Ref.current)    file2Ref.current.value    = '';
+            }, 500);
+
         } catch (err) {
             console.error('Save failed:', err);
         }
