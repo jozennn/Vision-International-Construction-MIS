@@ -109,7 +109,8 @@ export const canAccessProject = (project, user, userDept) => {
   const role  = (user?.role ?? '').toLowerCase();
   const email = (user?.email ?? '').toLowerCase();
 
-  if (role === 'admin' || role === 'manager') return true;
+
+  if (role === 'admin' || role === 'manager' || role === 'super_admin') return true;
   if (isDeptHead(user)) return true;
   if (dept.includes('management') || email.includes('ops') || email.includes('admin')) return true;
   if (dept.includes('engineering') || email.includes('eng')) return true;
@@ -176,7 +177,7 @@ export const canAdvanceWaitingPhase = (status, user, userDept) => {
   const role  = (user?.role ?? '').toLowerCase();
   const email = (user?.email ?? '').toLowerCase();
 
-  if (role === 'admin' || role === 'manager') return true;
+  if (role === 'admin' || role === 'manager' || role === 'super_admin') return true;
 
   const phase = PHASE_ORDER.find(p => p.status === status);
   if (!phase) return false;
