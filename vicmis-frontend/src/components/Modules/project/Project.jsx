@@ -242,7 +242,8 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) && (
+          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) 
+            && isEng && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
@@ -251,6 +252,7 @@ const Project = ({ user, projects, setProjects }) => {
               {actions.goBackLoading ? '⏳ Going back…' : `↩ Back to: ${previousPhase}`}
             </button>
           )}
+        
         </div>
         <h2 className="pm-header-title">
           {selectedProject.project_name} | <span>{status}</span>
