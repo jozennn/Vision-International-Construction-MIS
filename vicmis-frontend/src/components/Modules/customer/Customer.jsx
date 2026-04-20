@@ -572,11 +572,15 @@ const Customer = ({ user }) => {
                 <div className="filter-dropdown">
                   <div className="filter-dropdown-title">Filter by Status</div>
                   {['all', ...PIPELINE_STAGES.map(s => s.key)].map(opt => (
-                    <button key={opt}
-                      className={`filter-option ${filterStatus === opt ? 'selected' : ''}`}
-                      onClick={() => { setFilterStatus(opt); setIsFilterOpen(false); }}>
-                      {opt === 'all' ? '📋 All Statuses' : opt}
-                    </button>
+                     <button key={opt}
+                        className={`filter-option ${filterStatus === opt ? 'selected' : ''}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // ← prevents the outside-click handler from firing first
+                          setFilterStatus(opt);
+                          setIsFilterOpen(false);
+                        }}>
+                        {opt === 'all' ? '📋 All Statuses' : opt}
+                      </button>
                   ))}
                 </div>
               )}
