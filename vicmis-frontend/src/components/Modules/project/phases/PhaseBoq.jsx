@@ -73,7 +73,7 @@ const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
           padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
         }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>📐 Floor Plan: {projectName}</h3>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#fffff' }}>📐 Floor Plan: {projectName}</h3>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', fontSize: '1.5rem', 
             cursor: 'pointer', color: '#64748b', padding: '5px'
