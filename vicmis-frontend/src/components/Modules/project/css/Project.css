@@ -99,6 +99,11 @@
   letter-spacing: .04em;
   transition: all .15s;
 }
+
+.pm-back-phase-btn {
+  display: none;
+}
+
 .pm-back-btn:hover { background: var(--pm-black); color: var(--pm-white); border-color: var(--pm-black); }
 
 .pm-back-phase-btn {
