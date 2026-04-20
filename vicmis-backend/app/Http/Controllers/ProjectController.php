@@ -289,7 +289,8 @@ class ProjectController extends Controller
 
         $query = Project::with(self::EAGER);
 
-        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
+        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head', 'super_admin'])
+            || str_contains($role, 'admin')
             || str_contains($dept, 'management')
             || str_contains($email, 'ops')
             || str_contains($email, 'admin');
@@ -415,7 +416,8 @@ class ProjectController extends Controller
         $role  = strtolower($user->role ?? '');
         $email = strtolower($user->email ?? '');
 
-        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head'])
+        $isGlobal = in_array($role, ['admin', 'manager', 'dept_head', 'super_admin'])
+            || str_contains($role, 'admin')
             || str_contains($dept, 'management')
             || str_contains($email, 'ops')
             || str_contains($email, 'admin');
