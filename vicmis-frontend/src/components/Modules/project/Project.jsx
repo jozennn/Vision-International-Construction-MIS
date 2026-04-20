@@ -243,7 +243,8 @@ const Project = ({ user, projects, setProjects }) => {
             ← BACK TO DASHBOARD
           </button>
           {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) 
-            && isEng && (
+            && isEng
+            && !['Measurement based on Plan', 'Actual Measurement'].includes(status) && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
