@@ -40,7 +40,7 @@ const Project = ({ user, projects, setProjects }) => {
   const isEngHead    = userDept.includes('engineering') && user?.role === 'dept_head';
   const isLogistics  = userDept.includes('logistics')  || userDept.includes('inventory');
   const isAccounting = userDept.includes('accounting') || userDept.includes('finance');
-  const isOpsAss     = userDept.includes('management') || user?.role === 'admin' || user?.role === 'manager';
+  const isOpsAss     = userDept.includes('management') || user?.role === 'admin' || user?.role === 'manager' || user?.role === 'super_admin';;
   const isDeptHeadAny = user?.role === 'dept_head';
 
   const roles = { isSales, isSalesHead, isEng, isEngHead, isLogistics, isAccounting, isOpsAss, isDeptHeadAny };
@@ -242,7 +242,9 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) && (
+          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) 
+            && isEng
+            && !['Measurement based on Plan', 'Actual Measurement'].includes(status) && (
             <button
               className="pm-back-phase-btn"
               onClick={() => actions.handleGoBackPhase(previousPhase)}
@@ -251,6 +253,7 @@ const Project = ({ user, projects, setProjects }) => {
               {actions.goBackLoading ? '⏳ Going back…' : `↩ Back to: ${previousPhase}`}
             </button>
           )}
+        
         </div>
         <h2 className="pm-header-title">
           {selectedProject.project_name} | <span>{status}</span>

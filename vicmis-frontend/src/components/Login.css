@@ -319,6 +319,11 @@
   touch-action: manipulation;
   animation: fadeUp 0.4s ease 1.05s both;
   letter-spacing: 0.02em;
+
+  /* Fix: make button a flex container so spinner + text align properly */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .enter-btn:hover  { background: #991626; }
@@ -328,27 +333,19 @@
   cursor: not-allowed;
 }
 
+/* ── Suppress browser-injected autofill / credential icons on the button ── */
+.enter-btn::-webkit-inner-spin-button,
+.enter-btn::-webkit-outer-spin-button,
+.enter-btn::-webkit-contacts-auto-fill-button,
+.enter-btn::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* =========================================
    LOADING SPINNER
    ========================================= */
-
-.loader-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2.5px solid rgba(255, 255, 255, 0.35);
-  border-radius: 50%;
-  border-top-color: #fff;
-  animation: spin 0.75s linear infinite;
-  display: inline-block;
-  flex-shrink: 0;
-}
 
 .checking-pulse { animation: pulse 1.5s infinite; }
 

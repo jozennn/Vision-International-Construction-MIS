@@ -43,6 +43,103 @@ const PhaseDivider = ({ label }) => (
   </div>
 );
 
+/* ─────────────────── Floor Plan Viewer Modal ─────────────────── */
+const FloorPlanViewer = ({ imageUrl, onClose, projectName }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const handleImageError = () => {
+    setIsLoading(false);
+    setError('Failed to load floor plan image. The file may be missing or corrupted.');
+  };
+
+  const handleImageLoad = () => {
+    setIsLoading(false);
+  };
+
+  return (
+    <div className="floorplan-modal-overlay" onClick={onClose} style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'flex',
+      justifyContent: 'center', alignItems: 'center', zIndex: 9999,
+      backdropFilter: 'blur(4px)'
+    }}>
+      <div className="floorplan-modal-content" onClick={(e) => e.stopPropagation()} style={{
+        backgroundColor: '#fff', borderRadius: '12px', width: '90%', maxWidth: '1000px',
+        maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+      }}>
+        <div className="floorplan-modal-header" style={{
+          padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#fffff' }}>📐 Floor Plan: {projectName}</h3>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', fontSize: '1.5rem', 
+            cursor: 'pointer', color: '#64748b', padding: '5px'
+          }}>✕</button>
+        </div>
+
+        <div className="floorplan-modal-body" style={{
+          backgroundColor: '#f1f5f9', flex: 1, overflow: 'auto',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          minHeight: '400px', padding: '20px'
+        }}>
+          {isLoading && !error && (
+            <div style={{ textAlign: 'center' }}>
+              <div className="floorplan-spinner"></div>
+              <p style={{ marginTop: '10px', color: '#64748b' }}>Opening document...</p>
+            </div>
+          )}
+          
+          {error ? (
+            <div style={{ textAlign: 'center', color: '#ef4444' }}>
+              <span style={{ fontSize: '3rem' }}>⚠️</span>
+              <p>{error}</p>
+            </div>
+          ) : (
+            <img 
+              src={imageUrl} 
+              alt="Floor Plan"
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              style={{ 
+                display: isLoading ? 'none' : 'block', 
+                maxWidth: '100%', 
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                borderRadius: '4px'
+              }}
+            />
+          )}
+        </div>
+
+        <div className="floorplan-modal-footer" style={{
+          padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0',
+          display: 'flex', justifyContent: 'flex-end', gap: '10px'
+        }}>
+          <button onClick={onClose} className="pm-btn-secondary" style={{ padding: '8px 20px' }}>Close</button>
+          {!error && !isLoading && (
+            <a 
+              href={imageUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ 
+                padding: '8px 20px', backgroundColor: '#C20100', 
+                color: 'white', textDecoration: 'none', borderRadius: '6px',
+                fontSize: '14px', fontWeight: '600'
+              }}
+            >
+              Open Full Image
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─────────────────── Measurement card ─────────────────── */
 const MeasurementCard = ({
   title, sqmValue, onSqmChange,
@@ -94,12 +191,30 @@ const PhaseBoq = ({
 }) => {
 
   const [saveStatus, setSaveStatus]   = useState('idle');
+  const [showFloorPlanModal, setShowFloorPlanModal] = useState(false);
   const draftTimerRef                 = useRef(null);
   const statusTimerRef                = useRef(null);
-  // Skip the very first render so we don't auto-save the data
-  // that was just loaded from the DB via initFromProject.
   const isFirstRender                 = useRef(true);
   const isActual                      = phase === 'actual';
+
+  /* ── Get floor plan image URL (SMART FIX) ── */
+  const getFloorPlanUrl = () => {
+    if (!project?.floor_plan_image) return null;
+    
+    if (project.floor_plan_image.startsWith('http')) {
+      return project.floor_plan_image;
+    }
+
+    // Logic: if the filename already contains 'project_documents/', don't add it again.
+    const fileName = project.floor_plan_image;
+    const path = fileName.includes('project_documents/') 
+      ? fileName 
+      : `project_documents/${fileName}`;
+
+    return `https://visionintlconstopc.com/storage/${path}`;
+  };
+
+  const floorPlanUrl = getFloorPlanUrl();
 
   /* ── Auto-populate finalBOQ from planBOQ when entering actual phase ── */
   useEffect(() => {
@@ -109,7 +224,7 @@ const PhaseBoq = ({
     if (planRows.length > 0 && finalRows.length === 0) {
       setBoqData(prev => ({ ...prev, finalBOQ: planRows.map(r => ({ ...r })) }));
     }
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase]); 
 
   /* ── Draft save function ── */
   const saveDraft = useCallback(async () => {
@@ -143,7 +258,6 @@ const PhaseBoq = ({
 
   /* ── Watch boqData — debounce draft save by 1.5s after last change ── */
   useEffect(() => {
-    // Skip first render — data was just loaded from DB, nothing new to save
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
@@ -161,7 +275,7 @@ const PhaseBoq = ({
     boqData.actualSqm,
     boqData.actualMeasurement,
     boqData.finalBOQ,
-  ]); // eslint-disable-line react-hooks/exhaustive-deps
+  ]);
 
   /* Cleanup timers on unmount */
   useEffect(() => {
@@ -320,6 +434,15 @@ const PhaseBoq = ({
     setTimeout(() => { win.print(); }, 500);
   };
 
+  /* ── Handle floor plan click ── */
+  const handleViewFloorPlan = () => {
+    if (floorPlanUrl) {
+      setShowFloorPlanModal(true);
+    } else {
+      alert('No floor plan image uploaded yet.');
+    }
+  };
+
   return (
     <div className="boq-phase-root">
 
@@ -332,7 +455,40 @@ const PhaseBoq = ({
       )}
 
       {/* Floor plan reference */}
-      {renderDocumentLink?.('Floor Plan Reference', project?.floor_plan_image)}
+      <div className="pm-card-gray" style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 className="pm-title-md">📐 Floor Plan Reference</h3>
+            <p className="pm-text-muted" style={{ margin: 0 }}>
+              {floorPlanUrl ? 'Click the button below to view the uploaded floor plan.' : 'No floor plan uploaded yet.'}
+            </p>
+          </div>
+          <button 
+            onClick={handleViewFloorPlan}
+            disabled={!floorPlanUrl}
+            className="boq-export-btn"
+            style={{
+              background: floorPlanUrl ? '#497B97' : '#ccc',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '6px',
+              cursor: floorPlanUrl ? 'pointer' : 'not-allowed'
+            }}
+          >
+            📄 View Floor Plan Reference
+          </button>
+        </div>
+      </div>
+
+      {/* Floor Plan Modal */}
+      {showFloorPlanModal && floorPlanUrl && (
+        <FloorPlanViewer 
+          imageUrl={floorPlanUrl}
+          onClose={() => setShowFloorPlanModal(false)}
+          projectName={project?.project_name || project?.name || 'Project'}
+        />
+      )}
 
       {/* ══ PLAN SECTION ══ */}
       <PhaseDivider label="Plan Phase" />

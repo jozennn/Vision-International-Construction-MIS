@@ -189,9 +189,15 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--sh-sm);
-  overflow: hidden;
   margin: 1.1rem 1.75rem 0;
   animation: eng-rise .5s ease both;
+  overflow: visible;
+  min-height: 380px;
+}
+
+/* Add this new rule */
+.proj-card svg {
+  overflow: visible !important;
 }
 
 /* card-level section headers — dark strip identical to id-section-header */

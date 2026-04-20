@@ -428,6 +428,12 @@ const AccountingDashboard = ({ user }) => {
     }).catch(console.error);
   }, []);
 
+  useEffect(() => {
+  const hasModal = showConfirmModal || showErrorModal || !!selectedReport;
+  document.body.classList.toggle('modal-open', hasModal);
+  return () => document.body.classList.remove('modal-open');
+}, [showConfirmModal, showErrorModal, selectedReport]);
+
   const fetchData = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true); else setIsRefreshing(true);
@@ -438,7 +444,7 @@ const AccountingDashboard = ({ user }) => {
         api.get('/inventory/reorder-requests').catch(() => ({ data: [] })),
       ]);
       setDeliveries((delRes.data?.data || delRes.data || []).slice(0, 10));
-      setShipments((shipRes.data || []).slice(0, 10));
+      setShipments((shipRes.data?.data || []).slice(0, 10));
       setReports(reportRes.data || []);
       setReorders(reorderRes.data || []);
     } catch (err) { console.error('Fetch error:', err); }
@@ -729,9 +735,15 @@ const AccountingDashboard = ({ user }) => {
               <div className="ac-form-row">
                 <div className="ac-form-group">
                   <label className="ac-label">Shipment Number <span className="ac-req">*</span></label>
-                  <input className="ac-input" required placeholder="e.g. SHIP-2026-001"
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    className="ac-input"
+                    required
+                    placeholder="e.g. SHIP-2026-001"
                     value={form.shipment_number}
-                    onChange={e => setForm(f => ({ ...f, shipment_number: e.target.value }))} />
+                    onChange={e => setForm(f => ({ ...f, shipment_number: e.target.value }))}
+                  />
                 </div>
                 <div className="ac-form-group">
                   <label className="ac-label">Container Type</label>

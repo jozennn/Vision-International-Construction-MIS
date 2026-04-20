@@ -9,6 +9,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentProject;
 use App\Models\ShipmentReport;
 use App\Models\WarehouseInventory;
+use App\Models\AppNotification;
 use Illuminate\Support\Facades\DB;
 
 class IncomingShipmentController extends Controller
@@ -115,15 +116,15 @@ class IncomingShipmentController extends Controller
 
         return DB::transaction(function () use ($request) {
             $shipment = Shipment::create([
-                'origin_type'       => $request->origin_type,
-                'shipment_purpose'  => $request->shipment_purpose,
-                'shipment_number'   => $request->shipment_number,
-                'container_type'    => $request->container_type,
-                'status'            => $request->status ?? 'ONGOING PRODUCTION',
-                'location'          => $request->location,
-                'shipment_status'   => $request->shipment_status ?? 'WAITING',
-                'tentative_arrival' => null,
-                'added_to_inventory'=> false,
+                'origin_type'        => $request->origin_type,
+                'shipment_purpose'   => $request->shipment_purpose,
+                'shipment_number'    => $request->shipment_number,
+                'container_type'     => $request->container_type,
+                'status'             => $request->status ?? 'ONGOING PRODUCTION',
+                'location'           => $request->location,
+                'shipment_status'    => $request->shipment_status ?? 'WAITING',
+                'tentative_arrival'  => null,
+                'added_to_inventory' => false,
             ]);
 
             foreach ($request->projects as $proj) {
@@ -137,9 +138,23 @@ class IncomingShipmentController extends Controller
                 ]);
             }
 
+            // ── Notify ────────────────────────────────────────────────────
+            $purposeLabel = $request->shipment_purpose === 'RESERVE_FOR_PROJECT'
+                ? 'Reserve for Project'
+                : 'New Stock';
+
+            $itemCount = count($request->projects);
+            $totalQty  = collect($request->projects)->sum(fn($p) => (int)($p['quantity'] ?? 0));
+
+            AppNotification::create([
+                'message'           => "🚢 New shipment registered: {$request->shipment_number} · {$purposeLabel} · {$itemCount} item(s) · {$totalQty} units total",
+                'target_department' => 'Logistics',
+                'is_read'           => false,
+            ]);
+
             return response()->json([
-                'message' => 'Shipment registered successfully',
-                'shipment' => $shipment->load('projects')
+                'message'  => 'Shipment registered successfully',
+                'shipment' => $shipment->load('projects'),
             ], 201);
         });
     }
