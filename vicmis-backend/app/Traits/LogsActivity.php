@@ -59,11 +59,20 @@ trait LogsActivity
             
         } elseif ($moduleName === 'Project') {
             
-            // NEW: Exact same logic, but for Projects!
-            // (Checks 'name' or 'project_name', and grabs the client)
             $projectName = $model->project_name ?? $model->name ?? "Project ID: {$model->id}";
             $clientName  = $model->client_name ? " (Client: {$model->client_name})" : '';
             $itemName    = $projectName . $clientName;
+            
+        } elseif ($moduleName === 'WarehouseInventory') {
+            
+            // NEW: Logic specifically for Warehouse Inventory!
+            // Grabs the product name first, then appends the code/SKU if it exists.
+            $productName = $model->product_category ?? $model->name ?? "Item ID: {$model->id}";
+            
+            $code = $model->product_code ?? $model->sku ?? null;
+            $productCode = $code ? " (Code: {$code})" : '';
+            
+            $itemName = $productName . $productCode;
             
         } else {
             // Default fallback for everything else
