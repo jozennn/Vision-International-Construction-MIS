@@ -5,11 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\LogsActivity;
+    
 
 class Logistics extends Model
 {
     protected $table = 'logistics';
     use SoftDeletes;
+    use LogsActivity;
 
     protected $fillable = [
         'material_request_id', // ← NEW: links delivery back to the engineer's request
