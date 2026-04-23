@@ -17,18 +17,27 @@ import RejectModal   from './components/RejectModal.jsx';
 import PrimaryButton from './components/PrimaryButton.jsx';
 
 // Phase components
-import PhaseFloorPlan      from './phases/PhaseFloorPlan.jsx';
-import PhaseBoq            from './phases/PhaseBoq.jsx';
-import PhaseBOQReview      from './phases/PhaseBOQReview.jsx';
-import PhaseSiteInspection from './phases/PhaseSiteInspection.jsx';
-import PhaseMaterials      from './phases/PhaseMaterials.jsx';
-import PhaseMobilization   from './phases/PhaseMobilization.jsx';
-import PhaseCommandCenter  from './phases/PhaseCommandCenter.jsx';
-import PhaseBilling        from './phases/PhaseBilling.jsx';
-import PhaseCompleted      from './phases/PhaseCompleted.jsx';
+import PhaseFloorPlan               from './phases/PhaseFloorPlan.jsx';
+import PhaseBoq                     from './phases/PhaseBoq.jsx';
+import PhaseBOQReview               from './phases/PhaseBOQReview.jsx';
+import PhaseSiteInspection          from './phases/PhaseSiteInspection.jsx';
+import PhaseMaterials               from './phases/PhaseMaterials.jsx';
+import PhaseMobilization            from './phases/PhaseMobilization.jsx';
+import PhaseCommandCenter           from './phases/PhaseCommandCenter.jsx';
+import PhaseBilling                 from './phases/PhaseBilling.jsx';
+import PhaseCompleted               from './phases/PhaseCompleted.jsx';
+import PhasePOWorkOrder             from './phases/PhasePOWorkOrder.jsx';
+import PhaseBiddingAwardingContract from './phases/PhaseBiddingAwardingContract.jsx';
+import PhaseQAHandover              from './phases/PhaseQAHandover.jsx';
 
 import './css/Project.css';
 import './css/PhaseBoq.css';
+
+const BIDDING_PHASES = [
+  'Bidding of Project',
+  'Awarding of Project',
+  'Contract Signing for Installer',
+];
 
 const Project = ({ user, projects, setProjects }) => {
   const userDept = (user?.dept || user?.department || '').toLowerCase();
@@ -40,7 +49,7 @@ const Project = ({ user, projects, setProjects }) => {
   const isEngHead    = userDept.includes('engineering') && user?.role === 'dept_head';
   const isLogistics  = userDept.includes('logistics')  || userDept.includes('inventory');
   const isAccounting = userDept.includes('accounting') || userDept.includes('finance');
-  const isOpsAss     = userDept.includes('management') || user?.role === 'admin' || user?.role === 'manager' || user?.role === 'super_admin';;
+  const isOpsAss     = userDept.includes('management') || user?.role === 'admin' || user?.role === 'manager' || user?.role === 'super_admin';
   const isDeptHeadAny = user?.role === 'dept_head';
 
   const roles = { isSales, isSalesHead, isEng, isEngHead, isLogistics, isAccounting, isOpsAss, isDeptHeadAny };
@@ -205,21 +214,46 @@ const Project = ({ user, projects, setProjects }) => {
     handleBoqChange: tracking.handleBoqChange,
   };
 
-  const isWaitingOnlyPhase = WAITING_ONLY_PHASES.has(status);
+  const handleApprovePO = async () => {
+    try {
+      await api.post(`/projects/${selectedProject.id}/approve-po`);
+      await refreshProject();
+    } catch (err) {
+      alert(`Failed to approve: ${err.message}`);
+    }
+  };
+
+  // ── PO phases: Sales / SalesHead get active view; everyone else waits ─────
+  const isPOPhase = status === 'P.O & Work Order' || status === 'Pending Work Order Verification';
+  const hasPOAccess = isSales || isSalesHead || isOpsAss;
+
+  // ── Bidding / Awarding / Contract phases — Management only ───────────────
+  const isBiddingPhase = BIDDING_PHASES.includes(status);
+
+  // ── QA / Handover phases (now active, not waiting) ───────────────────────
+  const isQAHandoverPhase = [
+    'Site Inspection & Quality Checking',
+    'Pending QA Verification',
+    'Final Site Inspection with the Client',
+    'Signing of COC',
+  ].includes(status);
+
+  // ── Final Billing phase ──────────────────────────────────────────────────
+  const isFinalBilling = status === 'Request Final Billing';
 
   const SHOW_BACK_BUTTON_FOR = [
-  'Measurement based on Plan',
-  'Actual Measurement',
-  'Pending Head Review',
-  'Initial Site Inspection',
-  'Checking of Delivery of Materials',
-  'Pending DR Verification',
-  'Deployment and Orientation of Installers',
-  'Site Inspection & Quality Checking',
-  'Pending QA Verification',
-  'Final Site Inspection with the Client',
-  'Signing of COC',
-];
+    'Measurement based on Plan',
+    'Actual Measurement',
+    'Pending Head Review',
+    'Initial Site Inspection',
+    'Checking of Delivery of Materials',
+    'Pending DR Verification',
+    'Deployment and Orientation of Installers',
+    'Site Inspection & Quality Checking',
+    'Pending QA Verification',
+    'Final Site Inspection with the Client',
+    'Signing of COC',
+  ];
 
   return (
     <div className="pm-container">
@@ -242,7 +276,8 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && !isWaitingOnlyPhase && SHOW_BACK_BUTTON_FOR.includes(status) 
+          {previousPhase && !isPOPhase && !isBiddingPhase
+            && SHOW_BACK_BUTTON_FOR.includes(status)
             && isEng
             && !['Measurement based on Plan', 'Actual Measurement'].includes(status) && (
             <button
@@ -253,7 +288,6 @@ const Project = ({ user, projects, setProjects }) => {
               {actions.goBackLoading ? '⏳ Going back…' : `↩ Back to: ${previousPhase}`}
             </button>
           )}
-        
         </div>
         <h2 className="pm-header-title">
           {selectedProject.project_name} | <span>{status}</span>
@@ -266,8 +300,54 @@ const Project = ({ user, projects, setProjects }) => {
       {/* ── Phase Container ── */}
       <div className="pm-phase-container">
 
-        {/* ── GATE 1: Waiting-only phases ── */}
-        {isWaitingOnlyPhase && (
+        {/* ── GATE: No waiting-only phases anymore ── */}
+
+        {/* ── PO phases ── */}
+        {isPOPhase && (
+          hasPOAccess ? (
+            <PhasePOWorkOrder {...sharedPhaseProps} onApprovePO={handleApprovePO} />
+          ) : (
+            <WaitingView
+              status={status}
+              project={selectedProject}
+              user={user}
+              onAdvance={actions.advanceStatus}
+            />
+          )
+        )}
+
+        {/* ── Bidding phases (Management only) ── */}
+        {isBiddingPhase && (
+          isOpsAss ? (
+            <PhaseBiddingAwardingContract
+              project={selectedProject}
+              isOpsAss={isOpsAss}
+              isEng={isEng}
+              isEngHead={isEngHead}
+              onAdvance={actions.advanceStatus}
+            />
+          ) : (
+            <WaitingView
+              status={status}
+              project={selectedProject}
+              user={user}
+              onAdvance={actions.advanceStatus}
+            />
+          )
+        )}
+
+        {/* ── QA / Handover phases (active) ── */}
+        {isQAHandoverPhase && (
+          <PhaseQAHandover {...sharedPhaseProps} />
+        )}
+
+        {/* ── Final Billing phase (Management) ── */}
+        {isFinalBilling && (
+          <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />
+        )}
+
+        {/* ── All other normal phases ── */}
+        {!isPOPhase && !isBiddingPhase && !isQAHandoverPhase && !isFinalBilling && phaseAccess === 'waiting' && (
           <WaitingView
             status={status}
             project={selectedProject}
@@ -276,17 +356,7 @@ const Project = ({ user, projects, setProjects }) => {
           />
         )}
 
-        {/* ── GATE 2: Normal phases ── */}
-        {!isWaitingOnlyPhase && phaseAccess === 'waiting' && (
-          <WaitingView
-            status={status}
-            project={selectedProject}
-            user={user}
-            onAdvance={actions.advanceStatus}
-          />
-        )}
-
-        {!isWaitingOnlyPhase && phaseAccess === 'active' && (
+        {!isPOPhase && !isBiddingPhase && !isQAHandoverPhase && !isFinalBilling && phaseAccess === 'active' && (
           <>
             {status === 'Floor Plan' && (
               <PhaseFloorPlan {...sharedPhaseProps} />
@@ -320,8 +390,8 @@ const Project = ({ user, projects, setProjects }) => {
               <PhaseSiteInspection {...sharedPhaseProps} />
             )}
 
-            {['Checking of Delivery of Materials', 'Pending DR Verification', 'Bidding of Project', 'Awarding of Project'].includes(status) && (
-              <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} refreshProject={refreshProject}/>
+            {['Checking of Delivery of Materials', 'Pending DR Verification'].includes(status) && (
+              <PhaseMaterials {...sharedPhaseProps} boqData={tracking.boqData} refreshProject={refreshProject} />
             )}
 
             {status === 'Deployment and Orientation of Installers' && (

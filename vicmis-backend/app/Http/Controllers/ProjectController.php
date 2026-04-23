@@ -73,7 +73,7 @@ class ProjectController extends Controller
     }
 
     private function notifyProjectUsers(Project $project, string $message, array $targets = []): void
-{
+    {
     // Manager/admin — always notify by role (no single user ID)
     if (in_array('manager', $targets)) {
         $this->createNotification('Management', 'manager', $project->id, $message);
@@ -180,10 +180,13 @@ class ProjectController extends Controller
             $this->createNotification('Management', null, $project->id, $msg);
             break;
 
+        case 'Contract Signing for Installer':
+            $this->createNotification('Management', null, $project->id, $msg);
+            break;
+
         case 'Deployment and Orientation of Installers':
             $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'manager']);
             break;
-
         case 'Site Inspection & Project Monitoring':
             $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'sales', 'manager']);
             break;
@@ -400,6 +403,78 @@ class ProjectController extends Controller
     // 4. SINGLE PROJECT
     // =========================================================================
 
+
+    public function saveBiddingAwardingContract(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'new_status'                       => 'required|string',
+            'bidding_document'                 => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'awarding_document'                => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'subcontractor_agreement_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+        ]);
+    
+        try {
+            $project = Project::with(self::EAGER)->findOrFail($id);
+            $by      = Auth::id();
+            $now     = now();
+    
+            // ── Step 1: Bidding document → project_materials ──────────────────
+            if ($request->hasFile('bidding_document')) {
+                $path = $request->file('bidding_document')
+                    ->store('project_documents', 'public');
+    
+                $project->materials()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'bidding_document'    => $path,
+                        'bidding_submitted_at' => $now,
+                    ]
+                );
+            }
+    
+            // ── Step 2: Awarding document → project_materials ─────────────────
+            if ($request->hasFile('awarding_document')) {
+                $path = $request->file('awarding_document')
+                    ->store('project_documents', 'public');
+    
+                $project->materials()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'awarding_document'    => $path,
+                        'awarding_submitted_at' => $now,
+                    ]
+                );
+            }
+    
+            // ── Step 3: Subcontractor agreement → project_mobilizations ───────
+            if ($request->hasFile('subcontractor_agreement_document')) {
+                $path = $request->file('subcontractor_agreement_document')
+                    ->store('project_documents', 'public');
+    
+                ProjectMobilization::updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'subcontractor_agreement_document' => $path,
+                        'contract_uploaded_by'             => $by,
+                        'contract_signed_at'               => $now,
+                    ]
+                );
+            }
+    
+            // ── Advance status & notify ───────────────────────────────────────
+            $project->update(['status' => $request->new_status]);
+            $this->notifyNextPhase($request->new_status, $project);
+    
+            return response()->json([
+                'message' => 'BAC documents saved. Project advanced to ' . $request->new_status . '.',
+                'project' => $this->formatProject($project->fresh(self::EAGER)),
+            ]);
+    
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
     public function show(Request $request, $id): JsonResponse
     {
         $user = $request->user();
@@ -556,6 +631,7 @@ class ProjectController extends Controller
         }
 
         if ($request->filled('rejection_notes')) {
+        
             ProjectRejectionLog::create([
                 'project_id'        => $project->id,
                 'rejected_phase'    => $project->status,
@@ -564,13 +640,34 @@ class ProjectController extends Controller
                 'rejected_by'       => Auth::id(),
                 'rejected_at'       => now(),
             ]);
-
+        
+            // If rejecting a PO/Work Order verification, stamp the po_orders row too
+            if ($project->status === 'Pending Work Order Verification') {
+                $project->poOrder()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'verification_status' => 'rejected',
+                        'rejected_by'         => Auth::id(),
+                        'rejected_at'         => now(),
+                        'rejection_notes'     => $request->rejection_notes,
+                        // Clear any prior approval
+                        'verified_by'         => null,
+                        'verified_at'         => null,
+                    ]
+                );
+            }
+        
             $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
-            $this->createNotification($deptToNotify, null, $project->id,
-                "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}");
-
+            $this->createNotification(
+                $deptToNotify,
+                null,
+                $project->id,
+                "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}"
+            );
+        
         } elseif ($request->boolean('go_back')) {
             // Silent go-back — no notification, no rejection log
+        
         } else {
             $this->notifyNextPhase($request->status, $project);
         }
@@ -871,6 +968,34 @@ class ProjectController extends Controller
         if (!$inspection) return response()->json(['message' => 'No inspection found.'], 404);
         return response()->json($inspection);
     }
+
+    public function approvePOWorkOrder(Request $request, int $id): JsonResponse
+{
+    $project = Project::with('poOrder')->findOrFail($id);
+ 
+    // Stamp the approval on the po_orders row
+    $project->poOrder()->updateOrCreate(
+        ['project_id' => $project->id],
+        [
+            'verification_status' => 'approved',
+            'verified_by'         => Auth::id(),
+            'verified_at'         => now(),
+            // Clear any prior rejection
+            'rejected_by'         => null,
+            'rejected_at'         => null,
+            'rejection_notes'     => null,
+        ]
+    );
+ 
+    // Advance the project
+    $project->update(['status' => 'Initial Site Inspection']);
+    $this->notifyNextPhase('Initial Site Inspection', $project);
+ 
+    return response()->json([
+        'message' => 'P.O & Work Order approved. Forwarded to Engineering.',
+        'project' => $this->formatProject($project->fresh(self::EAGER)),
+    ]);
+}
 
     // =========================================================================
     // 10. DAILY LOGS & ISSUES
@@ -1200,14 +1325,43 @@ public function storeDailyLog(Request $request, $id)
         $map = [
             'floor_plan_image' => fn() => $project->update(['floor_plan_image' => $path]),
 
-            'po_document'         => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['po_document'        => $path, 'po_uploaded_by' => $by, 'po_uploaded_at' => $now]),
-            'work_order_document' => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['work_order_document' => $path, 'wo_uploaded_by' => $by, 'wo_uploaded_at' => $now]),
-
+            'po_document' => fn() => $project->poOrder()->updateOrCreate(
+            ['project_id' => $uid],
+            [
+                'po_document'    => $path,
+                'po_uploaded_by' => $by,
+                'po_uploaded_at' => $now,
+                // Reset verification so Sales Head must re-review if P.O is replaced
+                'verification_status' => 'pending',
+                'verified_by'         => null,
+                'verified_at'         => null,
+                'rejected_by'         => null,
+                'rejected_at'         => null,
+                'rejection_notes'     => null,
+            ]
+        ),
+        
+        'work_order_document' => fn() => $project->poOrder()->updateOrCreate(
+            ['project_id' => $uid],
+            [
+                'work_order_document' => $path,
+                'wo_uploaded_by'      => $by,
+                'wo_uploaded_at'      => $now,
+                // Reset verification so Sales Head must re-review if Work Order is replaced
+                'verification_status' => 'pending',
+                'verified_by'         => null,
+                'verified_at'         => null,
+                'rejected_by'         => null,
+                'rejected_at'         => null,
+                'rejection_notes'     => null,
+            ]
+        ),
             'site_inspection_photo' => fn() => $project->siteInspection()->updateOrCreate(['project_id' => $uid], ['inspection_photo' => $path, 'submitted_at' => $now]),
 
             'delivery_receipt_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['delivery_receipt_document' => $path, 'dr_uploaded_by' => $by, 'dr_uploaded_at' => $now]),
             'bidding_document'          => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['bidding_document'          => $path, 'bidding_submitted_at' => $now]),
-
+            'bidding_document'  => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['bidding_document'  => $path, 'bidding_submitted_at'  => $now]),
+            'awarding_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['awarding_document' => $path, 'awarding_submitted_at' => $now]),
             'subcontractor_agreement_document' => fn() => ProjectMobilization::updateOrCreate(
                 ['project_id' => $uid],
                 ['subcontractor_agreement_document' => $path, 'contract_uploaded_by' => $by, 'contract_signed_at' => $now]
@@ -1413,6 +1567,7 @@ public function storeDailyLog(Request $request, $id)
             ] : null,
             'delivery_receipt_document' => $mat?->delivery_receipt_document,
             'bidding_document'          => $mat?->bidding_document,
+            'awarding_document' => $mat?->awarding_document,
             'subcontractor_name'               => $mob?->subcontractor_name ?? $mat?->subcontractor_name ?? $project->subcontractor_name,
             'subcontractor_agreement_document' => $mob?->subcontractor_agreement_document,
             'mobilization_photo'               => $mob?->mobilization_photo,

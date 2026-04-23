@@ -2,7 +2,136 @@ import React, { useState } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseCompleted.css';
 
-// ─── Archive Confirmation Modal ────────────────────────────────────────────────
+// ─── Document Viewer Modal (handles both images and PDFs, same as PhaseMobilization) ──
+const DocumentViewer = ({ path, label, onClose }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const src = `/api/project-image/${path}`;
+  const isPDF = path?.toLowerCase().endsWith('.pdf');
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff', borderRadius: '12px',
+          width: '100%', maxWidth: '900px',
+          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 20px', flexShrink: 0,
+          borderBottom: '1px solid #e5e7eb', background: '#f9fafb',
+        }}>
+          <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>
+            📄 {label}
+          </span>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <a href={src} target="_blank" rel="noreferrer"
+              style={{
+                fontSize: '12px', fontWeight: 600, color: '#374151',
+                textDecoration: 'none', padding: '5px 12px', borderRadius: '6px',
+                border: '1px solid #d1d5db', background: '#fff',
+              }}
+            >⬇ Open / Download</a>
+            <button onClick={onClose}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '18px', color: '#6b7280', lineHeight: 1, padding: '4px 8px',
+              }}
+            >✕</button>
+          </div>
+        </div>
+        <div style={{
+          flex: 1, overflow: 'auto', position: 'relative',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px', background: '#f3f4f6', minHeight: '320px',
+        }}>
+          {!loaded && !error && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', color: '#6b7280',
+            }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>⏳</div>
+              <p style={{ margin: 0, fontSize: '14px' }}>Loading…</p>
+            </div>
+          )}
+          {error && (
+            <div style={{ textAlign: 'center', color: '#DC2626' }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>⚠️</div>
+              <p style={{ margin: 0, fontSize: '14px' }}>
+                Could not display inline.{' '}
+                <a href={src} target="_blank" rel="noreferrer" style={{ color: '#2563EB' }}>
+                  Open / Download
+                </a> directly.
+              </p>
+            </div>
+          )}
+          {isPDF ? (
+            <iframe src={src} title={label}
+              onLoad={() => setLoaded(true)}
+              onError={() => { setLoaded(true); setError(true); }}
+              style={{
+                width: '100%', height: '68vh', border: 'none', borderRadius: '6px',
+                display: loaded && !error ? 'block' : 'none',
+              }}
+            />
+          ) : (
+            <img src={src} alt={label}
+              onLoad={() => setLoaded(true)}
+              onError={() => { setLoaded(true); setError(true); }}
+              style={{
+                maxWidth: '100%', maxHeight: '68vh',
+                objectFit: 'contain', borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                display: loaded && !error ? 'block' : 'none',
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── View Document Button (opens modal) ───────────────────────────────────────
+const ViewDocumentButton = ({ label, path, icon = '📄' }) => {
+  const [open, setOpen] = useState(false);
+  if (!path) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '7px 14px', borderRadius: '7px', cursor: 'pointer',
+          background: '#EFF6FF', border: '1.5px solid #BFDBFE',
+          color: '#1D4ED8', fontWeight: 600, fontSize: '13px',
+          transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = '#DBEAFE'}
+        onMouseLeave={e => e.currentTarget.style.background = '#EFF6FF'}
+      >
+        {icon} View {label}
+      </button>
+      {open && <DocumentViewer path={path} label={label} onClose={() => setOpen(false)} />}
+    </>
+  );
+};
+
+// ─── Archive Confirmation Modal (unchanged) ────────────────────────────────────
 const ArchiveModal = ({ projectName, onConfirm, onCancel }) => (
   <div className="pc-modal-overlay">
     <div className="pc-modal">
@@ -22,7 +151,7 @@ const ArchiveModal = ({ projectName, onConfirm, onCancel }) => (
   </div>
 );
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Helpers (unchanged) ───────────────────────────────────────────────────────
 const fmtDate = (d) => {
   if (!d) return '—';
   const dt = new Date(d + 'T00:00:00');
@@ -44,7 +173,7 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-// ─── PANEL 1: Installer Summary ────────────────────────────────────────────────
+// ─── PANEL 1: Installer Summary (unchanged) ────────────────────────────────────
 const InstallerPanel = ({ project }) => {
   const resolveRoster = () => {
     if (project?.installer_roster && Array.isArray(project.installer_roster)) {
@@ -108,7 +237,7 @@ const InstallerPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 2: Timeline Summary ─────────────────────────────────────────────────
+// ─── PANEL 2: Timeline Summary (unchanged) ─────────────────────────────────────
 const TimelinePanel = ({ project }) => {
   const getTasks = () => {
     if (project?.timeline_tracking) {
@@ -254,7 +383,7 @@ const TimelinePanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
+// ─── PANEL 3: Materials Summary (unchanged) ────────────────────────────────────
 const MaterialsPanel = ({ project }) => {
   const getMaterialItems = () => {
     if (project?.material_items) {
@@ -346,7 +475,7 @@ const MaterialsPanel = ({ project }) => {
 
       {boqTotal > 0 && (
         <div className="pc-boq-total-card">
-          <span className="pc-boq-total-label">Total Contract Value (BOQ)</span>
+          <span className="pc-boq-total-label">Total Bill Of Quantities Cost</span>
           <span className="pc-boq-total-value">{formatCurrency(boqTotal)}</span>
         </div>
       )}
@@ -438,7 +567,63 @@ const MaterialsPanel = ({ project }) => {
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ─── PANEL 4: Project Documents & Images (using ViewDocumentButton modal) ──────
+const DocumentsPanel = ({ project }) => {
+  // Define all possible file fields with their labels
+  const documentFields = [
+    { label: 'Floor Plan', field: 'floor_plan_image' },
+    { label: 'P.O Document', field: 'po_document' },
+    { label: 'Work Order Document', field: 'work_order_document' },
+    { label: 'Site Inspection Photo', field: 'site_inspection_photo' },
+    { label: 'Delivery Receipt', field: 'delivery_receipt_document' },
+    { label: 'Bidding Document', field: 'bidding_document' },
+    { label: 'Awarding Document', field: 'awarding_document' },
+    { label: 'Subcontractor Agreement', field: 'subcontractor_agreement_document' },
+    { label: 'Mobilization Photo', field: 'mobilization_photo' },
+    { label: 'QA Photo', field: 'qa_photo' },
+    { label: 'Client Walkthrough Sign-off', field: 'client_walkthrough_doc' },
+    { label: 'Certificate of Completion (COC)', field: 'coc_document' },
+    { label: 'Progress Billing Invoice', field: 'billing_invoice_document' },
+    { label: 'Final Invoice', field: 'final_invoice_document' },
+  ];
+
+  const availableDocs = documentFields.filter(df => project[df.field]);
+
+  if (availableDocs.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="pc-panel pc-documents-panel">
+      <div className="pc-panel-header" style={{ '--accent': '#6b7280' }}>
+        <span className="pc-panel-icon">📎</span>
+        <div>
+          <h4 className="pc-panel-title">Project Documents & Images</h4>
+          <p className="pc-panel-sub">{availableDocs.length} file(s) uploaded during project execution</p>
+        </div>
+      </div>
+      <div className="pc-panel-body">
+        <div className="pc-docs-grid">
+          {availableDocs.map(({ label, field }) => {
+            const filePath = project[field];
+            if (!filePath) return null;
+            // Determine icon based on file type
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(filePath);
+            const icon = isImage ? '🖼️' : '📄';
+            return (
+              <div key={field} className="pc-doc-card">
+                <strong className="pc-doc-label">{label}</strong>
+                <ViewDocumentButton label={label} path={filePath} icon={icon} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const PhaseCompleted = ({ project, onAdvance }) => {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
 
@@ -507,6 +692,8 @@ const PhaseCompleted = ({ project, onAdvance }) => {
         <TimelinePanel  project={project} />
         <MaterialsPanel project={project} />
       </div>
+
+      <DocumentsPanel project={project} />
 
       {project.status !== 'Archived' && (
         <div className="pc-archive-card no-print">

@@ -70,9 +70,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     Route::post('/notifications/{id}/read', [ProjectController::class, 'markNotificationRead']);
 
     // --- PROJECTS (read) ---
-    Route::get('/projects',      [ProjectController::class, 'index']);
-    Route::get('/projects/trashed', [ProjectController::class, 'trashed']);
-    Route::get('/projects/{id}', [ProjectController::class, 'show']);
+    Route::get('/projects',             [ProjectController::class, 'index']);
+    Route::get('/projects/trashed',     [ProjectController::class, 'trashed']);
+    Route::get('/projects/{id}',        [ProjectController::class, 'show']);
 
     // Site Inspection (read)
     Route::get('/projects/{id}/site-inspection',         [ProjectController::class, 'getSiteInspection']);
@@ -157,13 +157,18 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::post('/projects/{id}/approve-boq', [ProjectController::class, 'approveBOQ']);
     });
 
+    // P.O & Work Order approval — Sales Head only
+    Route::post('/projects/{id}/approve-po', [ProjectController::class, 'approvePOWorkOrder']);
+
     // Site Inspection
     Route::post('/projects/{id}/site-inspection', [ProjectController::class, 'submitSiteInspection']);
 
     // Mobilization
     Route::post('/projects/{id}/mobilization/contract', [ProjectController::class, 'saveMobilizationContract']);
     Route::post('/projects/{id}/mobilization/deploy',   [ProjectController::class, 'saveMobilizationDeploy']);
+    Route::post('/projects/{id}/bidding-awarding-contract', [ProjectController::class, 'saveBiddingAwardingContract']);
 
+    
     // Tracking
     Route::patch('/projects/{id}/tracking/materials', [ProjectController::class, 'saveTrackingMaterials']);
     Route::patch('/projects/{id}/tracking/timeline',  [ProjectController::class, 'saveTrackingTimeline']);
@@ -177,15 +182,15 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     // ────────────────────────────────────────────────────────────────────────
     // 👇 PROJECT SOFT DELETE & RESTORE ROUTES
     // ────────────────────────────────────────────────────────────────────────
-    Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
-    Route::post('/projects/{id}/restore', [ProjectController::class, 'restore']);
-    Route::delete('/projects/{id}/force', [ProjectController::class, 'forceDelete']);
+    Route::delete('/projects/{id}',         [ProjectController::class, 'destroy']);
+    Route::post('/projects/{id}/restore',   [ProjectController::class, 'restore']);
+    Route::delete('/projects/{id}/force',   [ProjectController::class, 'forceDelete']);
     // ────────────────────────────────────────────────────────────────────────
 
     // ── Material Requests (write) ─────────────────────────────────────────────
     Route::post('/projects/{id}/material-requests', [MaterialRequestController::class, 'store']);
     Route::patch('/material-requests/{id}',         [MaterialRequestController::class, 'updateStatus']);
-    
+
     // 👇 Logistics dispatch/reorder/reject endpoints
     Route::post('/inventory/material-requests/{id}/dispatch', [MaterialRequestController::class, 'dispatch']);
     Route::post('/inventory/material-requests/{id}/reorder',  [MaterialRequestController::class, 'reorder']);
@@ -230,7 +235,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::put('/shipments/{id}',                   [IncomingShipmentController::class, 'updateShipment']);
         Route::post('/shipments/{id}/add-to-inventory', [IncomingShipmentController::class, 'addToInventory']);
         Route::patch('/shipments/{id}/receive',         [IncomingShipmentController::class, 'markAsReceived']);
-        
+
         // 🗑️ Shipment Soft Delete / Bin Routes
         Route::delete('/shipments/{id}',                [IncomingShipmentController::class, 'deleteShipment']);
         Route::post('/shipments/{id}/restore',          [IncomingShipmentController::class, 'restoreShipment']);
@@ -240,7 +245,7 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         Route::post('/logistics',                       [LogisticsController::class, 'store']);
         Route::patch('/logistics/{id}/delivered',       [LogisticsController::class, 'markDelivered']);
         Route::delete('/logistics/{id}',                [LogisticsController::class, 'destroy']);
-        
+
         // 🗑️ Logistics Soft Delete / Bin Routes
         Route::post('/logistics/{id}/restore',          [LogisticsController::class, 'restore']);
         Route::delete('/logistics/{id}/force',          [LogisticsController::class, 'forceDelete']);
@@ -256,13 +261,13 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
         // CRUD Operations
         Route::post('/',       [WarehouseInventoryController::class, 'store']);
         Route::put('/{id}',    [WarehouseInventoryController::class, 'update']);
-        
+
         // 🗑️ Soft Delete (Move to Bin)
         Route::delete('/{id}', [WarehouseInventoryController::class, 'destroy']);
-        
+
         // ♻️ Restore from Bin
         Route::post('/{id}/restore', [WarehouseInventoryController::class, 'restore']);
-        
+
         // 💀 Permanent Delete (Remove from Bin)
         Route::delete('/{id}/force', [WarehouseInventoryController::class, 'forceDelete']);
     });
