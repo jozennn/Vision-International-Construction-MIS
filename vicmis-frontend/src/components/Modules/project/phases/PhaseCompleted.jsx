@@ -2,31 +2,132 @@ import React, { useState } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseCompleted.css';
 
-// ─── Document Viewer Modal (same as in PhaseBoq) ───────────────────────────────
-const DocumentViewerModal = ({ fileUrl, fileName, onClose }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+// ─── Document Viewer Modal (handles both images and PDFs, same as PhaseMobilization) ──
+const DocumentViewer = ({ path, label, onClose }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const src = `/api/project-image/${path}`;
+  const isPDF = path?.toLowerCase().endsWith('.pdf');
 
   return (
-    <div className="pc-modal-overlay" onClick={onClose}>
-      <div className="pc-modal" style={{ maxWidth: '90vw', maxHeight: '90vh', padding: 0, overflow: 'hidden' }}>
-        <div className="pc-modal-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
-          <h3 className="pc-modal-title" style={{ margin: 0 }}>{fileName}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff', borderRadius: '12px',
+          width: '100%', maxWidth: '900px',
+          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 20px', flexShrink: 0,
+          borderBottom: '1px solid #e5e7eb', background: '#f9fafb',
+        }}>
+          <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>
+            📄 {label}
+          </span>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <a href={src} target="_blank" rel="noreferrer"
+              style={{
+                fontSize: '12px', fontWeight: 600, color: '#374151',
+                textDecoration: 'none', padding: '5px 12px', borderRadius: '6px',
+                border: '1px solid #d1d5db', background: '#fff',
+              }}
+            >⬇ Open / Download</a>
+            <button onClick={onClose}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '18px', color: '#6b7280', lineHeight: 1, padding: '4px 8px',
+              }}
+            >✕</button>
+          </div>
         </div>
-        <div className="pc-modal-body" style={{ padding: '16px', textAlign: 'center', background: '#f1f5f9', overflow: 'auto' }}>
-          {isLoading && <div className="pc-spinner"></div>}
-          {error && <p className="pc-error">{error}</p>}
-          <img
-            src={fileUrl}
-            alt={fileName}
-            onLoad={() => setIsLoading(false)}
-            onError={() => { setIsLoading(false); setError('Failed to load image.'); }}
-            style={{ display: isLoading ? 'none' : 'block', maxWidth: '100%', maxHeight: '70vh', margin: '0 auto' }}
-          />
+        <div style={{
+          flex: 1, overflow: 'auto', position: 'relative',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px', background: '#f3f4f6', minHeight: '320px',
+        }}>
+          {!loaded && !error && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', color: '#6b7280',
+            }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>⏳</div>
+              <p style={{ margin: 0, fontSize: '14px' }}>Loading…</p>
+            </div>
+          )}
+          {error && (
+            <div style={{ textAlign: 'center', color: '#DC2626' }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>⚠️</div>
+              <p style={{ margin: 0, fontSize: '14px' }}>
+                Could not display inline.{' '}
+                <a href={src} target="_blank" rel="noreferrer" style={{ color: '#2563EB' }}>
+                  Open / Download
+                </a> directly.
+              </p>
+            </div>
+          )}
+          {isPDF ? (
+            <iframe src={src} title={label}
+              onLoad={() => setLoaded(true)}
+              onError={() => { setLoaded(true); setError(true); }}
+              style={{
+                width: '100%', height: '68vh', border: 'none', borderRadius: '6px',
+                display: loaded && !error ? 'block' : 'none',
+              }}
+            />
+          ) : (
+            <img src={src} alt={label}
+              onLoad={() => setLoaded(true)}
+              onError={() => { setLoaded(true); setError(true); }}
+              style={{
+                maxWidth: '100%', maxHeight: '68vh',
+                objectFit: 'contain', borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                display: loaded && !error ? 'block' : 'none',
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
+  );
+};
+
+// ─── View Document Button (opens modal) ───────────────────────────────────────
+const ViewDocumentButton = ({ label, path, icon = '📄' }) => {
+  const [open, setOpen] = useState(false);
+  if (!path) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '7px 14px', borderRadius: '7px', cursor: 'pointer',
+          background: '#EFF6FF', border: '1.5px solid #BFDBFE',
+          color: '#1D4ED8', fontWeight: 600, fontSize: '13px',
+          transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = '#DBEAFE'}
+        onMouseLeave={e => e.currentTarget.style.background = '#EFF6FF'}
+      >
+        {icon} View {label}
+      </button>
+      {open && <DocumentViewer path={path} label={label} onClose={() => setOpen(false)} />}
+    </>
   );
 };
 
@@ -466,35 +567,25 @@ const MaterialsPanel = ({ project }) => {
   );
 };
 
-// ─── NEW PANEL 4: Project Documents & Images ───────────────────────────────────
-const DocumentsPanel = ({ project, renderDocumentLink }) => {
-  const [selectedDoc, setSelectedDoc] = useState(null);
-
+// ─── PANEL 4: Project Documents & Images (using ViewDocumentButton modal) ──────
+const DocumentsPanel = ({ project }) => {
   // Define all possible file fields with their labels
   const documentFields = [
-    { label: 'Floor Plan', field: 'floor_plan_image', isImage: true },
-    { label: 'P.O Document', field: 'po_document', isImage: false },
-    { label: 'Work Order Document', field: 'work_order_document', isImage: false },
-    { label: 'Site Inspection Photo', field: 'site_inspection_photo', isImage: true },
-    { label: 'Delivery Receipt', field: 'delivery_receipt_document', isImage: false },
-    { label: 'Bidding Document', field: 'bidding_document', isImage: false },
-    { label: 'Awarding Document', field: 'awarding_document', isImage: false },
-    { label: 'Subcontractor Agreement', field: 'subcontractor_agreement_document', isImage: false },
-    { label: 'Mobilization Photo', field: 'mobilization_photo', isImage: true },
-    { label: 'QA Photo', field: 'qa_photo', isImage: true },
-    { label: 'Client Walkthrough Sign-off', field: 'client_walkthrough_doc', isImage: false },
-    { label: 'Certificate of Completion (COC)', field: 'coc_document', isImage: false },
-    { label: 'Progress Billing Invoice', field: 'billing_invoice_document', isImage: false },
-    { label: 'Final Invoice', field: 'final_invoice_document', isImage: false },
+    { label: 'Floor Plan', field: 'floor_plan_image' },
+    { label: 'P.O Document', field: 'po_document' },
+    { label: 'Work Order Document', field: 'work_order_document' },
+    { label: 'Site Inspection Photo', field: 'site_inspection_photo' },
+    { label: 'Delivery Receipt', field: 'delivery_receipt_document' },
+    { label: 'Bidding Document', field: 'bidding_document' },
+    { label: 'Awarding Document', field: 'awarding_document' },
+    { label: 'Subcontractor Agreement', field: 'subcontractor_agreement_document' },
+    { label: 'Mobilization Photo', field: 'mobilization_photo' },
+    { label: 'QA Photo', field: 'qa_photo' },
+    { label: 'Client Walkthrough Sign-off', field: 'client_walkthrough_doc' },
+    { label: 'Certificate of Completion (COC)', field: 'coc_document' },
+    { label: 'Progress Billing Invoice', field: 'billing_invoice_document' },
+    { label: 'Final Invoice', field: 'final_invoice_document' },
   ];
-
-  // Helper to get file URL
-  const getFileUrl = (fieldValue) => {
-    if (!fieldValue) return null;
-    if (fieldValue.startsWith('http')) return fieldValue;
-    const base = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') ?? '';
-    return `${base}/storage/${fieldValue}`;
-  };
 
   const availableDocs = documentFields.filter(df => project[df.field]);
 
@@ -513,52 +604,27 @@ const DocumentsPanel = ({ project, renderDocumentLink }) => {
       </div>
       <div className="pc-panel-body">
         <div className="pc-docs-grid">
-          {availableDocs.map(({ label, field, isImage }) => {
-            const fileUrl = getFileUrl(project[field]);
-            if (!fileUrl) return null;
-            if (isImage) {
-              return (
-                <div key={field} className="pc-doc-card">
-                  <strong className="pc-doc-label">{label}</strong>
-                  <img
-                    src={fileUrl}
-                    alt={label}
-                    className="pc-doc-thumb"
-                    onClick={() => setSelectedDoc({ url: fileUrl, label })}
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/200x150?text=Image+Not+Found'; }}
-                  />
-                </div>
-              );
-            } else {
-              return (
-                <div key={field} className="pc-doc-card pc-doc-pdf">
-                  <strong className="pc-doc-label">{label}</strong>
-                  {renderDocumentLink ? (
-                    renderDocumentLink(label, project[field])
-                  ) : (
-                    <PrimaryButton variant="navy" onClick={() => window.open(fileUrl, '_blank')}>
-                      📄 View Document
-                    </PrimaryButton>
-                  )}
-                </div>
-              );
-            }
+          {availableDocs.map(({ label, field }) => {
+            const filePath = project[field];
+            if (!filePath) return null;
+            // Determine icon based on file type
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(filePath);
+            const icon = isImage ? '🖼️' : '📄';
+            return (
+              <div key={field} className="pc-doc-card">
+                <strong className="pc-doc-label">{label}</strong>
+                <ViewDocumentButton label={label} path={filePath} icon={icon} />
+              </div>
+            );
           })}
         </div>
       </div>
-      {selectedDoc && (
-        <DocumentViewerModal
-          fileUrl={selectedDoc.url}
-          fileName={selectedDoc.label}
-          onClose={() => setSelectedDoc(null)}
-        />
-      )}
     </div>
   );
 };
 
-// ─── Main Component (updated to accept renderDocumentLink) ─────────────────────
-const PhaseCompleted = ({ project, onAdvance, renderDocumentLink }) => {
+// ─── Main Component ───────────────────────────────────────────────────────────
+const PhaseCompleted = ({ project, onAdvance }) => {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const handleArchiveConfirm = () => {
@@ -627,8 +693,7 @@ const PhaseCompleted = ({ project, onAdvance, renderDocumentLink }) => {
         <MaterialsPanel project={project} />
       </div>
 
-      {/* New Documents Panel – full width */}
-      <DocumentsPanel project={project} renderDocumentLink={renderDocumentLink} />
+      <DocumentsPanel project={project} />
 
       {project.status !== 'Archived' && (
         <div className="pc-archive-card no-print">
