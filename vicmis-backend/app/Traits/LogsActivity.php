@@ -46,20 +46,35 @@ trait LogsActivity
         $user = Auth::user();
         if (!$user) return; 
 
-        // Get the Model name (e.g., "Lead", "Project", "WarehouseInventory")
+        // Get the Model name (e.g., "Lead", "Project")
         $moduleName = class_basename($model);
         
-        // Find the most logical name for the item being tracked
-        $itemName = $model->project_name 
-                 ?? $model->client_name 
-                 ?? $model->product_code 
-                 ?? $model->shipment_number 
-                 ?? "ID: {$model->id}";
+        // ---------------------------------------------------------
+        // NEW LOGIC: Custom formatting based on the module
+        // ---------------------------------------------------------
+        if ($moduleName === 'Lead') {
+            // Format it nicely like: "BARBERSHOP (Client: John Doe)"
+            $projectName = $model->project_name ?? "Lead ID: {$model->id}";
+            $clientName  = $model->client_name ? " (Client: {$model->client_name})" : '';
+            
+            $itemName = $projectName . $clientName;
+        } else {
+            // Default fallback for all other modules
+            $itemName = $model->customer_name 
+                     ?? $model->client_name 
+                     ?? $model->company_name 
+                     ?? $model->name
+                     ?? $model->project_name 
+                     ?? $model->product_code 
+                     ?? $model->shipment_number 
+                     ?? "ID: {$model->id}";
+        }
 
+        // Save to database
         ActivityLog::create([
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'module' => $moduleName,
+            'user_id'     => $user->id,
+            'user_name'   => $user->name,
+            'module'      => $moduleName,
             'description' => "{$action} {$moduleName}: {$itemName}"
         ]);
     }
