@@ -18,6 +18,140 @@ const SaveIndicator = ({ status }) => {
   return <span style={styles[status]}>{labels[status]}</span>;
 };
 
+// ─── DocumentViewer (same pattern as PhasePOWorkOrder) ───────────────────────
+const DocumentViewer = ({ path, label, onClose }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error,  setError]  = useState(false);
+
+  const src   = `/api/project-image/${path}`;
+  const isPDF = path?.toLowerCase().endsWith('.pdf');
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '24px',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff', borderRadius: '12px',
+          width: '100%', maxWidth: '900px',
+          maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 20px', flexShrink: 0,
+          borderBottom: '1px solid #e5e7eb', background: '#f9fafb',
+        }}>
+          <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>
+            📸 {label}
+          </span>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <a
+              href={src} target="_blank" rel="noreferrer"
+              style={{
+                fontSize: '12px', fontWeight: 600, color: '#374151',
+                textDecoration: 'none', padding: '5px 12px', borderRadius: '6px',
+                border: '1px solid #d1d5db', background: '#fff',
+              }}
+            >⬇ Open / Download</a>
+            <button onClick={onClose}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '18px', color: '#6b7280', lineHeight: 1, padding: '4px 8px',
+              }}
+            >✕</button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{
+          flex: 1, overflow: 'auto', position: 'relative',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px', background: '#f3f4f6', minHeight: '320px',
+        }}>
+          {!loaded && !error && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', color: '#6b7280',
+            }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>⏳</div>
+              <p style={{ margin: 0, fontSize: '14px' }}>Loading…</p>
+            </div>
+          )}
+          {error && (
+            <div style={{ textAlign: 'center', color: '#DC2626' }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>⚠️</div>
+              <p style={{ margin: 0, fontSize: '14px' }}>
+                Could not display inline.{' '}
+                <a href={src} target="_blank" rel="noreferrer" style={{ color: '#2563EB' }}>
+                  Open / Download
+                </a> directly.
+              </p>
+            </div>
+          )}
+          {isPDF ? (
+            <iframe src={src} title={label}
+              onLoad={() => setLoaded(true)}
+              onError={() => { setLoaded(true); setError(true); }}
+              style={{
+                width: '100%', height: '68vh', border: 'none', borderRadius: '6px',
+                display: loaded && !error ? 'block' : 'none',
+              }}
+            />
+          ) : (
+            <img src={src} alt={label}
+              onLoad={() => setLoaded(true)}
+              onError={() => { setLoaded(true); setError(true); }}
+              style={{
+                maxWidth: '100%', maxHeight: '68vh',
+                objectFit: 'contain', borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                display: loaded && !error ? 'block' : 'none',
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── ViewDocumentButton ─────────────────────────────────────────────────── */
+const ViewDocumentButton = ({ label, path, icon = '📸' }) => {
+  const [open, setOpen] = useState(false);
+  if (!path) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '7px 14px', borderRadius: '7px', cursor: 'pointer',
+          background: '#EFF6FF', border: '1.5px solid #BFDBFE',
+          color: '#1D4ED8', fontWeight: 600, fontSize: '13px',
+          transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = '#DBEAFE'}
+        onMouseLeave={e => e.currentTarget.style.background = '#EFF6FF'}
+      >
+        {icon} View {label}
+      </button>
+      {open && <DocumentViewer path={path} label={label} onClose={() => setOpen(false)} />}
+    </>
+  );
+};
+
 // Parse roster from project prop
 const resolveRoster = (project) => {
   const top = project?.installer_roster;
@@ -60,23 +194,22 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
   const [uploadFile,  setUploadFile]  = useState(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState(null);
-  const [saveStatus,  setSaveStatus]  = useState(null); // 'saving' | 'saved' | 'error' | null
+  const [saveStatus,  setSaveStatus]  = useState(null);
   const fileInputRef   = useRef();
   const autoSaveTimer  = useRef(null);
   const isFirstLoad    = useRef(true);
 
-  // Re-seed roster if project prop updates
+  // Existing mobilization photo path
+  const existingPhotoPath = project?.mobilization_photo || project?.mobilization?.mobilization_photo || null;
+
   useEffect(() => {
     const roster = resolveRoster(project);
     if (roster.length > 0) {
       setInstallers(rosterToInstallers(roster));
     }
-    // Allow auto-save after initial hydration
     setTimeout(() => { isFirstLoad.current = false; }, 300);
   }, [project?.id]);
 
-  // ── Debounced auto-save for installer roster ──────────────────────────────
-  // Note: only the roster is auto-saved (file uploads require manual submit)
   const buildDraftPayload = useCallback(() => {
     const validRoster = installers
       .filter(i => i.name.trim())
@@ -93,21 +226,13 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
 
     autoSaveTimer.current = setTimeout(async () => {
       const validRoster = installers.filter(i => i.name.trim());
-      if (validRoster.length === 0) return; // don't save empty roster
+      if (validRoster.length === 0) return;
 
       setSaveStatus('saving');
       try {
-        const formData = new FormData();
-        formData.append('installer_roster', buildDraftPayload());
-        // Use a no-op status so we don't advance the phase
-        formData.append('_draft', '1');
-
-        // Save via the deploy endpoint but without advancing status
-        // by hitting the mobilization draft save
         await api.post(`/projects/${project.id}/mobilization/draft-roster`, {
           installer_roster: buildDraftPayload(),
         });
-
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(null), 3000);
       } catch (err) {
@@ -122,7 +247,7 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
 
   const isContractReady    = contract.boqReviewed && contract.timelineAgreed && contract.signed;
   const hasValidInstallers = installers.length > 0 && installers.every(i => i.name.trim() !== '');
-  const hasExistingPhoto   = !!(project?.mobilization_photo || project?.mobilization?.mobilization_photo);
+  const hasExistingPhoto   = !!existingPhotoPath;
   const isMobilizationReady = hasValidInstallers && (uploadFile || hasExistingPhoto);
 
   const addRow    = () => setInstallers(prev => [...prev, emptyInstaller()]);
@@ -130,7 +255,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
   const updateRow = (id, field, value) =>
     setInstallers(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
 
-  // ── Phase 1: Confirm handover checklist ──────────────────────────────────
   const handleContractConfirm = async () => {
     setLoading(true);
     setError(null);
@@ -146,7 +270,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
     }
   };
 
-  // ── Phase 2: Submit roster + photo ───────────────────────────────────────
   const handleDeploySubmit = async () => {
     setLoading(true);
     setError(null);
@@ -178,6 +301,8 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 1: Contract Signing for Installer
+  // NOTE: This phase is now handled by PhaseBiddingAwardingContract.
+  // Kept here as fallback only.
   // ─────────────────────────────────────────────────────────────────────────
   if (status === 'Contract Signing for Installer' && (isEng || isOpsAss)) {
     return (
@@ -202,7 +327,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
             <div className="pm-card-gray">
               <h4 className="pm-title-md pm-mob-confirm-heading">Confirm the following before proceeding</h4>
               <div className="pm-mob-checklist">
-
                 <label className={`pm-mob-check-item ${contract.boqReviewed ? 'pm-mob-check-done' : ''}`}>
                   <input type="checkbox" checked={contract.boqReviewed}
                     onChange={e => setContract({ ...contract, boqReviewed: e.target.checked })} />
@@ -229,7 +353,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
                     <span className="pm-mob-check-sub">Physical contract has been formally signed by both parties.</span>
                   </div>
                 </label>
-
               </div>
             </div>
 
@@ -270,7 +393,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
                 <p className="pm-mob-nav-sub">Register the installer team and upload mobilization proof</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {/* Auto-save indicator */}
                 <SaveIndicator status={saveStatus} />
                 <div className="pm-mob-count-badge">
                   {installers.filter(i => i.name.trim()).length} Installer{installers.filter(i => i.name.trim()).length !== 1 ? 's' : ''} Registered
@@ -341,11 +463,28 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
               )}
             </div>
 
+            {/* ── Mobilization Photo Upload ── */}
             <div className="pm-card-cream pm-mob-upload-section">
               <h4 className="pm-title-md pm-mob-upload-title">📸 Mobilization Photo</h4>
-              <p className="pm-text-muted pm-mob-upload-desc">Upload a toolbox meeting or mobilization photo as proof of deployment.</p>
+              <p className="pm-text-muted pm-mob-upload-desc">
+                Upload a toolbox meeting or mobilization photo as proof of deployment.
+              </p>
+
+              {/* View existing photo button */}
+              {hasExistingPhoto && (
+                <div style={{ marginBottom: '12px' }}>
+                  <ViewDocumentButton
+                    label="Mobilization Photo"
+                    path={existingPhotoPath}
+                    icon="📸"
+                  />
+                </div>
+              )}
+
               <label className="pm-upload-label">
-                <span className="pm-upload-icon">{uploadFile ? '✅' : (hasExistingPhoto ? '✅' : '📎')}</span>
+                <span className="pm-upload-icon">
+                  {uploadFile ? '✅' : hasExistingPhoto ? '✅' : '📎'}
+                </span>
                 <span className="pm-upload-text">
                   {uploadFile
                     ? uploadFile.name

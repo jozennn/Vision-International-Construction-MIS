@@ -52,9 +52,6 @@ export const PHASE_ORDER = [
 
 // Phases that have NO component — always render WaitingView only
 export const WAITING_ONLY_PHASES = new Set([ 
-  'Bidding of Project',
-  'Awarding of Project',
-  'Contract Signing for Installer',
   'Site Inspection & Quality Checking',
   'Pending QA Verification',
   'Final Site Inspection with the Client',
