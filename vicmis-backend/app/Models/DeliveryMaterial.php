@@ -3,10 +3,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\LogsActivity;
 
 class DeliveryMaterial extends Model
 {
     use HasFactory;
+    use LogsActivity;
 
     // This line tells Laravel exactly which table to use
     protected $table = 'delivery_materials';
