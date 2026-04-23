@@ -166,7 +166,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-writes'])->group(function () {
     // Mobilization
     Route::post('/projects/{id}/mobilization/contract', [ProjectController::class, 'saveMobilizationContract']);
     Route::post('/projects/{id}/mobilization/deploy',   [ProjectController::class, 'saveMobilizationDeploy']);
+    Route::post('/projects/{id}/bidding-awarding-contract', [ProjectController::class, 'saveBiddingAwardingContract']);
 
+    
     // Tracking
     Route::patch('/projects/{id}/tracking/materials', [ProjectController::class, 'saveTrackingMaterials']);
     Route::patch('/projects/{id}/tracking/timeline',  [ProjectController::class, 'saveTrackingTimeline']);
