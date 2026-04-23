@@ -5,7 +5,7 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
   const [uploadFile, setUploadFile] = useState(null);
   const { status } = project;
 
-  // Internal QA (Engineering)
+  // ── 1. Internal QA (Engineering uploads photo) ──
   if (status === 'Site Inspection & Quality Checking' && isEng) {
     return (
       <div className="pm-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -31,7 +31,7 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
     );
   }
 
-  // QA Verification (Engineering Head)
+  // ── 2. QA Verification (Engineering Head approves/rejects) ──
   if (status === 'Pending QA Verification' && isEngHead) {
     return (
       <div>
@@ -64,7 +64,7 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
     );
   }
 
-  // Client Walkthrough (Engineering)
+  // ── 3. Client Walkthrough (Engineering uploads sign-off) ──
   if (status === 'Final Site Inspection with the Client' && isEng) {
     return (
       <div className="pm-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -90,7 +90,7 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
     );
   }
 
-  // COC (Engineering)
+  // ── 4. Signing of COC (Engineering uploads certificate) ──
   if (status === 'Signing of COC' && isEng) {
     return (
       <div className="pm-card" style={{ padding: 0, overflow: 'hidden' }}>
