@@ -28,6 +28,7 @@ import PhaseBilling                 from './phases/PhaseBilling.jsx';
 import PhaseCompleted               from './phases/PhaseCompleted.jsx';
 import PhasePOWorkOrder             from './phases/PhasePOWorkOrder.jsx';
 import PhaseBiddingAwardingContract from './phases/PhaseBiddingAwardingContract.jsx';
+import PhaseQAHandover              from './phases/PhaseQAHandover.jsx';
 
 import './css/Project.css';
 import './css/PhaseBoq.css';
@@ -222,14 +223,23 @@ const Project = ({ user, projects, setProjects }) => {
     }
   };
 
-  const isWaitingOnlyPhase = WAITING_ONLY_PHASES.has(status);
-
   // ── PO phases: Sales / SalesHead get active view; everyone else waits ─────
   const isPOPhase = status === 'P.O & Work Order' || status === 'Pending Work Order Verification';
   const hasPOAccess = isSales || isSalesHead || isOpsAss;
 
   // ── Bidding / Awarding / Contract phases — Management only ───────────────
   const isBiddingPhase = BIDDING_PHASES.includes(status);
+
+  // ── QA / Handover phases (now active, not waiting) ───────────────────────
+  const isQAHandoverPhase = [
+    'Site Inspection & Quality Checking',
+    'Pending QA Verification',
+    'Final Site Inspection with the Client',
+    'Signing of COC',
+  ].includes(status);
+
+  // ── Final Billing phase ──────────────────────────────────────────────────
+  const isFinalBilling = status === 'Request Final Billing';
 
   const SHOW_BACK_BUTTON_FOR = [
     'Measurement based on Plan',
@@ -266,7 +276,7 @@ const Project = ({ user, projects, setProjects }) => {
           <button onClick={() => setCurrentView('home')} className="pm-back-btn">
             ← BACK TO DASHBOARD
           </button>
-          {previousPhase && !isWaitingOnlyPhase && !isPOPhase && !isBiddingPhase
+          {previousPhase && !isPOPhase && !isBiddingPhase
             && SHOW_BACK_BUTTON_FOR.includes(status)
             && isEng
             && !['Measurement based on Plan', 'Actual Measurement'].includes(status) && (
@@ -290,18 +300,10 @@ const Project = ({ user, projects, setProjects }) => {
       {/* ── Phase Container ── */}
       <div className="pm-phase-container">
 
-        {/* ── GATE 1: Waiting-only phases ── */}
-        {isWaitingOnlyPhase && (
-          <WaitingView
-            status={status}
-            project={selectedProject}
-            user={user}
-            onAdvance={actions.advanceStatus}
-          />
-        )}
+        {/* ── GATE: No waiting-only phases anymore ── */}
 
-        {/* ── GATE 2: PO phases — Sales/SalesHead/Ops get the full component ── */}
-        {!isWaitingOnlyPhase && isPOPhase && (
+        {/* ── PO phases ── */}
+        {isPOPhase && (
           hasPOAccess ? (
             <PhasePOWorkOrder {...sharedPhaseProps} onApprovePO={handleApprovePO} />
           ) : (
@@ -314,8 +316,8 @@ const Project = ({ user, projects, setProjects }) => {
           )
         )}
 
-        {/* ── GATE 3: Bidding / Awarding / Contract — Management only ── */}
-        {!isWaitingOnlyPhase && !isPOPhase && isBiddingPhase && (
+        {/* ── Bidding phases (Management only) ── */}
+        {isBiddingPhase && (
           isOpsAss ? (
             <PhaseBiddingAwardingContract
               project={selectedProject}
@@ -334,8 +336,18 @@ const Project = ({ user, projects, setProjects }) => {
           )
         )}
 
-        {/* ── GATE 4: All other normal phases ── */}
-        {!isWaitingOnlyPhase && !isPOPhase && !isBiddingPhase && phaseAccess === 'waiting' && (
+        {/* ── QA / Handover phases (active) ── */}
+        {isQAHandoverPhase && (
+          <PhaseQAHandover {...sharedPhaseProps} />
+        )}
+
+        {/* ── Final Billing phase (Management) ── */}
+        {isFinalBilling && (
+          <PhaseBilling {...sharedPhaseProps} latestLog={latestLog} />
+        )}
+
+        {/* ── All other normal phases ── */}
+        {!isPOPhase && !isBiddingPhase && !isQAHandoverPhase && !isFinalBilling && phaseAccess === 'waiting' && (
           <WaitingView
             status={status}
             project={selectedProject}
@@ -344,7 +356,7 @@ const Project = ({ user, projects, setProjects }) => {
           />
         )}
 
-        {!isWaitingOnlyPhase && !isPOPhase && !isBiddingPhase && phaseAccess === 'active' && (
+        {!isPOPhase && !isBiddingPhase && !isQAHandoverPhase && !isFinalBilling && phaseAccess === 'active' && (
           <>
             {status === 'Floor Plan' && (
               <PhaseFloorPlan {...sharedPhaseProps} />

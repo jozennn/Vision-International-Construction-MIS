@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseBilling.css';
 
-const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink }) => {
+const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink, isOpsAss }) => {
   const [uploadFile, setUploadFile] = useState(null);
   const fileInputRef = useRef();
 
@@ -11,6 +11,28 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
   const totalContract = parseFloat(project.contract_amount) || 0;
   const percent       = latestLog ? parseFloat(latestLog.accomplishment_percent) || 0 : 0;
   const payableAmount = totalContract * (percent / 100);
+
+  // For final billing, only Management (isOpsAss) can upload
+  if (isFinal && !isOpsAss) {
+    return (
+      <div className="bill-wrapper">
+        <div className="bill-header">
+          <div className="bill-header-inner">
+            <div className="bill-header-icon">💸</div>
+            <div className="bill-header-text">
+              <h3 className="bill-header-title">Final Billing</h3>
+              <span className="bill-header-subtitle">Awaiting Management Action</span>
+            </div>
+          </div>
+        </div>
+        <div className="bill-body">
+          <div className="bill-card text-center">
+            <p>Only Management can upload the final invoice and close the project.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleFileChange = (e) => {
     setUploadFile(e.target.files[0] ?? null);
@@ -81,13 +103,25 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
             )}
           </div>
 
-          {/* RIGHT — Photo proof or verification docs */}
+          {/* RIGHT — Photo proof or QA documents for final billing */}
           <div className="bill-proof-card">
             {isFinal ? (
               <>
                 <div className="bill-proof-title">Required Verification Documents</div>
                 {renderDocumentLink('Signed C.O.C', project.coc_document)}
                 {renderDocumentLink('Client Walkthrough Sign-off', project.client_walkthrough_doc)}
+                {project.qa_photo && (
+                  <div className="bill-qa-photo">
+                    <label>Internal QA Photo</label>
+                    <img
+                      src={`/storage/${project.qa_photo}`}
+                      alt="QA Proof"
+                      className="bill-site-photo"
+                      onClick={() => window.open(`/storage/${project.qa_photo}`, '_blank')}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -123,7 +157,7 @@ const PhaseBilling = ({ project, latestLog, onUploadAdvance, renderDocumentLink 
           </h4>
           <p className="bill-upload-desc">
             {isFinal
-              ? 'Upload the final financial proof before permanently closing this project.'
+              ? 'All QA documents have been verified. Upload the final financial proof before permanently closing this project.'
               : 'You must attach the invoice document before authorizing the release of this payment.'}
           </p>
 

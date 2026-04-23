@@ -2,7 +2,35 @@ import React, { useState } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseCompleted.css';
 
-// ─── Archive Confirmation Modal ────────────────────────────────────────────────
+// ─── Document Viewer Modal (same as in PhaseBoq) ───────────────────────────────
+const DocumentViewerModal = ({ fileUrl, fileName, onClose }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  return (
+    <div className="pc-modal-overlay" onClick={onClose}>
+      <div className="pc-modal" style={{ maxWidth: '90vw', maxHeight: '90vh', padding: 0, overflow: 'hidden' }}>
+        <div className="pc-modal-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+          <h3 className="pc-modal-title" style={{ margin: 0 }}>{fileName}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+        </div>
+        <div className="pc-modal-body" style={{ padding: '16px', textAlign: 'center', background: '#f1f5f9', overflow: 'auto' }}>
+          {isLoading && <div className="pc-spinner"></div>}
+          {error && <p className="pc-error">{error}</p>}
+          <img
+            src={fileUrl}
+            alt={fileName}
+            onLoad={() => setIsLoading(false)}
+            onError={() => { setIsLoading(false); setError('Failed to load image.'); }}
+            style={{ display: isLoading ? 'none' : 'block', maxWidth: '100%', maxHeight: '70vh', margin: '0 auto' }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Archive Confirmation Modal (unchanged) ────────────────────────────────────
 const ArchiveModal = ({ projectName, onConfirm, onCancel }) => (
   <div className="pc-modal-overlay">
     <div className="pc-modal">
@@ -22,7 +50,7 @@ const ArchiveModal = ({ projectName, onConfirm, onCancel }) => (
   </div>
 );
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Helpers (unchanged) ───────────────────────────────────────────────────────
 const fmtDate = (d) => {
   if (!d) return '—';
   const dt = new Date(d + 'T00:00:00');
@@ -44,7 +72,7 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-// ─── PANEL 1: Installer Summary ────────────────────────────────────────────────
+// ─── PANEL 1: Installer Summary (unchanged) ────────────────────────────────────
 const InstallerPanel = ({ project }) => {
   const resolveRoster = () => {
     if (project?.installer_roster && Array.isArray(project.installer_roster)) {
@@ -108,7 +136,7 @@ const InstallerPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 2: Timeline Summary ─────────────────────────────────────────────────
+// ─── PANEL 2: Timeline Summary (unchanged) ─────────────────────────────────────
 const TimelinePanel = ({ project }) => {
   const getTasks = () => {
     if (project?.timeline_tracking) {
@@ -254,7 +282,7 @@ const TimelinePanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
+// ─── PANEL 3: Materials Summary (unchanged) ────────────────────────────────────
 const MaterialsPanel = ({ project }) => {
   const getMaterialItems = () => {
     if (project?.material_items) {
@@ -438,8 +466,99 @@ const MaterialsPanel = ({ project }) => {
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────────
-const PhaseCompleted = ({ project, onAdvance }) => {
+// ─── NEW PANEL 4: Project Documents & Images ───────────────────────────────────
+const DocumentsPanel = ({ project, renderDocumentLink }) => {
+  const [selectedDoc, setSelectedDoc] = useState(null);
+
+  // Define all possible file fields with their labels
+  const documentFields = [
+    { label: 'Floor Plan', field: 'floor_plan_image', isImage: true },
+    { label: 'P.O Document', field: 'po_document', isImage: false },
+    { label: 'Work Order Document', field: 'work_order_document', isImage: false },
+    { label: 'Site Inspection Photo', field: 'site_inspection_photo', isImage: true },
+    { label: 'Delivery Receipt', field: 'delivery_receipt_document', isImage: false },
+    { label: 'Bidding Document', field: 'bidding_document', isImage: false },
+    { label: 'Awarding Document', field: 'awarding_document', isImage: false },
+    { label: 'Subcontractor Agreement', field: 'subcontractor_agreement_document', isImage: false },
+    { label: 'Mobilization Photo', field: 'mobilization_photo', isImage: true },
+    { label: 'QA Photo', field: 'qa_photo', isImage: true },
+    { label: 'Client Walkthrough Sign-off', field: 'client_walkthrough_doc', isImage: false },
+    { label: 'Certificate of Completion (COC)', field: 'coc_document', isImage: false },
+    { label: 'Progress Billing Invoice', field: 'billing_invoice_document', isImage: false },
+    { label: 'Final Invoice', field: 'final_invoice_document', isImage: false },
+  ];
+
+  // Helper to get file URL
+  const getFileUrl = (fieldValue) => {
+    if (!fieldValue) return null;
+    if (fieldValue.startsWith('http')) return fieldValue;
+    const base = import.meta.env.VITE_API_URL?.replace(/\/api$/, '') ?? '';
+    return `${base}/storage/${fieldValue}`;
+  };
+
+  const availableDocs = documentFields.filter(df => project[df.field]);
+
+  if (availableDocs.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="pc-panel pc-documents-panel">
+      <div className="pc-panel-header" style={{ '--accent': '#6b7280' }}>
+        <span className="pc-panel-icon">📎</span>
+        <div>
+          <h4 className="pc-panel-title">Project Documents & Images</h4>
+          <p className="pc-panel-sub">{availableDocs.length} file(s) uploaded during project execution</p>
+        </div>
+      </div>
+      <div className="pc-panel-body">
+        <div className="pc-docs-grid">
+          {availableDocs.map(({ label, field, isImage }) => {
+            const fileUrl = getFileUrl(project[field]);
+            if (!fileUrl) return null;
+            if (isImage) {
+              return (
+                <div key={field} className="pc-doc-card">
+                  <strong className="pc-doc-label">{label}</strong>
+                  <img
+                    src={fileUrl}
+                    alt={label}
+                    className="pc-doc-thumb"
+                    onClick={() => setSelectedDoc({ url: fileUrl, label })}
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/200x150?text=Image+Not+Found'; }}
+                  />
+                </div>
+              );
+            } else {
+              return (
+                <div key={field} className="pc-doc-card pc-doc-pdf">
+                  <strong className="pc-doc-label">{label}</strong>
+                  {renderDocumentLink ? (
+                    renderDocumentLink(label, project[field])
+                  ) : (
+                    <PrimaryButton variant="navy" onClick={() => window.open(fileUrl, '_blank')}>
+                      📄 View Document
+                    </PrimaryButton>
+                  )}
+                </div>
+              );
+            }
+          })}
+        </div>
+      </div>
+      {selectedDoc && (
+        <DocumentViewerModal
+          fileUrl={selectedDoc.url}
+          fileName={selectedDoc.label}
+          onClose={() => setSelectedDoc(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// ─── Main Component (updated to accept renderDocumentLink) ─────────────────────
+const PhaseCompleted = ({ project, onAdvance, renderDocumentLink }) => {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const handleArchiveConfirm = () => {
@@ -507,6 +626,9 @@ const PhaseCompleted = ({ project, onAdvance }) => {
         <TimelinePanel  project={project} />
         <MaterialsPanel project={project} />
       </div>
+
+      {/* New Documents Panel – full width */}
+      <DocumentsPanel project={project} renderDocumentLink={renderDocumentLink} />
 
       {project.status !== 'Archived' && (
         <div className="pc-archive-card no-print">

@@ -15,15 +15,18 @@ export const WAITING_MSG = {
   'Site Inspection & Project Monitoring':        { dept: 'Engineering',             msg: 'complete active construction monitoring' },
   'Request Materials Needed':                    { dept: 'Logistics',               msg: 'dispatch the requested materials' },
   'Request Billing':                             { dept: 'Accounting',              msg: 'process the Progress Billing' },
-  'Site Inspection & Quality Checking':          { dept: 'Engineering',             msg: 'This phase is being handled by internally' },
-  'Pending QA Verification':                     { dept: 'Engineering Head',        msg: 'This phase is being handled by internally' },
-  'Final Site Inspection with the Client':       { dept: 'Engineering',             msg: 'This phase is being handled by internally' },
-  'Signing of COC':                              { dept: 'Engineering',             msg: 'This phase is being handled by internally' },
-  'Request Final Billing':                       { dept: 'Accounting',              msg: 'This phase is being handled by internally' },
+  'Site Inspection & Quality Checking':          { dept: 'Engineering',             msg: 'upload QA photo and complete internal inspection' },
+  'Pending QA Verification':                     { dept: 'Engineering Head',        msg: 'review QA photo and approve or reject' },
+  'Final Site Inspection with the Client':       { dept: 'Engineering',             msg: 'upload client sign-off sheet' },
+  'Signing of COC':                              { dept: 'Engineering',             msg: 'upload signed Certificate of Completion' },
+  'Request Final Billing':                       { dept: 'Management',              msg: 'upload final invoice and close project' },
 };
 
-// locked: true  = a head approved this phase; nobody can go back past it
-// headOnly: true = phase has no UI component; only management sees an advance button
+// Phases that have NO component and only show a "waiting" message
+// All phases now have active components, so this Set is empty.
+export const WAITING_ONLY_PHASES = new Set([]);
+
+// Phase order with owners
 export const PHASE_ORDER = [
   { status: 'Floor Plan',                                owner: 'sales'       },
   { status: 'Measurement based on Plan',                 owner: 'engineering' },
@@ -45,19 +48,10 @@ export const PHASE_ORDER = [
   { status: 'Pending QA Verification',                   owner: 'eng_head',   locked: true },
   { status: 'Final Site Inspection with the Client',     owner: 'engineering' },
   { status: 'Signing of COC',                            owner: 'engineering' },
-  { status: 'Request Final Billing',                     owner: 'accounting'  },
+  { status: 'Request Final Billing',                     owner: 'management'  },
   { status: 'Completed',                                 owner: 'all'         },
   { status: 'Archived',                                  owner: 'all'         },
 ];
-
-// Phases that have NO component — always render WaitingView only
-export const WAITING_ONLY_PHASES = new Set([ 
-  'Site Inspection & Quality Checking',
-  'Pending QA Verification',
-  'Final Site Inspection with the Client',
-  'Signing of COC',
-  'Request Final Billing',
-]);
 
 export const LOGISTICS_PHASES = [
   'Checking of Delivery of Materials',
@@ -67,9 +61,7 @@ export const LOGISTICS_PHASES = [
 
 export const ACCOUNTING_PHASES = [
   'Request Billing',
-  'Request Final Billing',
 ];
-
 
 export const PHASE_COMPONENT_MAP = {
   'Floor Plan':                                'PhaseFloorPlan',
@@ -83,6 +75,11 @@ export const PHASE_COMPONENT_MAP = {
   'Site Inspection & Project Monitoring':      'PhaseCommandCenter',
   'Request Materials Needed':                  'PhaseCommandCenter',
   'Request Billing':                           'PhaseBilling',
+  'Site Inspection & Quality Checking':        'PhaseQAHandover',
+  'Pending QA Verification':                   'PhaseQAHandover',
+  'Final Site Inspection with the Client':     'PhaseQAHandover',
+  'Signing of COC':                            'PhaseQAHandover',
+  'Request Final Billing':                     'PhaseBilling',
   'Completed':                                 'PhaseCompleted',
   'Archived':                                  'PhaseCompleted',
 };
@@ -103,7 +100,6 @@ export const canAccessProject = (project, user, userDept) => {
   const dept  = (userDept ?? '').toLowerCase();
   const role  = (user?.role ?? '').toLowerCase();
   const email = (user?.email ?? '').toLowerCase();
-
 
   if (role === 'admin' || role === 'manager' || role === 'super_admin') return true;
   if (isDeptHead(user)) return true;
@@ -158,7 +154,7 @@ export const getPhaseAccess = (status, {
     'Pending QA Verification':                   isEngHead,
     'Final Site Inspection with the Client':     isEng      || isEngHead,
     'Signing of COC':                            isEng      || isEngHead,
-    'Request Final Billing':                     isAccounting,
+    'Request Final Billing':                     isOpsAss,
     'Completed':                                 true,
     'Archived':                                  true,
   };
