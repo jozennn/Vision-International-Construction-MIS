@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\LogsActivity; // 1. IMPORT THE TRAIT HERE
 
 class Lead extends Model
 {
     use SoftDeletes;
+    use LogsActivity; // 2. USE THE TRAIT INSIDE THE CLASS
 
     protected $fillable = [
         'client_name', 
