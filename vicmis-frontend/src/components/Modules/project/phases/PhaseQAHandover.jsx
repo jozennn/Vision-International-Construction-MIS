@@ -13,12 +13,6 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
           <h3 className="pm-title-md" style={{ color: 'white', margin: 0 }}>🔎 Internal Technical QA/QC</h3>
         </div>
         <div style={{ padding: '30px' }}>
-          <p className="pm-title-md">Ensure the site is 100% pristine before scheduling the client walkthrough.</p>
-          <div className="pm-grid-3 pm-card-gray mt-4 mb-4">
-            <label className="pm-checklist-item"><input type="checkbox" required /><span>All BOQ Scopes Installed</span></label>
-            <label className="pm-checklist-item"><input type="checkbox" required /><span>Site Cleared of Debris</span></label>
-            <label className="pm-checklist-item"><input type="checkbox" required /><span>No Visible Defects</span></label>
-          </div>
           <div className="pm-card-gray text-center">
             <label className="pm-title-lg">📸 Upload Internal QA Passed Photo *</label>
             <input type="file" accept="image/*" onChange={e => setUploadFile(e.target.files[0])} className="pm-file-input" />
@@ -39,7 +33,7 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
           <h3 className="pm-title-lg" style={{ borderBottom: '2px solid var(--pm-border-soft)', paddingBottom: '20px' }}>
             Verify Internal QA
           </h3>
-          <p className="pm-text-muted mt-4">Review the site photo to ensure it is ready for the client walkthrough.</p>
+          <p className="pm-text-muted mt-4">Review the uploaded QA photo. Approve if ready, or reject to send back.</p>
           <div className="pm-card mt-4">
             {project.qa_photo ? (
               <img src={`/storage/${project.qa_photo}`} alt="QA Proof"
@@ -74,8 +68,6 @@ const PhaseQAHandover = ({ project, isEng, isEngHead, onAdvance, onUploadAdvance
         <div className="pm-grid-2" style={{ padding: '30px' }}>
           <div>
             {renderDocumentLink('Internal QA Photo Ref', project.qa_photo)}
-            <label className="pm-label mt-4">Client Remarks / Punchlist Notes</label>
-            <textarea className="pm-textarea" placeholder="Note any specific feedback from the client here..." />
           </div>
           <div className="pm-card-cream text-center" style={{ marginBottom: 0 }}>
             <h4 className="pm-title-lg" style={{ color: '#854d0e' }}>📄 Upload Client Sign-off Sheet *</h4>
