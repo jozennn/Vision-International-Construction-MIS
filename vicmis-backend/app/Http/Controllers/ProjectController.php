@@ -556,6 +556,7 @@ class ProjectController extends Controller
         }
 
         if ($request->filled('rejection_notes')) {
+        
             ProjectRejectionLog::create([
                 'project_id'        => $project->id,
                 'rejected_phase'    => $project->status,
@@ -564,13 +565,34 @@ class ProjectController extends Controller
                 'rejected_by'       => Auth::id(),
                 'rejected_at'       => now(),
             ]);
-
+        
+            // If rejecting a PO/Work Order verification, stamp the po_orders row too
+            if ($project->status === 'Pending Work Order Verification') {
+                $project->poOrder()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'verification_status' => 'rejected',
+                        'rejected_by'         => Auth::id(),
+                        'rejected_at'         => now(),
+                        'rejection_notes'     => $request->rejection_notes,
+                        // Clear any prior approval
+                        'verified_by'         => null,
+                        'verified_at'         => null,
+                    ]
+                );
+            }
+        
             $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
-            $this->createNotification($deptToNotify, null, $project->id,
-                "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}");
-
+            $this->createNotification(
+                $deptToNotify,
+                null,
+                $project->id,
+                "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}"
+            );
+        
         } elseif ($request->boolean('go_back')) {
             // Silent go-back — no notification, no rejection log
+        
         } else {
             $this->notifyNextPhase($request->status, $project);
         }
@@ -871,6 +893,34 @@ class ProjectController extends Controller
         if (!$inspection) return response()->json(['message' => 'No inspection found.'], 404);
         return response()->json($inspection);
     }
+
+    public function approvePOWorkOrder(Request $request, int $id): JsonResponse
+{
+    $project = Project::with('poOrder')->findOrFail($id);
+ 
+    // Stamp the approval on the po_orders row
+    $project->poOrder()->updateOrCreate(
+        ['project_id' => $project->id],
+        [
+            'verification_status' => 'approved',
+            'verified_by'         => Auth::id(),
+            'verified_at'         => now(),
+            // Clear any prior rejection
+            'rejected_by'         => null,
+            'rejected_at'         => null,
+            'rejection_notes'     => null,
+        ]
+    );
+ 
+    // Advance the project
+    $project->update(['status' => 'Initial Site Inspection']);
+    $this->notifyNextPhase('Initial Site Inspection', $project);
+ 
+    return response()->json([
+        'message' => 'P.O & Work Order approved. Forwarded to Engineering.',
+        'project' => $this->formatProject($project->fresh(self::EAGER)),
+    ]);
+}
 
     // =========================================================================
     // 10. DAILY LOGS & ISSUES
@@ -1200,9 +1250,37 @@ public function storeDailyLog(Request $request, $id)
         $map = [
             'floor_plan_image' => fn() => $project->update(['floor_plan_image' => $path]),
 
-            'po_document'         => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['po_document'        => $path, 'po_uploaded_by' => $by, 'po_uploaded_at' => $now]),
-            'work_order_document' => fn() => $project->poOrder()->updateOrCreate(['project_id' => $uid], ['work_order_document' => $path, 'wo_uploaded_by' => $by, 'wo_uploaded_at' => $now]),
-
+            'po_document' => fn() => $project->poOrder()->updateOrCreate(
+            ['project_id' => $uid],
+            [
+                'po_document'    => $path,
+                'po_uploaded_by' => $by,
+                'po_uploaded_at' => $now,
+                // Reset verification so Sales Head must re-review if P.O is replaced
+                'verification_status' => 'pending',
+                'verified_by'         => null,
+                'verified_at'         => null,
+                'rejected_by'         => null,
+                'rejected_at'         => null,
+                'rejection_notes'     => null,
+            ]
+        ),
+        
+        'work_order_document' => fn() => $project->poOrder()->updateOrCreate(
+            ['project_id' => $uid],
+            [
+                'work_order_document' => $path,
+                'wo_uploaded_by'      => $by,
+                'wo_uploaded_at'      => $now,
+                // Reset verification so Sales Head must re-review if Work Order is replaced
+                'verification_status' => 'pending',
+                'verified_by'         => null,
+                'verified_at'         => null,
+                'rejected_by'         => null,
+                'rejected_at'         => null,
+                'rejection_notes'     => null,
+            ]
+        ),
             'site_inspection_photo' => fn() => $project->siteInspection()->updateOrCreate(['project_id' => $uid], ['inspection_photo' => $path, 'submitted_at' => $now]),
 
             'delivery_receipt_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['delivery_receipt_document' => $path, 'dr_uploaded_by' => $by, 'dr_uploaded_at' => $now]),

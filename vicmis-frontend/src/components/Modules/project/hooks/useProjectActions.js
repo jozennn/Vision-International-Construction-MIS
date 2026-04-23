@@ -19,18 +19,45 @@ export const useProjectActions = (selectedProject, refreshProject) => {
     }
   };
 
-  const uploadAndAdvance = async (nextStatus, fileKey, uploadFile, awardDetails = {}) => {
-    if (!uploadFile && fileKey) return alert('Please select a file first to proceed!');
+  /**
+   * uploadAndAdvance
+   *
+   * Supports two modes:
+   *
+   * 1. Single-file (original behaviour):
+   *    onUploadAdvance(nextStatus, fileKey, file)
+   *
+   * 2. Dual-file — P.O + Work Order together:
+   *    onUploadAdvance(nextStatus, 'po_document', poFile, {}, workOrderFile)
+   *    Pass the Work Order file as the 5th argument; the hook appends it automatically.
+   */
+  const uploadAndAdvance = async (
+    nextStatus,
+    fileKey,
+    uploadFile,
+    awardDetails = {},
+    secondaryFile = null,          // ← new: optional second file
+    secondaryFileKey = 'work_order_document', // ← new: key for the second file
+  ) => {
+    // At least one file must be provided when a fileKey is given
+    if (fileKey && !uploadFile && !secondaryFile) {
+      return alert('Please select a file first to proceed!');
+    }
+
     try {
       const fd = new FormData();
       fd.append('status', nextStatus);
-      if (fileKey) fd.append(fileKey, uploadFile);
       fd.append('_method', 'PATCH');
-      if (awardDetails.name)   fd.append('subcontractor_name', awardDetails.name);
-      if (awardDetails.amount) fd.append('contract_amount',    awardDetails.amount);
+
+      if (fileKey && uploadFile)           fd.append(fileKey,           uploadFile);
+      if (secondaryFile)                   fd.append(secondaryFileKey,  secondaryFile);
+      if (awardDetails.name)               fd.append('subcontractor_name', awardDetails.name);
+      if (awardDetails.amount)             fd.append('contract_amount',    awardDetails.amount);
+
       await api.post(`/projects/${selectedProject.id}/status`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       alert(`Status advanced to: ${nextStatus}`);
       await refreshProject();
     } catch (err) {
