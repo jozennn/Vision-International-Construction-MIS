@@ -475,7 +475,7 @@ const MaterialsPanel = ({ project }) => {
 
       {boqTotal > 0 && (
         <div className="pc-boq-total-card">
-          <span className="pc-boq-total-label">Total Contract Value (BOQ)</span>
+          <span className="pc-boq-total-label">Total Bill Of Quantities Cost</span>
           <span className="pc-boq-total-value">{formatCurrency(boqTotal)}</span>
         </div>
       )}
