@@ -46,20 +46,27 @@ trait LogsActivity
         $user = Auth::user();
         if (!$user) return; 
 
-        // Get the Model name (e.g., "Lead", "Project")
         $moduleName = class_basename($model);
         
         // ---------------------------------------------------------
-        // NEW LOGIC: Custom formatting based on the module
+        // Custom formatting based on the module
         // ---------------------------------------------------------
         if ($moduleName === 'Lead') {
-            // Format it nicely like: "BARBERSHOP (Client: John Doe)"
+            
             $projectName = $model->project_name ?? "Lead ID: {$model->id}";
             $clientName  = $model->client_name ? " (Client: {$model->client_name})" : '';
+            $itemName    = $projectName . $clientName;
             
-            $itemName = $projectName . $clientName;
+        } elseif ($moduleName === 'Project') {
+            
+            // NEW: Exact same logic, but for Projects!
+            // (Checks 'name' or 'project_name', and grabs the client)
+            $projectName = $model->project_name ?? $model->name ?? "Project ID: {$model->id}";
+            $clientName  = $model->client_name ? " (Client: {$model->client_name})" : '';
+            $itemName    = $projectName . $clientName;
+            
         } else {
-            // Default fallback for all other modules
+            // Default fallback for everything else
             $itemName = $model->customer_name 
                      ?? $model->client_name 
                      ?? $model->company_name 
