@@ -149,7 +149,7 @@ export const getPhaseAccess = (status, {
     'Pending DR Verification':                   isLogistics,
     'Bidding of Project':                        false,
     'Awarding of Project':                       false,
-    'Contract Signing for Installer':            isEng      || isEngHead,
+    'Contract Signing for Installer':            false,
     'Deployment and Orientation of Installers':  isEng      || isEngHead,
     'Site Inspection & Project Monitoring':      isEng      || isEngHead,
     'Request Materials Needed':                  isLogistics,

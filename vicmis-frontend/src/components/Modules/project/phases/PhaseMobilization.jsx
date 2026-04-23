@@ -18,7 +18,7 @@ const SaveIndicator = ({ status }) => {
   return <span style={styles[status]}>{labels[status]}</span>;
 };
 
-// ─── DocumentViewer (same pattern as PhasePOWorkOrder) ───────────────────────
+// ─── DocumentViewer ───────────────────────────────────────────────────────────
 const DocumentViewer = ({ path, label, onClose }) => {
   const [loaded, setLoaded] = useState(false);
   const [error,  setError]  = useState(false);
@@ -45,7 +45,6 @@ const DocumentViewer = ({ path, label, onClose }) => {
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 20px', flexShrink: 0,
@@ -55,8 +54,7 @@ const DocumentViewer = ({ path, label, onClose }) => {
             📸 {label}
           </span>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <a
-              href={src} target="_blank" rel="noreferrer"
+            <a href={src} target="_blank" rel="noreferrer"
               style={{
                 fontSize: '12px', fontWeight: 600, color: '#374151',
                 textDecoration: 'none', padding: '5px 12px', borderRadius: '6px',
@@ -72,7 +70,6 @@ const DocumentViewer = ({ path, label, onClose }) => {
           </div>
         </div>
 
-        {/* Body */}
         <div style={{
           flex: 1, overflow: 'auto', position: 'relative',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -171,24 +168,17 @@ const rosterToInstallers = (roster) =>
     position: r.position ?? 'Installer',
   }));
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PhaseMobilization
+// Handles ONLY: Deployment and Orientation of Installers
+// NOTE: Contract Signing for Installer is now fully handled by
+//       PhaseBiddingAwardingContract — see Project.jsx GATE 3.
+// ─────────────────────────────────────────────────────────────────────────────
 const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvance, renderDocumentLink }) => {
   const { status } = project;
 
-  const contractWasCompleted = [
-    'Deployment and Orientation of Installers',
-    'Site Inspection & Project Monitoring',
-  ].includes(status) || project?.mobilization?.contract_signed_at;
-
-  const [contract, setContract] = useState({
-    boqReviewed:    !!contractWasCompleted,
-    timelineAgreed: !!contractWasCompleted,
-    signed:         !!contractWasCompleted,
-  });
-
-  const savedRoster = resolveRoster(project);
-  const initialRows = savedRoster.length > 0
-    ? rosterToInstallers(savedRoster)
-    : [emptyInstaller()];
+  const savedRoster  = resolveRoster(project);
+  const initialRows  = savedRoster.length > 0 ? rosterToInstallers(savedRoster) : [emptyInstaller()];
 
   const [installers,  setInstallers]  = useState(initialRows);
   const [uploadFile,  setUploadFile]  = useState(null);
@@ -199,14 +189,11 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
   const autoSaveTimer  = useRef(null);
   const isFirstLoad    = useRef(true);
 
-  // Existing mobilization photo path
   const existingPhotoPath = project?.mobilization_photo || project?.mobilization?.mobilization_photo || null;
 
   useEffect(() => {
     const roster = resolveRoster(project);
-    if (roster.length > 0) {
-      setInstallers(rosterToInstallers(roster));
-    }
+    if (roster.length > 0) setInstallers(rosterToInstallers(roster));
     setTimeout(() => { isFirstLoad.current = false; }, 300);
   }, [project?.id]);
 
@@ -245,7 +232,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
     return () => clearTimeout(autoSaveTimer.current);
   }, [installers, project?.id, status, buildDraftPayload]);
 
-  const isContractReady    = contract.boqReviewed && contract.timelineAgreed && contract.signed;
   const hasValidInstallers = installers.length > 0 && installers.every(i => i.name.trim() !== '');
   const hasExistingPhoto   = !!existingPhotoPath;
   const isMobilizationReady = hasValidInstallers && (uploadFile || hasExistingPhoto);
@@ -254,21 +240,6 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
   const removeRow = (id) => setInstallers(prev => prev.filter(i => i.id !== id));
   const updateRow = (id, field, value) =>
     setInstallers(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
-
-  const handleContractConfirm = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await api.post(`/projects/${project.id}/mobilization/contract`, {
-        new_status: 'Deployment and Orientation of Installers',
-      });
-      onAdvance('Deployment and Orientation of Installers');
-    } catch (err) {
-      setError(err.response?.data?.message ?? err.message ?? 'Failed to confirm contract.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDeploySubmit = async () => {
     setLoading(true);
@@ -281,9 +252,7 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
       const formData = new FormData();
       formData.append('new_status',       'Site Inspection & Project Monitoring');
       formData.append('installer_roster', JSON.stringify(validRoster));
-      if (uploadFile) {
-        formData.append('mobilization_photo', uploadFile);
-      }
+      if (uploadFile) formData.append('mobilization_photo', uploadFile);
 
       await api.post(
         `/projects/${project.id}/mobilization/deploy`,
@@ -300,81 +269,7 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Phase 1: Contract Signing for Installer
-  // NOTE: This phase is now handled by PhaseBiddingAwardingContract.
-  // Kept here as fallback only.
-  // ─────────────────────────────────────────────────────────────────────────
-  if (status === 'Contract Signing for Installer' && (isEng || isOpsAss)) {
-    return (
-      <div className="pm-mob-wrapper">
-        {error && (
-          <div className="pm-card-red">
-            <p className="pm-text-muted pm-no-margin">⚠️ {error}</p>
-          </div>
-        )}
-
-        <div className="pm-card">
-          <div className="pm-card-navy">
-            <h3 className="pm-mob-title">🤝 Subcontractor Handover Briefing</h3>
-          </div>
-
-          <div className="pm-card-body">
-            <div className="pm-card-gray">
-              <h4 className="pm-mob-section-label pm-mob-label-blue">Subcontractor Agreement</h4>
-              {renderDocumentLink('Subcontractor Agreement', project.subcontractor_agreement_document)}
-            </div>
-
-            <div className="pm-card-gray">
-              <h4 className="pm-title-md pm-mob-confirm-heading">Confirm the following before proceeding</h4>
-              <div className="pm-mob-checklist">
-                <label className={`pm-mob-check-item ${contract.boqReviewed ? 'pm-mob-check-done' : ''}`}>
-                  <input type="checkbox" checked={contract.boqReviewed}
-                    onChange={e => setContract({ ...contract, boqReviewed: e.target.checked })} />
-                  <div className="pm-mob-check-text">
-                    <span className="pm-mob-check-title">📋 Final BOQ Reviewed</span>
-                    <span className="pm-mob-check-sub">Subcontractor has reviewed and agreed to the Final BOQ parameters.</span>
-                  </div>
-                </label>
-
-                <label className={`pm-mob-check-item ${contract.timelineAgreed ? 'pm-mob-check-done' : ''}`}>
-                  <input type="checkbox" checked={contract.timelineAgreed}
-                    onChange={e => setContract({ ...contract, timelineAgreed: e.target.checked })} />
-                  <div className="pm-mob-check-text">
-                    <span className="pm-mob-check-title">⏳ Timeline Acknowledged</span>
-                    <span className="pm-mob-check-sub">Project timeline and milestones have been acknowledged.</span>
-                  </div>
-                </label>
-
-                <label className={`pm-mob-check-item ${contract.signed ? 'pm-mob-check-done' : ''}`}>
-                  <input type="checkbox" checked={contract.signed}
-                    onChange={e => setContract({ ...contract, signed: e.target.checked })} />
-                  <div className="pm-mob-check-text">
-                    <span className="pm-mob-check-title">✍️ Contract Signed</span>
-                    <span className="pm-mob-check-sub">Physical contract has been formally signed by both parties.</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <PrimaryButton
-              disabled={!isContractReady || loading}
-              variant="red"
-              onClick={handleContractConfirm}
-            >
-              {loading
-                ? 'Saving...'
-                : isContractReady
-                  ? '✓ Confirm Handover & Proceed to Mobilization'
-                  : 'Complete Checklist to Advance'}
-            </PrimaryButton>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Phase 2: Deployment and Orientation of Installers
+  // Deployment and Orientation of Installers
   // ─────────────────────────────────────────────────────────────────────────
   if (status === 'Deployment and Orientation of Installers' && (isEng || isOpsAss)) {
     return (
@@ -470,14 +365,9 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
                 Upload a toolbox meeting or mobilization photo as proof of deployment.
               </p>
 
-              {/* View existing photo button */}
               {hasExistingPhoto && (
                 <div style={{ marginBottom: '12px' }}>
-                  <ViewDocumentButton
-                    label="Mobilization Photo"
-                    path={existingPhotoPath}
-                    icon="📸"
-                  />
+                  <ViewDocumentButton label="Mobilization Photo" path={existingPhotoPath} icon="📸" />
                 </div>
               )}
 

@@ -73,7 +73,7 @@ class ProjectController extends Controller
     }
 
     private function notifyProjectUsers(Project $project, string $message, array $targets = []): void
-{
+    {
     // Manager/admin — always notify by role (no single user ID)
     if (in_array('manager', $targets)) {
         $this->createNotification('Management', 'manager', $project->id, $message);
@@ -180,10 +180,13 @@ class ProjectController extends Controller
             $this->createNotification('Management', null, $project->id, $msg);
             break;
 
+        case 'Contract Signing for Installer':
+            $this->createNotification('Management', null, $project->id, $msg);
+            break;
+
         case 'Deployment and Orientation of Installers':
             $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'manager']);
             break;
-
         case 'Site Inspection & Project Monitoring':
             $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'sales', 'manager']);
             break;
@@ -399,6 +402,78 @@ class ProjectController extends Controller
     // =========================================================================
     // 4. SINGLE PROJECT
     // =========================================================================
+
+
+    public function saveBiddingAwardingContract(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'new_status'                       => 'required|string',
+            'bidding_document'                 => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'awarding_document'                => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+            'subcontractor_agreement_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
+        ]);
+    
+        try {
+            $project = Project::with(self::EAGER)->findOrFail($id);
+            $by      = Auth::id();
+            $now     = now();
+    
+            // ── Step 1: Bidding document → project_materials ──────────────────
+            if ($request->hasFile('bidding_document')) {
+                $path = $request->file('bidding_document')
+                    ->store('project_documents', 'public');
+    
+                $project->materials()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'bidding_document'    => $path,
+                        'bidding_submitted_at' => $now,
+                    ]
+                );
+            }
+    
+            // ── Step 2: Awarding document → project_materials ─────────────────
+            if ($request->hasFile('awarding_document')) {
+                $path = $request->file('awarding_document')
+                    ->store('project_documents', 'public');
+    
+                $project->materials()->updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'awarding_document'    => $path,
+                        'awarding_submitted_at' => $now,
+                    ]
+                );
+            }
+    
+            // ── Step 3: Subcontractor agreement → project_mobilizations ───────
+            if ($request->hasFile('subcontractor_agreement_document')) {
+                $path = $request->file('subcontractor_agreement_document')
+                    ->store('project_documents', 'public');
+    
+                ProjectMobilization::updateOrCreate(
+                    ['project_id' => $project->id],
+                    [
+                        'subcontractor_agreement_document' => $path,
+                        'contract_uploaded_by'             => $by,
+                        'contract_signed_at'               => $now,
+                    ]
+                );
+            }
+    
+            // ── Advance status & notify ───────────────────────────────────────
+            $project->update(['status' => $request->new_status]);
+            $this->notifyNextPhase($request->new_status, $project);
+    
+            return response()->json([
+                'message' => 'BAC documents saved. Project advanced to ' . $request->new_status . '.',
+                'project' => $this->formatProject($project->fresh(self::EAGER)),
+            ]);
+    
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
 
     public function show(Request $request, $id): JsonResponse
     {
@@ -1285,7 +1360,8 @@ public function storeDailyLog(Request $request, $id)
 
             'delivery_receipt_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['delivery_receipt_document' => $path, 'dr_uploaded_by' => $by, 'dr_uploaded_at' => $now]),
             'bidding_document'          => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['bidding_document'          => $path, 'bidding_submitted_at' => $now]),
-
+            'bidding_document'  => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['bidding_document'  => $path, 'bidding_submitted_at'  => $now]),
+            'awarding_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['awarding_document' => $path, 'awarding_submitted_at' => $now]),
             'subcontractor_agreement_document' => fn() => ProjectMobilization::updateOrCreate(
                 ['project_id' => $uid],
                 ['subcontractor_agreement_document' => $path, 'contract_uploaded_by' => $by, 'contract_signed_at' => $now]
@@ -1491,6 +1567,7 @@ public function storeDailyLog(Request $request, $id)
             ] : null,
             'delivery_receipt_document' => $mat?->delivery_receipt_document,
             'bidding_document'          => $mat?->bidding_document,
+            'awarding_document' => $mat?->awarding_document,
             'subcontractor_name'               => $mob?->subcontractor_name ?? $mat?->subcontractor_name ?? $project->subcontractor_name,
             'subcontractor_agreement_document' => $mob?->subcontractor_agreement_document,
             'mobilization_photo'               => $mob?->mobilization_photo,
