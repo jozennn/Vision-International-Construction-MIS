@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\LogsActivity;
 
 class Shipment extends Model
 {
     use HasFactory, SoftDeletes;
+    use LogsActivity;
     // These are the fields we allow React to fill
     protected $fillable = [
         'origin_type',

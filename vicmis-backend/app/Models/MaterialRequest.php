@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Traits\LogsActivity;
 
 class MaterialRequest extends Model
 {
+    use LogsActivity;
     // 👇 Update fillable to match actual table columns
     protected $fillable = [
         'project_id',

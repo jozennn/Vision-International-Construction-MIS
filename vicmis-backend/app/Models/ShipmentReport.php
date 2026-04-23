@@ -3,9 +3,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use App\Traits\LogsActivity;
 class ShipmentReport extends Model
 {
+    use LogsActivity;
     protected $fillable = [
         'shipment_id',
         'shipment_number',

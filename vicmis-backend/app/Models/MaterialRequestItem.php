@@ -4,9 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use App\Traits\LogsActivity;
 class MaterialRequestItem extends Model
 {
+    use LogsActivity;
     protected $fillable = [
         'material_request_id',
         'description',
