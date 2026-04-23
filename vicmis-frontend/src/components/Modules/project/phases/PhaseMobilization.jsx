@@ -18,7 +18,7 @@ const SaveIndicator = ({ status }) => {
   return <span style={styles[status]}>{labels[status]}</span>;
 };
 
-// ─── DocumentViewer ───────────────────────────────────────────────────────────
+// ─── DocumentViewer Modal ─────────────────────────────────────────────────────
 const DocumentViewer = ({ path, label, onClose }) => {
   const [loaded, setLoaded] = useState(false);
   const [error,  setError]  = useState(false);
@@ -45,13 +45,14 @@ const DocumentViewer = ({ path, label, onClose }) => {
         }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 20px', flexShrink: 0,
           borderBottom: '1px solid #e5e7eb', background: '#f9fafb',
         }}>
           <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>
-            📸 {label}
+            📄 {label}
           </span>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <a href={src} target="_blank" rel="noreferrer"
@@ -70,6 +71,7 @@ const DocumentViewer = ({ path, label, onClose }) => {
           </div>
         </div>
 
+        {/* Body */}
         <div style={{
           flex: 1, overflow: 'auto', position: 'relative',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -123,8 +125,8 @@ const DocumentViewer = ({ path, label, onClose }) => {
   );
 };
 
-/* ─── ViewDocumentButton ─────────────────────────────────────────────────── */
-const ViewDocumentButton = ({ label, path, icon = '📸' }) => {
+// ─── ViewDocumentButton ───────────────────────────────────────────────────────
+const ViewDocumentButton = ({ label, path, icon = '📄' }) => {
   const [open, setOpen] = useState(false);
   if (!path) return null;
   return (
@@ -149,7 +151,7 @@ const ViewDocumentButton = ({ label, path, icon = '📸' }) => {
   );
 };
 
-// Parse roster from project prop
+// ─── Parse roster from project prop ──────────────────────────────────────────
 const resolveRoster = (project) => {
   const top = project?.installer_roster;
   if (Array.isArray(top) && top.length > 0) return top;
@@ -232,8 +234,8 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
     return () => clearTimeout(autoSaveTimer.current);
   }, [installers, project?.id, status, buildDraftPayload]);
 
-  const hasValidInstallers = installers.length > 0 && installers.every(i => i.name.trim() !== '');
-  const hasExistingPhoto   = !!existingPhotoPath;
+  const hasValidInstallers  = installers.length > 0 && installers.every(i => i.name.trim() !== '');
+  const hasExistingPhoto    = !!existingPhotoPath;
   const isMobilizationReady = hasValidInstallers && (uploadFile || hasExistingPhoto);
 
   const addRow    = () => setInstallers(prev => [...prev, emptyInstaller()]);
@@ -272,14 +274,61 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
   // Deployment and Orientation of Installers
   // ─────────────────────────────────────────────────────────────────────────
   if (status === 'Deployment and Orientation of Installers' && (isEng || isOpsAss)) {
+
+    // Documents uploaded during the BAC phase
+    const bacDocs = [
+      { label: 'Bidding Document',        path: project?.bidding_document,                 icon: '🏗️' },
+      { label: 'Awarding Document',       path: project?.awarding_document,                icon: '🏆' },
+      { label: 'Subcontractor Agreement', path: project?.subcontractor_agreement_document, icon: '✍️' },
+    ];
+    const hasAnyBacDoc = bacDocs.some(d => d.path);
+
     return (
       <div className="pm-mob-wrapper">
+
         {error && (
           <div className="pm-card-red">
             <p className="pm-text-muted pm-no-margin">⚠️ {error}</p>
           </div>
         )}
 
+        {/* ── BAC Documents Reference ────────────────────────────────────── */}
+        {hasAnyBacDoc && (
+          <div className="pm-card-gray" style={{ marginBottom: '1.25rem' }}>
+            <h4 className="pm-title-md" style={{ marginBottom: '0.4rem' }}>
+              📋 BAC Documents Reference
+            </h4>
+            <p className="pm-text-muted" style={{ marginBottom: '1rem', fontSize: '0.85rem' }}>
+              Documents from the Bidding, Awarding &amp; Contract Signing phase.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+              {bacDocs.map(doc =>
+                doc.path ? (
+                  <ViewDocumentButton
+                    key={doc.label}
+                    label={doc.label}
+                    path={doc.path}
+                    icon={doc.icon}
+                  />
+                ) : (
+                  <span
+                    key={doc.label}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '7px 14px', borderRadius: '7px',
+                      background: '#f3f4f6', border: '1.5px solid #e5e7eb',
+                      color: '#9ca3af', fontWeight: 600, fontSize: '13px',
+                    }}
+                  >
+                    {doc.icon} {doc.label} — Not uploaded
+                  </span>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Main Mobilization Card ─────────────────────────────────────── */}
         <div className="pm-card">
           <div className="pm-card-navy">
             <div className="pm-mob-nav-inner">
@@ -321,24 +370,30 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
                       <tr key={inst.id} className={inst.name.trim() ? 'pm-mob-row-filled' : ''}>
                         <td className="pm-mob-row-num">{idx + 1}</td>
                         <td>
-                          <input type="text" className="pm-mob-input"
+                          <input
+                            type="text"
+                            className="pm-mob-input"
                             value={inst.name}
                             onChange={e => updateRow(inst.id, 'name', e.target.value)}
-                            placeholder="e.g. Juan dela Cruz" />
+                            placeholder="e.g. Juan dela Cruz"
+                          />
                         </td>
                         <td>
-                          <select className="pm-mob-input pm-mob-select"
+                          <select
+                            className="pm-mob-input pm-mob-select"
                             value={inst.position}
-                            onChange={e => updateRow(inst.id, 'position', e.target.value)}>
+                            onChange={e => updateRow(inst.id, 'position', e.target.value)}
+                          >
                             {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         </td>
                         <td>
-                          <button className="pm-mob-remove-btn"
+                          <button
+                            className="pm-mob-remove-btn"
                             onClick={() => removeRow(inst.id)}
                             disabled={installers.length === 1}
-                            title="Remove row">✕
-                          </button>
+                            title="Remove row"
+                          >✕</button>
                         </td>
                       </tr>
                     ))}
@@ -367,7 +422,11 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
 
               {hasExistingPhoto && (
                 <div style={{ marginBottom: '12px' }}>
-                  <ViewDocumentButton label="Mobilization Photo" path={existingPhotoPath} icon="📸" />
+                  <ViewDocumentButton
+                    label="Mobilization Photo"
+                    path={existingPhotoPath}
+                    icon="📸"
+                  />
                 </div>
               )}
 
@@ -382,10 +441,13 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
                       ? 'Photo already uploaded — choose new to replace'
                       : 'Click to choose — Image file'}
                 </span>
-                <input type="file" accept="image/*"
+                <input
+                  type="file"
+                  accept="image/*"
                   ref={fileInputRef}
                   onChange={e => setUploadFile(e.target.files[0])}
-                  className="pm-hidden-file" />
+                  className="pm-hidden-file"
+                />
               </label>
             </div>
 
@@ -402,6 +464,7 @@ const PhaseMobilization = ({ project, isEng, isOpsAss, onAdvance, onUploadAdvanc
             </PrimaryButton>
           </div>
         </div>
+
       </div>
     );
   }
