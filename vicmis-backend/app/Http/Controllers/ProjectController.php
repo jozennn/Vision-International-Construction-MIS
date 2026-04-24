@@ -556,62 +556,32 @@ class ProjectController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        // 1. Add 'contract' to validation
         $validated = $request->validate([
-            'lead_id'      => 'required|exists:leads,id',
+            'lead_id'      => 'required',
             'project_name' => 'required',
             'client_name'  => 'required',
             'location'     => 'required',
             'project_type' => 'required',
-            'contract'     => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,webp|max:10240',
         ]);
 
-        $lead = Lead::findOrFail($request->lead_id);
-        $contractUrl = null;
-        $contractName = null;
+        $validated['status']     = 'Floor Plan';
+        $validated['created_by'] = Auth::id();
 
-        // 2. Catch the file and save it to the Lead
-        if ($request->hasFile('contract')) {
-            $file = $request->file('contract');
-            $contractName = $file->getClientOriginalName();
-            
-            // Saves to storage/app/public/contracts
-            $path = $file->store('contracts', 'public'); 
-            $contractUrl = url('storage/' . $path);
+        $project = Project::create($validated);
 
-            $lead->update([
-                'status'        => 'Project Created',
-                'contract_url'  => $contractUrl,
-                'contract_name' => $contractName,
-            ]);
-        } else {
-            $lead->update(['status' => 'Project Created']);
-        }
+        Lead::where('id', $request->lead_id)
+            ->update(['status' => 'Project Created']);
 
-        // 3. Create the Project
-        $project = Project::create([
-            'lead_id'      => $request->lead_id,
-            'project_name' => $request->project_name,
-            'client_name'  => $request->client_name,
-            'location'     => $request->location,
-            'project_type' => $request->project_type,
-            'status'       => 'Floor Plan', // Keeping your existing initial phase
-            'created_by'   => Auth::id(),
-        ]);
-
-        // 4. Notifications
+        $lead = Lead::find($request->lead_id);
         $salesRepName = optional($lead?->salesRep)->name ?? 'Sales';
         $this->notifyProjectUsers($project,
             "🎉 Lead Converted: \"{$project->project_name}\" by {$salesRepName} has been converted into a project.",
             ['sales_head', 'manager', 'eng_head']
         );
 
-        // 5. Return the newly generated URL so React can show the preview immediately
         return response()->json([
-            'message'       => 'Lead converted to Project!',
-            'project'       => $project,
-            'contract_url'  => $contractUrl,
-            'contract_name' => $contractName
+            'message' => 'Lead converted to Project!',
+            'project' => $project,
         ], 201);
     }
 
