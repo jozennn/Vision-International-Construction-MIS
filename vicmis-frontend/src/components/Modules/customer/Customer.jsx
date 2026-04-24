@@ -62,30 +62,94 @@ const PipelineProgress = ({ status, inModal = false }) => {
   );
 };
 
-// ── Kanban Card ───────────────────────────────────────────────────────────────
-const KanbanCard = ({ lead, onClick, onCreateProject, userRole }) => (
-  <div className="kanban-card" onClick={() => onClick(lead)}>
-    <div className="kanban-card-top" style={{ justifyContent: 'flex-end' }}>
-      <span className="kanban-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
-        {lead.created_at ? formatDateTime(lead.created_at) : ''}
-      </span>
-    </div>
-    <div className="kanban-card-client">{lead.client_name}</div>
-    <div className="kanban-card-project">{lead.project_name}</div>
-    <div className="kanban-card-location">📍 {lead.location}</div>
-    {lead.status === 'Ready for Creating Project' && userRole !== 'manager' && (
+// ── Contract Upload Button (inline, compact) ──────────────────────────────────
+const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
+  const inputRef = useRef(null);
+  const contract = contractsMap[leadId];
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) onUpload(leadId, file);
+    e.target.value = '';
+  };
+
+  if (contract) {
+    return (
+      <div className="contract-uploaded-badge" onClick={(e) => e.stopPropagation()}>
+        <span className="contract-check-icon">✔</span>
+        <span className="contract-uploaded-name" title={contract.name}>
+          {contract.name.length > 18 ? contract.name.slice(0, 16) + '…' : contract.name}
+        </span>
+        <button
+          className="contract-remove-btn"
+          onClick={(ev) => { ev.stopPropagation(); onUpload(leadId, null); }}
+          title="Remove contract"
+        >✕</button>
+      </div>
+    );
+  }
+
+  return (
+    <>
       <button
-        className="btn-create-project kanban-create-btn"
-        onClick={(e) => { e.stopPropagation(); onCreateProject(e, lead); }}
+        className="btn-upload-contract"
+        onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+        title="Upload contract document or image to unlock Create Project"
       >
-        Create Project
+        📎 Upload Contract
       </button>
-    )}
-  </div>
-);
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+    </>
+  );
+};
+
+// ── Kanban Card ───────────────────────────────────────────────────────────────
+const KanbanCard = ({ lead, onClick, onCreateProject, onContractUpload, contractsMap, userRole }) => {
+  const isReady = lead.status === 'Ready for Creating Project';
+  const hasContract = !!contractsMap[lead.id];
+
+  return (
+    <div className="kanban-card" onClick={() => onClick(lead)}>
+      <div className="kanban-card-top" style={{ justifyContent: 'flex-end' }}>
+        <span className="kanban-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
+          {lead.created_at ? formatDateTime(lead.created_at) : ''}
+        </span>
+      </div>
+      <div className="kanban-card-client">{lead.client_name}</div>
+      <div className="kanban-card-project">{lead.project_name}</div>
+      <div className="kanban-card-location">📍 {lead.location}</div>
+      {isReady && userRole !== 'manager' && (
+        <div className="kanban-contract-row" onClick={(e) => e.stopPropagation()}>
+          <ContractUploadButton
+            leadId={lead.id}
+            contractsMap={contractsMap}
+            onUpload={onContractUpload}
+          />
+          <button
+            className={`btn-create-project kanban-create-btn${!hasContract ? ' disabled-locked' : ''}`}
+            disabled={!hasContract}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (hasContract) onCreateProject(e, lead);
+            }}
+            title={!hasContract ? 'Upload a contract first to unlock' : 'Create project'}
+          >
+            {!hasContract ? '🔒 Create Project' : 'Create Project'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ── Kanban Column ─────────────────────────────────────────────────────────────
-const KanbanColumn = ({ stage, leads, onClick, onCreateProject, userRole }) => (
+const KanbanColumn = ({ stage, leads, onClick, onCreateProject, onContractUpload, contractsMap, userRole }) => (
   <div className="kanban-column"
     style={{ '--col-dot': stage.dot, '--col-border': stage.border, '--col-bg': stage.bg }}>
     <div className="kanban-col-header">
@@ -99,7 +163,10 @@ const KanbanColumn = ({ stage, leads, onClick, onCreateProject, userRole }) => (
       ) : (
         leads.map(lead => (
           <KanbanCard key={lead.id} lead={lead} onClick={onClick}
-            onCreateProject={onCreateProject} userRole={userRole} />
+            onCreateProject={onCreateProject}
+            onContractUpload={onContractUpload}
+            contractsMap={contractsMap}
+            userRole={userRole} />
         ))
       )}
     </div>
@@ -115,11 +182,14 @@ const Customer = ({ user }) => {
   const [viewMode, setViewMode]         = useState('grid');
   const [activeTab, setActiveTab]       = useState('active');
 
-  const [leads, setLeads]             = useState([]);
+  const [leads, setLeads]               = useState([]);
   const [trashedLeads, setTrashedLeads] = useState([]);
-  const [projectsMap, setProjectsMap] = useState({});
-  const [isLoading, setIsLoading]     = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+  const [projectsMap, setProjectsMap]   = useState({});
+  const [isLoading, setIsLoading]       = useState(true);
+  const [isExporting, setIsExporting]   = useState(false);
+
+  // contractsMap: { [leadId]: File } — holds uploaded contract per lead
+  const [contractsMap, setContractsMap] = useState({});
 
   const [searchQuery, setSearchQuery]   = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -131,6 +201,20 @@ const Customer = ({ user }) => {
     clientName: '', projectName: '', location: '', contactNo: '',
     notes: '', status: 'To be Contacted', salesRep: user?.name || ''
   });
+
+  // ── Contract Upload Handler ──────────────────────────────────────────────────
+  // Pass null to remove the contract
+  const handleContractUpload = (leadId, file) => {
+    setContractsMap(prev => {
+      const next = { ...prev };
+      if (file === null) {
+        delete next[leadId];
+      } else {
+        next[leadId] = file;
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const handler = (e) => {
@@ -221,8 +305,7 @@ const Customer = ({ user }) => {
   };
 
   const displayedActive = applyFilters(activeLeads);
-  
-  // Custom filter logic for Converted Projects to include Month Filtering
+
   const displayedConverted = completedProjects.filter(l => {
     let match = true;
     if (searchQuery.trim()) {
@@ -255,7 +338,6 @@ const Customer = ({ user }) => {
 
   const handleCardClick = (lead) => {
     setSelectedLead(lead);
-    // Force view-only mode for converted projects AND managers
     setIsViewOnly(user?.role === 'manager' || activeTab === 'converted');
     setIsModalOpen(true);
   };
@@ -310,16 +392,38 @@ const Customer = ({ user }) => {
     } catch { alert('Permanent delete failed.'); }
   };
 
+  // ── Create Project (now accepts contract file via FormData) ───────────────
   const handleCreateProject = async (e, lead) => {
     e.stopPropagation();
+    const contractFile = contractsMap[lead.id];
+    if (!contractFile) {
+      alert('Please upload a contract document or image first.');
+      return;
+    }
     if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
     try {
-      await api.post('/projects', {
-        lead_id: lead.id, project_name: lead.project_name,
-        client_name: lead.client_name, location: lead.location,
-        project_type: 'Construction Project', status: 'Ongoing'
+      // Build multipart payload so the contract file is sent alongside project data
+      const formPayload = new FormData();
+      formPayload.append('lead_id',      lead.id);
+      formPayload.append('project_name', lead.project_name);
+      formPayload.append('client_name',  lead.client_name);
+      formPayload.append('location',     lead.location);
+      formPayload.append('project_type', 'Construction Project');
+      formPayload.append('status',       'Ongoing');
+      formPayload.append('contract',     contractFile);
+
+      await api.post('/projects', formPayload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       await api.put(`/leads/${lead.id}`, { ...lead, status: 'Project Created' });
+
+      // Clear the contract from local state after successful creation
+      setContractsMap(prev => {
+        const next = { ...prev };
+        delete next[lead.id];
+        return next;
+      });
+
       alert('Project created!');
       fetchLeads();
       fetchProjects();
@@ -334,19 +438,16 @@ const Customer = ({ user }) => {
     const dateStr = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
     const data    = activeTab === 'converted' ? displayedConverted : displayedActive;
-    
-    // Add dynamic title generation based on selected month filter
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    let tabLabel = activeTab === 'converted' ? 'Converted Projects Report' : 'Active Leads Report';
 
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    let tabLabel = activeTab === 'converted' ? 'Converted Projects Report' : 'Active Leads Report';
     if (activeTab === 'converted' && filterMonth !== 'all') {
       tabLabel = `Converted Projects Report — ${monthNames[parseInt(filterMonth)]}`;
     } else if (activeTab === 'converted') {
       tabLabel = `Converted Projects Report — All Months`;
     }
 
-    const lastCol  = activeTab === 'converted' ? 'Project Stage' : 'Contact No.';
-
+    const lastCol = activeTab === 'converted' ? 'Project Stage' : 'Contact No.';
     const statusColors = {
       'To be Contacted':            '#64748b',
       'Contacted':                  '#2563eb',
@@ -572,15 +673,15 @@ const Customer = ({ user }) => {
                 <div className="filter-dropdown">
                   <div className="filter-dropdown-title">Filter by Status</div>
                   {['all', ...PIPELINE_STAGES.map(s => s.key)].map(opt => (
-                     <button key={opt}
-                        className={`filter-option ${filterStatus === opt ? 'selected' : ''}`}
-                        onMouseDown={(e) => {
-                          e.preventDefault(); // ← prevents the outside-click handler from firing first
-                          setFilterStatus(opt);
-                          setIsFilterOpen(false);
-                        }}>
-                        {opt === 'all' ? '📋 All Statuses' : opt}
-                      </button>
+                    <button key={opt}
+                      className={`filter-option ${filterStatus === opt ? 'selected' : ''}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFilterStatus(opt);
+                        setIsFilterOpen(false);
+                      }}>
+                      {opt === 'all' ? '📋 All Statuses' : opt}
+                    </button>
                   ))}
                 </div>
               )}
@@ -625,7 +726,7 @@ const Customer = ({ user }) => {
       {/* LOADING */}
       {isLoading && <div className="spinner-container"><div className="loading-circle" /></div>}
 
-      {/* ACTIVE LEADS TAB */}
+      {/* ACTIVE LEADS TAB — GRID */}
       {!isLoading && activeTab === 'active' && viewMode === 'grid' && (
         <div className="lead-grid">
           {displayedActive.length === 0 ? (
@@ -634,46 +735,80 @@ const Customer = ({ user }) => {
               <h3>{searchQuery || filterStatus !== 'all' ? 'No Matching Leads' : 'No Active Leads'}</h3>
               <p>{searchQuery || filterStatus !== 'all' ? 'Try adjusting your search or filter.' : 'Your pipeline is clear. Start by adding a new lead.'}</p>
             </div>
-          ) : displayedActive.map(lead => (
-            <div key={lead.id} className="lead-card" onClick={() => handleCardClick(lead)}>
-              <div className="lead-card-header">
-                <span className={`status-badge ${lead.status.replace(/\s+/g, '-').toLowerCase()}`}>
-                  {lead.status}
-                </span>
-                <span className="lead-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
-                  {lead.created_at ? formatDateTime(lead.created_at) : ''}
-                </span>
-              </div>
-              <div className="lead-body">
-                <h3>{lead.client_name}</h3>
-                <p>{lead.project_name}</p>
-                <small>📍 {lead.location}</small>
-              </div>
-              <div style={{ padding: '0 18px' }}>
-                <PipelineProgress status={lead.status} />
-              </div>
-              <div className="lead-card-footer">
-                <div className="lead-click-hint">
-                  Click to View{user?.role !== 'manager' ? ' / Edit' : ''}
+          ) : displayedActive.map(lead => {
+            const isReady   = lead.status === 'Ready for Creating Project';
+            const hasContract = !!contractsMap[lead.id];
+            return (
+              <div key={lead.id} className="lead-card" onClick={() => handleCardClick(lead)}>
+                <div className="lead-card-header">
+                  <span className={`status-badge ${lead.status.replace(/\s+/g, '-').toLowerCase()}`}>
+                    {lead.status}
+                  </span>
+                  <span className="lead-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
+                    {lead.created_at ? formatDateTime(lead.created_at) : ''}
+                  </span>
                 </div>
-                {lead.status === 'Ready for Creating Project' && user?.role !== 'manager' && (
-                  <button className="btn-create-project"
-                    onClick={(e) => handleCreateProject(e, lead)}>
-                    Create Project
-                  </button>
+                <div className="lead-body">
+                  <h3>{lead.client_name}</h3>
+                  <p>{lead.project_name}</p>
+                  <small>📍 {lead.location}</small>
+                </div>
+                <div style={{ padding: '0 18px' }}>
+                  <PipelineProgress status={lead.status} />
+                </div>
+
+                {/* Contract upload section — only shown when Ready and not manager */}
+                {isReady && user?.role !== 'manager' && (
+                  <div
+                    className="card-contract-section"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="contract-section-label">
+                      <span className="contract-section-icon">📝</span>
+                      <span>Contract Required</span>
+                    </div>
+                    <ContractUploadButton
+                      leadId={lead.id}
+                      contractsMap={contractsMap}
+                      onUpload={handleContractUpload}
+                    />
+                  </div>
                 )}
+
+                <div className="lead-card-footer">
+                  <div className="lead-click-hint">
+                    Click to View{user?.role !== 'manager' ? ' / Edit' : ''}
+                  </div>
+                  {isReady && user?.role !== 'manager' && (
+                    <button
+                      className={`btn-create-project${!hasContract ? ' disabled-locked' : ''}`}
+                      disabled={!hasContract}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasContract) handleCreateProject(e, lead);
+                      }}
+                      title={!hasContract ? 'Upload a contract to unlock' : 'Create project'}
+                    >
+                      {!hasContract ? '🔒 Create Project' : 'Create Project'}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
+      {/* ACTIVE LEADS TAB — KANBAN */}
       {!isLoading && activeTab === 'active' && viewMode === 'kanban' && (
         <div className="kanban-board">
           {PIPELINE_STAGES.map(stage => (
             <KanbanColumn key={stage.key} stage={stage}
               leads={displayedActive.filter(l => l.status === stage.key)}
-              onClick={handleCardClick} onCreateProject={handleCreateProject}
+              onClick={handleCardClick}
+              onCreateProject={handleCreateProject}
+              onContractUpload={handleContractUpload}
+              contractsMap={contractsMap}
               userRole={user?.role} />
           ))}
         </div>
@@ -705,15 +840,14 @@ const Customer = ({ user }) => {
                   <p>{lead.project_name}</p>
                   <small>📍 {lead.location}</small>
                 </div>
-                {/* Live Project Stage */}
                 <div className="project-status-strip"
                   style={{ background: stage ? stage.bg : '#f1f5f9' }}>
                   <span className="project-status-label">📦 Project Stage</span>
                   <span className="project-status-badge"
                     style={{
-                      color:       stage ? stage.color : '#64748b',
-                      background:  stage ? stage.bg    : '#f1f5f9',
-                      border:      `1px solid ${stage ? stage.color + '40' : '#e2e8f0'}`,
+                      color:      stage ? stage.color : '#64748b',
+                      background: stage ? stage.bg    : '#f1f5f9',
+                      border:     `1px solid ${stage ? stage.color + '40' : '#e2e8f0'}`,
                     }}>
                     {proj ? (proj.status || 'Ongoing') : '—'}
                   </span>
@@ -795,6 +929,28 @@ const Customer = ({ user }) => {
                     onChange={handleInputChange} disabled={isViewOnly}
                     placeholder="Add any relevant notes..." />
                 </div>
+
+                {/* ── Contract Upload — shown inside modal when status is Ready ── */}
+                {selectedLead?.status === 'Ready for Creating Project' && !isViewOnly && (
+                  <div className="form-group-compact full-width">
+                    <label>
+                      Contract Document
+                      <span className="contract-required-tag">Required to create project</span>
+                    </label>
+                    <div className="modal-contract-upload-area">
+                      <ContractUploadButton
+                        leadId={selectedLead.id}
+                        contractsMap={contractsMap}
+                        onUpload={handleContractUpload}
+                      />
+                      {!contractsMap[selectedLead.id] && (
+                        <p className="contract-hint-text">
+                          📎 Upload a signed contract (PDF, Word, or image) before creating the project.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer-compact">
                 {!isViewOnly && selectedLead && (
