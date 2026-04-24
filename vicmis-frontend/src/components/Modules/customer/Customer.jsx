@@ -279,8 +279,12 @@ const Customer = ({ user }) => {
   const [isLoading, setIsLoading]       = useState(true);
   const [isExporting, setIsExporting]   = useState(false);
 
-  // contractsMap: { [leadId]: File } — holds uploaded contract per lead
+  // contractsMap: { [leadId]: File } — holds uploaded contract per lead (pre-creation)
   const [contractsMap, setContractsMap] = useState({});
+
+  // savedContractsMap: { [leadId]: { objectUrl, name } } — persists contract for viewing
+  // after project is created (used until backend file storage is wired up)
+  const [savedContractsMap, setSavedContractsMap] = useState({});
 
   // contractPopup: { url, name } | null — controls the contract preview popup
   const [contractPopup, setContractPopup] = useState(null);
@@ -363,8 +367,24 @@ const Customer = ({ user }) => {
     try {
       const res = await api.get('/projects');
       const map = {};
-      res.data.forEach(p => { if (p.lead_id) map[p.lead_id] = p; });
+      const savedFromBackend = {};
+      res.data.forEach(p => {
+        if (p.lead_id) {
+          map[p.lead_id] = p;
+          // If the backend returns a contract URL, store it in savedContractsMap too
+          if (p.contract_url) {
+            savedFromBackend[p.lead_id] = {
+              objectUrl: p.contract_url,
+              name: p.contract_name || p.contract_url.split('/').pop() || 'Contract',
+            };
+          }
+        }
+      });
       setProjectsMap(map);
+      // Merge backend-sourced contracts (don't overwrite in-session object URLs)
+      if (Object.keys(savedFromBackend).length > 0) {
+        setSavedContractsMap(prev => ({ ...savedFromBackend, ...prev }));
+      }
     } catch (err) {
       console.error('Projects fetch error:', err);
     }
@@ -496,6 +516,14 @@ const Customer = ({ user }) => {
     }
     if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
     try {
+      // Save an object URL immediately — before the API call —
+      // so the contract is always viewable in-session regardless of backend response
+      const objectUrl = URL.createObjectURL(contractFile);
+      setSavedContractsMap(prev => ({
+        ...prev,
+        [lead.id]: { objectUrl, name: contractFile.name }
+      }));
+
       // Build multipart payload so the contract file is sent alongside project data
       const formPayload = new FormData();
       formPayload.append('lead_id',      lead.id);
@@ -506,12 +534,22 @@ const Customer = ({ user }) => {
       formPayload.append('status',       'Ongoing');
       formPayload.append('contract',     contractFile);
 
-      await api.post('/projects', formPayload, {
+      const projectRes = await api.post('/projects', formPayload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      // If backend returns contract_url, update savedContractsMap with the real URL
+      const returnedUrl = projectRes?.data?.contract_url;
+      if (returnedUrl) {
+        setSavedContractsMap(prev => ({
+          ...prev,
+          [lead.id]: { objectUrl: returnedUrl, name: projectRes.data.contract_name || contractFile.name }
+        }));
+      }
+
       await api.put(`/leads/${lead.id}`, { ...lead, status: 'Project Created' });
 
-      // Clear the contract from local state after successful creation
+      // Clear the pre-creation upload state
       setContractsMap(prev => {
         const next = { ...prev };
         delete next[lead.id];
@@ -947,14 +985,19 @@ const Customer = ({ user }) => {
                   </span>
                 </div>
 
-                {/* Contract viewer strip on converted card */}
-                {proj?.contract_url && (
-                  <ContractViewer
-                    contractUrl={proj.contract_url}
-                    contractName={proj.contract_name}
-                    onView={() => setContractPopup({ url: proj.contract_url, name: proj.contract_name })}
-                  />
-                )}
+                {/* Contract viewer strip on converted card — backend URL or in-session saved file */}
+                {(() => {
+                  const contractUrl  = proj?.contract_url || savedContractsMap[lead.id]?.objectUrl;
+                  const contractName = proj?.contract_name || savedContractsMap[lead.id]?.name;
+                  if (!contractUrl) return null;
+                  return (
+                    <ContractViewer
+                      contractUrl={contractUrl}
+                      contractName={contractName}
+                      onView={() => setContractPopup({ url: contractUrl, name: contractName })}
+                    />
+                  );
+                })()}
 
                 <div className="lead-card-footer">
                   <div className="lead-click-hint">Click to View Details</div>
@@ -1059,27 +1102,27 @@ const Customer = ({ user }) => {
                 {/* ── Contract Viewer — shown inside modal for converted projects ── */}
                 {(() => {
                   if (selectedLead?.status !== 'Project Created') return null;
-                  const proj = projectsMap[selectedLead.id];
-                  const hasUrl = proj?.contract_url;
-                  const isImage = hasUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(proj.contract_url);
-                  const label   = hasUrl
-                    ? (proj.contract_name || proj.contract_url.split('/').pop() || 'Contract')
-                    : null;
+                  const proj        = projectsMap[selectedLead.id];
+                  const saved       = savedContractsMap[selectedLead.id];
+                  const contractUrl  = proj?.contract_url  || saved?.objectUrl;
+                  const contractName = proj?.contract_name || saved?.name;
+                  const isImage = contractUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(contractName || contractUrl);
+                  const label   = contractName || (contractUrl ? contractUrl.split('/').pop() : null) || 'Contract';
                   return (
                     <div className="form-group-compact full-width">
                       <label>
                         Contract Document
-                        {hasUrl
+                        {contractUrl
                           ? <span className="contract-available-tag">Attached</span>
                           : <span className="contract-required-tag">No contract on file</span>
                         }
                       </label>
-                      {hasUrl ? (
+                      {contractUrl ? (
                         <div className="modal-contract-view-area">
                           {isImage && (
                             <div className="contract-image-preview">
                               <img
-                                src={proj.contract_url}
+                                src={contractUrl}
                                 alt="Contract preview"
                                 className="contract-preview-img"
                               />
@@ -1088,7 +1131,7 @@ const Customer = ({ user }) => {
                           <div className="contract-modal-view-row">
                             <div className="contract-modal-file-info">
                               <span className="contract-viewer-icon">
-                                {isImage ? '🖼️' : /\.pdf$/i.test(proj.contract_url) ? '📄' : '📎'}
+                                {isImage ? '🖼️' : /\.pdf$/i.test(contractName || contractUrl) ? '📄' : '📎'}
                               </span>
                               <span className="contract-viewer-name" title={label}>
                                 {label.length > 30 ? label.slice(0, 28) + '…' : label}
@@ -1097,7 +1140,7 @@ const Customer = ({ user }) => {
                             <button
                               type="button"
                               className="btn-view-contract"
-                              onClick={() => setContractPopup({ url: proj.contract_url, name: proj.contract_name })}
+                              onClick={() => setContractPopup({ url: contractUrl, name: contractName })}
                             >
                               View Document
                             </button>
