@@ -81,6 +81,7 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
           {contract.name.length > 18 ? contract.name.slice(0, 16) + '…' : contract.name}
         </span>
         <button
+          type="button"
           className="contract-remove-btn"
           onClick={(ev) => { ev.stopPropagation(); onUpload(leadId, null); }}
           title="Remove contract"
@@ -92,6 +93,7 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
   return (
     <>
       <button
+        type="button"
         className="btn-upload-contract"
         onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
         title="Upload contract document or image to unlock Create Project"
@@ -113,7 +115,6 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
 const ContractPopup = ({ contractUrl, contractName, onClose }) => {
   if (!contractUrl) return null;
 
-  // FIX: Check both contractName and contractUrl (and ignore query parameters)
   const fileString = (contractName || contractUrl || '').split('?')[0];
   const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
   const isPdf   = /\.pdf$/i.test(fileString);
@@ -138,7 +139,7 @@ const ContractPopup = ({ contractUrl, contractName, onClose }) => {
             >
               ⬇ Download
             </a>
-            <button className="contract-popup-close" onClick={onClose} title="Close">✕</button>
+            <button type="button" className="contract-popup-close" onClick={onClose} title="Close">✕</button>
           </div>
         </div>
 
@@ -179,7 +180,6 @@ const ContractPopup = ({ contractUrl, contractName, onClose }) => {
 const ContractViewer = ({ contractUrl, contractName, onView }) => {
   if (!contractUrl) return null;
 
-  // FIX: Check both contractName and contractUrl
   const fileString = (contractName || contractUrl || '').split('?')[0];
   const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
   const isPdf   = /\.pdf$/i.test(fileString);
@@ -195,6 +195,7 @@ const ContractViewer = ({ contractUrl, contractName, onView }) => {
         <span className="contract-viewer-name" title={label}>{short}</span>
       </div>
       <button
+        type="button"
         className="btn-view-contract"
         onClick={(e) => { e.stopPropagation(); onView(); }}
       >
@@ -227,6 +228,7 @@ const KanbanCard = ({ lead, onClick, onCreateProject, onContractUpload, contract
             onUpload={onContractUpload}
           />
           <button
+            type="button"
             className={`btn-create-project kanban-create-btn${!hasContract ? ' disabled-locked' : ''}`}
             disabled={!hasContract}
             onClick={(e) => {
@@ -287,7 +289,6 @@ const Customer = ({ user }) => {
   const [contractsMap, setContractsMap] = useState({});
 
   // savedContractsMap: { [leadId]: { objectUrl, name } } — persists contract for viewing
-  // after project is created (used until backend file storage is wired up)
   const [savedContractsMap, setSavedContractsMap] = useState({});
 
   // contractPopup: { url, name } | null — controls the contract preview popup
@@ -305,7 +306,6 @@ const Customer = ({ user }) => {
   });
 
   // ── Contract Upload Handler ──────────────────────────────────────────────────
-  // Pass null to remove the contract
   const handleContractUpload = (leadId, file) => {
     setContractsMap(prev => {
       const next = { ...prev };
@@ -375,7 +375,6 @@ const Customer = ({ user }) => {
       res.data.forEach(p => {
         if (p.lead_id) {
           map[p.lead_id] = p;
-          // If the backend returns a contract URL, store it in savedContractsMap too
           if (p.contract_url) {
             savedFromBackend[p.lead_id] = {
               objectUrl: p.contract_url,
@@ -385,7 +384,6 @@ const Customer = ({ user }) => {
         }
       });
       setProjectsMap(map);
-      // Merge backend-sourced contracts (don't overwrite in-session object URLs)
       if (Object.keys(savedFromBackend).length > 0) {
         setSavedContractsMap(prev => ({ ...savedFromBackend, ...prev }));
       }
@@ -520,15 +518,12 @@ const Customer = ({ user }) => {
     }
     if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
     try {
-      // Save an object URL immediately — before the API call —
-      // so the contract is always viewable in-session regardless of backend response
       const objectUrl = URL.createObjectURL(contractFile);
       setSavedContractsMap(prev => ({
         ...prev,
         [lead.id]: { objectUrl, name: contractFile.name }
       }));
 
-      // Build multipart payload so the contract file is sent alongside project data
       const formPayload = new FormData();
       formPayload.append('lead_id',      lead.id);
       formPayload.append('project_name', lead.project_name);
@@ -542,7 +537,6 @@ const Customer = ({ user }) => {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // If backend returns contract_url, update savedContractsMap with the real URL
       const returnedUrl = projectRes?.data?.contract_url;
       if (returnedUrl) {
         setSavedContractsMap(prev => ({
@@ -553,7 +547,6 @@ const Customer = ({ user }) => {
 
       await api.put(`/leads/${lead.id}`, { ...lead, status: 'Project Created' });
 
-      // Clear the pre-creation upload state
       setContractsMap(prev => {
         const next = { ...prev };
         delete next[lead.id];
@@ -690,7 +683,7 @@ const Customer = ({ user }) => {
         <h1>Client Management</h1>
         <div className="header-actions">
           <div className="view-toggle">
-            <button className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+            <button type="button" className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
               onClick={() => setViewMode('grid')}>
               <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
                 <rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/>
@@ -700,7 +693,7 @@ const Customer = ({ user }) => {
               </svg>
               Grid
             </button>
-            <button className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+            <button type="button" className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
               onClick={() => setViewMode('kanban')}>
               <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
                 <rect x="1" y="1" width="3.5" height="13" rx="1" fill="currentColor"/>
@@ -711,17 +704,17 @@ const Customer = ({ user }) => {
             </button>
           </div>
 
-          <button className="btn-export-report" onClick={handleExportPDF} disabled={isExporting}>
+          <button type="button" className="btn-export-report" onClick={handleExportPDF} disabled={isExporting}>
             {isExporting ? '⏳ Generating...' : '📄 Export as Report'}
           </button>
 
           {user?.role !== 'manager' && (
             <>
-              <button className="btn-trash-bin"
+              <button type="button" className="btn-trash-bin"
                 onClick={() => { fetchTrashedLeads(); setIsTrashOpen(true); }}>
                 🗑️ Trash Bin
               </button>
-              <button className="btn-add-lead"
+              <button type="button" className="btn-add-lead"
                 onClick={() => { setIsViewOnly(false); setIsModalOpen(true); }}>
                 + Add New Lead
               </button>
@@ -767,12 +760,12 @@ const Customer = ({ user }) => {
       {/* TAB + SEARCH ROW */}
       <div className="tab-search-row">
         <div className="lead-tabs">
-          <button className={`lead-tab ${activeTab === 'active' ? 'active' : ''}`}
+          <button type="button" className={`lead-tab ${activeTab === 'active' ? 'active' : ''}`}
             onClick={() => { setActiveTab('active'); setFilterStatus('all'); setFilterMonth('all'); setSearchQuery(''); }}>
             Active Leads
             <span className="tab-count">{activeLeads.length}</span>
           </button>
-          <button className={`lead-tab ${activeTab === 'converted' ? 'active' : ''}`}
+          <button type="button" className={`lead-tab ${activeTab === 'converted' ? 'active' : ''}`}
             onClick={() => { setActiveTab('converted'); setFilterStatus('all'); setFilterMonth('all'); setSearchQuery(''); }}>
             Converted Projects
             <span className="tab-count converted">{completedProjects.length}</span>
@@ -791,13 +784,13 @@ const Customer = ({ user }) => {
               onChange={e => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
-              <button className="search-clear" onClick={() => setSearchQuery('')}>✕</button>
+              <button type="button" className="search-clear" onClick={() => setSearchQuery('')}>✕</button>
             )}
           </div>
 
           {activeTab === 'active' && (
             <div className="filter-wrap" ref={filterRef}>
-              <button className={`btn-filter ${filterStatus !== 'all' ? 'has-filter' : ''}`}
+              <button type="button" className={`btn-filter ${filterStatus !== 'all' ? 'has-filter' : ''}`}
                 onClick={() => setIsFilterOpen(v => !v)}>
                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
                   <path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -810,6 +803,7 @@ const Customer = ({ user }) => {
                   <div className="filter-dropdown-title">Filter by Status</div>
                   {['all', ...PIPELINE_STAGES.map(s => s.key)].map(opt => (
                     <button key={opt}
+                      type="button"
                       className={`filter-option ${filterStatus === opt ? 'selected' : ''}`}
                       onMouseDown={(e) => {
                         e.preventDefault();
@@ -917,6 +911,7 @@ const Customer = ({ user }) => {
                   </div>
                   {isReady && user?.role !== 'manager' && (
                     <button
+                      type="button"
                       className={`btn-create-project${!hasContract ? ' disabled-locked' : ''}`}
                       disabled={!hasContract}
                       onClick={(e) => {
@@ -989,7 +984,6 @@ const Customer = ({ user }) => {
                   </span>
                 </div>
 
-                {/* Contract viewer strip on converted card — backend URL or in-session saved file */}
                 {(() => {
                   const contractUrl  = proj?.contract_url || savedContractsMap[lead.id]?.objectUrl;
                   const contractName = proj?.contract_name || savedContractsMap[lead.id]?.name;
@@ -1110,7 +1104,11 @@ const Customer = ({ user }) => {
                   const saved       = savedContractsMap[selectedLead.id];
                   const contractUrl  = proj?.contract_url  || saved?.objectUrl;
                   const contractName = proj?.contract_name || saved?.name;
-                  const isImage = contractUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(contractName || contractUrl);
+                  
+                  // FIXED: Adding the query parameter strip logic to the modal preview as well!
+                  const fileString = (contractName || contractUrl || '').split('?')[0];
+                  const isImage = contractUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
+                  
                   const label   = contractName || (contractUrl ? contractUrl.split('/').pop() : null) || 'Contract';
                   return (
                     <div className="form-group-compact full-width">
@@ -1135,7 +1133,7 @@ const Customer = ({ user }) => {
                           <div className="contract-modal-view-row">
                             <div className="contract-modal-file-info">
                               <span className="contract-viewer-icon">
-                                {isImage ? '🖼️' : /\.pdf$/i.test(contractName || contractUrl) ? '📄' : '📎'}
+                                {isImage ? '🖼️' : /\.pdf$/i.test(fileString) ? '📄' : '📎'}
                               </span>
                               <span className="contract-viewer-name" title={label}>
                                 {label.length > 30 ? label.slice(0, 28) + '…' : label}
@@ -1199,8 +1197,8 @@ const Customer = ({ user }) => {
                       <div className="history-item-client">Client: {lead.client_name}</div>
                     </div>
                     <div className="trash-item-actions">
-                      <button className="btn-restore" onClick={() => handleRestore(lead.id)}>Restore</button>
-                      <button className="btn-delete"
+                      <button type="button" className="btn-restore" onClick={() => handleRestore(lead.id)}>Restore</button>
+                      <button type="button" className="btn-delete"
                         style={{ padding: '7px 12px', fontSize: '0.78rem' }}
                         onClick={() => handleForceDelete(lead.id)}>
                         Delete Forever
@@ -1212,12 +1210,13 @@ const Customer = ({ user }) => {
             </div>
             <div className="lead-form-compact" style={{ paddingTop: 0 }}>
               <div className="modal-footer-compact" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
-                <button className="btn-cancel" onClick={() => setIsTrashOpen(false)}>Close</button>
+                <button type="button" className="btn-cancel" onClick={() => setIsTrashOpen(false)}>Close</button>
               </div>
             </div>
           </div>
         </div>
       )}
+      
       {/* CONTRACT PREVIEW POPUP */}
       {contractPopup && (
         <ContractPopup
