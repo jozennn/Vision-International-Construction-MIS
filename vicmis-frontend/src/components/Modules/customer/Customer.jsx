@@ -380,9 +380,6 @@ const Customer = ({ user }) => {
       
       setProjectsMap(map);
       
-      // Note: We removed the old 'savedFromBackend' contract mapping here 
-      // because contracts are now natively attached to the Lead object!
-      
     } catch (err) {
       console.error('Projects fetch error:', err);
     }
@@ -540,8 +537,6 @@ const Customer = ({ user }) => {
           [lead.id]: { objectUrl: returnedUrl, name: projectRes.data.contract_name || contractFile.name }
         }));
       }
-
-      // REMOVED REDUNDANT PUT REQUEST HERE (Backend handles the lead update now)
 
       setContractsMap(prev => {
         const next = { ...prev };
@@ -981,8 +976,9 @@ const Customer = ({ user }) => {
                 </div>
 
                 {(() => {
-                  const contractUrl  = lead.contract_url || savedContractsMap[lead.id]?.objectUrl;
-                  const contractName = lead.contract_name || savedContractsMap[lead.id]?.name;
+                  const saved = savedContractsMap[lead.id];
+                  const contractUrl  = proj?.contract_url || lead.contract_url || saved?.objectUrl;
+                  const contractName = proj?.contract_name || lead.contract_name || saved?.name;
                   if (!contractUrl) return null;
                   return (
                     <ContractViewer
@@ -1096,15 +1092,15 @@ const Customer = ({ user }) => {
                 {/* ── Contract Viewer — shown inside modal for converted projects ── */}
                 {(() => {
                   if (selectedLead?.status !== 'Project Created') return null;
-                  const saved        = savedContractsMap[selectedLead.id];
-                  const contractUrl  = selectedLead.contract_url  || saved?.objectUrl;
-                  const contractName = selectedLead.contract_name || saved?.name;
+                  const proj = projectsMap[selectedLead.id];
+                  const saved = savedContractsMap[selectedLead.id];
+                  const contractUrl = proj?.contract_url || selectedLead.contract_url || saved?.objectUrl;
+                  const contractName = proj?.contract_name || selectedLead.contract_name || saved?.name;
                   
-                  // FIXED: Adding the query parameter strip logic to the modal preview as well!
                   const fileString = (contractName || contractUrl || '').split('?')[0];
                   const isImage = contractUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
                   
-                  const label   = contractName || (contractUrl ? contractUrl.split('/').pop() : null) || 'Contract';
+                  const label = contractName || (contractUrl ? contractUrl.split('/').pop() : null) || 'Contract';
                   return (
                     <div className="form-group-compact full-width">
                       <label>
