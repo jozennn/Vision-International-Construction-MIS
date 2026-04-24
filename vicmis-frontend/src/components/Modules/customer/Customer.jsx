@@ -113,8 +113,10 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
 const ContractPopup = ({ contractUrl, contractName, onClose }) => {
   if (!contractUrl) return null;
 
-  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(contractUrl);
-  const isPdf   = /\.pdf$/i.test(contractUrl);
+  // FIX: Check both contractName and contractUrl (and ignore query parameters)
+  const fileString = (contractName || contractUrl || '').split('?')[0];
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
+  const isPdf   = /\.pdf$/i.test(fileString);
   const label   = contractName || contractUrl.split('/').pop() || 'Contract';
 
   return (
@@ -177,8 +179,10 @@ const ContractPopup = ({ contractUrl, contractName, onClose }) => {
 const ContractViewer = ({ contractUrl, contractName, onView }) => {
   if (!contractUrl) return null;
 
-  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(contractUrl);
-  const isPdf   = /\.pdf$/i.test(contractUrl);
+  // FIX: Check both contractName and contractUrl
+  const fileString = (contractName || contractUrl || '').split('?')[0];
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
+  const isPdf   = /\.pdf$/i.test(fileString);
   const label   = contractName || contractUrl.split('/').pop() || 'Contract';
   const short   = label.length > 22 ? label.slice(0, 20) + '…' : label;
 
