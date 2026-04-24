@@ -503,41 +503,41 @@ const Customer = ({ user }) => {
 
   // ── Create Project (now accepts contract file via FormData) ───────────────
   const handleCreateProject = async (e, lead) => {
-    e.stopPropagation();
-    const contractFile = contractsMap[lead.id];
-    if (!contractFile) {
-      alert('Please upload a contract document or image first.');
-      return;
-    }
-    if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
-    try {
-      // REMOVED: the premature objectUrl / setSavedContractsMap block
-  
-      const formPayload = new FormData();
-      formPayload.append('lead_id',      lead.id);
-      formPayload.append('project_name', lead.project_name);
-      formPayload.append('client_name',  lead.client_name);
-      formPayload.append('location',     lead.location);
-      formPayload.append('project_type', 'Construction Project');
-      formPayload.append('status',       'Ongoing');
-      formPayload.append('contract',     contractFile);
-  
-      await api.post('/projects', formPayload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-  
-      setContractsMap(prev => {
-        const next = { ...prev };
-        delete next[lead.id];
-        return next;
-      });
-  
-      alert('Project created!');
-      fetchLeads();
-      fetchProjects(); // ← this populates projectsMap with the real contract_url
-      setActiveTab('converted');
-    } catch { alert('Failed to create project.'); }
-  };
+  e.stopPropagation();
+  const contractFile = contractsMap[lead.id];
+  if (!contractFile) {
+    alert('Please upload a contract document or image first.');
+    return;
+  }
+  if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
+  try {
+    // REMOVED: the premature objectUrl / setSavedContractsMap block
+
+    const formPayload = new FormData();
+    formPayload.append('lead_id',      lead.id);
+    formPayload.append('project_name', lead.project_name);
+    formPayload.append('client_name',  lead.client_name);
+    formPayload.append('location',     lead.location);
+    formPayload.append('project_type', 'Construction Project');
+    formPayload.append('status',       'Ongoing');
+    formPayload.append('contract',     contractFile);
+
+    await api.post('/projects', formPayload, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    setContractsMap(prev => {
+      const next = { ...prev };
+      delete next[lead.id];
+      return next;
+    });
+
+    alert('Project created!');
+    fetchLeads();
+    fetchProjects(); // ← this populates projectsMap with the real contract_url
+    setActiveTab('converted');
+  } catch { alert('Failed to create project.'); }
+};
 
   // ── PDF Export as Report ──────────────────────────────────────────────────
   const handleExportPDF = () => {
@@ -964,8 +964,9 @@ const Customer = ({ user }) => {
                 </div>
 
                 {(() => {
-                  const contractUrl  = proj?.contract_url;
-                  const contractName = proj?.contract_name;
+                  const saved = savedContractsMap[lead.id];
+                  const contractUrl  = proj?.contract_url || lead.contract_url || saved?.objectUrl;
+                  const contractName = proj?.contract_name || lead.contract_name || saved?.name;
                   if (!contractUrl) return null;
                   return (
                     <ContractViewer
@@ -1080,6 +1081,7 @@ const Customer = ({ user }) => {
                 {(() => {
                   if (selectedLead?.status !== 'Project Created') return null;
                   const proj = projectsMap[selectedLead.id];
+                  const saved = savedContractsMap[selectedLead.id];
                   const contractUrl = proj?.contract_url || selectedLead.contract_url || saved?.objectUrl;
                   const contractName = proj?.contract_name || selectedLead.contract_name || saved?.name;
                   
