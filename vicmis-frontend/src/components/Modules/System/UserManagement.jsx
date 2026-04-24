@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '@/api/axios';
 import './css/UserManagement.css';
 
@@ -37,10 +37,10 @@ const UserManagement = ({ user }) => {
   const [editingUserId, setEditingUserId] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterDept, setFilterDept] = useState('All'); // Added Department Filter state
+  const [filterDept, setFilterDept] = useState('All'); 
   
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', role: 'sales_employee', department: 'Sales',
+    name: '', email: '', password: '', role: 'sales_employee', department: 'Sales', newDepartment: ''
   });
 
   const fetchUsers = async () => {
@@ -57,12 +57,34 @@ const UserManagement = ({ user }) => {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  // Compute available departments dynamically (merging defaults with newly created ones from the DB)
+  const dynamicDepartments = useMemo(() => {
+    const depts = new Set([...DEPARTMENTS]);
+    users.forEach(u => {
+      let dept = u.department || 'Unassigned';
+      if (dept === 'Accounting/Procurement') dept = 'Procurement';
+      if (dept !== 'IT' && dept !== 'HR' && dept !== 'Unassigned' && dept !== 'Legacy/Archived') {
+        depts.add(dept);
+      }
+    });
+    return Array.from(depts);
+  }, [users]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
     // Auto-filter roles when department changes
     if (name === 'department') {
-      const availableRoles = ROLE_MAPPING[value] || [];
+      let availableRoles = ROLE_MAPPING[value];
+      
+      // If it's a newly created department or custom one
+      if (!availableRoles || value === 'ADD_NEW') {
+        availableRoles = [
+          { value: 'dept_head', label: 'Department Head' },
+          { value: 'department_employee', label: 'Department Employee' }
+        ];
+      }
+      
       const firstRole = availableRoles.length > 0 ? availableRoles[0].value : '';
       setFormData(prev => ({ ...prev, department: value, role: firstRole }));
     } else {
@@ -73,7 +95,7 @@ const UserManagement = ({ user }) => {
   const openCreateModal = () => {
     setEditingUserId(null);
     setShowPassword(false);
-    setFormData({ name: '', email: '', password: '', role: 'sales_employee', department: 'Sales' });
+    setFormData({ name: '', email: '', password: '', role: 'sales_employee', department: 'Sales', newDepartment: '' });
     setIsModalOpen(true);
   };
 
@@ -81,15 +103,18 @@ const UserManagement = ({ user }) => {
     setEditingUserId(u.id);
     setShowPassword(false);
     
-    // Fallback in case a legacy user has a department not in our new list
-    const currentDept = DEPARTMENTS.includes(u.department) ? u.department : 'Sales';
+    // Convert legacy departments safely
+    let currentDept = u.department || 'Sales';
+    if (currentDept === 'Accounting/Procurement') currentDept = 'Procurement';
+    if (currentDept === 'IT' || currentDept === 'HR') currentDept = 'Legacy/Archived';
     
     setFormData({ 
       name: u.name, 
       email: u.email, 
       password: '', 
       role: u.role, 
-      department: currentDept 
+      department: currentDept,
+      newDepartment: ''
     });
     setIsModalOpen(true);
   };
@@ -97,12 +122,24 @@ const UserManagement = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Prepare payload to handle custom departments
+      const submitData = { ...formData };
+      if (submitData.department === 'ADD_NEW') {
+        if (!submitData.newDepartment.trim()) {
+          alert('Please enter a name for the new department.');
+          return;
+        }
+        submitData.department = submitData.newDepartment.trim();
+      }
+      // Remove UI-only helper field
+      delete submitData.newDepartment;
+
       if (editingUserId) {
-        const res = await api.put(`/admin/users/${editingUserId}`, formData);
+        const res = await api.put(`/admin/users/${editingUserId}`, submitData);
         setUsers(prev => prev.map(u => u.id === editingUserId ? res.data.user : u));
         alert('User account updated successfully!');
       } else {
-        const res = await api.post('/admin/users', formData);
+        const res = await api.post('/admin/users', submitData);
         setUsers(prev => [...prev, res.data.user]);
         alert('User account created successfully!');
       }
@@ -123,9 +160,7 @@ const UserManagement = ({ user }) => {
     }
   };
 
-  // Filter users based on search query AND department filter
   const filteredUsers = users.filter(u => {
-    // 1. Search Logic
     const term = searchQuery.toLowerCase();
     const matchesSearch = (
       (u.name && u.name.toLowerCase().includes(term)) ||
@@ -134,7 +169,6 @@ const UserManagement = ({ user }) => {
       (u.department && u.department.toLowerCase().includes(term))
     );
 
-    // 2. Department Filter Logic (including legacy mapping logic)
     let dept = u.department || 'Unassigned';
     if (dept === 'Accounting/Procurement') dept = 'Procurement';
     if (dept === 'IT' || dept === 'HR') dept = 'Legacy/Archived';
@@ -145,10 +179,9 @@ const UserManagement = ({ user }) => {
   });
 
   const groupedUsers = filteredUsers.reduce((acc, u) => {
-    // If a legacy user has 'Accounting/Procurement', map it to 'Procurement' in the UI
     let dept = u.department || 'Unassigned';
     if (dept === 'Accounting/Procurement') dept = 'Procurement';
-    if (dept === 'IT' || dept === 'HR') dept = 'Legacy/Archived'; // Handle legacy records cleanly
+    if (dept === 'IT' || dept === 'HR') dept = 'Legacy/Archived';
 
     if (!acc[dept]) acc[dept] = [];
     acc[dept].push(u);
@@ -161,8 +194,18 @@ const UserManagement = ({ user }) => {
     logistics_employee: '#EA580C', accounting_employee: '#6366F1',
   };
 
-  // Helper to get available roles for the currently selected department in the form
-  const availableRolesForForm = ROLE_MAPPING[formData.department] || [];
+  // Helper to get available roles for the form (handles dynamic departments)
+  let availableRolesForForm = ROLE_MAPPING[formData.department];
+  if (!availableRolesForForm || formData.department === 'ADD_NEW') {
+    const displayDeptName = formData.department === 'ADD_NEW' && formData.newDepartment 
+      ? formData.newDepartment 
+      : (formData.department !== 'ADD_NEW' ? formData.department : 'Department');
+      
+    availableRolesForForm = [
+      { value: 'dept_head', label: 'Department Head' },
+      { value: 'department_employee', label: `${displayDeptName} Employee` }
+    ];
+  }
 
   return (
     <div className="vcc-module">
@@ -174,9 +217,7 @@ const UserManagement = ({ user }) => {
           </p>
         </div>
         
-        {/* Search Bar, Filter & Action Button */}
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>⚲</span>
             <input 
@@ -195,7 +236,7 @@ const UserManagement = ({ user }) => {
               style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.875rem', outline: 'none', background: '#fff', cursor: 'pointer' }}
             >
               <option value="All">All Departments</option>
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              {dynamicDepartments.map(d => <option key={d} value={d}>{d}</option>)}
               <option value="Legacy/Archived">Legacy/Archived</option>
             </select>
           </div>
@@ -240,6 +281,8 @@ const UserManagement = ({ user }) => {
                         >
                             {emp.role === 'accounting_employee' 
                                 ? 'Procurement Employee' 
+                                : emp.role === 'department_employee'
+                                  ? `${emp.department || 'Department'} Employee`
                                   : emp.role.replace(/_/g, ' ')}
                         </span>
                       </td>
@@ -302,10 +345,11 @@ const UserManagement = ({ user }) => {
                 <div className="um-field half">
                   <label>Department</label>
                   <select name="department" value={formData.department} onChange={handleInputChange} required>
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {dynamicDepartments.map(d => <option key={d} value={d}>{d}</option>)}
+                    <option value="ADD_NEW" style={{ fontWeight: 'bold', color: '#2563EB' }}>+ Create New Department</option>
                   </select>
                 </div>
-                
+
                 {/* Filtered Role Dropdown */}
                 <div className="um-field half">
                   <label>Role / Access Level</label>
@@ -317,6 +361,17 @@ const UserManagement = ({ user }) => {
                     ))}
                   </select>
                 </div>
+
+                {/* Conditionally Rendered New Department Text Input */}
+                {formData.department === 'ADD_NEW' && (
+                  <div className="um-field full" style={{ marginTop: '4px' }}>
+                    <label>New Department Name</label>
+                    <input
+                      type="text" name="newDepartment" value={formData.newDepartment}
+                      onChange={handleInputChange} required placeholder="e.g. Marketing"
+                    />
+                  </div>
+                )}
 
               </div>
               <div className="um-modal-foot">

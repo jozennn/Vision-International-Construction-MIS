@@ -38,23 +38,6 @@ class User extends Authenticatable
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | resolvePermissions — single source of truth for module access
-    |--------------------------------------------------------------------------
-    | Called by:
-    |   - GET /user          (session restore on page refresh)
-    |   - AuthController     (verify2FA + refresh via userPayload helper)
-    |
-    | Access matrix:
-    |   super_admin / admin / manager  →  all modules
-    |   Sales                          →  Customer, Reports
-    |   Engineering                    →  Project, Reports
-    |   Inventory / Logistics          →  Inventory, Reports
-    |   Accounting / Procurement       →  Project, Inventory, Reports
-    |   dept_head (any dept)           →  dept modules + Project + Reports
-    |--------------------------------------------------------------------------
-    */
     public function resolvePermissions(): array
     {
         $role = $this->role ?? '';
@@ -66,11 +49,11 @@ class User extends Authenticatable
 
         $permissions = [];
 
-        // Sales → Customer + Reports
+        // Sales → Customer + Reports + Project
         if (str_contains($dept, 'sales')) {
             $permissions[] = 'Customer';
             $permissions[] = 'Reports';
-            $permissions[] = 'Project'; // Sales also need Project access to view assigned projects
+            $permissions[] = 'Project'; 
         }
 
         // Engineering → Project + Reports
@@ -92,22 +75,32 @@ class User extends Authenticatable
             $permissions[] = 'Reports';
         }
 
-        // dept_head: dept modules already added above + Project + Reports
+        // dept_head: gets dept modules already added above + Project + Reports
         if ($role === 'dept_head') {
             $permissions[] = 'Project';
             $permissions[] = 'Reports';
         }
 
+        // ==========================================
+        // NEW: Fallback for Custom Created Departments
+        // ==========================================
+        if (empty($permissions)) {
+            // Give baseline access so custom departments aren't locked out of the UI
+            $permissions[] = 'Reports';
+            
+            // If they are a standard employee in a custom department, grant basic Project view
+            if ($role === 'department_employee') {
+                $permissions[] = 'Project';
+            }
+        }
+
         return array_values(array_unique($permissions));
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | getDepartmentTable
-    |--------------------------------------------------------------------------
-    */
     public function getDepartmentTable(): ?string
     {
+        // Safe fallback: Custom departments will automatically return null
+        // which prevents the app from crashing when looking for a table that doesn't exist yet.
         return match ($this->department) {
             'Engineering'            => 'engineering_dept_table',
             'Sales'                  => 'sales_dept_table',
@@ -121,11 +114,6 @@ class User extends Authenticatable
         };
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | getJobDetails
-    |--------------------------------------------------------------------------
-    */
     public function getJobDetails()
     {
         $table = $this->getDepartmentTable();
