@@ -109,6 +109,97 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
   );
 };
 
+// ── Contract Popup Modal ──────────────────────────────────────────────────────
+const ContractPopup = ({ contractUrl, contractName, onClose }) => {
+  if (!contractUrl) return null;
+
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(contractUrl);
+  const isPdf   = /\.pdf$/i.test(contractUrl);
+  const label   = contractName || contractUrl.split('/').pop() || 'Contract';
+
+  return (
+    <div className="contract-popup-overlay" onClick={onClose}>
+      <div className="contract-popup" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="contract-popup-header">
+          <div className="contract-popup-title">
+            <span>{isImage ? '🖼️' : isPdf ? '📄' : '📎'}</span>
+            <span title={label}>{label.length > 40 ? label.slice(0, 38) + '…' : label}</span>
+          </div>
+          <div className="contract-popup-actions">
+            <a
+              href={contractUrl}
+              download={label}
+              className="btn-contract-download"
+              onClick={(e) => e.stopPropagation()}
+              title="Download file"
+            >
+              ⬇ Download
+            </a>
+            <button className="contract-popup-close" onClick={onClose} title="Close">✕</button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="contract-popup-body">
+          {isImage && (
+            <img src={contractUrl} alt={label} className="contract-popup-img" />
+          )}
+          {isPdf && (
+            <iframe
+              src={contractUrl}
+              title={label}
+              className="contract-popup-iframe"
+              frameBorder="0"
+            />
+          )}
+          {!isImage && !isPdf && (
+            <div className="contract-popup-unsupported">
+              <div className="contract-popup-unsupported-icon">📎</div>
+              <p>Preview not available for this file type.</p>
+              <a
+                href={contractUrl}
+                download={label}
+                className="btn-view-contract"
+                style={{ marginTop: '12px', display: 'inline-block', textDecoration: 'none' }}
+              >
+                ⬇ Download File
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Contract Viewer Strip (card + triggers popup) ─────────────────────────────
+const ContractViewer = ({ contractUrl, contractName, onView }) => {
+  if (!contractUrl) return null;
+
+  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(contractUrl);
+  const isPdf   = /\.pdf$/i.test(contractUrl);
+  const label   = contractName || contractUrl.split('/').pop() || 'Contract';
+  const short   = label.length > 22 ? label.slice(0, 20) + '…' : label;
+
+  return (
+    <div className="contract-viewer-strip" onClick={(e) => e.stopPropagation()}>
+      <div className="contract-viewer-left">
+        <span className="contract-viewer-icon">
+          {isImage ? '🖼️' : isPdf ? '📄' : '📎'}
+        </span>
+        <span className="contract-viewer-name" title={label}>{short}</span>
+      </div>
+      <button
+        className="btn-view-contract"
+        onClick={(e) => { e.stopPropagation(); onView(); }}
+      >
+        View Contract
+      </button>
+    </div>
+  );
+};
+
 // ── Kanban Card ───────────────────────────────────────────────────────────────
 const KanbanCard = ({ lead, onClick, onCreateProject, onContractUpload, contractsMap, userRole }) => {
   const isReady = lead.status === 'Ready for Creating Project';
@@ -190,6 +281,9 @@ const Customer = ({ user }) => {
 
   // contractsMap: { [leadId]: File } — holds uploaded contract per lead
   const [contractsMap, setContractsMap] = useState({});
+
+  // contractPopup: { url, name } | null — controls the contract preview popup
+  const [contractPopup, setContractPopup] = useState(null);
 
   const [searchQuery, setSearchQuery]   = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -852,6 +946,16 @@ const Customer = ({ user }) => {
                     {proj ? (proj.status || 'Ongoing') : '—'}
                   </span>
                 </div>
+
+                {/* Contract viewer strip on converted card */}
+                {proj?.contract_url && (
+                  <ContractViewer
+                    contractUrl={proj.contract_url}
+                    contractName={proj.contract_name}
+                    onView={() => setContractPopup({ url: proj.contract_url, name: proj.contract_name })}
+                  />
+                )}
+
                 <div className="lead-card-footer">
                   <div className="lead-click-hint">Click to View Details</div>
                   {proj?.created_at && (
@@ -951,6 +1055,51 @@ const Customer = ({ user }) => {
                     </div>
                   </div>
                 )}
+
+                {/* ── Contract Viewer — shown inside modal for converted projects ── */}
+                {selectedLead?.status === 'Project Created' && isViewOnly && (() => {
+                  const proj = projectsMap[selectedLead.id];
+                  if (!proj?.contract_url) return null;
+                  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(proj.contract_url);
+                  const label   = proj.contract_name || proj.contract_url.split('/').pop() || 'Contract';
+                  return (
+                    <div className="form-group-compact full-width">
+                      <label>
+                        Contract Document
+                        <span className="contract-available-tag">Attached</span>
+                      </label>
+                      <div className="modal-contract-view-area">
+                        {/* Image preview inline */}
+                        {isImage && (
+                          <div className="contract-image-preview">
+                            <img
+                              src={proj.contract_url}
+                              alt="Contract preview"
+                              className="contract-preview-img"
+                            />
+                          </div>
+                        )}
+                        <div className="contract-modal-view-row">
+                          <div className="contract-modal-file-info">
+                            <span className="contract-viewer-icon">
+                              {isImage ? '🖼️' : /\.pdf$/i.test(proj.contract_url) ? '📄' : '📎'}
+                            </span>
+                            <span className="contract-viewer-name" title={label}>
+                              {label.length > 30 ? label.slice(0, 28) + '…' : label}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-view-contract"
+                            onClick={() => setContractPopup({ url: proj.contract_url, name: proj.contract_name })}
+                          >
+                            View Document
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="modal-footer-compact">
                 {!isViewOnly && selectedLead && (
@@ -1009,6 +1158,15 @@ const Customer = ({ user }) => {
           </div>
         </div>
       )}
+      {/* CONTRACT PREVIEW POPUP */}
+      {contractPopup && (
+        <ContractPopup
+          contractUrl={contractPopup.url}
+          contractName={contractPopup.name}
+          onClose={() => setContractPopup(null)}
+        />
+      )}
+
     </div>
   );
 };
