@@ -565,26 +565,42 @@ class ProjectController extends Controller
             'client_name'  => 'required',
             'location'     => 'required',
             'project_type' => 'required',
+            'contract'     => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,webp|max:20480', // 👈 Validate the file
         ]);
 
-        $validated['status']     = 'Floor Plan';
-        $validated['created_by'] = Auth::id();
+        $projectData = [
+            'lead_id'      => $validated['lead_id'],
+            'project_name' => $validated['project_name'],
+            'client_name'  => $validated['client_name'],
+            'location'     => $validated['location'],
+            'project_type' => $validated['project_type'],
+            'status'       => 'Floor Plan',
+            'created_by'   => Auth::id(),
+        ];
 
-        $project = Project::create($validated);
+        // 👈 Intercept and store the contract file
+        if ($request->hasFile('contract')) {
+            $path = $request->file('contract')->store('project_documents', 'public');
+            $projectData['contract_url'] = $path;
+        }
+
+        $project = Project::create($projectData);
 
         Lead::where('id', $request->lead_id)
             ->update(['status' => 'Project Created']);
 
         $lead = Lead::find($request->lead_id);
         $salesRepName = optional($lead?->salesRep)->name ?? 'Sales';
+        
         $this->notifyProjectUsers($project,
             "🎉 Lead Converted: \"{$project->project_name}\" by {$salesRepName} has been converted into a project.",
             ['sales_head', 'manager', 'eng_head']
-    );
+        );
 
         return response()->json([
             'message' => 'Lead converted to Project!',
-            'project' => $project,
+            // Return fresh data using formatProject so React gets the URLs immediately
+            'project' => $this->formatProject($project->fresh(self::EAGER)), 
         ], 201);
     }
 
@@ -1529,6 +1545,34 @@ public function storeDailyLog(Request $request, $id)
         $boqPlan   = $project->boqPlan;
         $boqActual = $project->boqActual;
 
+        // 👈 DYNAMICALLY GATHER ALL PHASE DOCUMENTS
+        $documents = [];
+        $addDoc = function($name, $path) use (&$documents) {
+            if ($path) {
+                // Formats the URL using your existing project-image proxy route
+                $documents[] = [
+                    'name' => $name,
+                    'url'  => url('/api/project-image/' . ltrim($path, '/')),
+                ];
+            }
+        };
+
+        $addDoc('Initial Client Contract', $project->contract_url);
+        $addDoc('Floor Plan', $project->floor_plan_image);
+        $addDoc('P.O. Document', $po?->po_document);
+        $addDoc('Work Order', $po?->work_order_document);
+        $addDoc('Site Inspection Photo', $si?->inspection_photo);
+        $addDoc('Delivery Receipt', $mat?->delivery_receipt_document);
+        $addDoc('Bidding Document', $mat?->bidding_document);
+        $addDoc('Awarding Document', $mat?->awarding_document);
+        $addDoc('Subcontractor Agreement', $mob?->subcontractor_agreement_document ?? $mat?->subcontractor_agreement_document);
+        $addDoc('Mobilization Photo', $mob?->mobilization_photo);
+        $addDoc('QA Photo', $qa?->qa_photo);
+        $addDoc('Client Walkthrough', $qa?->client_walkthrough_doc);
+        $addDoc('COC Document', $qa?->coc_document);
+        $addDoc('Progress Billing Invoice', $project->progressBilling?->invoice_document);
+        $addDoc('Final Billing Invoice', $project->finalBilling?->invoice_document);
+
         return [
             'id'                    => $project->id,
             'lead_id'               => $project->lead_id,
@@ -1539,8 +1583,13 @@ public function storeDailyLog(Request $request, $id)
             'status'                => $project->status,
             'is_completed'          => $project->is_completed,
             'contract_amount'       => $project->contract_amount,
+            
+            // 👈 EXPOSE THE CONTRACT URL & DOCUMENTS ARRAY TO REACT
+            'contract_url'          => $project->contract_url ? url('/api/project-image/' . ltrim($project->contract_url, '/')) : null,
+            'documents'             => $documents,
+
             'floor_plan_image'      => $project->floor_plan_image 
-                ? url('/api/project-image/' . $project->floor_plan_image)
+                ? url('/api/project-image/' . ltrim($project->floor_plan_image, '/'))
                 : null,
             'created_at'            => $project->created_at,
             'created_by'            => $project->created_by,
@@ -1558,7 +1607,7 @@ public function storeDailyLog(Request $request, $id)
             'po_document'           => $po?->po_document,
             'work_order_document'   => $po?->work_order_document,
             'site_inspection_photo' => $si?->inspection_photo,
-            'site_inspection_report' => $si ? [
+            'site_inspection_report'=> $si ? [
                 'inspector_name'  => $si->inspector_name,
                 'position'        => $si->position,
                 'inspection_date' => $si->inspection_date,
@@ -1567,12 +1616,12 @@ public function storeDailyLog(Request $request, $id)
             ] : null,
             'delivery_receipt_document' => $mat?->delivery_receipt_document,
             'bidding_document'          => $mat?->bidding_document,
-            'awarding_document' => $mat?->awarding_document,
-            'subcontractor_name'               => $mob?->subcontractor_name ?? $mat?->subcontractor_name ?? $project->subcontractor_name,
+            'awarding_document'         => $mat?->awarding_document,
+            'subcontractor_name'        => $mob?->subcontractor_name ?? $mat?->subcontractor_name ?? $project->subcontractor_name,
             'subcontractor_agreement_document' => $mob?->subcontractor_agreement_document,
-            'mobilization_photo'               => $mob?->mobilization_photo,
-            'installer_roster'                 => $mob?->installer_roster ?? [],
-            'installer_count'                  => $mob?->installer_count ?? 0,
+            'mobilization_photo'        => $mob?->mobilization_photo,
+            'installer_roster'          => $mob?->installer_roster ?? [],
+            'installer_count'           => $mob?->installer_count ?? 0,
             'qa_photo'               => $qa?->qa_photo,
             'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
             'coc_document'           => $qa?->coc_document,

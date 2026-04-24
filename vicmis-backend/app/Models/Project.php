@@ -23,6 +23,7 @@ class Project extends Model
         'is_completed',
         'floor_plan_image',
         'contract_amount',
+        'contract_url',
         'created_by',
     ];
 
