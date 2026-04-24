@@ -23,7 +23,6 @@ class Project extends Model
         'is_completed',
         'floor_plan_image',
         'contract_amount',
-        'contract_url',
         'created_by',
     ];
 
@@ -172,8 +171,8 @@ class Project extends Model
      * Sales rep name for display (WaitingView / PersonnelBar).
      *
      * Priority:
-     *   1. Direct project assignment (role = 'sales') — most accurate
-     *   2. Fallback to lead.salesRep (who created the lead) — backward compat
+     * 1. Direct project assignment (role = 'sales') — most accurate
+     * 2. Fallback to lead.salesRep (who created the lead) — backward compat
      */
     public function getCreatedByNameAttribute(): ?string
     {

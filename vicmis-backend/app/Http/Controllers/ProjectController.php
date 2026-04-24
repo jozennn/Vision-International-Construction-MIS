@@ -74,199 +74,198 @@ class ProjectController extends Controller
 
     private function notifyProjectUsers(Project $project, string $message, array $targets = []): void
     {
-    // Manager/admin — always notify by role (no single user ID)
-    if (in_array('manager', $targets)) {
-        $this->createNotification('Management', 'manager', $project->id, $message);
-    }
+        // Manager/admin — always notify by role (no single user ID)
+        if (in_array('manager', $targets)) {
+            $this->createNotification('Management', 'manager', $project->id, $message);
+        }
 
-    // Engineering head — notify by role within dept
-    if (in_array('eng_head', $targets)) {
-        $this->createNotification('Engineering', 'dept_head', $project->id, $message);
-    }
+        // Engineering head — notify by role within dept
+        if (in_array('eng_head', $targets)) {
+            $this->createNotification('Engineering', 'dept_head', $project->id, $message);
+        }
 
-    if (in_array('sales_head', $targets)) {
-    $this->createNotification('Sales', 'dept_head', $project->id, $message);
-    }
+        if (in_array('sales_head', $targets)) {
+            $this->createNotification('Sales', 'dept_head', $project->id, $message);
+        }
 
-    // Logistics — dept-wide notification
-    if (in_array('logistics', $targets)) {
-        $this->createNotification('Logistics', null, $project->id, $message);
-    }
+        // Logistics — dept-wide notification
+        if (in_array('logistics', $targets)) {
+            $this->createNotification('Logistics', null, $project->id, $message);
+        }
 
-    // Assigned engineer(s) — by user ID, from assignments table
-    if (in_array('engineer', $targets)) {
-        $engineerIds = $project->assignments()
-            ->whereIn('role', ['lead_engineer', 'support_engineer'])
-            ->whereNull('removed_at')
-            ->pluck('user_id');
+        // Assigned engineer(s) — by user ID, from assignments table
+        if (in_array('engineer', $targets)) {
+            $engineerIds = $project->assignments()
+                ->whereIn('role', ['lead_engineer', 'support_engineer'])
+                ->whereNull('removed_at')
+                ->pluck('user_id');
 
-        foreach ($engineerIds as $uid) {
-            AppNotification::create([
-                'target_user_id'    => $uid,
-                'target_department' => null,
-                'target_role'       => null,
-                'project_id'        => $project->id,
-                'message'           => $message,
-            ]);
+            foreach ($engineerIds as $uid) {
+                AppNotification::create([
+                    'target_user_id'    => $uid,
+                    'target_department' => null,
+                    'target_role'       => null,
+                    'project_id'        => $project->id,
+                    'message'           => $message,
+                ]);
+            }
+        }
+
+        // Sales rep (project creator)
+        if (in_array('sales', $targets)) {
+            $salesId = $project->created_by
+                ?? optional($project->lead)->sales_rep_id;
+
+            if ($salesId) {
+                AppNotification::create([
+                    'target_user_id'    => $salesId,
+                    'target_department' => null,
+                    'target_role'       => null,
+                    'project_id'        => $project->id,
+                    'message'           => $message,
+                ]);
+            }
         }
     }
 
-    // Sales rep (project creator)
-    if (in_array('sales', $targets)) {
-        $salesId = $project->created_by
-            ?? optional($project->lead)->sales_rep_id;
+    private function notifyNextPhase(string $status, Project $project): void
+    {
+        $msg = "Action Required: '{$project->project_name}' has moved to {$status}.";
 
-        if ($salesId) {
-            AppNotification::create([
-                'target_user_id'    => $salesId,
-                'target_department' => null,
-                'target_role'       => null,
-                'project_id'        => $project->id,
-                'message'           => $message,
-            ]);
+        switch ($status) {
+            case 'Measurement based on Plan':
+            case 'Actual Measurement':
+                $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
+                break;
+
+            case 'Pending Head Review':
+                $this->notifyProjectUsers($project,
+                    "Approval Needed: '{$project->project_name}' is awaiting Head Verification.",
+                    ['eng_head', 'manager']
+                );
+                break;
+
+            case 'P.O & Work Order':
+                $this->notifyProjectUsers($project,
+                    "BOQ Approved: '{$project->project_name}'. Please prepare the P.O & Work Order.",
+                    ['sales', 'manager']
+                );
+                break;
+
+            case 'Pending Work Order Verification':
+                $this->notifyProjectUsers($project,
+                    "Approval Needed: '{$project->project_name}' requires Work Order Verification.",
+                    ['sales', 'sales_head', 'manager']
+                );
+                break;
+
+            case 'Initial Site Inspection':
+                $this->notifyProjectUsers($project, $msg, ['engineer', 'manager']);
+                break;
+
+            case 'Checking of Delivery of Materials':
+                $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
+                break;
+
+            case 'Pending DR Verification':
+                $this->notifyProjectUsers($project,
+                    "DR Verification needed: '{$project->project_name}' is awaiting delivery receipt verification.",
+                    ['logistics', 'manager']
+                );
+                break;
+
+            case 'Bidding of Project':
+            case 'Awarding of Project':
+                $this->createNotification('Management', null, $project->id, $msg);
+                break;
+
+            case 'Contract Signing for Installer':
+                $this->createNotification('Management', null, $project->id, $msg);
+                break;
+
+            case 'Deployment and Orientation of Installers':
+                $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'manager']);
+                break;
+
+            case 'Site Inspection & Project Monitoring':
+                $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'sales', 'manager']);
+                break;
+
+            case 'Request Materials Needed':
+                $this->createNotification('Logistics', null, $project->id, $msg);
+                break;
+
+            case 'Material Request Submitted':
+                $this->createNotification('Logistics', null, $project->id,
+                    "📦 Material Request: '{$project->project_name}' has a pending material request.");
+                break;
+
+            case 'Request Billing':
+            case 'Request Final Billing':
+                $this->createNotification('Accounting', 'dept_head', $project->id,
+                    "Billing Action Required: '{$project->project_name}' requires payment processing.");
+                $this->createNotification('Accounting/Procurement', 'dept_head', $project->id,
+                    "Billing Action Required: '{$project->project_name}' requires payment processing.");
+                break;
+
+            case 'Site Inspection & Quality Checking':
+                $this->notifyProjectUsers($project, $msg, ['eng_head', 'manager']);
+                break;
+
+            case 'Pending QA Verification':
+                $this->notifyProjectUsers($project,
+                    "QA Approval Needed: '{$project->project_name}' is awaiting Head Verification.",
+                    ['eng_head', 'manager']
+                );
+                break;
+
+            case 'Final Site Inspection with the Client':
+            case 'Signing of COC':
+                $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
+                break;
+
+            case 'Completed':
+                $this->notifyProjectUsers($project,
+                    "✅ Project '{$project->project_name}' has been completed.",
+                    ['engineer', 'sales', 'eng_head', 'manager']
+                );
+                break;
         }
     }
-}
-
-   private function notifyNextPhase(string $status, Project $project): void
-{
-    $msg = "Action Required: '{$project->project_name}' has moved to {$status}.";
-
-    switch ($status) {
-
-        case 'Measurement based on Plan':
-        case 'Actual Measurement':
-            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
-            break;
-
-        case 'Pending Head Review':
-            $this->notifyProjectUsers($project,
-                "Approval Needed: '{$project->project_name}' is awaiting Head Verification.",
-                ['eng_head', 'manager']
-            );
-            break;
-
-        case 'P.O & Work Order':
-            $this->notifyProjectUsers($project,
-                "BOQ Approved: '{$project->project_name}'. Please prepare the P.O & Work Order.",
-                ['sales', 'manager']
-            );
-            break;
-
-        case 'Pending Work Order Verification':
-            $this->notifyProjectUsers($project,
-                "Approval Needed: '{$project->project_name}' requires Work Order Verification.",
-                ['sales', 'sales_head', 'manager']
-            );
-            break;
-
-        case 'Initial Site Inspection':
-            $this->notifyProjectUsers($project, $msg, ['engineer', 'manager']);
-            break;
-
-        case 'Checking of Delivery of Materials':
-            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
-            break;
-
-        case 'Pending DR Verification':
-            $this->notifyProjectUsers($project,
-                "DR Verification needed: '{$project->project_name}' is awaiting delivery receipt verification.",
-                ['logistics', 'manager']
-            );
-            break;
-
-        case 'Bidding of Project':
-        case 'Awarding of Project':
-            $this->createNotification('Management', null, $project->id, $msg);
-            break;
-
-        case 'Contract Signing for Installer':
-            $this->createNotification('Management', null, $project->id, $msg);
-            break;
-
-        case 'Deployment and Orientation of Installers':
-            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'manager']);
-            break;
-        case 'Site Inspection & Project Monitoring':
-            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head', 'sales', 'manager']);
-            break;
-
-        case 'Request Materials Needed':
-            $this->createNotification('Logistics', null, $project->id, $msg);
-            break;
-
-        case 'Material Request Submitted':
-            $this->createNotification('Logistics', null, $project->id,
-                "📦 Material Request: '{$project->project_name}' has a pending material request.");
-            break;
-
-        case 'Request Billing':
-        case 'Request Final Billing':
-            $this->createNotification('Accounting', 'dept_head', $project->id,
-                "Billing Action Required: '{$project->project_name}' requires payment processing.");
-            $this->createNotification('Accounting/Procurement', 'dept_head', $project->id,
-                "Billing Action Required: '{$project->project_name}' requires payment processing.");
-            break;
-
-        case 'Site Inspection & Quality Checking':
-            $this->notifyProjectUsers($project, $msg, ['eng_head', 'manager']);
-            break;
-
-        case 'Pending QA Verification':
-            $this->notifyProjectUsers($project,
-                "QA Approval Needed: '{$project->project_name}' is awaiting Head Verification.",
-                ['eng_head', 'manager']
-            );
-            break;
-
-        case 'Final Site Inspection with the Client':
-        case 'Signing of COC':
-            $this->notifyProjectUsers($project, $msg, ['engineer', 'eng_head']);
-            break;
-
-        case 'Completed':
-            $this->notifyProjectUsers($project,
-                "✅ Project '{$project->project_name}' has been completed.",
-                ['engineer', 'sales', 'eng_head', 'manager']
-            );
-            break;
-    }
-}
 
     // =========================================================================
     // 2. NOTIFICATION ENDPOINTS
     // =========================================================================
 
     public function getNotifications(Request $request): JsonResponse
-{
-    $user = $request->user();
-    if (!$user) return response()->json([]);
+    {
+        $user = $request->user();
+        if (!$user) return response()->json([]);
 
-    $dept   = strtolower($user->department ?? ''); // 👈 removed $user->dept
-    $role   = strtolower($user->role ?? '');
-    $userId = $user->id;
+        $dept   = strtolower($user->department ?? ''); // 👈 removed $user->dept
+        $role   = strtolower($user->role ?? '');
+        $userId = $user->id;
 
-    $notifications = AppNotification::where('is_read', false)
-        ->where(function ($query) use ($dept, $role, $userId) {
+        $notifications = AppNotification::where('is_read', false)
+            ->where(function ($query) use ($dept, $role, $userId) {
 
-            if (in_array($role, ['admin', 'manager'])) return;
+                if (in_array($role, ['admin', 'manager'])) return;
 
-            $query
-                ->where('target_user_id', $userId)
-                ->orWhere(function ($deptQ) use ($dept, $role) {
-                    $deptQ->whereNull('target_user_id')
-                          ->whereRaw('LOWER(target_department) = ?', [$dept])
-                          ->where(function ($roleQ) use ($role) {
-                              $roleQ->whereNull('target_role')
-                                    ->orWhereRaw('LOWER(target_role) = ?', [$role]);
-                          });
-                });
-        })
-        ->latest()
-        ->get();
+                $query->where('target_user_id', $userId)
+                      ->orWhere(function ($deptQ) use ($dept, $role) {
+                          $deptQ->whereNull('target_user_id')
+                                ->whereRaw('LOWER(target_department) = ?', [$dept])
+                                ->where(function ($roleQ) use ($role) {
+                                    $roleQ->whereNull('target_role')
+                                          ->orWhereRaw('LOWER(target_role) = ?', [$role]);
+                                });
+                      });
+            })
+            ->latest()
+            ->get();
 
-    return response()->json($notifications);
-}
+        return response()->json($notifications);
+    }
 
     public function markNotificationRead($id): JsonResponse
     {
@@ -286,7 +285,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Not Authenticated'], 401);
         }
 
-        $dept = strtolower($user->department ?? '');
+        $dept  = strtolower($user->department ?? '');
         $role  = strtolower($user->role ?? '');
         $email = strtolower($user->email ?? '');
 
@@ -339,19 +338,18 @@ class ProjectController extends Controller
                 } elseif (str_contains($dept, 'sales') || str_contains($email, 'sales')) {
                     $q->where(function ($salesQ) use ($user) {
                         $salesQ->where(function ($ownerQ) use ($user) {
-                            $ownerQ
-                                ->where(function ($createdQ) use ($user) {
-                                    $createdQ->whereNotNull('created_by')
-                                             ->where('created_by', (int) $user->id);
-                                })
-                                ->orWhereHas('assignments', function ($a) use ($user) {
-                                    $a->where('user_id', $user->id)
-                                      ->where('role', 'sales')
-                                      ->whereNull('removed_at');
-                                })
-                                ->orWhereHas('lead', function ($l) use ($user) {
-                                    $l->where('sales_rep_id', $user->id);
-                                });
+                            $ownerQ->where(function ($createdQ) use ($user) {
+                                       $createdQ->whereNotNull('created_by')
+                                                ->where('created_by', (int) $user->id);
+                                   })
+                                   ->orWhereHas('assignments', function ($a) use ($user) {
+                                       $a->where('user_id', $user->id)
+                                         ->where('role', 'sales')
+                                         ->whereNull('removed_at');
+                                   })
+                                   ->orWhereHas('lead', function ($l) use ($user) {
+                                       $l->where('sales_rep_id', $user->id);
+                                   });
                         });
                     });
 
@@ -403,7 +401,6 @@ class ProjectController extends Controller
     // 4. SINGLE PROJECT
     // =========================================================================
 
-
     public function saveBiddingAwardingContract(Request $request, int $id): JsonResponse
     {
         $request->validate([
@@ -412,45 +409,45 @@ class ProjectController extends Controller
             'awarding_document'                => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
             'subcontractor_agreement_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:20480',
         ]);
-    
+   
         try {
             $project = Project::with(self::EAGER)->findOrFail($id);
             $by      = Auth::id();
             $now     = now();
-    
+   
             // ── Step 1: Bidding document → project_materials ──────────────────
             if ($request->hasFile('bidding_document')) {
                 $path = $request->file('bidding_document')
                     ->store('project_documents', 'public');
-    
+   
                 $project->materials()->updateOrCreate(
                     ['project_id' => $project->id],
                     [
-                        'bidding_document'    => $path,
+                        'bidding_document'     => $path,
                         'bidding_submitted_at' => $now,
                     ]
                 );
             }
-    
+   
             // ── Step 2: Awarding document → project_materials ─────────────────
             if ($request->hasFile('awarding_document')) {
                 $path = $request->file('awarding_document')
                     ->store('project_documents', 'public');
-    
+   
                 $project->materials()->updateOrCreate(
                     ['project_id' => $project->id],
                     [
-                        'awarding_document'    => $path,
+                        'awarding_document'     => $path,
                         'awarding_submitted_at' => $now,
                     ]
                 );
             }
-    
+   
             // ── Step 3: Subcontractor agreement → project_mobilizations ───────
             if ($request->hasFile('subcontractor_agreement_document')) {
                 $path = $request->file('subcontractor_agreement_document')
                     ->store('project_documents', 'public');
-    
+   
                 ProjectMobilization::updateOrCreate(
                     ['project_id' => $project->id],
                     [
@@ -460,16 +457,16 @@ class ProjectController extends Controller
                     ]
                 );
             }
-    
+   
             // ── Advance status & notify ───────────────────────────────────────
             $project->update(['status' => $request->new_status]);
             $this->notifyNextPhase($request->new_status, $project);
-    
+   
             return response()->json([
                 'message' => 'BAC documents saved. Project advanced to ' . $request->new_status . '.',
                 'project' => $this->formatProject($project->fresh(self::EAGER)),
             ]);
-    
+   
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
@@ -487,7 +484,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Project not found'], 404);
         }
 
-        $dept = strtolower($user->department ?? '');
+        $dept  = strtolower($user->department ?? '');
         $role  = strtolower($user->role ?? '');
         $email = strtolower($user->email ?? '');
 
@@ -565,33 +562,18 @@ class ProjectController extends Controller
             'client_name'  => 'required',
             'location'     => 'required',
             'project_type' => 'required',
-            'contract'     => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,webp|max:20480', // 👈 Validate the file
         ]);
 
-        $projectData = [
-            'lead_id'      => $validated['lead_id'],
-            'project_name' => $validated['project_name'],
-            'client_name'  => $validated['client_name'],
-            'location'     => $validated['location'],
-            'project_type' => $validated['project_type'],
-            'status'       => 'Floor Plan',
-            'created_by'   => Auth::id(),
-        ];
+        $validated['status']     = 'Floor Plan';
+        $validated['created_by'] = Auth::id();
 
-        // 👈 Intercept and store the contract file
-        if ($request->hasFile('contract')) {
-            $path = $request->file('contract')->store('project_documents', 'public');
-            $projectData['contract_url'] = $path;
-        }
-
-        $project = Project::create($projectData);
+        $project = Project::create($validated);
 
         Lead::where('id', $request->lead_id)
             ->update(['status' => 'Project Created']);
 
         $lead = Lead::find($request->lead_id);
         $salesRepName = optional($lead?->salesRep)->name ?? 'Sales';
-        
         $this->notifyProjectUsers($project,
             "🎉 Lead Converted: \"{$project->project_name}\" by {$salesRepName} has been converted into a project.",
             ['sales_head', 'manager', 'eng_head']
@@ -599,8 +581,7 @@ class ProjectController extends Controller
 
         return response()->json([
             'message' => 'Lead converted to Project!',
-            // Return fresh data using formatProject so React gets the URLs immediately
-            'project' => $this->formatProject($project->fresh(self::EAGER)), 
+            'project' => $project,
         ], 201);
     }
 
@@ -647,7 +628,7 @@ class ProjectController extends Controller
         }
 
         if ($request->filled('rejection_notes')) {
-        
+       
             ProjectRejectionLog::create([
                 'project_id'        => $project->id,
                 'rejected_phase'    => $project->status,
@@ -656,7 +637,7 @@ class ProjectController extends Controller
                 'rejected_by'       => Auth::id(),
                 'rejected_at'       => now(),
             ]);
-        
+       
             // If rejecting a PO/Work Order verification, stamp the po_orders row too
             if ($project->status === 'Pending Work Order Verification') {
                 $project->poOrder()->updateOrCreate(
@@ -672,7 +653,7 @@ class ProjectController extends Controller
                     ]
                 );
             }
-        
+       
             $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
             $this->createNotification(
                 $deptToNotify,
@@ -680,10 +661,10 @@ class ProjectController extends Controller
                 $project->id,
                 "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}"
             );
-        
+       
         } elseif ($request->boolean('go_back')) {
             // Silent go-back — no notification, no rejection log
-        
+       
         } else {
             $this->notifyNextPhase($request->status, $project);
         }
@@ -986,32 +967,32 @@ class ProjectController extends Controller
     }
 
     public function approvePOWorkOrder(Request $request, int $id): JsonResponse
-{
-    $project = Project::with('poOrder')->findOrFail($id);
- 
-    // Stamp the approval on the po_orders row
-    $project->poOrder()->updateOrCreate(
-        ['project_id' => $project->id],
-        [
-            'verification_status' => 'approved',
-            'verified_by'         => Auth::id(),
-            'verified_at'         => now(),
-            // Clear any prior rejection
-            'rejected_by'         => null,
-            'rejected_at'         => null,
-            'rejection_notes'     => null,
-        ]
-    );
- 
-    // Advance the project
-    $project->update(['status' => 'Initial Site Inspection']);
-    $this->notifyNextPhase('Initial Site Inspection', $project);
- 
-    return response()->json([
-        'message' => 'P.O & Work Order approved. Forwarded to Engineering.',
-        'project' => $this->formatProject($project->fresh(self::EAGER)),
-    ]);
-}
+    {
+        $project = Project::with('poOrder')->findOrFail($id);
+     
+        // Stamp the approval on the po_orders row
+        $project->poOrder()->updateOrCreate(
+            ['project_id' => $project->id],
+            [
+                'verification_status' => 'approved',
+                'verified_by'         => Auth::id(),
+                'verified_at'         => now(),
+                // Clear any prior rejection
+                'rejected_by'         => null,
+                'rejected_at'         => null,
+                'rejection_notes'     => null,
+            ]
+        );
+     
+        // Advance the project
+        $project->update(['status' => 'Initial Site Inspection']);
+        $this->notifyNextPhase('Initial Site Inspection', $project);
+     
+        return response()->json([
+            'message' => 'P.O & Work Order approved. Forwarded to Engineering.',
+            'project' => $this->formatProject($project->fresh(self::EAGER)),
+        ]);
+    }
 
     // =========================================================================
     // 10. DAILY LOGS & ISSUES
@@ -1039,94 +1020,94 @@ class ProjectController extends Controller
         return response()->json($logs);
     }
 
-public function storeDailyLog(Request $request, $id)
-{
-    $request->validate(['log_date' => 'required|date']);
-    $project = Project::findOrFail($id);
+    public function storeDailyLog(Request $request, $id)
+    {
+        $request->validate(['log_date' => 'required|date']);
+        $project = Project::findOrFail($id);
 
-    $existingLog = DailySiteLog::where('project_id', $id)
-        ->where('log_date', $request->log_date)
-        ->first();
+        $existingLog = DailySiteLog::where('project_id', $id)
+            ->where('log_date', $request->log_date)
+            ->first();
 
-    // Main photo
-    $photoPath = $existingLog ? $existingLog->photo_path : null;
-    if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
-        $photoPath = $request->file('photo')->store('daily_logs', 'public');
-    }
-    if (!$photoPath || in_array($photoPath, ['0', 0, false, 'false'], true)) {
-        $photoPath = null;
-    }
-
-    // Team photo 1
-    $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
-    if ($request->hasFile('team_photo_1')) {
-        $file = $request->file('team_photo_1');
-        if ($file && $file->isValid()) {
-            $teamPhoto1Path = $file->store('daily_logs/team', 'public');
+        // Main photo
+        $photoPath = $existingLog ? $existingLog->photo_path : null;
+        if ($request->hasFile('photo') && $request->file('photo')->isValid()) {
+            $photoPath = $request->file('photo')->store('daily_logs', 'public');
         }
-    }
-    if (!$teamPhoto1Path || in_array($teamPhoto1Path, ['0', 0, false, 'false'], true)) {
-        $teamPhoto1Path = null;
-    }
-
-    // Team photo 2
-    $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
-    if ($request->hasFile('team_photo_2')) {
-        $file = $request->file('team_photo_2');
-        if ($file && $file->isValid()) {
-            $teamPhoto2Path = $file->store('daily_logs/team', 'public');
+        if (!$photoPath || in_array($photoPath, ['0', 0, false, 'false'], true)) {
+            $photoPath = null;
         }
+
+        // Team photo 1
+        $teamPhoto1Path = $existingLog ? $existingLog->team_photo_1 : null;
+        if ($request->hasFile('team_photo_1')) {
+            $file = $request->file('team_photo_1');
+            if ($file && $file->isValid()) {
+                $teamPhoto1Path = $file->store('daily_logs/team', 'public');
+            }
+        }
+        if (!$teamPhoto1Path || in_array($teamPhoto1Path, ['0', 0, false, 'false'], true)) {
+            $teamPhoto1Path = null;
+        }
+
+        // Team photo 2
+        $teamPhoto2Path = $existingLog ? $existingLog->team_photo_2 : null;
+        if ($request->hasFile('team_photo_2')) {
+            $file = $request->file('team_photo_2');
+            if ($file && $file->isValid()) {
+                $teamPhoto2Path = $file->store('daily_logs/team', 'public');
+            }
+        }
+        if (!$teamPhoto2Path || in_array($teamPhoto2Path, ['0', 0, false, 'false'], true)) {
+            $teamPhoto2Path = null;
+        }
+
+        $installersData = json_decode($request->installers_data, true) ?? [];
+
+        $data = [
+            'client_start_date'      => $request->client_start_date ?: null,
+            'client_end_date'        => $request->client_end_date   ?: null,
+            'start_date'             => $request->start_date        ?: null,
+            'end_date'               => $request->end_date          ?: null,
+            'lead_man'               => $request->lead_man,
+            'total_area'             => $request->total_area,
+            'accomplishment_percent' => $request->accomplishment_percent,
+            'workers_count'          => $request->workers_count,
+            'installers_data'        => json_encode($installersData),
+            'remarks'                => $request->remarks,
+            'photo_path'             => $photoPath,
+            'team_photo_1'           => $teamPhoto1Path,
+            'team_photo_2'           => $teamPhoto2Path,
+        ];
+
+        $log = DailySiteLog::updateOrCreate(
+            ['project_id' => $id, 'log_date' => $request->log_date],
+            $data
+        );
+
+        // Force-null any lingering falsy values that slipped through
+        $needsSave = false;
+        if (!$log->team_photo_1 || in_array($log->team_photo_1, ['0', 0, false, 'false'], true)) {
+            $log->team_photo_1 = null;
+            $needsSave = true;
+        }
+        if (!$log->team_photo_2 || in_array($log->team_photo_2, ['0', 0, false, 'false'], true)) {
+            $log->team_photo_2 = null;
+            $needsSave = true;
+        }
+        if ($needsSave) $log->save();
+
+        // Append URLs — mirrors getDailyLogs exactly
+        $log->log_date_formatted = $log->log_date ? date('Y-m-d', strtotime($log->log_date)) : null;
+        $log->photo_url        = $log->photo_path   ? Storage::disk('public')->url($log->photo_path)   : null;
+        $log->team_photo_1_url = $log->team_photo_1 ? Storage::disk('public')->url($log->team_photo_1) : null;
+        $log->team_photo_2_url = $log->team_photo_2 ? Storage::disk('public')->url($log->team_photo_2) : null;
+
+        return response()->json([
+            'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
+            'log'     => $log,
+        ]);
     }
-    if (!$teamPhoto2Path || in_array($teamPhoto2Path, ['0', 0, false, 'false'], true)) {
-        $teamPhoto2Path = null;
-    }
-
-    $installersData = json_decode($request->installers_data, true) ?? [];
-
-    $data = [
-        'client_start_date'      => $request->client_start_date ?: null,
-        'client_end_date'        => $request->client_end_date   ?: null,
-        'start_date'             => $request->start_date        ?: null,
-        'end_date'               => $request->end_date          ?: null,
-        'lead_man'               => $request->lead_man,
-        'total_area'             => $request->total_area,
-        'accomplishment_percent' => $request->accomplishment_percent,
-        'workers_count'          => $request->workers_count,
-        'installers_data'        => json_encode($installersData),
-        'remarks'                => $request->remarks,
-        'photo_path'             => $photoPath,
-        'team_photo_1'           => $teamPhoto1Path,
-        'team_photo_2'           => $teamPhoto2Path,
-    ];
-
-    $log = DailySiteLog::updateOrCreate(
-        ['project_id' => $id, 'log_date' => $request->log_date],
-        $data
-    );
-
-    // Force-null any lingering falsy values that slipped through
-    $needsSave = false;
-    if (!$log->team_photo_1 || in_array($log->team_photo_1, ['0', 0, false, 'false'], true)) {
-        $log->team_photo_1 = null;
-        $needsSave = true;
-    }
-    if (!$log->team_photo_2 || in_array($log->team_photo_2, ['0', 0, false, 'false'], true)) {
-        $log->team_photo_2 = null;
-        $needsSave = true;
-    }
-    if ($needsSave) $log->save();
-
-    // Append URLs — mirrors getDailyLogs exactly
-    $log->log_date_formatted = $log->log_date ? date('Y-m-d', strtotime($log->log_date)) : null;
-    $log->photo_url        = $log->photo_path   ? Storage::disk('public')->url($log->photo_path)   : null;
-    $log->team_photo_1_url = $log->team_photo_1 ? Storage::disk('public')->url($log->team_photo_1) : null;
-    $log->team_photo_2_url = $log->team_photo_2 ? Storage::disk('public')->url($log->team_photo_2) : null;
-
-    return response()->json([
-        'message' => $log->wasRecentlyCreated ? 'Daily log created.' : 'Daily log updated.',
-        'log'     => $log,
-    ]);
-}
 
     public function getIssues($id): JsonResponse
     {
@@ -1342,46 +1323,48 @@ public function storeDailyLog(Request $request, $id)
             'floor_plan_image' => fn() => $project->update(['floor_plan_image' => $path]),
 
             'po_document' => fn() => $project->poOrder()->updateOrCreate(
-            ['project_id' => $uid],
-            [
-                'po_document'    => $path,
-                'po_uploaded_by' => $by,
-                'po_uploaded_at' => $now,
-                // Reset verification so Sales Head must re-review if P.O is replaced
-                'verification_status' => 'pending',
-                'verified_by'         => null,
-                'verified_at'         => null,
-                'rejected_by'         => null,
-                'rejected_at'         => null,
-                'rejection_notes'     => null,
-            ]
-        ),
-        
-        'work_order_document' => fn() => $project->poOrder()->updateOrCreate(
-            ['project_id' => $uid],
-            [
-                'work_order_document' => $path,
-                'wo_uploaded_by'      => $by,
-                'wo_uploaded_at'      => $now,
-                // Reset verification so Sales Head must re-review if Work Order is replaced
-                'verification_status' => 'pending',
-                'verified_by'         => null,
-                'verified_at'         => null,
-                'rejected_by'         => null,
-                'rejected_at'         => null,
-                'rejection_notes'     => null,
-            ]
-        ),
+                ['project_id' => $uid],
+                [
+                    'po_document'         => $path,
+                    'po_uploaded_by'      => $by,
+                    'po_uploaded_at'      => $now,
+                    // Reset verification so Sales Head must re-review if P.O is replaced
+                    'verification_status' => 'pending',
+                    'verified_by'         => null,
+                    'verified_at'         => null,
+                    'rejected_by'         => null,
+                    'rejected_at'         => null,
+                    'rejection_notes'     => null,
+                ]
+            ),
+       
+            'work_order_document' => fn() => $project->poOrder()->updateOrCreate(
+                ['project_id' => $uid],
+                [
+                    'work_order_document' => $path,
+                    'wo_uploaded_by'      => $by,
+                    'wo_uploaded_at'      => $now,
+                    // Reset verification so Sales Head must re-review if Work Order is replaced
+                    'verification_status' => 'pending',
+                    'verified_by'         => null,
+                    'verified_at'         => null,
+                    'rejected_by'         => null,
+                    'rejected_at'         => null,
+                    'rejection_notes'     => null,
+                ]
+            ),
+
             'site_inspection_photo' => fn() => $project->siteInspection()->updateOrCreate(['project_id' => $uid], ['inspection_photo' => $path, 'submitted_at' => $now]),
 
             'delivery_receipt_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['delivery_receipt_document' => $path, 'dr_uploaded_by' => $by, 'dr_uploaded_at' => $now]),
             'bidding_document'          => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['bidding_document'          => $path, 'bidding_submitted_at' => $now]),
-            'bidding_document'  => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['bidding_document'  => $path, 'bidding_submitted_at'  => $now]),
-            'awarding_document' => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['awarding_document' => $path, 'awarding_submitted_at' => $now]),
+            'awarding_document'         => fn() => $project->materials()->updateOrCreate(['project_id' => $uid], ['awarding_document'         => $path, 'awarding_submitted_at' => $now]),
+            
             'subcontractor_agreement_document' => fn() => ProjectMobilization::updateOrCreate(
                 ['project_id' => $uid],
                 ['subcontractor_agreement_document' => $path, 'contract_uploaded_by' => $by, 'contract_signed_at' => $now]
             ),
+            
             'mobilization_photo' => fn() => ProjectMobilization::updateOrCreate(
                 ['project_id' => $uid],
                 ['mobilization_photo' => $path, 'deployed_by' => $by, 'deployed_at' => $now]
@@ -1395,7 +1378,9 @@ public function storeDailyLog(Request $request, $id)
             'final_invoice_document'   => fn() => $project->billings()->updateOrCreate(['project_id' => $uid, 'billing_type' => 'final'],    ['invoice_document' => $path, 'submitted_by' => $by, 'submitted_at' => $now]),
         ];
 
-        if (isset($map[$field])) ($map[$field])();
+        if (isset($map[$field])) {
+            ($map[$field])();
+        }
     }
 
     public function saveBOQDraft(Request $request, $id): JsonResponse
@@ -1446,7 +1431,6 @@ public function storeDailyLog(Request $request, $id)
         return response()->json(['message' => 'Draft saved.']);
     }
 
-
     // =========================================================================
     // 17. SOFT DELETE / ARCHIVE METHODS
     // =========================================================================
@@ -1462,9 +1446,9 @@ public function storeDailyLog(Request $request, $id)
             ->with(self::EAGER)
             ->latest('deleted_at')
             ->get();
-        
+       
         $formatted = $projects->map(fn($p) => $this->formatProject($p));
-        
+       
         return response()->json($formatted);
     }
 
@@ -1472,16 +1456,16 @@ public function storeDailyLog(Request $request, $id)
     {
         $project = Project::findOrFail($id);
         $projectName = $project->project_name;
-        
+       
         $project->delete();
-        
+       
         \App\Models\AppNotification::create([
             'target_department' => 'Management',
             'target_role'       => 'dept_head',
             'project_id'        => $id,
             'message'           => "📦 Project '{$projectName}' has been archived.",
         ]);
-        
+       
         return response()->json([
             'message' => 'Project archived successfully.',
             'project' => $this->formatProject($project),
@@ -1492,16 +1476,16 @@ public function storeDailyLog(Request $request, $id)
     {
         $project = Project::withTrashed()->findOrFail($id);
         $projectName = $project->project_name;
-        
+       
         $project->restore();
-        
+       
         \App\Models\AppNotification::create([
             'target_department' => 'Management',
             'target_role'       => 'dept_head',
             'project_id'        => $id,
             'message'           => "🔄 Project '{$projectName}' has been restored from archive.",
         ]);
-        
+       
         return response()->json([
             'message' => 'Project restored successfully.',
             'project' => $this->formatProject($project),
@@ -1512,9 +1496,9 @@ public function storeDailyLog(Request $request, $id)
     {
         $project = Project::withTrashed()->findOrFail($id);
         $projectName = $project->project_name;
-        
+       
         $project->forceDelete();
-        
+       
         return response()->json([
             'message' => "Project '{$projectName}' permanently deleted.",
         ]);
@@ -1545,34 +1529,6 @@ public function storeDailyLog(Request $request, $id)
         $boqPlan   = $project->boqPlan;
         $boqActual = $project->boqActual;
 
-        // 👈 DYNAMICALLY GATHER ALL PHASE DOCUMENTS
-        $documents = [];
-        $addDoc = function($name, $path) use (&$documents) {
-            if ($path) {
-                // Formats the URL using your existing project-image proxy route
-                $documents[] = [
-                    'name' => $name,
-                    'url'  => url('/api/project-image/' . ltrim($path, '/')),
-                ];
-            }
-        };
-
-        $addDoc('Initial Client Contract', $project->contract_url);
-        $addDoc('Floor Plan', $project->floor_plan_image);
-        $addDoc('P.O. Document', $po?->po_document);
-        $addDoc('Work Order', $po?->work_order_document);
-        $addDoc('Site Inspection Photo', $si?->inspection_photo);
-        $addDoc('Delivery Receipt', $mat?->delivery_receipt_document);
-        $addDoc('Bidding Document', $mat?->bidding_document);
-        $addDoc('Awarding Document', $mat?->awarding_document);
-        $addDoc('Subcontractor Agreement', $mob?->subcontractor_agreement_document ?? $mat?->subcontractor_agreement_document);
-        $addDoc('Mobilization Photo', $mob?->mobilization_photo);
-        $addDoc('QA Photo', $qa?->qa_photo);
-        $addDoc('Client Walkthrough', $qa?->client_walkthrough_doc);
-        $addDoc('COC Document', $qa?->coc_document);
-        $addDoc('Progress Billing Invoice', $project->progressBilling?->invoice_document);
-        $addDoc('Final Billing Invoice', $project->finalBilling?->invoice_document);
-
         return [
             'id'                    => $project->id,
             'lead_id'               => $project->lead_id,
@@ -1583,13 +1539,8 @@ public function storeDailyLog(Request $request, $id)
             'status'                => $project->status,
             'is_completed'          => $project->is_completed,
             'contract_amount'       => $project->contract_amount,
-            
-            // 👈 EXPOSE THE CONTRACT URL & DOCUMENTS ARRAY TO REACT
-            'contract_url'          => $project->contract_url ? url('/api/project-image/' . ltrim($project->contract_url, '/')) : null,
-            'documents'             => $documents,
-
-            'floor_plan_image'      => $project->floor_plan_image 
-                ? url('/api/project-image/' . ltrim($project->floor_plan_image, '/'))
+            'floor_plan_image'      => $project->floor_plan_image
+                ? url('/api/project-image/' . $project->floor_plan_image)
                 : null,
             'created_at'            => $project->created_at,
             'created_by'            => $project->created_by,
@@ -1607,7 +1558,7 @@ public function storeDailyLog(Request $request, $id)
             'po_document'           => $po?->po_document,
             'work_order_document'   => $po?->work_order_document,
             'site_inspection_photo' => $si?->inspection_photo,
-            'site_inspection_report'=> $si ? [
+            'site_inspection_report' => $si ? [
                 'inspector_name'  => $si->inspector_name,
                 'position'        => $si->position,
                 'inspection_date' => $si->inspection_date,
@@ -1622,16 +1573,16 @@ public function storeDailyLog(Request $request, $id)
             'mobilization_photo'        => $mob?->mobilization_photo,
             'installer_roster'          => $mob?->installer_roster ?? [],
             'installer_count'           => $mob?->installer_count ?? 0,
-            'qa_photo'               => $qa?->qa_photo,
-            'client_walkthrough_doc' => $qa?->client_walkthrough_doc,
-            'coc_document'           => $qa?->coc_document,
-            'qa_check_boq'           => (bool) ($qa?->qa_check_boq    ?? false),
-            'qa_check_debris'        => (bool) ($qa?->qa_check_debris ?? false),
-            'qa_check_defect'        => (bool) ($qa?->qa_check_defect ?? false),
-            'billing_invoice_document' => $project->progressBilling?->invoice_document,
-            'final_invoice_document'   => $project->finalBilling?->invoice_document,
-            'material_items'    => $mat?->material_items,
-            'timeline_tracking' => $mat?->timeline_tracking,
+            'qa_photo'                  => $qa?->qa_photo,
+            'client_walkthrough_doc'    => $qa?->client_walkthrough_doc,
+            'coc_document'              => $qa?->coc_document,
+            'qa_check_boq'              => (bool) ($qa?->qa_check_boq    ?? false),
+            'qa_check_debris'           => (bool) ($qa?->qa_check_debris ?? false),
+            'qa_check_defect'           => (bool) ($qa?->qa_check_defect ?? false),
+            'billing_invoice_document'  => $project->progressBilling?->invoice_document,
+            'final_invoice_document'    => $project->finalBilling?->invoice_document,
+            'material_items'            => $mat?->material_items,
+            'timeline_tracking'         => $mat?->timeline_tracking,
         ];
     }
 }
