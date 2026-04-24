@@ -1057,46 +1057,59 @@ const Customer = ({ user }) => {
                 )}
 
                 {/* ── Contract Viewer — shown inside modal for converted projects ── */}
-                {selectedLead?.status === 'Project Created' && isViewOnly && (() => {
+                {(() => {
+                  if (selectedLead?.status !== 'Project Created') return null;
                   const proj = projectsMap[selectedLead.id];
-                  if (!proj?.contract_url) return null;
-                  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(proj.contract_url);
-                  const label   = proj.contract_name || proj.contract_url.split('/').pop() || 'Contract';
+                  const hasUrl = proj?.contract_url;
+                  const isImage = hasUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(proj.contract_url);
+                  const label   = hasUrl
+                    ? (proj.contract_name || proj.contract_url.split('/').pop() || 'Contract')
+                    : null;
                   return (
                     <div className="form-group-compact full-width">
                       <label>
                         Contract Document
-                        <span className="contract-available-tag">Attached</span>
+                        {hasUrl
+                          ? <span className="contract-available-tag">Attached</span>
+                          : <span className="contract-required-tag">No contract on file</span>
+                        }
                       </label>
-                      <div className="modal-contract-view-area">
-                        {/* Image preview inline */}
-                        {isImage && (
-                          <div className="contract-image-preview">
-                            <img
-                              src={proj.contract_url}
-                              alt="Contract preview"
-                              className="contract-preview-img"
-                            />
+                      {hasUrl ? (
+                        <div className="modal-contract-view-area">
+                          {isImage && (
+                            <div className="contract-image-preview">
+                              <img
+                                src={proj.contract_url}
+                                alt="Contract preview"
+                                className="contract-preview-img"
+                              />
+                            </div>
+                          )}
+                          <div className="contract-modal-view-row">
+                            <div className="contract-modal-file-info">
+                              <span className="contract-viewer-icon">
+                                {isImage ? '🖼️' : /\.pdf$/i.test(proj.contract_url) ? '📄' : '📎'}
+                              </span>
+                              <span className="contract-viewer-name" title={label}>
+                                {label.length > 30 ? label.slice(0, 28) + '…' : label}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn-view-contract"
+                              onClick={() => setContractPopup({ url: proj.contract_url, name: proj.contract_name })}
+                            >
+                              View Document
+                            </button>
                           </div>
-                        )}
-                        <div className="contract-modal-view-row">
-                          <div className="contract-modal-file-info">
-                            <span className="contract-viewer-icon">
-                              {isImage ? '🖼️' : /\.pdf$/i.test(proj.contract_url) ? '📄' : '📎'}
-                            </span>
-                            <span className="contract-viewer-name" title={label}>
-                              {label.length > 30 ? label.slice(0, 28) + '…' : label}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn-view-contract"
-                            onClick={() => setContractPopup({ url: proj.contract_url, name: proj.contract_name })}
-                          >
-                            View Document
-                          </button>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="modal-contract-view-area" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                          <p className="contract-hint-text" style={{ color: '#94a3b8' }}>
+                            No contract document was attached to this project.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
