@@ -371,22 +371,18 @@ const Customer = ({ user }) => {
     try {
       const res = await api.get('/projects');
       const map = {};
-      const savedFromBackend = {};
+      
       res.data.forEach(p => {
         if (p.lead_id) {
           map[p.lead_id] = p;
-          if (p.contract_url) {
-            savedFromBackend[p.lead_id] = {
-              objectUrl: p.contract_url,
-              name: p.contract_name || p.contract_url.split('/').pop() || 'Contract',
-            };
-          }
         }
       });
+      
       setProjectsMap(map);
-      if (Object.keys(savedFromBackend).length > 0) {
-        setSavedContractsMap(prev => ({ ...savedFromBackend, ...prev }));
-      }
+      
+      // Note: We removed the old 'savedFromBackend' contract mapping here 
+      // because contracts are now natively attached to the Lead object!
+      
     } catch (err) {
       console.error('Projects fetch error:', err);
     }
