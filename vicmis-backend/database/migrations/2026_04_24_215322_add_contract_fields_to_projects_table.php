@@ -12,10 +12,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('projects', function (Blueprint $table) {
-            // Add your new columns here
-            $table->string('contract_path')->nullable();
-            $table->string('contract_url')->nullable();
-            $table->string('contract_name')->nullable();
+            // Check if contract_path exists before adding
+            if (!Schema::hasColumn('projects', 'contract_path')) {
+                $table->string('contract_path')->nullable();
+            }
+            
+            // Check if contract_url exists before adding
+            if (!Schema::hasColumn('projects', 'contract_url')) {
+                $table->string('contract_url')->nullable();
+            }
+
+            // Check if contract_name exists before adding
+            if (!Schema::hasColumn('projects', 'contract_name')) {
+                $table->string('contract_name')->nullable();
+            }
         });
     }
 
