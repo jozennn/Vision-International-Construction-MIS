@@ -289,7 +289,7 @@ const Customer = ({ user }) => {
   const [contractsMap, setContractsMap] = useState({});
 
   // savedContractsMap: { [leadId]: { objectUrl, name } } — persists contract for viewing
-  //const [savedContractsMap, setSavedContractsMap] = useState({});
+  const [savedContractsMap, setSavedContractsMap] = useState({});
 
   // contractPopup: { url, name } | null — controls the contract preview popup
   const [contractPopup, setContractPopup] = useState(null);
