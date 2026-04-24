@@ -23,7 +23,6 @@ const ROLE_MAPPING = {
   ],
   'Procurement': [
     { value: 'dept_head', label: 'Department Head' },
-    // Keeping backend value as 'accounting_employee' to avoid breaking DB, but showing as 'Procurement'
     { value: 'accounting_employee', label: 'Procurement Employee' }
   ]
 };
@@ -40,7 +39,7 @@ const UserManagement = ({ user }) => {
   const [filterDept, setFilterDept] = useState('All'); 
   
   const [formData, setFormData] = useState({
-    name: '', email: '', password: '', role: 'sales_employee', department: 'Sales', newDepartment: ''
+    name: '', email: '', password: '', role: 'sales_employee', department: 'Sales', newDepartment: '', newRole: ''
   });
 
   const fetchUsers = async () => {
@@ -57,7 +56,7 @@ const UserManagement = ({ user }) => {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  // Compute available departments dynamically (merging defaults with newly created ones from the DB)
+  // Compute available departments dynamically
   const dynamicDepartments = useMemo(() => {
     const depts = new Set([...DEPARTMENTS]);
     users.forEach(u => {
@@ -70,23 +69,50 @@ const UserManagement = ({ user }) => {
     return Array.from(depts);
   }, [users]);
 
+  // Compute available roles for the currently selected department dynamically
+  const dynamicRolesForForm = useMemo(() => {
+    let baseRoles = ROLE_MAPPING[formData.department];
+    
+    // Fallback for custom departments
+    if (!baseRoles || formData.department === 'ADD_NEW') {
+      const displayDeptName = formData.department === 'ADD_NEW' && formData.newDepartment 
+        ? formData.newDepartment 
+        : (formData.department !== 'ADD_NEW' ? formData.department : 'Department');
+        
+      baseRoles = [
+        { value: 'dept_head', label: 'Department Head' },
+        { value: 'department_employee', label: `${displayDeptName} Employee` }
+      ];
+    } else {
+      baseRoles = [...baseRoles]; // Clone to avoid mutating constant
+    }
+
+    // Add any custom roles that exist in the database for this department
+    const existingRolesInDept = new Set(baseRoles.map(r => r.value));
+    
+    users.forEach(u => {
+      if (u.department === formData.department && u.role && !existingRolesInDept.has(u.role)) {
+        existingRolesInDept.add(u.role);
+        // Format the custom role for display (e.g., "marketing_lead" -> "Marketing Lead")
+        const label = u.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        baseRoles.push({ value: u.role, label: label });
+      }
+    });
+
+    return baseRoles;
+  }, [formData.department, formData.newDepartment, users]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Auto-filter roles when department changes
     if (name === 'department') {
+      // Auto-select the first role when department changes, unless it's ADD_NEW
+      // We need to look up what the roles WILL BE for this new department
       let availableRoles = ROLE_MAPPING[value];
-      
-      // If it's a newly created department or custom one
       if (!availableRoles || value === 'ADD_NEW') {
-        availableRoles = [
-          { value: 'dept_head', label: 'Department Head' },
-          { value: 'department_employee', label: 'Department Employee' }
-        ];
+        availableRoles = [{ value: 'dept_head' }]; // Safe default
       }
-      
-      const firstRole = availableRoles.length > 0 ? availableRoles[0].value : '';
-      setFormData(prev => ({ ...prev, department: value, role: firstRole }));
+      setFormData(prev => ({ ...prev, department: value, role: availableRoles[0].value, newRole: '' }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -95,7 +121,7 @@ const UserManagement = ({ user }) => {
   const openCreateModal = () => {
     setEditingUserId(null);
     setShowPassword(false);
-    setFormData({ name: '', email: '', password: '', role: 'sales_employee', department: 'Sales', newDepartment: '' });
+    setFormData({ name: '', email: '', password: '', role: 'sales_employee', department: 'Sales', newDepartment: '', newRole: '' });
     setIsModalOpen(true);
   };
 
@@ -103,7 +129,6 @@ const UserManagement = ({ user }) => {
     setEditingUserId(u.id);
     setShowPassword(false);
     
-    // Convert legacy departments safely
     let currentDept = u.department || 'Sales';
     if (currentDept === 'Accounting/Procurement') currentDept = 'Procurement';
     if (currentDept === 'IT' || currentDept === 'HR') currentDept = 'Legacy/Archived';
@@ -114,7 +139,8 @@ const UserManagement = ({ user }) => {
       password: '', 
       role: u.role, 
       department: currentDept,
-      newDepartment: ''
+      newDepartment: '',
+      newRole: ''
     });
     setIsModalOpen(true);
   };
@@ -122,17 +148,23 @@ const UserManagement = ({ user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Prepare payload to handle custom departments
       const submitData = { ...formData };
+      
+      // 1. Process Custom Department
       if (submitData.department === 'ADD_NEW') {
-        if (!submitData.newDepartment.trim()) {
-          alert('Please enter a name for the new department.');
-          return;
-        }
+        if (!submitData.newDepartment.trim()) return alert('Please enter a department name.');
         submitData.department = submitData.newDepartment.trim();
       }
-      // Remove UI-only helper field
+      
+      // 2. Process Custom Role
+      if (submitData.role === 'ADD_NEW_ROLE') {
+        if (!submitData.newRole.trim()) return alert('Please enter a role name.');
+        // Format to snake_case for consistency in DB (optional but recommended)
+        submitData.role = submitData.newRole.trim().toLowerCase().replace(/\s+/g, '_');
+      }
+
       delete submitData.newDepartment;
+      delete submitData.newRole;
 
       if (editingUserId) {
         const res = await api.put(`/admin/users/${editingUserId}`, submitData);
@@ -188,24 +220,18 @@ const UserManagement = ({ user }) => {
     return acc;
   }, {});
 
-  const ROLE_COLORS = {
-    super_admin: '#DC2626', manager: '#7C3AED',
-    dept_head: '#2563EB', sales_employee: '#059669', engineering_employee: '#0891B2',
-    logistics_employee: '#EA580C', accounting_employee: '#6366F1',
+  // Generate a random-ish color for custom roles based on their string length
+  const getRoleColor = (roleStr) => {
+    const ROLE_COLORS = {
+      super_admin: '#DC2626', manager: '#7C3AED', dept_head: '#2563EB', 
+      sales_employee: '#059669', engineering_employee: '#0891B2',
+      logistics_employee: '#EA580C', accounting_employee: '#6366F1',
+    };
+    if (ROLE_COLORS[roleStr]) return ROLE_COLORS[roleStr];
+    
+    const fallbacks = ['#059669', '#0891B2', '#4F46E5', '#D97706', '#DB2777'];
+    return fallbacks[roleStr.length % fallbacks.length];
   };
-
-  // Helper to get available roles for the form (handles dynamic departments)
-  let availableRolesForForm = ROLE_MAPPING[formData.department];
-  if (!availableRolesForForm || formData.department === 'ADD_NEW') {
-    const displayDeptName = formData.department === 'ADD_NEW' && formData.newDepartment 
-      ? formData.newDepartment 
-      : (formData.department !== 'ADD_NEW' ? formData.department : 'Department');
-      
-    availableRolesForForm = [
-      { value: 'dept_head', label: 'Department Head' },
-      { value: 'department_employee', label: `${displayDeptName} Employee` }
-    ];
-  }
 
   return (
     <div className="vcc-module">
@@ -266,34 +292,37 @@ const UserManagement = ({ user }) => {
                   <tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  {members.map(emp => (
-                    <tr key={emp.id}>
-                      <td data-label="Name" className="um-td-name">{emp.name}</td>
-                      <td data-label="Email" className="um-td-email">{emp.email}</td>
-                      <td data-label="Role">
-                        <span
-                          className="um-role-badge"
-                          style={{
-                            background: `${ROLE_COLORS[emp.role] || '#64748b'}18`,
-                            color: ROLE_COLORS[emp.role] || '#64748b',
-                            borderColor: `${ROLE_COLORS[emp.role] || '#64748b'}30`,
-                          }}
-                        >
-                            {emp.role === 'accounting_employee' 
-                                ? 'Procurement Employee' 
-                                : emp.role === 'department_employee'
-                                  ? `${emp.department || 'Department'} Employee`
-                                  : emp.role.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td data-label="Actions" className="um-td-actions">
-                        <button className="um-btn-edit" onClick={() => openEditModal(emp)}>Edit</button>
-                        {emp.id !== user?.id && (
-                          <button className="um-btn-delete" onClick={() => handleDeleteUser(emp.id, emp.name)}>Delete</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {members.map(emp => {
+                    const color = getRoleColor(emp.role);
+                    return (
+                      <tr key={emp.id}>
+                        <td data-label="Name" className="um-td-name">{emp.name}</td>
+                        <td data-label="Email" className="um-td-email">{emp.email}</td>
+                        <td data-label="Role">
+                          <span
+                            className="um-role-badge"
+                            style={{
+                              background: `${color}18`,
+                              color: color,
+                              borderColor: `${color}30`,
+                            }}
+                          >
+                              {emp.role === 'accounting_employee' 
+                                  ? 'Procurement Employee' 
+                                  : emp.role === 'department_employee'
+                                    ? `${emp.department || 'Department'} Employee`
+                                    : emp.role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        </td>
+                        <td data-label="Actions" className="um-td-actions">
+                          <button className="um-btn-edit" onClick={() => openEditModal(emp)}>Edit</button>
+                          {emp.id !== user?.id && (
+                            <button className="um-btn-delete" onClick={() => handleDeleteUser(emp.id, emp.name)}>Delete</button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -354,21 +383,33 @@ const UserManagement = ({ user }) => {
                 <div className="um-field half">
                   <label>Role / Access Level</label>
                   <select name="role" value={formData.role} onChange={handleInputChange} required>
-                    {availableRolesForForm.map(roleOption => (
+                    {dynamicRolesForForm.map(roleOption => (
                       <option key={roleOption.value} value={roleOption.value}>
                         {roleOption.label}
                       </option>
                     ))}
+                    <option value="ADD_NEW_ROLE" style={{ fontWeight: 'bold', color: '#059669' }}>+ Create New Role</option>
                   </select>
                 </div>
 
-                {/* Conditionally Rendered New Department Text Input */}
+                {/* New Department Text Input */}
                 {formData.department === 'ADD_NEW' && (
                   <div className="um-field full" style={{ marginTop: '4px' }}>
                     <label>New Department Name</label>
                     <input
                       type="text" name="newDepartment" value={formData.newDepartment}
                       onChange={handleInputChange} required placeholder="e.g. Marketing"
+                    />
+                  </div>
+                )}
+
+                {/* New Role Text Input */}
+                {formData.role === 'ADD_NEW_ROLE' && (
+                  <div className="um-field full" style={{ marginTop: '4px' }}>
+                    <label>New Role Name</label>
+                    <input
+                      type="text" name="newRole" value={formData.newRole}
+                      onChange={handleInputChange} required placeholder="e.g. Senior Auditor"
                     />
                   </div>
                 )}
