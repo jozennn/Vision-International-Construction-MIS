@@ -545,7 +545,7 @@ const Customer = ({ user }) => {
         }));
       }
 
-      await api.put(`/leads/${lead.id}`, { ...lead, status: 'Project Created' });
+      // REMOVED REDUNDANT PUT REQUEST HERE (Backend handles the lead update now)
 
       setContractsMap(prev => {
         const next = { ...prev };
@@ -985,8 +985,8 @@ const Customer = ({ user }) => {
                 </div>
 
                 {(() => {
-                  const contractUrl  = proj?.contract_url || savedContractsMap[lead.id]?.objectUrl;
-                  const contractName = proj?.contract_name || savedContractsMap[lead.id]?.name;
+                  const contractUrl  = lead.contract_url || savedContractsMap[lead.id]?.objectUrl;
+                  const contractName = lead.contract_name || savedContractsMap[lead.id]?.name;
                   if (!contractUrl) return null;
                   return (
                     <ContractViewer
@@ -1100,10 +1100,9 @@ const Customer = ({ user }) => {
                 {/* ── Contract Viewer — shown inside modal for converted projects ── */}
                 {(() => {
                   if (selectedLead?.status !== 'Project Created') return null;
-                  const proj        = projectsMap[selectedLead.id];
-                  const saved       = savedContractsMap[selectedLead.id];
-                  const contractUrl  = proj?.contract_url  || saved?.objectUrl;
-                  const contractName = proj?.contract_name || saved?.name;
+                  const saved        = savedContractsMap[selectedLead.id];
+                  const contractUrl  = selectedLead.contract_url  || saved?.objectUrl;
+                  const contractName = selectedLead.contract_name || saved?.name;
                   
                   // FIXED: Adding the query parameter strip logic to the modal preview as well!
                   const fileString = (contractName || contractUrl || '').split('?')[0];

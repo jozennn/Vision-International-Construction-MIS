@@ -23,6 +23,8 @@ class Lead extends Model
         'status', 
         'approval_status', 
         'sales_rep_id'
+        'contract_url',   // <-- Add this
+        'contract_name',
     ];
 
     /**
