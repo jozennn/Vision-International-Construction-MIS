@@ -289,7 +289,7 @@ const Customer = ({ user }) => {
   const [contractsMap, setContractsMap] = useState({});
 
   // savedContractsMap: { [leadId]: { objectUrl, name } } — persists contract for viewing
-  const [savedContractsMap, setSavedContractsMap] = useState({});
+  //const [savedContractsMap, setSavedContractsMap] = useState({});
 
   // contractPopup: { url, name } | null — controls the contract preview popup
   const [contractPopup, setContractPopup] = useState(null);
@@ -511,12 +511,8 @@ const Customer = ({ user }) => {
     }
     if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
     try {
-      const objectUrl = URL.createObjectURL(contractFile);
-      setSavedContractsMap(prev => ({
-        ...prev,
-        [lead.id]: { objectUrl, name: contractFile.name }
-      }));
-
+      // REMOVED: the premature objectUrl / setSavedContractsMap block
+  
       const formPayload = new FormData();
       formPayload.append('lead_id',      lead.id);
       formPayload.append('project_name', lead.project_name);
@@ -525,28 +521,20 @@ const Customer = ({ user }) => {
       formPayload.append('project_type', 'Construction Project');
       formPayload.append('status',       'Ongoing');
       formPayload.append('contract',     contractFile);
-
-      const projectRes = await api.post('/projects', formPayload, {
+  
+      await api.post('/projects', formPayload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const returnedUrl = projectRes?.data?.contract_url;
-      if (returnedUrl) {
-        setSavedContractsMap(prev => ({
-          ...prev,
-          [lead.id]: { objectUrl: returnedUrl, name: projectRes.data.contract_name || contractFile.name }
-        }));
-      }
-
+  
       setContractsMap(prev => {
         const next = { ...prev };
         delete next[lead.id];
         return next;
       });
-
+  
       alert('Project created!');
       fetchLeads();
-      fetchProjects();
+      fetchProjects(); // ← this populates projectsMap with the real contract_url
       setActiveTab('converted');
     } catch { alert('Failed to create project.'); }
   };
@@ -976,9 +964,8 @@ const Customer = ({ user }) => {
                 </div>
 
                 {(() => {
-                  const saved = savedContractsMap[lead.id];
-                  const contractUrl  = proj?.contract_url || lead.contract_url || saved?.objectUrl;
-                  const contractName = proj?.contract_name || lead.contract_name || saved?.name;
+                  const contractUrl  = proj?.contract_url;
+                  const contractName = proj?.contract_name;
                   if (!contractUrl) return null;
                   return (
                     <ContractViewer
@@ -1093,7 +1080,6 @@ const Customer = ({ user }) => {
                 {(() => {
                   if (selectedLead?.status !== 'Project Created') return null;
                   const proj = projectsMap[selectedLead.id];
-                  const saved = savedContractsMap[selectedLead.id];
                   const contractUrl = proj?.contract_url || selectedLead.contract_url || saved?.objectUrl;
                   const contractName = proj?.contract_name || selectedLead.contract_name || saved?.name;
                   
