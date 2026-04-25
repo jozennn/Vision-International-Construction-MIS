@@ -199,20 +199,9 @@ const PhaseBoq = ({
 
   /* ── Get floor plan image URL (SMART FIX) ── */
   const getFloorPlanUrl = () => {
-    if (!project?.floor_plan_image) return null;
-    
-    if (project.floor_plan_image.startsWith('http')) {
-      return project.floor_plan_image;
-    }
-
-    // Logic: if the filename already contains 'project_documents/', don't add it again.
-    const fileName = project.floor_plan_image;
-    const path = fileName.includes('project_documents/') 
-      ? fileName 
-      : `project_documents/${fileName}`;
-
-    return `https://visionintlconstopc.com/storage/${path}`;
-  };
+  if (!project?.floor_plan_image) return null;
+  return project.floor_plan_image;
+};
 
   const floorPlanUrl = getFloorPlanUrl();
 
