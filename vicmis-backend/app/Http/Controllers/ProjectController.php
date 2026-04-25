@@ -591,7 +591,7 @@ class ProjectController extends Controller
 
 public function updateStatus(Request $request, $id): JsonResponse
 {
-    \Log::info('=== updateStatus DEBUG ===', [
+    \Log::warning('=== updateStatus DEBUG ===', [
         'method'         => $request->method(),
         'all_files'      => array_keys($request->allFiles()),
         'has_floor_plan' => $request->hasFile('floor_plan_image'),
