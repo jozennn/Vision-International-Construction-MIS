@@ -12,17 +12,7 @@ return new class extends Migration
 
         // 2. Add 'department_employee' to the existing role ENUM
         // Make sure to include all your existing roles here plus the new one
-        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM(
-            'super_admin', 
-            'manager', 
-            'dept_head', 
-            'sales_employee', 
-            'logistics_employee', 
-            'engineering_employee', 
-            'accounting_employee', 
-            'department_employee',
-            'admin'  -- 👈 add your old role value here
-        ) NOT NULL DEFAULT 'department_employee'");
+        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('super_admin', 'manager', 'dept_head', 'sales_employee', 'logistics_employee', 'engineering_employee', 'accounting_employee', 'department_employee') NOT NULL DEFAULT 'department_employee'");
     }
 
     public function down()
