@@ -691,6 +691,9 @@ class ProjectController extends Controller
             'message' => 'Status updated successfully!',
             'project' => $this->formatProject($project->fresh(self::EAGER)),
         ]);
+
+        \Log::info('Files received:', array_keys($request->allFiles()));
+        \Log::info('floor_plan_image raw:', [$request->floor_plan_image]);
     }
 
     // =========================================================================

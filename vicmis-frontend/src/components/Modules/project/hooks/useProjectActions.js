@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import api from '@/api/axios';
 
-/**
- * useProjectActions
- * Provides all project status-transition actions.
- * Call refreshProject after each action to update the UI.
- */
 export const useProjectActions = (selectedProject, refreshProject) => {
   const [goBackLoading, setGoBackLoading] = useState(false);
 
@@ -19,27 +14,14 @@ export const useProjectActions = (selectedProject, refreshProject) => {
     }
   };
 
-  /**
-   * uploadAndAdvance
-   *
-   * Supports two modes:
-   *
-   * 1. Single-file (original behaviour):
-   *    onUploadAdvance(nextStatus, fileKey, file)
-   *
-   * 2. Dual-file — P.O + Work Order together:
-   *    onUploadAdvance(nextStatus, 'po_document', poFile, {}, workOrderFile)
-   *    Pass the Work Order file as the 5th argument; the hook appends it automatically.
-   */
   const uploadAndAdvance = async (
     nextStatus,
     fileKey,
     uploadFile,
     awardDetails = {},
-    secondaryFile = null,          // ← new: optional second file
-    secondaryFileKey = 'work_order_document', // ← new: key for the second file
+    secondaryFile = null,
+    secondaryFileKey = 'work_order_document',
   ) => {
-    // At least one file must be provided when a fileKey is given
     if (fileKey && !uploadFile && !secondaryFile) {
       return alert('Please select a file first to proceed!');
     }
@@ -49,10 +31,20 @@ export const useProjectActions = (selectedProject, refreshProject) => {
       fd.append('status', nextStatus);
       fd.append('_method', 'PATCH');
 
-      if (fileKey && uploadFile)           fd.append(fileKey,           uploadFile);
-      if (secondaryFile)                   fd.append(secondaryFileKey,  secondaryFile);
-      if (awardDetails.name)               fd.append('subcontractor_name', awardDetails.name);
-      if (awardDetails.amount)             fd.append('contract_amount',    awardDetails.amount);
+      if (fileKey && uploadFile)  fd.append(fileKey,          uploadFile);
+      if (secondaryFile)          fd.append(secondaryFileKey, secondaryFile);
+      if (awardDetails.name)      fd.append('subcontractor_name', awardDetails.name);
+      if (awardDetails.amount)    fd.append('contract_amount',    awardDetails.amount);
+
+      // ── DEBUG: log exactly what is being sent ──
+      console.log('=== uploadAndAdvance DEBUG ===');
+      console.log('nextStatus:', nextStatus);
+      console.log('fileKey:', fileKey);
+      console.log('uploadFile:', uploadFile);
+      for (let [key, val] of fd.entries()) {
+        console.log(`  FormData → ${key}:`, val);
+      }
+      console.log('==============================');
 
       await api.post(`/projects/${selectedProject.id}/status`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -69,8 +61,8 @@ export const useProjectActions = (selectedProject, refreshProject) => {
     if (!rejectionReason.trim()) return alert('Please provide a specific reason for rejection.');
     try {
       await api.patch(`/projects/${selectedProject.id}/status`, {
-        status:           rejectTargetPhase,
-        rejection_notes:  rejectionReason,
+        status:          rejectTargetPhase,
+        rejection_notes: rejectionReason,
       });
       alert(`Project rejected and sent back to: ${rejectTargetPhase}`);
       await refreshProject();
