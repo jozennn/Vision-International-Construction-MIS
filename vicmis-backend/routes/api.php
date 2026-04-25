@@ -107,6 +107,9 @@ Route::middleware(['auth:sanctum', 'throttle:api-reads'])->group(function () {
     Route::get('/leads/trashed',   [LeadController::class, 'trashed']);
     Route::get('/leads/trash/all', [LeadController::class, 'trashed']);
     Route::get('/leads/{id}',      [LeadController::class, 'show']);
+    //ADDED CONTRACT IN LEADS
+    Route::post('/leads/{id}/contract',         [LeadController::class, 'uploadContract']);
+    Route::delete('/leads/{id}/contract',       [LeadController::class, 'removeContract']);
 
     // --- INVENTORY (read) ---
     Route::prefix('inventory')->group(function () {
