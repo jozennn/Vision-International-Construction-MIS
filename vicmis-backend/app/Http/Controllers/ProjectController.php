@@ -589,112 +589,114 @@ class ProjectController extends Controller
     // 6. ADVANCE STATUS (generic)
     // =========================================================================
 
-    public function updateStatus(Request $request, $id): JsonResponse
-    {
-        $project      = Project::with(self::EAGER)->findOrFail($id);
-        $dataToUpdate = ['status' => $request->status];
+public function updateStatus(Request $request, $id): JsonResponse
+{
+    \Log::info('=== updateStatus DEBUG ===', [
+        'method'         => $request->method(),
+        'all_files'      => array_keys($request->allFiles()),
+        'has_floor_plan' => $request->hasFile('floor_plan_image'),
+        'status'         => $request->input('status'),
+    ]);
 
-        if ($request->has('contract_amount')) {
-            $dataToUpdate['contract_amount'] = $request->contract_amount;
+    $project      = Project::with(self::EAGER)->findOrFail($id);
+    $dataToUpdate = ['status' => $request->status];
+
+    if ($request->has('contract_amount')) {
+        $dataToUpdate['contract_amount'] = $request->contract_amount;
+    }
+
+    if ($request->has('subcontractor_name')) {
+        $dataToUpdate['subcontractor_name'] = $request->subcontractor_name;
+
+        ProjectMobilization::updateOrCreate(
+            ['project_id' => $project->id],
+            ['subcontractor_name' => $request->subcontractor_name]
+        );
+    }
+
+    if ($request->has('installer_roster')) {
+        $roster = $request->installer_roster;
+        if (is_string($roster)) {
+            $roster = json_decode($roster, true) ?? [];
         }
 
-        if ($request->has('subcontractor_name')) {
-            $dataToUpdate['subcontractor_name'] = $request->subcontractor_name;
+        $validRoster = array_values(
+            array_filter((array) $roster, fn($i) => !empty(trim($i['name'] ?? '')))
+        );
 
-            ProjectMobilization::updateOrCreate(
-                ['project_id' => $project->id],
-                ['subcontractor_name' => $request->subcontractor_name]
-            );
-        }
+        ProjectMobilization::updateOrCreate(
+            ['project_id' => $project->id],
+            [
+                'installer_roster' => $validRoster,
+                'deployed_by'      => Auth::id(),
+                'deployed_at'      => now(),
+            ]
+        );
+    }
 
-        if ($request->has('installer_roster')) {
-            $roster = $request->installer_roster;
-            if (is_string($roster)) {
-                $roster = json_decode($roster, true) ?? [];
-            }
-
-            $validRoster = array_values(
-                array_filter((array) $roster, fn($i) => !empty(trim($i['name'] ?? '')))
-            );
-
-            ProjectMobilization::updateOrCreate(
+    if ($request->filled('rejection_notes')) {
+   
+        ProjectRejectionLog::create([
+            'project_id'        => $project->id,
+            'rejected_phase'    => $project->status,
+            'returned_to_phase' => $request->status,
+            'reason'            => $request->rejection_notes,
+            'rejected_by'       => Auth::id(),
+            'rejected_at'       => now(),
+        ]);
+   
+        if ($project->status === 'Pending Work Order Verification') {
+            $project->poOrder()->updateOrCreate(
                 ['project_id' => $project->id],
                 [
-                    'installer_roster' => $validRoster,
-                    'deployed_by'      => Auth::id(),
-                    'deployed_at'      => now(),
+                    'verification_status' => 'rejected',
+                    'rejected_by'         => Auth::id(),
+                    'rejected_at'         => now(),
+                    'rejection_notes'     => $request->rejection_notes,
+                    'verified_by'         => null,
+                    'verified_at'         => null,
                 ]
             );
         }
-
-        if ($request->filled('rejection_notes')) {
-       
-            ProjectRejectionLog::create([
-                'project_id'        => $project->id,
-                'rejected_phase'    => $project->status,
-                'returned_to_phase' => $request->status,
-                'reason'            => $request->rejection_notes,
-                'rejected_by'       => Auth::id(),
-                'rejected_at'       => now(),
-            ]);
-       
-            // If rejecting a PO/Work Order verification, stamp the po_orders row too
-            if ($project->status === 'Pending Work Order Verification') {
-                $project->poOrder()->updateOrCreate(
-                    ['project_id' => $project->id],
-                    [
-                        'verification_status' => 'rejected',
-                        'rejected_by'         => Auth::id(),
-                        'rejected_at'         => now(),
-                        'rejection_notes'     => $request->rejection_notes,
-                        // Clear any prior approval
-                        'verified_by'         => null,
-                        'verified_at'         => null,
-                    ]
-                );
-            }
-       
-            $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
-            $this->createNotification(
-                $deptToNotify,
-                null,
-                $project->id,
-                "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}"
-            );
-       
-        } elseif ($request->boolean('go_back')) {
-            // Silent go-back — no notification, no rejection log
-       
-        } else {
-            $this->notifyNextPhase($request->status, $project);
-        }
-
-        $fileKeys = [
-            'floor_plan_image', 'po_document', 'work_order_document',
-            'site_inspection_photo', 'delivery_receipt_document',
-            'bidding_document', 'subcontractor_agreement_document',
-            'mobilization_photo', 'coc_document', 'billing_invoice_document',
-            'qa_photo', 'client_walkthrough_doc', 'final_invoice_document',
-        ];
-
-        foreach ($fileKeys as $key) {
-            if ($request->hasFile($key)) {
-                $path = $request->file($key)->store('project_documents', 'public');
-                $this->storePhaseFile($project, $key, $path);
-            }
-        }
-
-        $project->refresh();
-        $project->update($dataToUpdate);
-
-        return response()->json([
-            'message' => 'Status updated successfully!',
-            'project' => $this->formatProject($project->fresh(self::EAGER)),
-        ]);
-
-        \Log::info('Files received:', array_keys($request->allFiles()));
-        \Log::info('floor_plan_image raw:', [$request->floor_plan_image]);
+   
+        $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
+        $this->createNotification(
+            $deptToNotify,
+            null,
+            $project->id,
+            "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}"
+        );
+   
+    } elseif ($request->boolean('go_back')) {
+        // Silent go-back — no notification, no rejection log
+   
+    } else {
+        $this->notifyNextPhase($request->status, $project);
     }
+
+    $fileKeys = [
+        'floor_plan_image', 'po_document', 'work_order_document',
+        'site_inspection_photo', 'delivery_receipt_document',
+        'bidding_document', 'subcontractor_agreement_document',
+        'mobilization_photo', 'coc_document', 'billing_invoice_document',
+        'qa_photo', 'client_walkthrough_doc', 'final_invoice_document',
+    ];
+
+    foreach ($fileKeys as $key) {
+        if ($request->hasFile($key)) {
+            $path = $request->file($key)->store('project_documents', 'public');
+            $this->storePhaseFile($project, $key, $path);
+        }
+    }
+
+    $project->refresh();
+    $project->update($dataToUpdate);
+
+    return response()->json([
+        'message' => 'Status updated successfully!',
+        'project' => $this->formatProject($project->fresh(self::EAGER)),
+    ]);
+}
 
     // =========================================================================
     // 7. MOBILIZATION ENDPOINTS — UNCHANGED
