@@ -591,13 +591,6 @@ class ProjectController extends Controller
 
 public function updateStatus(Request $request, $id): JsonResponse
 {
-    \Log::warning('=== updateStatus DEBUG ===', [
-        'method'         => $request->method(),
-        'all_files'      => array_keys($request->allFiles()),
-        'has_floor_plan' => $request->hasFile('floor_plan_image'),
-        'status'         => $request->input('status'),
-    ]);
-
     $project      = Project::with(self::EAGER)->findOrFail($id);
     $dataToUpdate = ['status' => $request->status];
 
@@ -635,7 +628,7 @@ public function updateStatus(Request $request, $id): JsonResponse
     }
 
     if ($request->filled('rejection_notes')) {
-   
+
         ProjectRejectionLog::create([
             'project_id'        => $project->id,
             'rejected_phase'    => $project->status,
@@ -644,7 +637,7 @@ public function updateStatus(Request $request, $id): JsonResponse
             'rejected_by'       => Auth::id(),
             'rejected_at'       => now(),
         ]);
-   
+
         if ($project->status === 'Pending Work Order Verification') {
             $project->poOrder()->updateOrCreate(
                 ['project_id' => $project->id],
@@ -658,7 +651,7 @@ public function updateStatus(Request $request, $id): JsonResponse
                 ]
             );
         }
-   
+
         $deptToNotify = $project->status === 'Pending Work Order Verification' ? 'Sales' : 'Engineering';
         $this->createNotification(
             $deptToNotify,
@@ -666,10 +659,10 @@ public function updateStatus(Request $request, $id): JsonResponse
             $project->id,
             "🚨 REJECTED: '{$project->project_name}' - {$request->rejection_notes}"
         );
-   
+
     } elseif ($request->boolean('go_back')) {
         // Silent go-back — no notification, no rejection log
-   
+
     } else {
         $this->notifyNextPhase($request->status, $project);
     }
