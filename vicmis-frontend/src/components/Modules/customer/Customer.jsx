@@ -65,7 +65,7 @@ const PipelineProgress = ({ status, inModal = false }) => {
 // ── Contract Upload Button (inline, compact) ──────────────────────────────────
 const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
   const inputRef = useRef(null);
-  const contract = contractsMap[leadId];
+  const contract = contractsMap[leadId]; // could be a File or { name, _saved: true }
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -73,12 +73,14 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
     e.target.value = '';
   };
 
+  const displayName = contract?.name || contract?.name || '';
+
   if (contract) {
     return (
       <div className="contract-uploaded-badge" onClick={(e) => e.stopPropagation()}>
         <span className="contract-check-icon">✔</span>
-        <span className="contract-uploaded-name" title={contract.name}>
-          {contract.name.length > 18 ? contract.name.slice(0, 16) + '…' : contract.name}
+        <span className="contract-uploaded-name" title={displayName}>
+          {displayName.length > 18 ? displayName.slice(0, 16) + '…' : displayName}
         </span>
         <button
           type="button"
@@ -306,17 +308,36 @@ const Customer = ({ user }) => {
   });
 
   // ── Contract Upload Handler ──────────────────────────────────────────────────
-  const handleContractUpload = (leadId, file) => {
-    setContractsMap(prev => {
-      const next = { ...prev };
-      if (file === null) {
-        delete next[leadId];
-      } else {
-        next[leadId] = file;
-      }
-      return next;
+  // ── Contract Upload Handler — now saves to backend immediately ──────────────
+const handleContractUpload = async (leadId, file) => {
+  if (file === null) {
+    // Remove contract
+    try {
+      const res = await api.delete(`/leads/${leadId}/contract`);
+      // Update the lead in state with cleared contract fields
+      setLeads(prev => prev.map(l => l.id === leadId ? res.data : l));
+      setContractsMap(prev => { const n = { ...prev }; delete n[leadId]; return n; });
+    } catch {
+      alert('Failed to remove contract.');
+    }
+    return;
+  }
+
+  // Upload contract
+  try {
+    const formPayload = new FormData();
+    formPayload.append('contract', file);
+    const res = await api.post(`/leads/${leadId}/contract`, formPayload, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-  };
+    // Update lead in state so contract_url is immediately available
+    setLeads(prev => prev.map(l => l.id === leadId ? res.data : l));
+    // Still track in contractsMap so the "Create Project" button unlocks
+    setContractsMap(prev => ({ ...prev, [leadId]: file }));
+  } catch {
+    alert('Failed to upload contract.');
+  }
+};
 
   useEffect(() => {
     const handler = (e) => {
@@ -355,17 +376,30 @@ const Customer = ({ user }) => {
     }
   }, [selectedLead, isModalOpen, user]);
 
-  const fetchLeads = async () => {
-    try {
-      setIsLoading(true);
-      const res = await api.get('/leads');
-      setLeads(res.data);
-    } catch (err) {
-      console.error('Fetch error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // After fetchLeads resolves, pre-populate contractsMap with a sentinel
+// so the button shows "uploaded" state for leads that already have a contract
+const fetchLeads = async () => {
+  try {
+    setIsLoading(true);
+    const res = await api.get('/leads');
+    setLeads(res.data);
+
+    // 👇 Pre-mark leads that already have a saved contract
+    // We use a special marker object (not a File) just to signal "has contract"
+    const preloaded = {};
+    res.data.forEach(l => {
+      if (l.contract_url) {
+        preloaded[l.id] = { name: l.contract_name || 'Contract', _saved: true };
+      }
+    });
+    setContractsMap(preloaded);
+
+  } catch (err) {
+    console.error('Fetch error:', err);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const fetchProjects = async () => {
     try {
@@ -502,8 +536,7 @@ const Customer = ({ user }) => {
   };
 
   // ── Create Project (now accepts contract file via FormData) ───────────────
-  const handleCreateProject = async (e, lead) => {
-  e.stopPropagation();
+  
   const contractFile = contractsMap[lead.id];
   if (!contractFile) {
     alert('Please upload a contract document or image first.');
