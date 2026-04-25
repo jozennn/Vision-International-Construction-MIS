@@ -684,6 +684,7 @@ class ProjectController extends Controller
             }
         }
 
+        $project->refresh();
         $project->update($dataToUpdate);
 
         return response()->json([
