@@ -17,6 +17,8 @@ use App\Http\Controllers\{
     ReorderRequestController,
 };
 
+\Log::info('=== API HIT ===');
+
 /*
 |--------------------------------------------------------------------------
 | Public Routes
