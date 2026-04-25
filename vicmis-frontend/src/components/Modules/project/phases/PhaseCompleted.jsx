@@ -2,7 +2,21 @@ import React, { useState } from 'react';
 import PrimaryButton from '../components/PrimaryButton.jsx';
 import '../css/PhaseCompleted.css';
 
-// ─── Document Viewer Modal (handles both images and PDFs, same as PhaseMobilization) ──
+// ─── Resolve full URL → raw path (floor_plan_image comes as full URL from backend) ──
+const resolveFilePath = (filePath) => {
+  if (!filePath) return null;
+  const marker = '/api/project-image/';
+  const idx = filePath.indexOf(marker);
+  if (idx !== -1) return filePath.slice(idx + marker.length);
+  try {
+    const url = new URL(filePath);
+    return url.pathname.replace(/^\//, '');
+  } catch {
+    return filePath;
+  }
+};
+
+// ─── Document Viewer Modal ──
 const DocumentViewer = ({ path, label, onClose }) => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
@@ -105,7 +119,7 @@ const DocumentViewer = ({ path, label, onClose }) => {
   );
 };
 
-// ─── View Document Button (opens modal) ───────────────────────────────────────
+// ─── View Document Button ───────────────────────────────────────────────────────
 const ViewDocumentButton = ({ label, path, icon = '📄' }) => {
   const [open, setOpen] = useState(false);
   if (!path) return null;
@@ -131,7 +145,7 @@ const ViewDocumentButton = ({ label, path, icon = '📄' }) => {
   );
 };
 
-// ─── Archive Confirmation Modal (unchanged) ────────────────────────────────────
+// ─── Archive Confirmation Modal ────────────────────────────────────────────────
 const ArchiveModal = ({ projectName, onConfirm, onCancel }) => (
   <div className="pc-modal-overlay">
     <div className="pc-modal">
@@ -151,7 +165,7 @@ const ArchiveModal = ({ projectName, onConfirm, onCancel }) => (
   </div>
 );
 
-// ─── Helpers (unchanged) ───────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 const fmtDate = (d) => {
   if (!d) return '—';
   const dt = new Date(d + 'T00:00:00');
@@ -173,7 +187,7 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-// ─── PANEL 1: Installer Summary (unchanged) ────────────────────────────────────
+// ─── PANEL 1: Installer Summary ────────────────────────────────────────────────
 const InstallerPanel = ({ project }) => {
   const resolveRoster = () => {
     if (project?.installer_roster && Array.isArray(project.installer_roster)) {
@@ -205,7 +219,6 @@ const InstallerPanel = ({ project }) => {
           <p className="pc-panel-sub">{roster.length} member{roster.length !== 1 ? 's' : ''} on this project</p>
         </div>
       </div>
-
       <div className="pc-panel-body">
         {roster.length === 0 ? (
           <div className="pc-panel-empty">
@@ -221,10 +234,7 @@ const InstallerPanel = ({ project }) => {
                 </div>
                 <div className="pc-installer-info">
                   <span className="pc-installer-name">{inst.name}</span>
-                  <span
-                    className="pc-installer-pos"
-                    style={{ color: positionColor[inst.position] ?? '#6b7280' }}
-                  >
+                  <span className="pc-installer-pos" style={{ color: positionColor[inst.position] ?? '#6b7280' }}>
                     {inst.position ?? 'Installer'}
                   </span>
                 </div>
@@ -237,24 +247,16 @@ const InstallerPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 2: Timeline Summary (unchanged) ─────────────────────────────────────
+// ─── PANEL 2: Timeline Summary ─────────────────────────────────────────────────
 const TimelinePanel = ({ project }) => {
   const getTasks = () => {
     if (project?.timeline_tracking) {
       let tracking = project.timeline_tracking;
       if (typeof tracking === 'string') {
-        try {
-          tracking = JSON.parse(tracking);
-        } catch (e) {
-          return [];
-        }
+        try { tracking = JSON.parse(tracking); } catch (e) { return []; }
       }
-      if (tracking?.tasks && Array.isArray(tracking.tasks)) {
-        return tracking.tasks;
-      }
-      if (Array.isArray(tracking)) {
-        return tracking;
-      }
+      if (tracking?.tasks && Array.isArray(tracking.tasks)) return tracking.tasks;
+      if (Array.isArray(tracking)) return tracking;
     }
     if (project?.timeline_tasks && Array.isArray(project.timeline_tasks)) {
       return project.timeline_tasks;
@@ -264,7 +266,6 @@ const TimelinePanel = ({ project }) => {
 
   const tasks = getTasks();
   const regularTasks = tasks.filter(t => t.type !== 'group');
-
   const allStarts = regularTasks.map(t => parseDate(t.start)).filter(Boolean);
   const allEnds   = regularTasks.map(t => parseDate(t.end)).filter(Boolean);
   const projectStart = allStarts.length > 0 ? new Date(Math.min(...allStarts)) : null;
@@ -311,7 +312,6 @@ const TimelinePanel = ({ project }) => {
           </p>
         </div>
       </div>
-
       <div className="pc-panel-body">
         {tasks.length === 0 ? (
           <div className="pc-panel-empty">
@@ -322,20 +322,14 @@ const TimelinePanel = ({ project }) => {
           <div className="pc-task-list">
             {tasks.map((task, i) => {
               if (task.type === 'group') {
-                return (
-                  <div key={task.id ?? i} className="pc-task-group-label">
-                    {task.name}
-                  </div>
-                );
+                return <div key={task.id ?? i} className="pc-task-group-label">{task.name}</div>;
               }
-
               const ts = parseDate(task.start);
               const te = parseDate(task.end);
               const dur = ts && te ? Math.round((te - ts) / 86400000) + 1 : 0;
               const actualStart = getActualStartDate(task);
               const actualEnd = getActualCompletionDate(task);
               const isCompleted = actualEnd !== null;
-
               return (
                 <div key={task.id ?? i} className="pc-task-row">
                   <div className="pc-task-info">
@@ -383,21 +377,15 @@ const TimelinePanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 3: Materials Summary (unchanged) ────────────────────────────────────
+// ─── PANEL 3: Materials Summary ────────────────────────────────────────────────
 const MaterialsPanel = ({ project }) => {
   const getMaterialItems = () => {
     if (project?.material_items) {
       let items = project.material_items;
       if (typeof items === 'string') {
-        try {
-          items = JSON.parse(items);
-        } catch (e) {
-          return [];
-        }
+        try { items = JSON.parse(items); } catch (e) { return []; }
       }
-      if (Array.isArray(items)) {
-        return items;
-      }
+      if (Array.isArray(items)) return items;
     }
     return [];
   };
@@ -410,18 +398,14 @@ const MaterialsPanel = ({ project }) => {
       if (typeof boq === 'string') {
         try { boq = JSON.parse(boq); } catch (e) { return 0; }
       }
-      if (Array.isArray(boq)) {
-        return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
-      }
+      if (Array.isArray(boq)) return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
     }
     if (project?.plan_boq) {
       let boq = project.plan_boq;
       if (typeof boq === 'string') {
         try { boq = JSON.parse(boq); } catch (e) { return 0; }
       }
-      if (Array.isArray(boq)) {
-        return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
-      }
+      if (Array.isArray(boq)) return boq.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
     }
     return 0;
   };
@@ -450,9 +434,7 @@ const MaterialsPanel = ({ project }) => {
     if (!installed) return 0;
     if (typeof installed === 'number') return installed;
     if (Array.isArray(installed)) return installed.reduce((s, v) => s + (Number(v) || 0), 0);
-    if (typeof installed === 'object') {
-      return Object.values(installed).reduce((s, v) => s + (Number(v) || 0), 0);
-    }
+    if (typeof installed === 'object') return Object.values(installed).reduce((s, v) => s + (Number(v) || 0), 0);
     return 0;
   };
 
@@ -460,7 +442,6 @@ const MaterialsPanel = ({ project }) => {
   const grandInstalled = deduped.reduce((s, i) => s + totalInstalled(i), 0);
   const grandRemaining = grandDelivered - grandInstalled;
   const installPct = grandDelivered > 0 ? Math.round((grandInstalled / grandDelivered) * 100) : 0;
-
   const boqTotal = getBoqGrandTotal();
 
   return (
@@ -472,14 +453,12 @@ const MaterialsPanel = ({ project }) => {
           <p className="pc-panel-sub">{deduped.length} material type{deduped.length !== 1 ? 's' : ''} tracked</p>
         </div>
       </div>
-
       {boqTotal > 0 && (
         <div className="pc-boq-total-card">
           <span className="pc-boq-total-label">Total Bill Of Quantities Cost</span>
           <span className="pc-boq-total-value">{formatCurrency(boqTotal)}</span>
         </div>
       )}
-
       <div className="pc-mat-chips">
         <div className="pc-mat-chip chip-delivered">
           <span className="pc-mat-chip-val">{grandDelivered}</span>
@@ -489,28 +468,18 @@ const MaterialsPanel = ({ project }) => {
           <span className="pc-mat-chip-val">{grandInstalled}</span>
           <span className="pc-mat-chip-label">Installed</span>
         </div>
-        <div
-          className="pc-mat-chip chip-remaining"
-          style={{
-            borderColor: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100',
-          }}
+        <div className="pc-mat-chip chip-remaining"
+          style={{ borderColor: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100' }}
         >
-          <span
-            className="pc-mat-chip-val"
-            style={{
-              color: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100',
-            }}
-          >
-            {grandRemaining}
-          </span>
+          <span className="pc-mat-chip-val"
+            style={{ color: grandRemaining <= 0 ? '#16a34a' : grandRemaining < 10 ? '#ea580c' : '#C20100' }}
+          >{grandRemaining}</span>
           <span className="pc-mat-chip-label">Remaining</span>
         </div>
       </div>
-
       <div className="pc-progress-bar-wrap" style={{ padding: '0 16px 4px' }}>
         <div className="pc-progress-bar-track">
-          <div
-            className="pc-progress-bar-fill"
+          <div className="pc-progress-bar-fill"
             style={{
               width: `${installPct}%`,
               background: installPct >= 100 ? '#16a34a' : 'linear-gradient(90deg, #497B97, #6da0bc)',
@@ -519,7 +488,6 @@ const MaterialsPanel = ({ project }) => {
         </div>
         <span className="pc-progress-label">Install Rate</span>
       </div>
-
       <div className="pc-panel-body">
         {deduped.length === 0 ? (
           <div className="pc-panel-empty">
@@ -546,9 +514,7 @@ const MaterialsPanel = ({ project }) => {
                     <tr key={item.id ?? i}>
                       <td className="td-left">
                         <div className="pc-mat-name">{item.name || '(unnamed)'}</div>
-                        {item.description && (
-                          <div className="pc-mat-desc">{item.description}</div>
-                        )}
+                        {item.description && <div className="pc-mat-desc">{item.description}</div>}
                       </td>
                       <td className="td-center">{del}</td>
                       <td className="td-center td-blue">{inst}</td>
@@ -567,31 +533,28 @@ const MaterialsPanel = ({ project }) => {
   );
 };
 
-// ─── PANEL 4: Project Documents & Images (using ViewDocumentButton modal) ──────
+// ─── PANEL 4: Project Documents & Images ──────────────────────────────────────
 const DocumentsPanel = ({ project }) => {
-  // Define all possible file fields with their labels
   const documentFields = [
-    { label: 'Floor Plan', field: 'floor_plan_image' },
-    { label: 'P.O Document', field: 'po_document' },
-    { label: 'Work Order Document', field: 'work_order_document' },
-    { label: 'Site Inspection Photo', field: 'site_inspection_photo' },
-    { label: 'Delivery Receipt', field: 'delivery_receipt_document' },
-    { label: 'Bidding Document', field: 'bidding_document' },
-    { label: 'Awarding Document', field: 'awarding_document' },
-    { label: 'Subcontractor Agreement', field: 'subcontractor_agreement_document' },
-    { label: 'Mobilization Photo', field: 'mobilization_photo' },
-    { label: 'QA Photo', field: 'qa_photo' },
-    { label: 'Client Walkthrough Sign-off', field: 'client_walkthrough_doc' },
+    { label: 'Floor Plan',                     field: 'floor_plan_image' },
+    { label: 'P.O Document',                   field: 'po_document' },
+    { label: 'Work Order Document',             field: 'work_order_document' },
+    { label: 'Site Inspection Photo',           field: 'site_inspection_photo' },
+    { label: 'Delivery Receipt',                field: 'delivery_receipt_document' },
+    { label: 'Bidding Document',                field: 'bidding_document' },
+    { label: 'Awarding Document',               field: 'awarding_document' },
+    { label: 'Subcontractor Agreement',         field: 'subcontractor_agreement_document' },
+    { label: 'Mobilization Photo',              field: 'mobilization_photo' },
+    { label: 'QA Photo',                        field: 'qa_photo' },
+    { label: 'Client Walkthrough Sign-off',     field: 'client_walkthrough_doc' },
     { label: 'Certificate of Completion (COC)', field: 'coc_document' },
-    { label: 'Progress Billing Invoice', field: 'billing_invoice_document' },
-    { label: 'Final Invoice', field: 'final_invoice_document' },
+    { label: 'Progress Billing Invoice',        field: 'billing_invoice_document' },
+    { label: 'Final Invoice',                   field: 'final_invoice_document' },
   ];
 
   const availableDocs = documentFields.filter(df => project[df.field]);
 
-  if (availableDocs.length === 0) {
-    return null;
-  }
+  if (availableDocs.length === 0) return null;
 
   return (
     <div className="pc-panel pc-documents-panel">
@@ -605,15 +568,14 @@ const DocumentsPanel = ({ project }) => {
       <div className="pc-panel-body">
         <div className="pc-docs-grid">
           {availableDocs.map(({ label, field }) => {
-            const filePath = project[field];
-            if (!filePath) return null;
-            // Determine icon based on file type
-            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(filePath);
+            const rawPath = resolveFilePath(project[field]); // ← strips full URL if needed
+            if (!rawPath) return null;
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(rawPath);
             const icon = isImage ? '🖼️' : '📄';
             return (
               <div key={field} className="pc-doc-card">
                 <strong className="pc-doc-label">{label}</strong>
-                <ViewDocumentButton label={label} path={filePath} icon={icon} />
+                <ViewDocumentButton label={label} path={rawPath} icon={icon} />
               </div>
             );
           })}
@@ -634,7 +596,6 @@ const PhaseCompleted = ({ project, onAdvance }) => {
 
   return (
     <div className="pc-wrapper">
-
       {showArchiveModal && (
         <ArchiveModal
           projectName={project.project_name}
@@ -709,7 +670,6 @@ const PhaseCompleted = ({ project, onAdvance }) => {
           </PrimaryButton>
         </div>
       )}
-
     </div>
   );
 };
