@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '@/api/axios';
 import './css/Customer.css';
 
+// ── Resolve raw storage path → full viewable URL ──────────────────────────────
+const resolveContractUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return `/api/project-image/${path}`;
+};
+
 // ── Pipeline stages ───────────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
   { key: 'To be Contacted',    label: 'To Be Contacted',  color: '#64748b', bg: '#f1f5f9', dot: '#94a3b8', border: '#e2e8f0' },
@@ -28,19 +35,14 @@ const getProjectStage = (status) =>
 const getStageIndex = (status) =>
   PIPELINE_STAGES.findIndex(s => s.key === status);
 
-// ── Utility: Format Date & Time ───────────────────────────────────────────────
 const formatDateTime = (dateString) => {
   if (!dateString) return '';
   return new Date(dateString).toLocaleString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 };
 
-// ── Pipeline Progress Bar ─────────────────────────────────────────────────────
 const PipelineProgress = ({ status, inModal = false }) => {
   const idx = getStageIndex(status);
   const pct = idx < 0 ? 100 : (idx / (PIPELINE_STAGES.length - 1)) * 100;
@@ -62,7 +64,6 @@ const PipelineProgress = ({ status, inModal = false }) => {
   );
 };
 
-// ── Contract Upload Button (inline, compact) ──────────────────────────────────
 const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
   const inputRef = useRef(null);
   const contract = contractsMap[leadId];
@@ -111,10 +112,8 @@ const ContractUploadButton = ({ leadId, contractsMap, onUpload }) => {
   );
 };
 
-// ── Contract Popup Modal ──────────────────────────────────────────────────────
 const ContractPopup = ({ contractUrl, contractName, onClose }) => {
   if (!contractUrl) return null;
-
   const fileString = (contractName || contractUrl || '').split('?')[0];
   const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
   const isPdf   = /\.pdf$/i.test(fileString);
@@ -123,49 +122,30 @@ const ContractPopup = ({ contractUrl, contractName, onClose }) => {
   return (
     <div className="contract-popup-overlay" onClick={onClose}>
       <div className="contract-popup" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="contract-popup-header">
           <div className="contract-popup-title">
             <span>{isImage ? '🖼️' : isPdf ? '📄' : '📎'}</span>
             <span title={label}>{label.length > 40 ? label.slice(0, 38) + '…' : label}</span>
           </div>
           <div className="contract-popup-actions">
-            <a
-              href={contractUrl}
-              download={label}
-              className="btn-contract-download"
-              onClick={(e) => e.stopPropagation()}
-              title="Download file"
-            >
+            <a href={contractUrl} download={label} className="btn-contract-download"
+              onClick={(e) => e.stopPropagation()} title="Download file">
               ⬇ Download
             </a>
             <button type="button" className="contract-popup-close" onClick={onClose} title="Close">✕</button>
           </div>
         </div>
-
-        {/* Body */}
         <div className="contract-popup-body">
-          {isImage && (
-            <img src={contractUrl} alt={label} className="contract-popup-img" />
-          )}
+          {isImage && <img src={contractUrl} alt={label} className="contract-popup-img" />}
           {isPdf && (
-            <iframe
-              src={contractUrl}
-              title={label}
-              className="contract-popup-iframe"
-              frameBorder="0"
-            />
+            <iframe src={contractUrl} title={label} className="contract-popup-iframe" frameBorder="0" />
           )}
           {!isImage && !isPdf && (
             <div className="contract-popup-unsupported">
               <div className="contract-popup-unsupported-icon">📎</div>
               <p>Preview not available for this file type.</p>
-              <a
-                href={contractUrl}
-                download={label}
-                className="btn-view-contract"
-                style={{ marginTop: '12px', display: 'inline-block', textDecoration: 'none' }}
-              >
+              <a href={contractUrl} download={label} className="btn-view-contract"
+                style={{ marginTop: '12px', display: 'inline-block', textDecoration: 'none' }}>
                 ⬇ Download File
               </a>
             </div>
@@ -176,10 +156,8 @@ const ContractPopup = ({ contractUrl, contractName, onClose }) => {
   );
 };
 
-// ── Contract Viewer Strip (card + triggers popup) ─────────────────────────────
 const ContractViewer = ({ contractUrl, contractName, onView }) => {
   if (!contractUrl) return null;
-
   const fileString = (contractName || contractUrl || '').split('?')[0];
   const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
   const isPdf   = /\.pdf$/i.test(fileString);
@@ -194,18 +172,14 @@ const ContractViewer = ({ contractUrl, contractName, onView }) => {
         </span>
         <span className="contract-viewer-name" title={label}>{short}</span>
       </div>
-      <button
-        type="button"
-        className="btn-view-contract"
-        onClick={(e) => { e.stopPropagation(); onView(); }}
-      >
+      <button type="button" className="btn-view-contract"
+        onClick={(e) => { e.stopPropagation(); onView(); }}>
         View Contract
       </button>
     </div>
   );
 };
 
-// ── Kanban Card ───────────────────────────────────────────────────────────────
 const KanbanCard = ({ lead, onClick, onCreateProject, onContractUpload, contractsMap, userRole }) => {
   const isReady = lead.status === 'Ready for Creating Project';
   const hasContract = !!contractsMap[lead.id];
@@ -222,19 +196,12 @@ const KanbanCard = ({ lead, onClick, onCreateProject, onContractUpload, contract
       <div className="kanban-card-location">📍 {lead.location}</div>
       {isReady && userRole !== 'manager' && (
         <div className="kanban-contract-row" onClick={(e) => e.stopPropagation()}>
-          <ContractUploadButton
-            leadId={lead.id}
-            contractsMap={contractsMap}
-            onUpload={onContractUpload}
-          />
+          <ContractUploadButton leadId={lead.id} contractsMap={contractsMap} onUpload={onContractUpload} />
           <button
             type="button"
             className={`btn-create-project kanban-create-btn${!hasContract ? ' disabled-locked' : ''}`}
             disabled={!hasContract}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasContract) onCreateProject(e, lead);
-            }}
+            onClick={(e) => { e.stopPropagation(); if (hasContract) onCreateProject(e, lead); }}
             title={!hasContract ? 'Upload a contract first to unlock' : 'Create project'}
           >
             {!hasContract ? '🔒 Create Project' : 'Create Project'}
@@ -245,7 +212,6 @@ const KanbanCard = ({ lead, onClick, onCreateProject, onContractUpload, contract
   );
 };
 
-// ── Kanban Column ─────────────────────────────────────────────────────────────
 const KanbanColumn = ({ stage, leads, onClick, onCreateProject, onContractUpload, contractsMap, userRole }) => (
   <div className="kanban-column"
     style={{ '--col-dot': stage.dot, '--col-border': stage.border, '--col-bg': stage.bg }}>
@@ -270,7 +236,6 @@ const KanbanColumn = ({ stage, leads, onClick, onCreateProject, onContractUpload
   </div>
 );
 
-// ── Main Component ────────────────────────────────────────────────────────────
 const Customer = ({ user }) => {
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [isTrashOpen, setIsTrashOpen]   = useState(false);
@@ -285,14 +250,9 @@ const Customer = ({ user }) => {
   const [isLoading, setIsLoading]       = useState(true);
   const [isExporting, setIsExporting]   = useState(false);
 
-  // contractsMap: { [leadId]: File } — holds uploaded contract per lead (pre-creation)
-  const [contractsMap, setContractsMap] = useState({});
-
-  // savedContractsMap: { [leadId]: { objectUrl, name } } — persists contract for viewing
+  const [contractsMap, setContractsMap]         = useState({});
   const [savedContractsMap, setSavedContractsMap] = useState({});
-
-  // contractPopup: { url, name } | null — controls the contract preview popup
-  const [contractPopup, setContractPopup] = useState(null);
+  const [contractPopup, setContractPopup]         = useState(null);
 
   const [searchQuery, setSearchQuery]   = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -305,23 +265,17 @@ const Customer = ({ user }) => {
     notes: '', status: 'To be Contacted', salesRep: user?.name || ''
   });
 
-  // ── Contract Upload Handler ──────────────────────────────────────────────────
   const handleContractUpload = (leadId, file) => {
     setContractsMap(prev => {
       const next = { ...prev };
-      if (file === null) {
-        delete next[leadId];
-      } else {
-        next[leadId] = file;
-      }
+      if (file === null) { delete next[leadId]; } else { next[leadId] = file; }
       return next;
     });
   };
 
   useEffect(() => {
     const handler = (e) => {
-      if (filterRef.current && !filterRef.current.contains(e.target))
-        setIsFilterOpen(false);
+      if (filterRef.current && !filterRef.current.contains(e.target)) setIsFilterOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -371,15 +325,8 @@ const Customer = ({ user }) => {
     try {
       const res = await api.get('/projects');
       const map = {};
-      
-      res.data.forEach(p => {
-        if (p.lead_id) {
-          map[p.lead_id] = p;
-        }
-      });
-      
+      res.data.forEach(p => { if (p.lead_id) map[p.lead_id] = p; });
       setProjectsMap(map);
-      
     } catch (err) {
       console.error('Projects fetch error:', err);
     }
@@ -426,9 +373,9 @@ const Customer = ({ user }) => {
     if (match && filterMonth !== 'all') {
       const date = new Date(l.created_at);
       if (!isNaN(date.getTime())) {
-         match = date.getMonth().toString() === filterMonth;
+        match = date.getMonth().toString() === filterMonth;
       } else {
-         match = false;
+        match = false;
       }
     }
     return match;
@@ -501,45 +448,42 @@ const Customer = ({ user }) => {
     } catch { alert('Permanent delete failed.'); }
   };
 
-  // ── Create Project (now accepts contract file via FormData) ───────────────
   const handleCreateProject = async (e, lead) => {
-  e.stopPropagation();
-  const contractFile = contractsMap[lead.id];
-  if (!contractFile) {
-    alert('Please upload a contract document or image first.');
-    return;
-  }
-  if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
-  try {
-    // REMOVED: the premature objectUrl / setSavedContractsMap block
+    e.stopPropagation();
+    const contractFile = contractsMap[lead.id];
+    if (!contractFile) {
+      alert('Please upload a contract document or image first.');
+      return;
+    }
+    if (!window.confirm(`Create project for ${lead.project_name}?`)) return;
+    try {
+      const formPayload = new FormData();
+      formPayload.append('lead_id',      lead.id);
+      formPayload.append('project_name', lead.project_name);
+      formPayload.append('client_name',  lead.client_name);
+      formPayload.append('location',     lead.location);
+      formPayload.append('project_type', 'Construction Project');
+      formPayload.append('contract',     contractFile);
 
-    const formPayload = new FormData();
-    formPayload.append('lead_id',      lead.id);
-    formPayload.append('project_name', lead.project_name);
-    formPayload.append('client_name',  lead.client_name);
-    formPayload.append('location',     lead.location);
-    formPayload.append('project_type', 'Construction Project');
-    formPayload.append('status',       'Ongoing');
-    formPayload.append('contract',     contractFile);
+      await api.post('/projects', formPayload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
-    await api.post('/projects', formPayload, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+      setContractsMap(prev => {
+        const next = { ...prev };
+        delete next[lead.id];
+        return next;
+      });
 
-    setContractsMap(prev => {
-      const next = { ...prev };
-      delete next[lead.id];
-      return next;
-    });
+      alert('Project created!');
+      await fetchLeads();
+      await fetchProjects();
+      setActiveTab('converted');
+    } catch (err) {
+      alert('Failed to create project: ' + err.message);
+    }
+  };
 
-    alert('Project created!');
-    fetchLeads();
-    fetchProjects(); // ← this populates projectsMap with the real contract_url
-    setActiveTab('converted');
-  } catch { alert('Failed to create project.'); }
-};
-
-  // ── PDF Export as Report ──────────────────────────────────────────────────
   const handleExportPDF = () => {
     setIsExporting(true);
     const now     = new Date();
@@ -653,11 +597,9 @@ const Customer = ({ user }) => {
     setIsExporting(false);
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="customer-container">
 
-      {/* HEADER */}
       <div className="customer-header">
         <h1>Client Management</h1>
         <div className="header-actions">
@@ -682,11 +624,9 @@ const Customer = ({ user }) => {
               Kanban
             </button>
           </div>
-
           <button type="button" className="btn-export-report" onClick={handleExportPDF} disabled={isExporting}>
             {isExporting ? '⏳ Generating...' : '📄 Export as Report'}
           </button>
-
           {user?.role !== 'manager' && (
             <>
               <button type="button" className="btn-trash-bin"
@@ -702,7 +642,6 @@ const Customer = ({ user }) => {
         </div>
       </div>
 
-      {/* STATS BAR */}
       <div className="stats-bar">
         <div className="stat-chip">
           <div className="stat-chip-icon blue">📋</div>
@@ -736,7 +675,6 @@ const Customer = ({ user }) => {
         ))}
       </div>
 
-      {/* TAB + SEARCH ROW */}
       <div className="tab-search-row">
         <div className="lead-tabs">
           <button type="button" className={`lead-tab ${activeTab === 'active' ? 'active' : ''}`}
@@ -759,9 +697,7 @@ const Customer = ({ user }) => {
             </svg>
             <input type="text" className="search-input"
               placeholder="Search client, project, location..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+              value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
             {searchQuery && (
               <button type="button" className="search-clear" onClick={() => setSearchQuery('')}>✕</button>
             )}
@@ -781,14 +717,9 @@ const Customer = ({ user }) => {
                 <div className="filter-dropdown">
                   <div className="filter-dropdown-title">Filter by Status</div>
                   {['all', ...PIPELINE_STAGES.map(s => s.key)].map(opt => (
-                    <button key={opt}
-                      type="button"
+                    <button key={opt} type="button"
                       className={`filter-option ${filterStatus === opt ? 'selected' : ''}`}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setFilterStatus(opt);
-                        setIsFilterOpen(false);
-                      }}>
+                      onMouseDown={(e) => { e.preventDefault(); setFilterStatus(opt); setIsFilterOpen(false); }}>
                       {opt === 'all' ? '📋 All Statuses' : opt}
                     </button>
                   ))}
@@ -799,43 +730,24 @@ const Customer = ({ user }) => {
 
           {activeTab === 'converted' && (
             <div className="filter-wrap">
-              <select
-                value={filterMonth}
-                onChange={e => setFilterMonth(e.target.value)}
-                style={{
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--pm-border-soft, #e2e8f0)',
-                  outline: 'none',
-                  fontSize: '13px',
-                  color: '#64748b',
-                  background: '#fff',
-                  cursor: 'pointer'
-                }}
-              >
+              <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
+                style={{ padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--pm-border-soft, #e2e8f0)', outline: 'none', fontSize: '13px', color: '#64748b', background: '#fff', cursor: 'pointer' }}>
                 <option value="all">📅 All Months</option>
-                <option value="0">January</option>
-                <option value="1">February</option>
-                <option value="2">March</option>
-                <option value="3">April</option>
-                <option value="4">May</option>
-                <option value="5">June</option>
-                <option value="6">July</option>
-                <option value="7">August</option>
-                <option value="8">September</option>
-                <option value="9">October</option>
-                <option value="10">November</option>
-                <option value="11">December</option>
+                <option value="0">January</option><option value="1">February</option>
+                <option value="2">March</option><option value="3">April</option>
+                <option value="4">May</option><option value="5">June</option>
+                <option value="6">July</option><option value="7">August</option>
+                <option value="8">September</option><option value="9">October</option>
+                <option value="10">November</option><option value="11">December</option>
               </select>
             </div>
           )}
         </div>
       </div>
 
-      {/* LOADING */}
       {isLoading && <div className="spinner-container"><div className="loading-circle" /></div>}
 
-      {/* ACTIVE LEADS TAB — GRID */}
+      {/* ACTIVE LEADS — GRID */}
       {!isLoading && activeTab === 'active' && viewMode === 'grid' && (
         <div className="lead-grid">
           {displayedActive.length === 0 ? (
@@ -845,7 +757,7 @@ const Customer = ({ user }) => {
               <p>{searchQuery || filterStatus !== 'all' ? 'Try adjusting your search or filter.' : 'Your pipeline is clear. Start by adding a new lead.'}</p>
             </div>
           ) : displayedActive.map(lead => {
-            const isReady   = lead.status === 'Ready for Creating Project';
+            const isReady     = lead.status === 'Ready for Creating Project';
             const hasContract = !!contractsMap[lead.id];
             return (
               <div key={lead.id} className="lead-card" onClick={() => handleCardClick(lead)}>
@@ -865,25 +777,15 @@ const Customer = ({ user }) => {
                 <div style={{ padding: '0 18px' }}>
                   <PipelineProgress status={lead.status} />
                 </div>
-
-                {/* Contract upload section — only shown when Ready and not manager */}
                 {isReady && user?.role !== 'manager' && (
-                  <div
-                    className="card-contract-section"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className="card-contract-section" onClick={(e) => e.stopPropagation()}>
                     <div className="contract-section-label">
                       <span className="contract-section-icon">📝</span>
                       <span>Contract Required</span>
                     </div>
-                    <ContractUploadButton
-                      leadId={lead.id}
-                      contractsMap={contractsMap}
-                      onUpload={handleContractUpload}
-                    />
+                    <ContractUploadButton leadId={lead.id} contractsMap={contractsMap} onUpload={handleContractUpload} />
                   </div>
                 )}
-
                 <div className="lead-card-footer">
                   <div className="lead-click-hint">
                     Click to View{user?.role !== 'manager' ? ' / Edit' : ''}
@@ -893,10 +795,7 @@ const Customer = ({ user }) => {
                       type="button"
                       className={`btn-create-project${!hasContract ? ' disabled-locked' : ''}`}
                       disabled={!hasContract}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (hasContract) handleCreateProject(e, lead);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); if (hasContract) handleCreateProject(e, lead); }}
                       title={!hasContract ? 'Upload a contract to unlock' : 'Create project'}
                     >
                       {!hasContract ? '🔒 Create Project' : 'Create Project'}
@@ -909,7 +808,7 @@ const Customer = ({ user }) => {
         </div>
       )}
 
-      {/* ACTIVE LEADS TAB — KANBAN */}
+      {/* ACTIVE LEADS — KANBAN */}
       {!isLoading && activeTab === 'active' && viewMode === 'kanban' && (
         <div className="kanban-board">
           {PIPELINE_STAGES.map(stage => (
@@ -924,7 +823,7 @@ const Customer = ({ user }) => {
         </div>
       )}
 
-      {/* CONVERTED PROJECTS TAB */}
+      {/* CONVERTED PROJECTS */}
       {!isLoading && activeTab === 'converted' && (
         <div className="lead-grid">
           {displayedConverted.length === 0 ? (
@@ -937,8 +836,7 @@ const Customer = ({ user }) => {
             const proj  = projectsMap[lead.id];
             const stage = proj ? getProjectStage(proj.status) : null;
             return (
-              <div key={lead.id} className="lead-card converted-card"
-                onClick={() => handleCardClick(lead)}>
+              <div key={lead.id} className="lead-card converted-card" onClick={() => handleCardClick(lead)}>
                 <div className="lead-card-header">
                   <span className="status-badge project-created">Project Created</span>
                   <span className="lead-card-date" style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>
@@ -950,8 +848,7 @@ const Customer = ({ user }) => {
                   <p>{lead.project_name}</p>
                   <small>📍 {lead.location}</small>
                 </div>
-                <div className="project-status-strip"
-                  style={{ background: stage ? stage.bg : '#f1f5f9' }}>
+                <div className="project-status-strip" style={{ background: stage ? stage.bg : '#f1f5f9' }}>
                   <span className="project-status-label">📦 Project Stage</span>
                   <span className="project-status-badge"
                     style={{
@@ -963,10 +860,12 @@ const Customer = ({ user }) => {
                   </span>
                 </div>
 
+                {/* ── Contract viewer on card — uses resolveContractUrl ── */}
                 {(() => {
-                  const saved = savedContractsMap[lead.id];
-                  const contractUrl  = proj?.contract_url || lead.contract_url || saved?.objectUrl;
-                  const contractName = proj?.contract_name || lead.contract_name || saved?.name;
+                  const saved        = savedContractsMap[lead.id];
+                  const rawPath      = lead.contract_url || proj?.contract_url || saved?.objectUrl;
+                  const contractUrl  = resolveContractUrl(rawPath);
+                  const contractName = lead.contract_name || proj?.contract_name || saved?.name;
                   if (!contractUrl) return null;
                   return (
                     <ContractViewer
@@ -1037,8 +936,7 @@ const Customer = ({ user }) => {
                 </div>
                 <div className="form-group-compact">
                   <label>Status</label>
-                  <select name="status" value={formData.status}
-                    onChange={handleInputChange} disabled={isViewOnly}>
+                  <select name="status" value={formData.status} onChange={handleInputChange} disabled={isViewOnly}>
                     <option value="To be Contacted">To be Contacted</option>
                     <option value="Contacted">Contacted</option>
                     <option value="For Presentation">For Presentation</option>
@@ -1055,7 +953,7 @@ const Customer = ({ user }) => {
                     placeholder="Add any relevant notes..." />
                 </div>
 
-                {/* ── Contract Upload — shown inside modal when status is Ready ── */}
+                {/* Contract Upload — when Ready */}
                 {selectedLead?.status === 'Ready for Creating Project' && !isViewOnly && (
                   <div className="form-group-compact full-width">
                     <label>
@@ -1077,18 +975,18 @@ const Customer = ({ user }) => {
                   </div>
                 )}
 
-                {/* ── Contract Viewer — shown inside modal for converted projects ── */}
+                {/* ── Contract Viewer in modal — uses resolveContractUrl ── */}
                 {(() => {
                   if (selectedLead?.status !== 'Project Created') return null;
-                  const proj = projectsMap[selectedLead.id];
-                  const saved = savedContractsMap[selectedLead.id];
-                  const contractUrl = proj?.contract_url || selectedLead.contract_url || saved?.objectUrl;
-                  const contractName = proj?.contract_name || selectedLead.contract_name || saved?.name;
-                  
-                  const fileString = (contractName || contractUrl || '').split('?')[0];
-                  const isImage = contractUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
-                  
-                  const label = contractName || (contractUrl ? contractUrl.split('/').pop() : null) || 'Contract';
+                  const proj        = projectsMap[selectedLead.id];
+                  const saved       = savedContractsMap[selectedLead.id];
+                  const rawPath     = selectedLead.contract_url || proj?.contract_url || saved?.objectUrl;
+                  const contractUrl  = resolveContractUrl(rawPath);
+                  const contractName = selectedLead.contract_name || proj?.contract_name || saved?.name;
+                  const fileString   = (contractName || rawPath || '').split('?')[0];
+                  const isImage      = contractUrl && /\.(jpg|jpeg|png|webp|gif)$/i.test(fileString);
+                  const label        = contractName || (rawPath ? rawPath.split('/').pop() : null) || 'Contract';
+
                   return (
                     <div className="form-group-compact full-width">
                       <label>
@@ -1102,11 +1000,7 @@ const Customer = ({ user }) => {
                         <div className="modal-contract-view-area">
                           {isImage && (
                             <div className="contract-image-preview">
-                              <img
-                                src={contractUrl}
-                                alt="Contract preview"
-                                className="contract-preview-img"
-                              />
+                              <img src={contractUrl} alt="Contract preview" className="contract-preview-img" />
                             </div>
                           )}
                           <div className="contract-modal-view-row">
@@ -1118,11 +1012,8 @@ const Customer = ({ user }) => {
                                 {label.length > 30 ? label.slice(0, 28) + '…' : label}
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              className="btn-view-contract"
-                              onClick={() => setContractPopup({ url: contractUrl, name: contractName })}
-                            >
+                            <button type="button" className="btn-view-contract"
+                              onClick={() => setContractPopup({ url: contractUrl, name: contractName })}>
                               View Document
                             </button>
                           </div>
@@ -1138,6 +1029,7 @@ const Customer = ({ user }) => {
                   );
                 })()}
               </div>
+
               <div className="modal-footer-compact">
                 {!isViewOnly && selectedLead && (
                   <button type="button" className="btn-delete" onClick={handleDelete}>
@@ -1195,7 +1087,7 @@ const Customer = ({ user }) => {
           </div>
         </div>
       )}
-      
+
       {/* CONTRACT PREVIEW POPUP */}
       {contractPopup && (
         <ContractPopup

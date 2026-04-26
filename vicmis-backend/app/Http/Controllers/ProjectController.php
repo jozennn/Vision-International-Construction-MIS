@@ -554,36 +554,45 @@ class ProjectController extends Controller
     // 5. CREATE PROJECT
     // =========================================================================
 
-    public function store(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'lead_id'      => 'required',
-            'project_name' => 'required',
-            'client_name'  => 'required',
-            'location'     => 'required',
-            'project_type' => 'required',
+   public function store(Request $request): JsonResponse
+{
+    $validated = $request->validate([
+        'lead_id'      => 'required',
+        'project_name' => 'required',
+        'client_name'  => 'required',
+        'location'     => 'required',
+        'project_type' => 'required',
+    ]);
+
+    $validated['status']     = 'Floor Plan';
+    $validated['created_by'] = Auth::id();
+
+    // ── Save contract file onto the lead ──
+    if ($request->hasFile('contract')) {
+        $path = $request->file('contract')->store('project_documents', 'public');
+        Lead::where('id', $request->lead_id)->update([
+            'contract_url'  => $path,
+            'contract_name' => $request->file('contract')->getClientOriginalName(),
         ]);
-
-        $validated['status']     = 'Floor Plan';
-        $validated['created_by'] = Auth::id();
-
-        $project = Project::create($validated);
-
-        Lead::where('id', $request->lead_id)
-            ->update(['status' => 'Project Created']);
-
-        $lead = Lead::find($request->lead_id);
-        $salesRepName = optional($lead?->salesRep)->name ?? 'Sales';
-        $this->notifyProjectUsers($project,
-            "🎉 Lead Converted: \"{$project->project_name}\" by {$salesRepName} has been converted into a project.",
-            ['sales_head', 'manager', 'eng_head']
-        );
-
-        return response()->json([
-            'message' => 'Lead converted to Project!',
-            'project' => $project,
-        ], 201);
     }
+
+    $project = Project::create($validated);
+
+    Lead::where('id', $request->lead_id)
+        ->update(['status' => 'Project Created']);
+
+    $lead = Lead::find($request->lead_id);
+    $salesRepName = optional($lead?->salesRep)->name ?? 'Sales';
+    $this->notifyProjectUsers($project,
+        "🎉 Lead Converted: \"{$project->project_name}\" by {$salesRepName} has been converted into a project.",
+        ['sales_head', 'manager', 'eng_head']
+    );
+
+    return response()->json([
+        'message' => 'Lead converted to Project!',
+        'project' => $project,
+    ], 201);
+}
 
     // =========================================================================
     // 6. ADVANCE STATUS (generic)

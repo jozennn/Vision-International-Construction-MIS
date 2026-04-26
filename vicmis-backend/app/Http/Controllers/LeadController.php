@@ -214,4 +214,39 @@ class LeadController extends Controller
         $lead = Lead::withTrashed()->findOrFail($id);
         return response()->json($lead);
     }
+
+
+    public function uploadContract(Request $request, $id): \Illuminate\Http\JsonResponse
+{
+    $request->validate([
+        'contract' => 'required|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:20480',
+    ]);
+
+    $lead = Lead::findOrFail($id);
+
+    $path = $request->file('contract')->store('project_documents', 'public');
+
+    $lead->update([
+        'contract_url'  => $path,
+        'contract_name' => $request->file('contract')->getClientOriginalName(),
+    ]);
+
+    return response()->json([
+        'message'       => 'Contract uploaded successfully.',
+        'contract_url'  => $path,
+        'contract_name' => $lead->contract_name,
+    ]);
+}
+
+public function removeContract($id): \Illuminate\Http\JsonResponse
+{
+    $lead = Lead::findOrFail($id);
+
+    $lead->update([
+        'contract_url'  => null,
+        'contract_name' => null,
+    ]);
+
+    return response()->json(['message' => 'Contract removed.']);
+}
 }
